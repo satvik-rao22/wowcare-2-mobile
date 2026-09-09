@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
@@ -11,7 +12,6 @@ import 'package:wowcare/presentation/features/activities/utils/activity_descript
 import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
@@ -40,6 +40,12 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
        super(const BottleActivityState());
 
   final ActivityEditorCubit _editor;
+
+  /// Exposed so the view can pass it to the attendance-window validator,
+  /// which needs the SAME editor instance this cubit was built with (not a
+  /// fresh `serviceLocator<ActivityEditorCubit>()` resolve, since that
+  /// factory returns a new instance per call).
+  ActivityEditorCubit get editor => _editor;
   final StorageService _storageService;
 
   bool _isEdit = false;
@@ -89,7 +95,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     _readOnly = readOnly;
     _activityData = activityData;
     // ignore: discarded_futures
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (selectedStudents != null) {
       _createdFromSelection = true;
@@ -119,7 +125,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('bottle activity: unparsable activityDateIso: $e');
+        }
       }
       // ignore: discarded_futures
       _prefetchActivityForEdit();
@@ -174,8 +182,8 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     final organizationCode =
         (await _storageService.getString(StorageKeys.organizationCode) ?? '')
             .trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+    final staffCode = await _editor.resolveStaffCode();
+    final apiDisplayName = await _editor.resolveStaffDisplayName(
       staffCode: staffCode,
     );
 
@@ -250,7 +258,9 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
           final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('bottle activity: unparsable activityDateIso: $e');
+        }
       }
       final singleStudent = (_activityData?.studentList.length ?? 0) <= 1;
       emit(
@@ -349,7 +359,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         );
       }
 
-      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = state.staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = state.schoolCode;
       final organizationCode = state.organizationCode;
       if (staffCode == null ||
@@ -374,7 +384,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         );
         if (prefilled != null) _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -459,7 +469,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         );
       }
 
-      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = state.staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = state.schoolCode;
       final organizationCode = state.organizationCode;
       if (staffCode == null ||
@@ -478,7 +488,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         return _typeError;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );

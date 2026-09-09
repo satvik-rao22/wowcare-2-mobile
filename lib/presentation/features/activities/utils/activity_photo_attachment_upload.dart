@@ -7,11 +7,7 @@ import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
-import 'package:wowcare/domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
-import 'package:wowcare/domain/features/activity/usecases/upload_activity_assets_usecase.dart';
-import 'package:wowcare/domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
-
-import '../../../../app/di/di.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 
 /// Holds upload session asset codes keyed by local file path (one coordinator per screen).
 class ActivityPhotoAttachmentState {
@@ -51,6 +47,7 @@ class ActivityPhotoAttachmentState {
 /// Presign → PUT → complete → poll, then build attachment rows for activity creation.
 /// [bindingMode] must match the activity type (`PER_STUDENT` or `SHARED`).
 Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
+  required ActivityEditorCubit editor,
   required ActivityPhotoAttachmentState state,
   required List<File> files,
   required String classroomCode,
@@ -112,7 +109,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
   // READY so they aren't uploaded a second time (which would orphan the copy
   // already sitting in the session). Anything not READY is left pending and
   // falls through to a normal re-upload below, exactly as before.
-  await _promoteReadyPendingAssets(state, files);
+  await _promoteReadyPendingAssets(editor, state, files);
 
   final missing = files
       .where((f) => !state.assetCodeByPath.containsKey(f.path))
@@ -146,7 +143,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
         );
       }
 
-      final result = await serviceLocator<UploadActivityAssetsUseCase>().call(
+      final result = await editor.uploadActivityAssets(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
         classroomCode: classroomCode,
@@ -187,7 +184,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
       // held the assetCode, so the caller believed upload had finished and let
       // Save submit an asset the backend then rejected with 409 "not ready for
       // linking". Hence the wait precedes the addAll below.
-      await serviceLocator<WaitActivityAssetsReadyUseCase>().call(
+      await editor.waitAssetsReady(
         sessionCode: result.sessionCode,
         assetCodes: result.newAssetCodes,
       );
@@ -234,6 +231,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
 ///
 /// Best-effort by design — a failure here must not block the upload it precedes.
 Future<void> _promoteReadyPendingAssets(
+  ActivityEditorCubit editor,
   ActivityPhotoAttachmentState state,
   List<File> files,
 ) async {
@@ -252,11 +250,10 @@ Future<void> _promoteReadyPendingAssets(
   if (candidates.isEmpty) return;
 
   try {
-    final statuses =
-        await serviceLocator<GetActivityUploadAssetStatusesUseCase>().call(
-          sessionCode: sessionCode,
-          assetCodes: candidates.values.toList(),
-        );
+    final statuses = await editor.getActivityUploadAssetStatuses(
+      sessionCode: sessionCode,
+      assetCodes: candidates.values.toList(),
+    );
     candidates.forEach((path, assetCode) {
       if ((statuses[assetCode] ?? '').trim().toUpperCase() == 'READY') {
         state.assetCodeByPath[path] = assetCode;

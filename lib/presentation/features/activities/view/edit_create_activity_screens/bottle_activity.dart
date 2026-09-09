@@ -9,16 +9,16 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/activities/view_model/bottle_activity_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_staff_display.dart';
-import '../activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 /// Bottle activity create/edit/view form. All form state and the
@@ -108,6 +108,7 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
   Future<bool> _validateAttendanceWindow() {
     return validateStudentsWithinAttendanceWindow(
       context: context,
+      editor: _cubit.editor,
       students: _cubit.state.selectedStudentsData,
       selectedDate: _cubit.activityDate,
       selectedTime: _cubit.activityTime,

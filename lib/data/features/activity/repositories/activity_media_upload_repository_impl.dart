@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../../../domain/features/activity/repositories/activity_media_upload_repository.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Concrete [ActivityMediaUploadRepository] that drives the shared
 /// [ImageUploadService]. Preserves the P5 fixes carried by the underlying

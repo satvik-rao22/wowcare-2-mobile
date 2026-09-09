@@ -1,4 +1,4 @@
-import '../../../../domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 
 class ActivityTypeDetailsModel {
   ActivityTypeDetailsModel({

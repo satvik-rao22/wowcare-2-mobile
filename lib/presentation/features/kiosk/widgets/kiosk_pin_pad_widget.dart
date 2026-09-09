@@ -11,12 +11,29 @@ class KioskPinPadWidget extends StatefulWidget {
     required this.onPinSubmit,
     this.maxPinLength = 4,
     this.isLogout = false,
+    this.title = 'Enter your Sign-In/out PIN',
+    this.onCancel,
     super.key,
   });
 
-  final Function(String pin, {bool isLogout}) onPinSubmit;
+  final Future<void> Function(String pin, {bool isLogout}) onPinSubmit;
   final int maxPinLength;
+
+  /// When true, this instance skips the internal [KioskDashboardCubit]
+  /// listener (not ambient in every screen that hosts this widget, e.g. the
+  /// logout page) and instead resets once [onPinSubmit] completes — see
+  /// [build] and [_validate].
   final bool isLogout;
+
+  /// Shown above the PIN dots. Pass null to omit it — for a caller (like the
+  /// logout page) that already shows its own instructional text above this
+  /// widget, so the two don't duplicate.
+  final String? title;
+
+  /// Overrides the Cancel button's action. Defaults to clearing the PIN and
+  /// showing a "cancelled" snackbar (the dashboard's original behaviour) when
+  /// null.
+  final VoidCallback? onCancel;
 
   @override
   State<KioskPinPadWidget> createState() => _KioskPinPadWidgetState();
@@ -66,16 +83,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
     });
   }
 
-  void _submitPinInternal() {
-    if (_pin.length == widget.maxPinLength) {
-      setState(() {
-        _isSubmitting = true;
-      });
-      widget.onPinSubmit(_pin, isLogout: widget.isLogout);
-    }
-  }
-
-  void _validate(BuildContext context) {
+  Future<void> _validate(BuildContext context) async {
     if (_pin.length != widget.maxPinLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -90,11 +98,23 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
     });
 
     // Call parent callback with isLogout flag
-    widget.onPinSubmit(_pin, isLogout: widget.isLogout);
+    await widget.onPinSubmit(_pin, isLogout: widget.isLogout);
+
+    // The dashboard path resets via the KioskDashboardCubit listener below
+    // (its result arrives as a state transition, not necessarily when this
+    // future completes). The logout path has no such listener wired here —
+    // its cubit isn't ambient in every screen that hosts this widget — so it
+    // resets directly off this future instead, matching what the logout
+    // page's own submit handler did before this widget replaced it.
+    if (widget.isLogout && mounted) {
+      _reset();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final content = _buildContent(context);
+    if (widget.isLogout) return content;
     return BlocListener<KioskDashboardCubit, KioskDashboardState>(
       listener: (context, state) {
         if (state is KioskDashboardPinSuccess) {
@@ -108,24 +128,30 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
           }
         }
       },
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Enter your Sign-In/out PIN',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+      child: content,
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.title != null) ...[
+              Text(
+                widget.title!,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
-              _buildPinDots(),
-              const SizedBox(height: 30),
-              _buildKeypad(),
-              const SizedBox(height: 30),
-              _buildActionButtons(context),
             ],
-          ),
+            _buildPinDots(),
+            const SizedBox(height: 30),
+            _buildKeypad(),
+            const SizedBox(height: 30),
+            _buildActionButtons(context),
+          ],
         ),
       ),
     );
@@ -251,14 +277,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             child: TextButton(
               onPressed: _isSubmitting
                   ? null
-                  : () {
-                      _reset();
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'PIN entry cancelled',
-                        isWarning: true,
-                      );
-                    },
+                  : widget.onCancel ??
+                        () {
+                          _reset();
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message: 'PIN entry cancelled',
+                            isWarning: true,
+                          );
+                        },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),

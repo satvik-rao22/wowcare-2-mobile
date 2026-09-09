@@ -19,34 +19,35 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../core/utils/guardian_code_resolver.dart';
-import '../../../../core/utils/activity_feed_invalidation.dart';
-import '../../../../core/utils/cache_manager.dart';
-import '../../../../core/utils/core_utils.dart';
-import '../../../../core/utils/staff_code_resolver.dart';
-import '../../../../core/utils/storage_keys.dart';
-import '../../../../core/utils/school_timezone_resolver.dart';
-import '../../../../core/utils/school_zone_datetime.dart';
-import '../../../../domain/features/activity/entities/activity_feed_row.dart';
-import '../../../../domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/guardian_code_resolver.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_scope_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_state.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_moderation_cubit.dart';
-import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../shared/common/app/cubits/role_cubit.dart';
-import '../widgets/activity_feed_student_avatar.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_feed_student_avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'activity_filter_screen.dart';
-import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
 import 'edit_create_activity_screens/incident_activity.dart';
@@ -56,17 +57,17 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../utils/activity_feed_display_rules.dart';
-import '../utils/activity_staff_display.dart';
-import '../utils/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_feed_display_rules.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';
 import 'activity_item.dart';
 
 export 'activity_item.dart';
 export 'activity_feed_card_permissions.dart';
-export '../utils/activity_item_edit_mappers.dart'
+export 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
-export '../utils/activity_patch_attachments.dart'
+export 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart'
     show attachmentUsableDeliveryUrl, attachmentRowHasUsableMedia;
 
 bool activityHasMediaOrProcessing(ActivityItem activity) {
@@ -382,8 +383,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   // the two Map/Set fields below). By construction time, every call site
   // only ever runs after those are resolved.
   ActivityFeedCubit? _feedCubitInstance;
-  StreamSubscription<ActivityFeedState>? _feedCubitSub;
 
+  // BlocBuilder (wrapping `_buildTabBody` in `build()`) subscribes to this
+  // cubit's stream itself now — no manual StreamSubscription to hold/cancel.
   ActivityFeedCubit get _feedCubit {
     final existing = _feedCubitInstance;
     if (existing != null) return existing;
@@ -402,9 +404,6 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       ),
     );
     _feedCubitInstance = cubit;
-    _feedCubitSub = cubit.stream.listen((_) {
-      if (mounted) setState(() {});
-    });
     return cubit;
   }
 
@@ -657,7 +656,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         );
         await _cacheManager.invalidateCache(staffKey);
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('staff cache invalidation on refresh failed: $e');
+    }
     if (_parentHome) {
       await _bootstrapParentHome();
       await _loadTagFilterOptions(forceRefresh: true);
@@ -977,7 +978,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
           hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('classroom cache read failed, falling back to network: $e');
+    }
 
     // For unrestricted personas (admin), continue to API refresh so stale
     // staff-scoped cache cannot lock the dropdown.
@@ -1120,7 +1123,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
               .where((e) => e.isNotEmpty)
               .toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('decodeCodes: malformed cached classroom-codes JSON: $e');
+      }
       return <String>[];
     }
 
@@ -1437,7 +1442,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
             _updateAvailableStudents();
           });
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('student-classroom cache read failed for $classroomName: $e');
+      }
     }
 
     try {
@@ -1494,7 +1501,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -1543,7 +1552,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -2163,7 +2174,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
             widget.highlightDate ??
             SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('_bootstrapSchoolZone failed: $e');
+    }
   }
 
   @override
@@ -2172,7 +2185,6 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
-    _feedCubitSub?.cancel();
     _feedCubitInstance?.close();
     super.dispose();
   }
@@ -2580,6 +2592,20 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         _syncWithGlobalChildSelection();
       });
     }
+    // BlocBuilder (not the old manual `cubit.stream.listen((_) { setState() })`
+    // + StreamSubscription pair) is what actually subscribes to feed-cubit
+    // emissions now — Mandate 2's named anti-pattern. `_feedCubit` still
+    // lazily constructs the cubit on first access (deliberately deferred past
+    // `viewerStaffDisplayName`/`schoolIana` bootstrap, per the doc on that
+    // getter), so touching it here to supply `bloc:` is exactly the same
+    // trigger point the old getter-based read already was.
+    return BlocBuilder<ActivityFeedCubit, ActivityFeedState>(
+      bloc: _feedCubit,
+      builder: (context, _) => _buildTabBody(context),
+    );
+  }
+
+  Widget _buildTabBody(BuildContext context) {
     return OrientationBuilder(
       builder: (context, orientation) {
         if (orientation == Orientation.landscape) {

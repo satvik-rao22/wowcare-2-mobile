@@ -1,6 +1,6 @@
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class GuardianParentSignatureUseCase {
   GuardianParentSignatureUseCase(this._repository);

@@ -1,12 +1,20 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_resolved_time.dart';
+import 'package:wowcare/presentation/features/activities/model/attendance_window_validation_result.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_staff_context.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
@@ -24,11 +32,16 @@ import 'package:wowcare/domain/features/activity/usecases/get_activity_usecase.d
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/update_activity_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 
@@ -59,11 +72,24 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required UploadActivityAssetsUseCase uploadActivityAssetsUseCase,
     required GetActivityUploadAssetStatusesUseCase
     getActivityUploadAssetStatusesUseCase,
+    required WaitActivityAssetsReadyUseCase waitActivityAssetsReadyUseCase,
     required ApiClient apiClient,
     required StaffRepository staffRepository,
     required GetStaffPageUseCase getStaffPageUseCase,
-  }) : _getClassroomActivitySettingsUseCase =
+    required GetStaffSignInStatusAtTimeUseCase
+    getStaffSignInStatusAtTimeUseCase,
+    required GetStudentSignInStatusAtTimeUseCase
+    getStudentSignInStatusAtTimeUseCase,
+    required GetStudentTodaySignInStatusMapUseCase
+    getStudentTodaySignInStatusMapUseCase,
+  }) : _getStaffSignInStatusAtTimeUseCase = getStaffSignInStatusAtTimeUseCase,
+       _getStudentSignInStatusAtTimeUseCase =
+           getStudentSignInStatusAtTimeUseCase,
+       _getStudentTodaySignInStatusMapUseCase =
+           getStudentTodaySignInStatusMapUseCase,
+       _getClassroomActivitySettingsUseCase =
            getClassroomActivitySettingsUseCase,
+       _waitActivityAssetsReadyUseCase = waitActivityAssetsReadyUseCase,
        _getActivityTypeDetailsUseCase = getActivityTypeDetailsUseCase,
        _createActivityUseCase = createActivityUseCase,
        _getActivityUseCase = getActivityUseCase,
@@ -99,11 +125,36 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatusUseCase;
   final StorageService _storage;
   final UploadActivityAssetsUseCase _uploadActivityAssetsUseCase;
+  final WaitActivityAssetsReadyUseCase _waitActivityAssetsReadyUseCase;
+  final GetStaffSignInStatusAtTimeUseCase _getStaffSignInStatusAtTimeUseCase;
+  final GetStudentSignInStatusAtTimeUseCase
+  _getStudentSignInStatusAtTimeUseCase;
+  final GetStudentTodaySignInStatusMapUseCase
+  _getStudentTodaySignInStatusMapUseCase;
   final GetActivityUploadAssetStatusesUseCase
   _getActivityUploadAssetStatusesUseCase;
   final ApiClient _apiClient;
   final StaffRepository _staffRepository;
   final GetStaffPageUseCase _getStaffPageUseCase;
+
+  // Built from the already-injected StorageService/StaffRepository rather
+  // than constructor-injected themselves — no DI registration needed, and
+  // this is the only place either use case is constructed. Replaces the
+  // `resolve_logged_in_staff_code.dart` free functions (Mandate 5/3): forms
+  // now call `_editor.resolveStaffCode()`/`resolveStaffDisplayName()`
+  // instead of resolving StorageService/StaffRepository themselves.
+  late final ResolveLoggedInStaffCodeUseCase _resolveStaffCodeUseCase =
+      ResolveLoggedInStaffCodeUseCase(_storage, _staffRepository);
+  late final ResolveLoggedInStaffDisplayNameUseCase
+  _resolveStaffDisplayNameUseCase = ResolveLoggedInStaffDisplayNameUseCase(
+    _staffRepository,
+    _resolveStaffCodeUseCase,
+  );
+
+  Future<String?> resolveStaffCode() => _resolveStaffCodeUseCase();
+
+  Future<String> resolveStaffDisplayName({String? staffCode}) =>
+      _resolveStaffDisplayNameUseCase(staffCode: staffCode);
 
   /// Keyed single-flight for the non-idempotent mutations. A second identical
   /// submission that arrives while the first is still in flight (double-tap,
@@ -275,6 +326,8 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required List<ActivityUploadItem> items,
     void Function(int itemIndex, int totalItems, int percent)? onItemProgress,
     void Function(int completedItems, int totalItems)? onItemComplete,
+    void Function(String filePath, String assetCode, String sessionCode)?
+    onAssetUploaded,
     CancelToken? cancelToken,
   }) => _uploadActivityAssetsUseCase(
     organizationCode: organizationCode,
@@ -288,7 +341,18 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     items: items,
     onItemProgress: onItemProgress,
     onItemComplete: onItemComplete,
+    onAssetUploaded: onAssetUploaded,
     cancelToken: cancelToken,
+  );
+
+  /// Blocking readiness poll — the photo/video form's strategy for confirming
+  /// uploaded assets before they can be linked to the activity.
+  Future<void> waitAssetsReady({
+    required String sessionCode,
+    required List<String> assetCodes,
+  }) => _waitActivityAssetsReadyUseCase(
+    sessionCode: sessionCode,
+    assetCodes: assetCodes,
   );
 
   /// One-shot status read — the photo/video form's background-poll strategy
@@ -300,6 +364,222 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     sessionCode: sessionCode,
     assetCodes: assetCodes,
   );
+
+  static const Set<String> _staffAtTimeValidationPersonas = <String>{
+    'STAFF',
+    'TEACHER',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+  };
+
+  Future<bool> _shouldRunStaffAtTimeValidation() async {
+    final staffType = (await _storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
+    if (staffType.isNotEmpty) {
+      return _staffAtTimeValidationPersonas.contains(staffType);
+    }
+
+    // ACTIVE persona (single value), not a scan of the account's full cached
+    // roles list below — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. GUARDIAN + STAFF in
+    // a different school) would be misdetected as staff regardless of which
+    // persona is actually active right now.
+    final activeRole =
+        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+            .trim()
+            .toUpperCase();
+    if (activeRole.isNotEmpty) {
+      return _staffAtTimeValidationPersonas.contains(activeRole);
+    }
+
+    final rolesRaw = (await _storage.getString(StorageKeys.roles) ?? '')
+        .trim();
+    if (rolesRaw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(rolesRaw);
+      if (decoded is List) {
+        for (final item in decoded) {
+          if (item is! Map) continue;
+          final roleCode = (item['role'] ?? item['code'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          if (_staffAtTimeValidationPersonas.contains(roleCode)) return true;
+        }
+        return false;
+      }
+    } catch (_) {
+      final rawUpper = rolesRaw.toUpperCase();
+      for (final role in _staffAtTimeValidationPersonas) {
+        if (rawUpper.contains(role)) return true;
+      }
+    }
+    return false;
+  }
+
+  static String _resolveClassroomCodeFromSelectedStudents(
+    List<Map<String, dynamic>> students,
+  ) {
+    for (final student in students) {
+      final dynamic classroomCodeDynamic =
+          student['classroomCode'] ?? student['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+      if (classroomCode.isNotEmpty) return classroomCode;
+    }
+    return '';
+  }
+
+  /// A transferred student's classroom-scoped "at time" sign-in record can
+  /// still be keyed to the classroom they were transferred OUT of, so the
+  /// scoped check below can return "not signed in" for a student who is
+  /// genuinely present. This window bounds a classroom-agnostic fallback
+  /// (today's sign-in status, no classroom filter) to only kick in for
+  /// effectively-"now" submissions, so a real backdated/future check still
+  /// gets the stricter classroom-scoped answer.
+  static const Duration _fallbackSignInCheckTolerance = Duration(minutes: 10);
+
+  /// Pure data/logic — no `BuildContext`. Callers (the activity form
+  /// screens) show [AttendanceWindowValidationResult.failureMessage] via
+  /// their own snackbar when [AttendanceWindowValidationResult.isValid] is
+  /// false. Replaces the old `activity_attendance_window_validator.dart`
+  /// free function, which resolved `StorageService` and three attendance
+  /// use-cases via `serviceLocator` directly from presentation code.
+  Future<AttendanceWindowValidationResult>
+  validateStudentsWithinAttendanceWindow({
+    required List<Map<String, dynamic>> students,
+    DateTime? selectedDate,
+    TimeOfDay? selectedTime,
+  }) async {
+    if (students.isEmpty) return const AttendanceWindowValidationResult.valid();
+    if (selectedDate == null || selectedTime == null) {
+      return const AttendanceWindowValidationResult.valid();
+    }
+    final instantUtc = SchoolZoneDateTime.resolvePickedInstantUtc(
+      ServerTimeService.instance.schoolTimeZone,
+      selectedDate: selectedDate,
+      selectedTime: selectedTime,
+    );
+    // Always validate attendance against API, including "current minute"/
+    // today. This guarantees latest sign-in state is checked on every submit
+    // attempt.
+    final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);
+    if (classroomCode.isEmpty) {
+      return const AttendanceWindowValidationResult.valid();
+    }
+
+    final shouldValidateStaff = await _shouldRunStaffAtTimeValidation();
+    final staffCode = (await resolveStaffCode() ?? '').trim();
+    if (shouldValidateStaff && staffCode.isNotEmpty) {
+      try {
+        final staffStatus = await _getStaffSignInStatusAtTimeUseCase(
+          staffCodes: <String>[staffCode],
+          classroomCode: classroomCode,
+          instantUtc: instantUtc,
+        );
+        final isStaffPresent = staffStatus[staffCode] == true;
+        if (!isStaffPresent) {
+          return const AttendanceWindowValidationResult.invalid(
+            'The following staff must be signed in before creating the activity.',
+          );
+        }
+      } catch (_) {
+        return const AttendanceWindowValidationResult.invalid(
+          'The following staff must be signed in before creating the activity.',
+        );
+      }
+    }
+
+    final studentCodes = students
+        .map((s) => (s['studentCode'] ?? '').toString().trim())
+        .where((c) => c.isNotEmpty)
+        .toList(growable: false);
+    final studentNameByCode = <String, String>{
+      for (final s in students)
+        (s['studentCode'] ?? '').toString().trim():
+            (s['name'] ?? 'Selected student').toString().trim(),
+    };
+    final ambiguousClassroomStudentCodes = <String>{
+      for (final s in students)
+        if (s['classroomCodeAmbiguousForDate'] == true)
+          (s['studentCode'] ?? '').toString().trim(),
+    };
+
+    if (studentCodes.isNotEmpty) {
+      try {
+        final studentStatus = await _getStudentSignInStatusAtTimeUseCase(
+          studentCodes: studentCodes,
+          classroomCode: classroomCode,
+          instantUtc: instantUtc,
+        );
+        var notSignedInCodes = <String>[
+          for (final code in studentCodes)
+            if (studentStatus[code] != true) code,
+        ];
+
+        // The classroom-scoped check above can false-positive for a student
+        // who was transferred to another classroom but never signed out:
+        // their active sign-in record may still be keyed to the OLD
+        // classroom, so a query scoped to the (new) classroomCode finds
+        // nothing. For effectively-"now" submissions, re-check those
+        // specific students with a classroom-agnostic "today" status before
+        // blocking them.
+        //
+        // This fallback only proves the student is signed in SOMEWHERE, not
+        // in `classroomCode` specifically — safe only when `classroomCode`
+        // was the student's sole classroom that day. When the student had
+        // more than one classroom stint that day (a same-day transfer),
+        // applying it would wrongly clear a student who is legitimately no
+        // longer in the OLD classroom being posted to, defeating the very
+        // check this validator exists for. Those students stay excluded
+        // from the fallback and are left to the stricter scoped result.
+        final fallbackEligibleCodes = notSignedInCodes
+            .where((code) => !ambiguousClassroomStudentCodes.contains(code))
+            .toList(growable: false);
+        if (fallbackEligibleCodes.isNotEmpty &&
+            instantUtc.difference(ServerTimeService.instance.nowUtc()).abs() <=
+                _fallbackSignInCheckTolerance) {
+          try {
+            final fallbackStatus = await _getStudentTodaySignInStatusMapUseCase(
+              studentCodes: fallbackEligibleCodes,
+            );
+            notSignedInCodes = notSignedInCodes
+                .where(
+                  (code) =>
+                      !fallbackEligibleCodes.contains(code) ||
+                      fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN',
+                )
+                .toList(growable: false);
+          } catch (e) {
+            AppLogger.d(
+              'validateStudentsWithinAttendanceWindow: today-status fallback failed, keeping scoped result: $e',
+            );
+          }
+        }
+
+        final notSignedInNames = <String>[
+          for (final code in notSignedInCodes)
+            (studentNameByCode[code] == null ||
+                    studentNameByCode[code]!.isEmpty)
+                ? 'Selected student'
+                : studentNameByCode[code]!,
+        ];
+        if (notSignedInNames.isNotEmpty) {
+          return AttendanceWindowValidationResult.invalid(
+            'Student(s) must be signed in at the time of posting the activity in this classroom:\n${notSignedInNames.join(', ')}',
+          );
+        }
+      } catch (_) {
+        return const AttendanceWindowValidationResult.invalid(
+          'Student(s) must be signed in at the time of posting the activity in this classroom.',
+        );
+      }
+    }
+    return const AttendanceWindowValidationResult.valid();
+  }
 
   /// True when it's safe to submit — either this isn't an admin-on-behalf-of
   /// create at all, or the picked staff member is confirmed signed in today.
@@ -341,10 +621,8 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
         .trim();
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
+    final staffCode = await resolveStaffCode();
+    final apiDisplayName = await resolveStaffDisplayName(staffCode: staffCode);
     final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
         .trim();
     final activeRole = await resolveActiveBackendRole(_storage);
@@ -375,6 +653,72 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
         storage: _storage,
         apiClient: _apiClient,
       );
+
+  /// Warms [SchoolTimezoneResolver.lastKnownTimeZone] so the synchronous
+  /// [activityDateTimeForDisplayFromIso] helper (in `activity_school_time.dart`)
+  /// has a resolved zone available. Discards the result — callers that need
+  /// the zone value itself should call [resolveSchoolTimezone] directly.
+  Future<void> bootstrapSchoolTimezone() async {
+    await resolveSchoolTimezone();
+  }
+
+  /// The UTC instant for a school-local wall-clock date/time picked on an
+  /// activity form, as an ISO 8601 string.
+  Future<String> activityUtcIsoFromSchoolWallClock({
+    required DateTime date,
+    required TimeOfDay time,
+  }) async {
+    final schoolTimeZone = await resolveSchoolTimezone();
+    return SchoolZoneDateTime.resolvePickedInstantUtc(
+      schoolTimeZone,
+      selectedDate: date,
+      selectedTime: time,
+    ).toIso8601String();
+  }
+
+  /// The resolved instant for a picked activity date/time, alongside the
+  /// school-local "HH:mm:ss" string derived from that SAME instant — both
+  /// come from one [SchoolZoneDateTime.resolvePickedInstantUtc] call, so the
+  /// top-level `activityDate` ISO value and the `time` parameter value sent
+  /// in the payload can never disagree.
+  Future<ActivityResolvedTime> resolveActivityDateTime({
+    required DateTime date,
+    required TimeOfDay time,
+  }) async {
+    final schoolTimeZone = await resolveSchoolTimezone();
+    final utcInstant = SchoolZoneDateTime.resolvePickedInstantUtc(
+      schoolTimeZone,
+      selectedDate: date,
+      selectedTime: time,
+    );
+    final localDateTime = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      utcInstant,
+      schoolTimeZone,
+    );
+    String two(int v) => v.toString().padLeft(2, '0');
+    return ActivityResolvedTime(
+      utcInstant: utcInstant,
+      iso: utcInstant.toIso8601String(),
+      localTimeHms:
+          '${two(localDateTime.hour)}:${two(localDateTime.minute)}:${two(localDateTime.second)}',
+    );
+  }
+
+  /// Student maps from the classroom/Students tab omit `attendanceDate`; the
+  /// Activities picker includes it. Backfills it with today's date in the
+  /// school's own calendar, resolved after [bootstrapSchoolTimezone] so
+  /// [attendanceDateYyyyMmDdSchoolToday] uses the right zone.
+  Future<void> ensureAttendanceDateOnStudentMapsForSchoolToday(
+    List<Map<String, dynamic>> maps,
+  ) async {
+    await bootstrapSchoolTimezone();
+    final dateStr = attendanceDateYyyyMmDdSchoolToday();
+    for (final m in maps) {
+      if ((m['attendanceDate'] ?? '').toString().trim().isEmpty) {
+        m['attendanceDate'] = dateStr;
+      }
+    }
+  }
 
   /// The logged-in staff member's own code, straight off storage — used by
   /// [StaffPresentWidget] to check "did the admin pick themselves" (which is
@@ -408,7 +752,9 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
         final cached = await (_staffRepository as StaffRepositoryWithCache)
             .loadCachedStaffPage(school, status: 'ACTIVE');
         if (cached != null && cached.items.isNotEmpty) return cached.items;
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('loadActiveStaffDirectory: cached-page read failed, falling back to network: $e');
+      }
     }
 
     final page = await _getStaffPageUseCase(

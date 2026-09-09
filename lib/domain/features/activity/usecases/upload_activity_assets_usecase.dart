@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
 
 /// Opens one upload session and runs presign → PUT → complete for every item.
 class UploadActivityAssetsUseCase {

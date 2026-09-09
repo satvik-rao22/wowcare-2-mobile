@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 
 class ActivityDropdownWidget extends StatefulWidget {
   const ActivityDropdownWidget({

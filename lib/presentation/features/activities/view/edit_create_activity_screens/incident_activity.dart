@@ -15,31 +15,30 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../core/utils/api_error_handler.dart';
-import '../../../../../core/utils/core_utils.dart';
-import '../../../../../core/utils/guardian_code_resolver.dart';
-import '../../../../../core/utils/logger_service.dart';
-import '../../../../../domain/features/activity/entities/activity_attachment.dart';
-import '../../../../../domain/features/activity/entities/activity_detail.dart';
-import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/guardian_code_resolver.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/incident_activity_cubit.dart';
-import '../../../../../shared/common/app/cubits/role_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_photo_attachment_upload.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 /// Same rules as `rolesJsonIndicatesGuardianLogin` in `login_persona_util.dart`
@@ -56,7 +55,9 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
         return role.contains('GUARDIAN') || role.contains('PARENT');
       });
     }
-  } catch (_) {}
+  } catch (e) {
+    AppLogger.d('roles JSON decode failed, falling back to substring match: $e');
+  }
   final u = raw.toUpperCase();
   return u.contains('GUARDIAN') || u.contains('PARENT');
 }
@@ -466,7 +467,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (dec.isEmpty) return '';
       if (_looksLikeStaffCode(dec)) return dec;
       if (_looksLikeGuardianTechnicalId(dec)) return dec;
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('signer encodedName base64/utf8 decode failed: $e');
+    }
     return '';
   }
 
@@ -846,7 +849,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -886,7 +889,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -992,7 +997,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     final details = await _editor.getActivityTypeDetails(
       code: activityTypeCode,
     );
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+    var staffCode = _staffCode ?? await _editor.resolveStaffCode();
     staffCode = (staffCode ?? '').trim();
     if (staffCode.isEmpty) return;
 
@@ -1006,10 +1011,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         );
         d ??= DateTime(dt.year, dt.month, dt.day);
         t ??= TimeOfDay(hour: dt.hour, minute: dt.minute);
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('unparsable activityDateIso: $e');
+      }
     }
     if (d == null || t == null) return;
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+    final activityDateIso = await _editor.activityUtcIsoFromSchoolWallClock(
       date: d,
       time: t,
     );
@@ -1130,7 +1137,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
             code: activityTypeCode,
           );
           schemaParams = typeDetails.parameters;
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('getActivityTypeDetails failed for $activityTypeCode: $e');
+        }
       }
 
       final staffPresentSchema = _findIncidentSchemaParameter(
@@ -1303,7 +1312,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
       unawaited(
@@ -1323,8 +1334,8 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     final staffType = await _incidentCubit.readStaffType();
     final schoolCode = await _incidentCubit.readSchoolCode();
     final organizationCode = await _incidentCubit.readOrganizationCode();
-    final staffCode = await resolveLoggedInStaffCode();
-    final resolvedDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+    final staffCode = await _editor.resolveStaffCode();
+    final resolvedDisplayName = await _editor.resolveStaffDisplayName(
       staffCode: staffCode,
     );
 
@@ -1419,7 +1430,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           refreshed.parameterValues,
           parentSignParameter: parentSignSchema,
         );
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('re-fetch after guardian sign failed: $e');
+      }
 
       if (!mounted) return;
       setState(() {
@@ -1532,6 +1545,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1625,7 +1639,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1672,7 +1686,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1885,6 +1899,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1995,7 +2010,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -2035,7 +2050,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -2290,7 +2305,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         );
         try {
           await _getActivityDetailRespectingPersona(code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
 
       if (!mounted) return;
@@ -2340,6 +2357,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     const bindingMode = 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
+      editor: _editor,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,

@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
@@ -309,7 +310,9 @@ class ActivityFeedScopeCubit extends Cubit<ActivityFeedScopeState>
           final composed = '${profile.firstName} ${profile.lastName}'.trim();
           final resolved = full.isNotEmpty ? full : composed;
           if (resolved.isNotEmpty) result[code] = resolved;
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('resolveStaffDisplayNames: profile lookup failed for $code: $e');
+        }
       }),
     );
     return result;

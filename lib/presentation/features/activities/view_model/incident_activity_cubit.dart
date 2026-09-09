@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
@@ -59,7 +60,9 @@ class IncidentActivityCubit extends Cubit<IncidentActivityState> {
           final composed = '${profile.firstName} ${profile.lastName}'.trim();
           final resolved = full.isNotEmpty ? full : composed;
           if (resolved.isNotEmpty) result[code] = resolved;
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('resolveStaffDisplayNames: profile lookup failed for $code: $e');
+        }
       }),
     );
     return result;

@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
-import '../../../../core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 
 class ActivityMediaPreview extends StatelessWidget {
   final ActivityItem activity;

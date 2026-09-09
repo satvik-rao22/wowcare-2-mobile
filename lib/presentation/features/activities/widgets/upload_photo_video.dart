@@ -9,14 +9,14 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_media_res.dart';
-import '../../../../core/utils/core_utils.dart';
-import '../../../../core/utils/logger_service.dart';
-import '../../../../shared/utils/responsive_helper.dart';
-import '../view/activity_item.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
-import '../view/view_activity_screens/show_full_screen_media.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 enum MediaType { photos, video }
 

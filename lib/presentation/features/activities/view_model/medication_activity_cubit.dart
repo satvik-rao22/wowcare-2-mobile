@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
@@ -42,6 +42,12 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
        super(const MedicationActivityState());
 
   final ActivityEditorCubit _editor;
+
+  /// Exposed so the view can pass it to the attendance-window validator,
+  /// which needs the SAME editor instance this cubit was built with (not a
+  /// fresh `serviceLocator<ActivityEditorCubit>()` resolve, since that
+  /// factory returns a new instance per call).
+  ActivityEditorCubit get editor => _editor;
   final StorageService _storageService;
 
   // Screen config (set once in [init]).
@@ -95,7 +101,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     _readOnly = readOnly;
     _activityData = activityData;
     // ignore: discarded_futures
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (selectedStudents != null) {
       _createdFromSelection = true;
@@ -122,7 +128,9 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('medication activity: unparsable activityDateIso: $e');
+        }
       }
       // ignore: discarded_futures
       _prefetchActivityForEdit();
@@ -157,8 +165,8 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     final organizationCode =
         (await _storageService.getString(StorageKeys.organizationCode) ?? '')
             .trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+    final staffCode = await _editor.resolveStaffCode();
+    final apiDisplayName = await _editor.resolveStaffDisplayName(
       staffCode: staffCode,
     );
 
@@ -228,7 +236,9 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
           final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('medication activity: unparsable activityDateIso: $e');
+        }
       }
       final singleStudent = (_activityData?.studentList.length ?? 0) <= 1;
       emit(
@@ -272,9 +282,20 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
 
   /// Removes a selected student. The view checks
   /// `state.selectedStudents.isEmpty` afterwards to pop the screen.
+  ///
+  /// Must remove from BOTH parallel lists — `selectedStudentsData` is what
+  /// `submitCreate` actually sends as `studentCodes`. Removing only from
+  /// `selectedStudents` left the removed child in the submitted payload (a
+  /// medication record written against a child the teacher explicitly
+  /// removed from the form) and threw every remaining tile's name/code
+  /// pairing off by one, since both lists are paired by index.
   void removeStudent(String name) {
     final next = List<String>.from(state.selectedStudents)..remove(name);
-    emit(state.copyWith(selectedStudents: next));
+    final nextData = List<Map<String, dynamic>>.from(state.selectedStudentsData)
+      ..removeWhere((m) => (m['name'] as String?) == name);
+    emit(
+      state.copyWith(selectedStudents: next, selectedStudentsData: nextData),
+    );
   }
 
   Future<bool> verifyPickedStaffSignedIn({
@@ -340,7 +361,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         );
       }
 
-      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = state.staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = state.schoolCode;
       final organizationCode = state.organizationCode;
       if (staffCode == null ||
@@ -368,7 +389,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         );
         if (prefilled != null) _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -444,7 +465,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         return const ActivityFormOutcome.warning('Please select date and time');
       }
 
-      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = state.staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         return const ActivityFormOutcome.error(
           'Missing staff information. Please re-login and try again.',
@@ -458,7 +479,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
         );
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );

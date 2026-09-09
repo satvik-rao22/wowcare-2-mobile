@@ -9,9 +9,9 @@ import 'package:wowcare/presentation/features/activities/view_model/activity_edi
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_media_res.dart';
-import '../../../../shared/common/widgets/calendar_dialog.dart';
-import '../../../../shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class DateWidget extends StatefulWidget {
   const DateWidget({

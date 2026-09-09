@@ -4,9 +4,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../domain/features/staff/entities/staff_member.dart';
-import '../../../../shared/common/app/cubits/role_cubit.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 

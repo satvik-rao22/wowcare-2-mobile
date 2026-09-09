@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
@@ -162,7 +163,9 @@ class ActivityStudentSelectionCubit
               .where((e) => e.isNotEmpty)
               .toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('decodeCodes: malformed cached classroom-codes JSON: $e');
+      }
       return <String>[];
     }
 
@@ -246,7 +249,9 @@ class ActivityStudentSelectionCubit
             hydratedFromCache = true;
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('_loadClassrooms: cache read failed, falling back to network: $e');
+      }
     }
 
     if (hydratedFromCache &&
