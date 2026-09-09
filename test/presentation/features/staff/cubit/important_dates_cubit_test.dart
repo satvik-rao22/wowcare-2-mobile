@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_important_dates_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_important_dates_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 
 /// Unused by these tests — [ImportantDatesCubit.warmSchoolTimezone] is never
 /// called here — but required by the constructor. `noSuchMethod` throws if

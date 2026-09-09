@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/presentation/features/students/view/student_empty_state.dart';
 

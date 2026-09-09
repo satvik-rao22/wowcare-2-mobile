@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/delete_guardian_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_guardian_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 
 StudentGuardian _guardian(String code) => StudentGuardian(
   guardianCode: code,

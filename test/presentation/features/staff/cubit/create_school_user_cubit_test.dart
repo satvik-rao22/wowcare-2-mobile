@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/staff/entities/create_school_user_result
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/create_school_user_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/create_school_user_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
 

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
 
 void main() {
   group('shouldSkipStaffCodeResolutionForContext', () {

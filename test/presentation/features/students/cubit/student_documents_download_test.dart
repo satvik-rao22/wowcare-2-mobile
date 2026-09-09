@@ -4,7 +4,7 @@ import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/delete_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_documents_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_documents_list_cubit.dart';
 
 class _UnusedRepo implements StudentRepository {
   @override

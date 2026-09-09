@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/student/usecases/delete_pickup_usecase.d
 import 'package:wowcare/domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_pickups_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_pickup_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_pickup_cubit.dart';
 
 StudentPickup _pickup(String code) => StudentPickup(
   code: code,

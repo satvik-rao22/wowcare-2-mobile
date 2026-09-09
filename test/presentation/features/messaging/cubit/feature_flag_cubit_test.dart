@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../../../../lib/presentation/features/communication/cubit/feature_flag_cubit.dart';
+import '../../../../../lib/presentation/features/communication/view_model/feature_flag_cubit.dart';
 
 // Stub implementations for testing (avoiding mockito complexity for Phase 0)
 class StubGetFeatureFlagUseCase {

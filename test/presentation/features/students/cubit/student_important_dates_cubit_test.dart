@@ -6,7 +6,7 @@ import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_important_dates_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_important_dates_cubit.dart';
 
 /// Repository that fails loudly — the use-case fake never touches it.
 class _FakeRepo implements StudentRepository {

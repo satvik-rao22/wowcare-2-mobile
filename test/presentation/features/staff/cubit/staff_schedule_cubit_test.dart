@@ -7,7 +7,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_schedules_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 
 SchoolRegularScheduleDay _day(String dayOfWeek) => SchoolRegularScheduleDay(
   dayOfWeek: dayOfWeek,

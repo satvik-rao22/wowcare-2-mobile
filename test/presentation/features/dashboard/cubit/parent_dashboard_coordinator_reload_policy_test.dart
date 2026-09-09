@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/my_childs_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/parent_dashboard_coordinator_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/parent_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_attendance_profile_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/model/parent_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 
 /// Base fake. Returns a completed future for every un-overridden member, which
 /// is what the coordinator's fire-and-forget calls need; `state` and `stream`

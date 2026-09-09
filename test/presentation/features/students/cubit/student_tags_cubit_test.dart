@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_tag_names_u
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_tags_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_tags_cubit.dart';
 
 /// Repository that fails loudly — the use-case fakes never touch it.
 class _FakeRepo implements StudentRepository {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 void main() {
   test('defaults to empty lists and isEmpty', () {

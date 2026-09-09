@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/app/di/di.dart' show serviceLocator;
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
 
 // StaffCard is the roster list card for a staff member. Its build reads a

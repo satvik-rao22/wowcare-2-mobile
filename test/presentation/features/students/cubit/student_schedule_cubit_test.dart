@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_schedule_cubit.dart';
 
 class _FakeRepo implements StaffRepository {
   @override

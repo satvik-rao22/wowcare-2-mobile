@@ -15,7 +15,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_profile_use
 import 'package:wowcare/domain/features/student/usecases/link_existing_guardian_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_guardian_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
 
 const _emptyPage = StudentPage(
   items: <Student>[],

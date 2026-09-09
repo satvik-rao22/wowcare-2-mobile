@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/domain/features/student/usecases/add_student_physical_exam_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_physical_exams_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_physical_exam_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_physical_exam_cubit.dart';
 
 StudentPhysicalExam _exam(String code, {String? status}) => StudentPhysicalExam(
   code: code,

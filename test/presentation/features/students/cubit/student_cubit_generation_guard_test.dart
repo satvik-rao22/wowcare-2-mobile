@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 
 Student _student(String code) =>
     Student(code: code, firstName: code, lastName: 'L', status: 'ACTIVE');

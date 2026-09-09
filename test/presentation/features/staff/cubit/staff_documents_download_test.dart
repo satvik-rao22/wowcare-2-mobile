@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_documents_list_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class _UnusedRepo implements StaffRepository {
