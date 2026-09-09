@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/auto_pay_new_method_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class AutoPayNewMethodScreen extends StatefulWidget {
   const AutoPayNewMethodScreen({super.key});

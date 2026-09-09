@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 

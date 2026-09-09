@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';

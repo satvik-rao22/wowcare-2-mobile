@@ -7,7 +7,7 @@ import 'package:wowcare/app/app_providers.dart';
 import 'package:wowcare/app/app_sizer_init.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
-import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/theme_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
 
 class MyApp extends StatelessWidget {

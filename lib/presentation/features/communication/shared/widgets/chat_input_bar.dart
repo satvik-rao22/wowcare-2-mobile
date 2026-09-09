@@ -4,7 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';

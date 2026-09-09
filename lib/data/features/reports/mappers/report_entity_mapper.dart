@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
 import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 import 'package:wowcare/domain/features/reports/entities/report_entity.dart';

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_edit_form_widgets.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/view_model/staff_edit_attendance_cubit.dart';
 
 class StaffEditAttendanceForm extends StatefulWidget {

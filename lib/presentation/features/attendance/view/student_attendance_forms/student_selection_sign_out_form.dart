@@ -3,8 +3,8 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_s
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -13,10 +13,10 @@ import 'package:wowcare/presentation/features/attendance/widgets/attendance_sele
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_selectable_person_tile.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_selection_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
 import 'student_sign_out_form.dart';
 

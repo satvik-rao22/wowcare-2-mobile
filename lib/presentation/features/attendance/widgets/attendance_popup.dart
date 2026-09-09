@@ -6,19 +6,19 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_p
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_profile_fetch_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -26,7 +26,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_p
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Resolves the parent persona's selected child and builds the
 /// [StudentAttendanceProfile] widget to open for them — shared by

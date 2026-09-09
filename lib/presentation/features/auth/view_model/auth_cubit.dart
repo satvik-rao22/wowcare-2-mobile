@@ -17,16 +17,16 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 part 'auth_state.dart';
 

@@ -1,4 +1,4 @@
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 /// The message for an EMPTY student list, differentiated by *why* it is empty so

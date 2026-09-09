@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';

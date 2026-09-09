@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/src/app_router.dart'
     show AppRoutes, goToDashboardRoot, popAllShellBranchNavigators;
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/string_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -23,11 +23,11 @@ import 'package:wowcare/presentation/features/user_profile/view_model/user_profi
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {

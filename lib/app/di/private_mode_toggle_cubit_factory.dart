@@ -1,6 +1,6 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 
 /// DI wiring for [PrivateModeToggleCubit], kept OUT of the presentation layer

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/util/api_paths_uat.dart';
+import 'package:wowcare/core/utils/api_paths_uat.dart';
 
 /// [ApiPathsUat.url] does two separable things: it rewrites a LOCAL path into
 /// the UAT gateway's shape, then prefixes the microservice's base URL.

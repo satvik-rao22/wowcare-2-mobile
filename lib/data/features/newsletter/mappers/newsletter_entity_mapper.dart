@@ -2,7 +2,7 @@ import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
-import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
+import 'package:wowcare/data/features/newsletter/utils/newsletter_content_parser.dart';
 
 /// Maps student-newsletter API entities to the shared preview/list
 /// [Newsletter] entity.

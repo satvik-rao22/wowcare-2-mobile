@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/reusable_log_out_model_sheet.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class SignOutScreen extends StatefulWidget {
   const SignOutScreen({super.key});

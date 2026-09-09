@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';

@@ -6,7 +6,7 @@ import 'package:wowcare/presentation/features/communication/model/thread_info.da
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';

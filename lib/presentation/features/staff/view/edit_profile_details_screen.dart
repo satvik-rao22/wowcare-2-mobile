@@ -1,15 +1,15 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:io';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen_formatters.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -18,15 +18,15 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_address_update.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
-import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
+import 'package:wowcare/presentation/features/classroom/view/classroom_tab_cards/classroom_staff_tab_card.dart'
     show notifyClassroomStaffChanged;
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:go_router/go_router.dart';
 
 class EditProfileDetailsScreen extends StatelessWidget {
@@ -80,23 +80,23 @@ class EditProfileDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Cubits are created by the route builder (§1.6), not here.
     return _EditProfileDetailsScreenView(
-        staffCode: staffCode,
-        initialFirstName: initialFirstName,
-        initialLastName: initialLastName,
-        initialStatus: initialStatus,
-        initialDesignation: initialDesignation,
-        initialAllowedClassrooms: initialAllowedClassrooms,
-        initialPrimaryClassroom: initialPrimaryClassroom,
-        initialBirthDate: initialBirthDate,
-        initialJobTag: initialJobTag,
-        initialEmail: initialEmail,
-        initialPhoneNumber: initialPhoneNumber,
-        initialStreet: initialStreet,
-        initialCity: initialCity,
-        initialState: initialState,
-        initialCountry: initialCountry,
-        initialZipCode: initialZipCode,
-        initialClassroomNames: initialClassroomNames,
+      staffCode: staffCode,
+      initialFirstName: initialFirstName,
+      initialLastName: initialLastName,
+      initialStatus: initialStatus,
+      initialDesignation: initialDesignation,
+      initialAllowedClassrooms: initialAllowedClassrooms,
+      initialPrimaryClassroom: initialPrimaryClassroom,
+      initialBirthDate: initialBirthDate,
+      initialJobTag: initialJobTag,
+      initialEmail: initialEmail,
+      initialPhoneNumber: initialPhoneNumber,
+      initialStreet: initialStreet,
+      initialCity: initialCity,
+      initialState: initialState,
+      initialCountry: initialCountry,
+      initialZipCode: initialZipCode,
+      initialClassroomNames: initialClassroomNames,
       initialClassroomCodeByName: initialClassroomCodeByName,
     );
   }

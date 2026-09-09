@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';

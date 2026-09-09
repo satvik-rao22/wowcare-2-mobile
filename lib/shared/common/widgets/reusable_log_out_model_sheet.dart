@@ -4,15 +4,15 @@ import 'package:go_router/go_router.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/custom_button_layout.dart';
 // import 'package:wowcare/core/extentions/context_extentions.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
   const LogOutModelBottomSheet({

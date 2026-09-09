@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// School-timezone helpers for the attendance module.
 ///

@@ -1,6 +1,6 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
 
 /// DI wiring for [ConversationThreadCubit], kept OUT of the presentation layer
 /// (Mandate 5: views/routes reference no `serviceLocator`).

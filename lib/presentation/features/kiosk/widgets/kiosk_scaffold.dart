@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_app_bar.dart';
 
 /// Kiosk-specific Scaffold wrapper.

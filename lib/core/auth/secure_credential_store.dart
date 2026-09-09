@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Securely stores the "Remember me" password so the sign-in form can pre-fill
 /// it after logout / session-expiry, gated behind device biometrics.

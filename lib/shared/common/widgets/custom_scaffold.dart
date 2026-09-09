@@ -6,7 +6,7 @@
 // import 'package:schoolerp/core/common/widgets/custom_refresh_indicator.dart';
 // import 'package:schoolerp/core/common/widgets/gradient_background.dart';
 // import 'package:schoolerp/core/extentions/context_extentions.dart';
-// import 'package:schoolerp/core/util/staff_utils.dart';
+// import 'package:schoolerp/core/utils/staff_utils.dart';
 
 // class GlobalScaffold extends StatefulWidget {
 //   const GlobalScaffold({
@@ -167,14 +167,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/notification_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({

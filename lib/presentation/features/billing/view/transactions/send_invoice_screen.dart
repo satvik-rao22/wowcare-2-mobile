@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/send_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/utils/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 /// Locally-derived invoice header shown on the Send Invoice form (not parsed
 /// from any API response — built from [SendInvoiceScreen.transaction]).

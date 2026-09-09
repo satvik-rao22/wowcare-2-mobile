@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'attendance_summary_card_shimmer.dart';
 

@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:wowcare/core/util/isar_utils.dart';
+import 'package:wowcare/core/utils/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';

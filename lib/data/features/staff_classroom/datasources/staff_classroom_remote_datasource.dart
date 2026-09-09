@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
 import '../models/staff_classroom_models.dart';
 
 abstract class StaffClassroomRemoteDataSource {

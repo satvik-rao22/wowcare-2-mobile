@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../core/util/isar_utils.dart';
+import '../../../../core/utils/api_error_handler.dart';
+import '../../../../core/utils/isar_utils.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/school_timezone_resolver.dart';
-import '../../../../core/util/school_zone_datetime.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/utils/school_timezone_resolver.dart';
+import '../../../../core/utils/school_zone_datetime.dart';
+import '../../../../core/utils/storage_keys.dart';
 import '../datasources/communication_remote_data_source.dart';
 import '../models/message_collection.dart';
 import '../models/message_model.dart';
@@ -18,7 +18,7 @@ import '../../../../domain/features/communication/repositories/communication_rep
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../models/conversation_collection.dart';
 import '../models/create_conversation_request.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import '../realtime/conversation_realtime_data_source.dart';
 import '../realtime/message_realtime_data_source.dart';
 

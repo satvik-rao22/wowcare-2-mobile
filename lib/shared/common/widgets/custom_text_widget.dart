@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../app/theme/colors.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CustomTextWidget extends StatelessWidget {
   const CustomTextWidget({

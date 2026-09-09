@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/idempotency_key.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
+import '../../../../core/utils/attendance_classroom_scope.dart';
 import '../models/student_attendance_models.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/staff_absence_record_models.dart';

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_count.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/staff/usecases/deactivate_organization_a
 import 'package:wowcare/domain/features/staff/usecases/delete_school_user_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_page_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/invalidate_cached_staff_page_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 
 StaffProfile _profile() => const StaffProfile(
   staffCode: 'S1',

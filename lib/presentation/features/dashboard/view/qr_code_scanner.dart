@@ -8,13 +8,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/qr_validation_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 
 class QrScanScreen extends StatelessWidget {

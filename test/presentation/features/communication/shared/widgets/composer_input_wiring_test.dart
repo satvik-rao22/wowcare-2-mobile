@@ -9,8 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/presentation/features/communication/cubit/composer_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/composer_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 
 Message _msg(String text) => Message(

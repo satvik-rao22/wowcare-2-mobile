@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
@@ -11,8 +11,8 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/school_context_helper.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_context_helper.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';

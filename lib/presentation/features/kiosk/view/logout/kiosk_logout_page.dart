@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_logout_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-import '../../../../../core/util/api_error_handler.dart';
+import '../../../../../core/utils/api_error_handler.dart';
 
 class KioskLogoutPage extends StatefulWidget {
   const KioskLogoutPage({super.key});

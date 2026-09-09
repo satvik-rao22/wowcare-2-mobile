@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 /// Canonical `module` strings from `/api/v1/users/details` `permissions[]`.
 ///

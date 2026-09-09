@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/src/app_router.dart';
 
-import '../../../../core/util/active_school_switcher.dart';
-import '../../../../core/util/logger_service.dart';
+import '../../../../core/utils/active_school_switcher.dart';
+import '../../../../core/utils/logger_service.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
-import '../../../../shared/common/app/cubit/parent_child_cubit.dart';
-import '../../../../shared/common/app/cubit/role_cubit.dart';
-import '../cubit/push_notification_cubit.dart';
+import '../../../../shared/common/app/cubits/parent_child_cubit.dart';
+import '../../../../shared/common/app/cubits/role_cubit.dart';
+import '../view_model/push_notification_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 
 /// View-layer glue for push notifications.

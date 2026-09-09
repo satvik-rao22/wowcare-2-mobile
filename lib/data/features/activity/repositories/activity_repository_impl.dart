@@ -1,7 +1,7 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
-import '../../../../core/util/activity_feed_invalidation.dart';
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/activity_feed_invalidation.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
 import '../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../domain/features/activity/entities/activity_detail.dart';

@@ -1,8 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/notifications/models/notification_preference_group_model.dart';
 import 'package:wowcare/domain/features/notifications/entities/notification_preference_group.dart';
 import 'package:wowcare/domain/features/notifications/usecases/get_notification_preference_groups_usecase.dart';

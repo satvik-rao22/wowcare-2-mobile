@@ -19,7 +19,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 

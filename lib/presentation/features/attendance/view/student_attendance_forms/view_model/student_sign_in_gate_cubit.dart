@@ -3,9 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 
 import '../student_sign_in_form.dart' show StudentEntity;

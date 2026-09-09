@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -144,10 +144,9 @@ class _StaffCardState extends State<StaffCard> {
     try {
       // Static single-flight + cache: every visible card wants the same list,
       // so the first one issues the request and the rest await its future.
-      final future =
-          _inFlightLoad ??= _fetchSchoolOpenDays(
-            context.read<StaffScheduleCubit>(),
-          );
+      final future = _inFlightLoad ??= _fetchSchoolOpenDays(
+        context.read<StaffScheduleCubit>(),
+      );
       final result = await future;
       if (!mounted) return;
       setState(() => _schoolOpenShortDays = result);
@@ -781,9 +780,8 @@ class _StaffCardState extends State<StaffCard> {
                                                           widget.email,
                                                       initialPhoneNumber:
                                                           widget.phoneNumber,
-                                                      initialClassroomNames:
-                                                          widget
-                                                              .availableClassrooms,
+                                                      initialClassroomNames: widget
+                                                          .availableClassrooms,
                                                       initialClassroomCodeByName: {
                                                         for (final entry
                                                             in widget

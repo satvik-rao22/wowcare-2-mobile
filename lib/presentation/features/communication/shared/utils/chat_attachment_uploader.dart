@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';

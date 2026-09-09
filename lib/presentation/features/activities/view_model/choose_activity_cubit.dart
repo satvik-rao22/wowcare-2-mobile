@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';

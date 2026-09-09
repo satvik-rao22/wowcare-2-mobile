@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
-import 'package:wowcare/core/util/billing_events.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/billing_events.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view_model/transaction_details_cubit.dart';
@@ -33,7 +33,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   /// Optional source transaction (when opened from a transaction card).

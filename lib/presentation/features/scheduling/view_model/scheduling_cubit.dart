@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';

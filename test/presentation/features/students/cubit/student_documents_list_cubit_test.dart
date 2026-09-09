@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/student/entities/student_documents_page.
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/delete_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_documents_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_documents_list_cubit.dart';
 
 StudentDocument _doc(String uuid) => StudentDocument(
       documentUuid: uuid,

@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
-import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view_model/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -102,7 +102,8 @@ List<_GroupedMovement> _filterPriorityMovements(
   void addBucket(List<IndividualMovement> movements, MovementBucket bucket) {
     for (final m in movements) {
       final dateKey = _dateKey(m.movementDate);
-      final key = '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|${bucket.name}';
+      final key =
+          '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|${bucket.name}';
       final existing = map[key];
       if (existing != null) {
         existing.students.add(_studentFrom(m));
@@ -170,7 +171,8 @@ List<_GroupedMovement> _filterPriorityMovements(
     }
 
     // Within same status, sort by date
-    if (a.bucket == MovementBucket.overdue || a.bucket == MovementBucket.confirmed) {
+    if (a.bucket == MovementBucket.overdue ||
+        a.bucket == MovementBucket.confirmed) {
       // most recent/latest first (descending)
       return b.movementDate.compareTo(a.movementDate);
     } else {
@@ -304,7 +306,10 @@ class _MovementAvatarStack extends StatelessWidget {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: AppColors.attendanceEmptyStateIconColor,
-                            border: Border.all(color: AppColors.cardColor, width: 2),
+                            border: Border.all(
+                              color: AppColors.cardColor,
+                              width: 2,
+                            ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -322,7 +327,10 @@ class _MovementAvatarStack extends StatelessWidget {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.cardColor, width: 2),
+                            border: Border.all(
+                              color: AppColors.cardColor,
+                              width: 2,
+                            ),
                           ),
                           child: DocumentImageWidget(
                             fileUuid: '',
@@ -523,7 +531,10 @@ class _MovementEmptyState extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               'No movements scheduled',
-              style: TextStyle(fontSize: 14, color: AppColors.attendanceMutedTextColor),
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.attendanceMutedTextColor,
+              ),
             ),
           ],
         ),

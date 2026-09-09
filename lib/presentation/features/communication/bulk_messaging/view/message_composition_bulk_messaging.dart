@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,13 +12,13 @@ import 'package:wowcare/presentation/features/communication/shared/utils/html_aw
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../../app/theme/colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../app/theme/media_res.dart';
-import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/theme/app_media_res.dart';
+import '../../../../../core/utils/core_utils.dart';
 import '../../../../../shared/common/widgets/selected_student_tile.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {

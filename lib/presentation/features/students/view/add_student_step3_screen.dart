@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_schedule_cubit.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
@@ -141,7 +141,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        widget.title ?? StudentStrings.addStudentStep3Of3Optional,
+                        widget.title ??
+                            StudentStrings.addStudentStep3Of3Optional,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
@@ -192,10 +193,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                 ),
                                 AppSpacing.gapVXs,
                                 Text(
-                                  StudentStrings.selectDaysAndTimesForThisStudentDefaultTimesAr,
+                                  StudentStrings
+                                      .selectDaysAndTimesForThisStudentDefaultTimesAr,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.attendanceDialogHintTextColor,
+                                    color:
+                                        AppColors.attendanceDialogHintTextColor,
                                     fontFamily: Fonts.manrope,
                                   ),
                                 ),

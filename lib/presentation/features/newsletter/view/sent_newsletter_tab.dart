@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:wowcare/core/router/app_routes.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
@@ -9,9 +9,9 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_list_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/model/newsletter_list_item_model.dart';
 import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';

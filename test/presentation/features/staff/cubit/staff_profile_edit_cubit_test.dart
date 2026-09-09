@@ -14,7 +14,7 @@ import 'package:wowcare/domain/features/staff/usecases/update_staff_allowed_clas
 import 'package:wowcare/domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
 

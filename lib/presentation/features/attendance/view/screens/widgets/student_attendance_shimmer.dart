@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StudentAttendanceCardShimmer extends StatelessWidget {

@@ -1,7 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 part 'conversation_entity_dto.g.dart';
 

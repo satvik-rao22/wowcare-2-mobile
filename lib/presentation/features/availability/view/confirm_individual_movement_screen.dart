@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -51,9 +51,15 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
           _infoRow('Student', item.name),
           const Divider(height: 18),
           _infoRow('Movement Type', item.movementTypeLabel),
-          _infoRow('From', item.fromClassroom.isEmpty ? '-' : item.fromClassroom),
+          _infoRow(
+            'From',
+            item.fromClassroom.isEmpty ? '-' : item.fromClassroom,
+          ),
           _infoRow('To', item.toClassroom.isEmpty ? '-' : item.toClassroom),
-          _infoRow('Movement Date', DateFormat('MMM dd, yyyy').format(item.movementDate)),
+          _infoRow(
+            'Movement Date',
+            DateFormat('MMM dd, yyyy').format(item.movementDate),
+          ),
           _infoRow('Comment', item.comment.isEmpty ? '-' : item.comment),
         ],
       ),
@@ -67,10 +73,7 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Expanded(
-            child: Text(
-              label,
-              style: AppTextStyles.movementConfirmLabel,
-            ),
+            child: Text(label, style: AppTextStyles.movementConfirmLabel),
           ),
           const SizedBox(width: 12),
           Expanded(

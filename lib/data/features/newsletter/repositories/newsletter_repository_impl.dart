@@ -1,11 +1,11 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/data/features/newsletter/datasources/newsletter_remote_datasource.dart';
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletter/repositories/newsletter_repository.dart';
-import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
+import 'package:wowcare/data/features/newsletter/utils/newsletter_content_parser.dart';
 
 class NewsletterRepositoryImpl
     implements NewsletterRepository, NewsletterRepositoryWithCache {

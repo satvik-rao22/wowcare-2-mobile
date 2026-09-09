@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/attendance/datasources/attendance_remote_datasource.dart';
 import 'package:wowcare/data/features/attendance/repositories/attendance_repository_impl.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';

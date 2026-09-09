@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/utils/date_utils.dart';
 
 /// Locally-derived invoice header shown alongside a receipt/invoice (not
 /// parsed from any API response — built from [ViewReceiptScreen.transaction]).

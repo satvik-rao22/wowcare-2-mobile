@@ -5,10 +5,10 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_list_tab.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Parent-only newsletters screen (student-scoped API, separate from staff/admin sent list).
 class ParentNewsletterScreen extends StatefulWidget {

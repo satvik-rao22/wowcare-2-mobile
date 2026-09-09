@@ -2,10 +2,10 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/billing_statements_repository.dart';

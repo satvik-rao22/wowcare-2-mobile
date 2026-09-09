@@ -4,8 +4,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/logger_service.dart';
+import '../../../../core/utils/core_utils.dart';
+import '../../../../core/utils/logger_service.dart';
 import '../view/activity_daily_tab.dart';
 
 class ActivityMediaViewer extends StatefulWidget {

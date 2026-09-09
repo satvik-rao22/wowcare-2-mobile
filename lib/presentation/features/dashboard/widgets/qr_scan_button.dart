@@ -3,7 +3,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 
 /// Tappable icon that opens the full-screen QR scanner.
 ///

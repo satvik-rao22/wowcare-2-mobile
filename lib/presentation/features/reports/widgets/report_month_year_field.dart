@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 

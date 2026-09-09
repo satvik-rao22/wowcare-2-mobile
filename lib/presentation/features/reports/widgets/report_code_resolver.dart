@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/reports/usecases/resolve_report_codes_usecase.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 

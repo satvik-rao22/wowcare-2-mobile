@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_physical_exam_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_physical_exam_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -628,7 +628,10 @@ class _PhysicalExamCard extends StatelessWidget {
             bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+            BorderSide(
+              color: AppColors.themeColor,
+              width: AppDimensions.hairline,
+            ),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -715,10 +718,7 @@ class _Chip extends StatelessWidget {
         horizontal: AppSpacing.s10,
         vertical: AppSpacing.xxs,
       ),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: AppRadius.allSm,
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.allSm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

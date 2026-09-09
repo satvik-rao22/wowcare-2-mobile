@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
 

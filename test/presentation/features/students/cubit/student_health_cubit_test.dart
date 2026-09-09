@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_health_usec
 import 'package:wowcare/domain/features/student/usecases/get_student_immunizations_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_health_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_immunization_record_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_health_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_health_cubit.dart';
 
 StudentHealth _health({String? allergy}) => StudentHealth(
   allergy: allergy ?? 'peanuts',

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/data/features/communication/models/conversation_model.dart';
 
 /// Characterisation test (Mandate 8) for [ConversationModel] /

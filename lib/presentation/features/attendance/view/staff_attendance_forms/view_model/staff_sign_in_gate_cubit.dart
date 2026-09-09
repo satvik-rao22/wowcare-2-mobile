@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 
 import '../../../model/staff_entity.dart';

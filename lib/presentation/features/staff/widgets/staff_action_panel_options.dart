@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 

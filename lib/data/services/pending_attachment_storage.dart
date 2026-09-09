@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 /// Injectable seam over [PendingAttachmentStorage] so a cubit's send path can

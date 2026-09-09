@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/analytics_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
   const AnalyticsSection({super.key, this.onRegisterRefresh});

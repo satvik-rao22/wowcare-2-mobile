@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/notifications/models/notification_preference_group_model.dart';
 
 abstract class NotificationPreferenceGroupsRemoteDataSource {

@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
     show PopupItem;
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
@@ -44,17 +44,21 @@ class IndividualMovementFilterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fromClassroomItems =
-        classrooms.where((c) => !toClassrooms.contains(c)).toList();
-    final toClassroomItems =
-        classrooms.where((c) => !fromClassrooms.contains(c)).toList();
+    final fromClassroomItems = classrooms
+        .where((c) => !toClassrooms.contains(c))
+        .toList();
+    final toClassroomItems = classrooms
+        .where((c) => !fromClassrooms.contains(c))
+        .toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: <Widget>[
@@ -148,8 +152,9 @@ class IndividualMovementPager extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
-  final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  onActionSelected;
+  final void Function(MovementItem item, MovementBucket targetBucket)
+  onDropToBucket;
   final bool isViewOnly;
   final ValueChanged<MovementItem>? onStudentNameTap;
   final bool Function(MovementItem item)? canDragItem;
@@ -233,8 +238,9 @@ class IndividualMovementPager extends StatelessWidget {
     const double rowApproxHeight = 116;
     final int maxRows = sections.fold<int>(
       0,
-      (previousValue, section) =>
-          section.items.length > previousValue ? section.items.length : previousValue,
+      (previousValue, section) => section.items.length > previousValue
+          ? section.items.length
+          : previousValue,
     );
     final int safeRows = maxRows == 0 ? 1 : maxRows;
     return headerAndPaddingHeight + (safeRows * rowApproxHeight);
@@ -259,8 +265,9 @@ class _MovementSectionCard extends StatelessWidget {
 
   final MovementSection section;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
-  final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  onActionSelected;
+  final void Function(MovementItem item, MovementBucket targetBucket)
+  onDropToBucket;
   final bool isViewOnly;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
@@ -296,10 +303,7 @@ class _MovementSectionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                section.title,
-                style: AppTextStyles.movementColumnTitle,
-              ),
+              Text(section.title, style: AppTextStyles.movementColumnTitle),
               const SizedBox(height: 12),
               Expanded(
                 child: section.items.isEmpty
@@ -321,7 +325,8 @@ class _MovementSectionCard extends StatelessWidget {
                             onActionSelected: onActionSelected,
                             isViewOnly: isViewOnly,
                             canDrag:
-                                !isViewOnly && (canDragItem?.call(item) ?? true),
+                                !isViewOnly &&
+                                (canDragItem?.call(item) ?? true),
                             cardBackgroundColor: section.backgroundColor,
                             onDragStarted: onDragStarted,
                             onDragEnded: onDragEnded,
@@ -361,7 +366,7 @@ class _MovementRow extends StatelessWidget {
   final MovementItem item;
   final MovementBucket bucket;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
+  onActionSelected;
   final bool isViewOnly;
   final bool canDrag;
   final Color cardBackgroundColor;
@@ -409,10 +414,7 @@ class _MovementRow extends StatelessWidget {
             value: a,
             child: PopupItem(
               title: _labelForAction(a),
-              icon: Icon(
-                _iconForAction(a),
-                color: AppColors.themeColor,
-              ),
+              icon: Icon(_iconForAction(a), color: AppColors.themeColor),
             ),
           ),
         )
@@ -457,107 +459,105 @@ class _MovementRow extends StatelessWidget {
       scrollOnHighlight: true,
       borderRadius: 14,
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBackgroundColor,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: _FromToRow(item: item),
-              ),
-              const SizedBox(width: 8),
-              if (!isViewOnly)
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primaryColor.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: PopupMenuButton<IndividualMovementAction>(
-                    tooltip: 'More',
-                    padding: EdgeInsets.zero,
-                    color: AppColors.cardColor,
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    icon: const Icon(Icons.more_horiz, size: 20),
-                    onSelected: (action) => onActionSelected(item, action),
-                    itemBuilder: (_) => _buildMenuEntries(),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              DocumentImageWidget(
-                fileUuid: item.studentCode,
-                studentCode: item.studentCode.trim().isNotEmpty
-                    ? item.studentCode.trim()
-                    : null,
-                mediaAssetCode: item.profilePhotoAssetCode,
-                name: item.name,
-                size: 30,
-                fontSize: 11,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onStudentNameTap == null
-                      ? null
-                      : () => onStudentNameTap!(item),
-                  child: Text(
-                    item.name,
-                    style: AppTextStyles.movementStudentNameLabel,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.access_time_rounded,
-                size: 16,
-                color: AppColors.movementDueTimeIconColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                DateFormat('MMM dd').format(item.movementDate),
-                style: AppTextStyles.movementClassroomLabel,
-              ),
-            ],
-          ),
-          if (item.comment.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                item.comment.trim(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.movementCommentText,
-              ),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: cardBackgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
-        ],
-      ),
+        ),
+        child: Column(
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(child: _FromToRow(item: item)),
+                const SizedBox(width: 8),
+                if (!isViewOnly)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: PopupMenuButton<IndividualMovementAction>(
+                      tooltip: 'More',
+                      padding: EdgeInsets.zero,
+                      color: AppColors.cardColor,
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      icon: const Icon(Icons.more_horiz, size: 20),
+                      onSelected: (action) => onActionSelected(item, action),
+                      itemBuilder: (_) => _buildMenuEntries(),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                DocumentImageWidget(
+                  fileUuid: item.studentCode,
+                  studentCode: item.studentCode.trim().isNotEmpty
+                      ? item.studentCode.trim()
+                      : null,
+                  mediaAssetCode: item.profilePhotoAssetCode,
+                  name: item.name,
+                  size: 30,
+                  fontSize: 11,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onStudentNameTap == null
+                        ? null
+                        : () => onStudentNameTap!(item),
+                    child: Text(
+                      item.name,
+                      style: AppTextStyles.movementStudentNameLabel,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.access_time_rounded,
+                  size: 16,
+                  color: AppColors.movementDueTimeIconColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  DateFormat('MMM dd').format(item.movementDate),
+                  style: AppTextStyles.movementClassroomLabel,
+                ),
+              ],
+            ),
+            if (item.comment.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item.comment.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.movementCommentText,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
     if (!canDrag) return card;
@@ -567,7 +567,8 @@ class _MovementRow extends StatelessWidget {
       dragAnchorStrategy: _centerDragAnchorStrategy,
       onDragStarted: onDragStarted,
       onDragEnd: (_) => onDragEnded?.call(),
-      onDragUpdate: (details) => onDragGlobalUpdate?.call(details.globalPosition),
+      onDragUpdate: (details) =>
+          onDragGlobalUpdate?.call(details.globalPosition),
       feedback: Material(
         color: Colors.transparent,
         child: ConstrainedBox(
@@ -596,10 +597,7 @@ class _TypeChip extends StatelessWidget {
       padding: EdgeInsets.zero,
       side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.18)),
       backgroundColor: scheme.surface,
-      label: Text(
-        label,
-        style: AppTextStyles.movementTypeChipLabel,
-      ),
+      label: Text(label, style: AppTextStyles.movementTypeChipLabel),
     );
   }
 }

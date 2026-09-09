@@ -1,18 +1,18 @@
 import 'dart:async' show unawaited;
 import 'package:wowcare/core/router/app_routes.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/billing_events.dart';
+import 'package:wowcare/core/utils/billing_events.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 // import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/presentation/features/billing/view/accounting/students.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -30,7 +30,7 @@ import 'package:wowcare/presentation/features/billing/model/ledger_account_model
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});

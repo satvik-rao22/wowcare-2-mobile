@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/session_expired_interceptor.dart';
-import 'package:wowcare/core/util/idempotency_key.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
 import 'package:wowcare/data/features/billing/datasources/invoice_remote_datasource.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 

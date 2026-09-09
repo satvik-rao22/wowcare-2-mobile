@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 

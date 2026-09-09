@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 
 /// Normal (single) date picker used across the app.

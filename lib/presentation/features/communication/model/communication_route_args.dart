@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
-import 'package:wowcare/shared/common/views/filter_screen.dart'
+import 'package:wowcare/shared/common/view/filter_screen.dart'
     show FilerSection;
 import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';

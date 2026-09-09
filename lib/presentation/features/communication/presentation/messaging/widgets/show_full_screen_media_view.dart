@@ -4,7 +4,7 @@ import 'package:chewie/chewie.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
@@ -14,7 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:wowcare/data/services/messaging_media_downloader.dart';
 import 'package:video_player/video_player.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 

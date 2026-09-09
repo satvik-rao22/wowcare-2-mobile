@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Shimmer skeleton for chat thread loading — replaces CircularProgressIndicator
 /// in StaffMessagingThread, ParentMessagingThread, and ConversationThreadScreen.

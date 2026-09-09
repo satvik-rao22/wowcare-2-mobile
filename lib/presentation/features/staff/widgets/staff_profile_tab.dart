@@ -3,23 +3,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/string_utils.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_schedule_cubit.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab_widgets.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_classroom_name_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({

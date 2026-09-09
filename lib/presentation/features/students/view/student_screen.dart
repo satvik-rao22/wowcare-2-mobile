@@ -1,6 +1,6 @@
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -8,13 +8,13 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
@@ -22,8 +22,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
@@ -41,7 +41,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -53,12 +53,12 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/presentation/features/students/view/student_empty_state.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/post_add_student_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({
@@ -90,8 +90,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   // Per-row selection is owned by StudentCubit (single source of truth).
   // "Select all" is DERIVED, never a competing field.
-  List<bool> get _selectedDemo =>
-      context.read<StudentCubit>().state.selection;
+  List<bool> get _selectedDemo => context.read<StudentCubit>().state.selection;
   bool get _selectAll =>
       _selectedDemo.isNotEmpty && _selectedDemo.every((e) => e);
 
@@ -165,10 +164,10 @@ class _StudentScreenState extends State<StudentScreen> {
       return;
     }
     final statusLabel = incoming[0] + incoming.substring(1).toLowerCase();
-    context.read<StudentCubit>().setSelectedFilters(
-      {..._currentFilters, 'Status': [statusLabel]},
-      showInactive: _isInactiveStatus(statusLabel),
-    );
+    context.read<StudentCubit>().setSelectedFilters({
+      ..._currentFilters,
+      'Status': [statusLabel],
+    }, showInactive: _isInactiveStatus(statusLabel));
   }
 
   /// A notification deep-link (e.g. "student deactivated") only carries the
@@ -202,10 +201,10 @@ class _StudentScreenState extends State<StudentScreen> {
       // Set the cubit's status filter + selection now so the upcoming
       // loadInitial() fetches this bucket (not Active), preventing the override
       // race. Pre-load: no chip rebuild needed yet.
-      context.read<StudentCubit>().setSelectedFilters(
-        {..._currentFilters, 'Status': [label]},
-        showInactive: _isInactiveStatus(label),
-      );
+      context.read<StudentCubit>().setSelectedFilters({
+        ..._currentFilters,
+        'Status': [label],
+      }, showInactive: _isInactiveStatus(label));
       context.read<StudentCubit>().updateFilters(status: label);
     } catch (_) {
       // Couldn't resolve status — leave the default Active filter in place.
@@ -220,9 +219,10 @@ class _StudentScreenState extends State<StudentScreen> {
         .where((s) => s.isNotEmpty)
         .toList();
     if (cleaned.isEmpty) return;
-    context.read<StudentCubit>().setSelectedFilters(
-      {..._currentFilters, 'Classroom': cleaned},
-    );
+    context.read<StudentCubit>().setSelectedFilters({
+      ..._currentFilters,
+      'Classroom': cleaned,
+    });
   }
 
   @override
@@ -417,8 +417,7 @@ class _StudentScreenState extends State<StudentScreen> {
       for (final c in classroomState.classrooms) c.code.trim(),
     }..removeWhere((code) => code.isEmpty);
 
-    final selectedClassroomValues =
-        selection['Classroom'] ?? const <String>[];
+    final selectedClassroomValues = selection['Classroom'] ?? const <String>[];
     final classroomCodes = selectedClassroomValues
         .map((value) {
           final trimmed = value.trim();
@@ -518,12 +517,9 @@ class _StudentScreenState extends State<StudentScreen> {
   }
 
   Future<void> _clearAllFilters() async {
-    await _applyFiltersToCubit(
-      {
-        'Status': ['Active'],
-      },
-      showInactive: false,
-    );
+    await _applyFiltersToCubit({
+      'Status': ['Active'],
+    }, showInactive: false);
   }
 
   String _formatDate(DateTime date) {
@@ -554,8 +550,10 @@ class _StudentScreenState extends State<StudentScreen> {
     Map<String, String> cubitNameByCode,
   ) {
     final merged = Map<String, String>.from(cubitNameByCode);
-    final detailNames =
-        context.read<StudentCubit>().state.classroomNameByDetailApi;
+    final detailNames = context
+        .read<StudentCubit>()
+        .state
+        .classroomNameByDetailApi;
     for (final e in detailNames.entries) {
       final n = e.value.trim();
       if (n.isNotEmpty) merged[e.key] = n;
@@ -636,8 +634,10 @@ class _StudentScreenState extends State<StudentScreen> {
   String? _todayStatusForStudentCode(String code) {
     final t = code.trim();
     if (t.isEmpty) return null;
-    final statusByCode =
-        context.read<StudentCubit>().state.attendanceStatusByStudentCode;
+    final statusByCode = context
+        .read<StudentCubit>()
+        .state
+        .attendanceStatusByStudentCode;
     if (statusByCode.containsKey(t)) {
       return statusByCode[t];
     }
@@ -1045,7 +1045,8 @@ class _StudentScreenState extends State<StudentScreen> {
                             _attendanceAvailabilityForSelection(students),
                         attendanceEnabled: !hasInactiveSelected,
                         attendanceDisabledHint: hasInactiveSelected
-                            ? StudentStrings.youCannotMarkAttendanceForInactiveStudent
+                            ? StudentStrings
+                                  .youCannotMarkAttendanceForInactiveStudent
                             : null,
                         onAttendanceTap: () {
                           setState(() {
@@ -1151,9 +1152,11 @@ class _StudentScreenState extends State<StudentScreen> {
                         activitiesEnabled:
                             canShowActivities && !hasInactiveSelected,
                         activitiesDisabledHint: hasInactiveSelected
-                            ? StudentStrings.youCannotRecordActivitiesForInactiveStudent
+                            ? StudentStrings
+                                  .youCannotRecordActivitiesForInactiveStudent
                             : (_hasCrossClassroomSelection(students)
-                                  ? StudentStrings.pleaseSelectStudentsFromTheSameClassroom
+                                  ? StudentStrings
+                                        .pleaseSelectStudentsFromTheSameClassroom
                                   : null),
                         showAttendanceActions:
                             _currentPanel == StudentPanelType.attendance,
@@ -1295,7 +1298,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                   });
                                 }
                               },
-                              isTablet: ResponsiveHelper(context).isTabletCompact,
+                              isTablet: ResponsiveHelper(
+                                context,
+                              ).isTabletCompact,
                               isLargeTablet: ResponsiveHelper(context).isWide,
                             ),
                           SizedBox(width: AppSpacing.s10),
@@ -1330,7 +1335,9 @@ class _StudentScreenState extends State<StudentScreen> {
                             return Container(
                               margin: EdgeInsets.only(
                                 top: isTablet ? AppSpacing.md : AppSpacing.sm,
-                                bottom: isTablet ? AppSpacing.xs : AppSpacing.xs,
+                                bottom: isTablet
+                                    ? AppSpacing.xs
+                                    : AppSpacing.xs,
                               ),
                               child: CustomStatBarCard(
                                 title: StudentStrings.totalNstudents,
@@ -1339,8 +1346,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 fullWidthBar: false,
                                 onLegendTap:
                                     (String label, String? filterValue) async {
-                                      final current =
-                                          _currentFilters['Status'];
+                                      final current = _currentFilters['Status'];
                                       final next = {..._currentFilters};
                                       if (current != null &&
                                           current.length == 1 &&
@@ -1396,7 +1402,9 @@ class _StudentScreenState extends State<StudentScreen> {
                             return Container(
                               margin: EdgeInsets.only(
                                 top: isTablet ? AppSpacing.xs : AppSpacing.xs,
-                                bottom: isTablet ? AppSpacing.xs : AppSpacing.xs,
+                                bottom: isTablet
+                                    ? AppSpacing.xs
+                                    : AppSpacing.xs,
                               ),
                               child: CustomStatBarCard(
                                 title: StudentStrings.expectedNstudents,
@@ -1483,7 +1491,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                       clipBehavior: Clip.none,
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.all(AppSpacing.xs),
+                                          padding: const EdgeInsets.all(
+                                            AppSpacing.xs,
+                                          ),
                                           child: SvgPicture.asset(
                                             MediaRes.filterIcon,
                                             height: 20,
@@ -1552,7 +1562,9 @@ class _StudentScreenState extends State<StudentScreen> {
                                                   color: AppColors
                                                       .attendanceDangerAccentColor,
                                                   borderRadius:
-                                                      BorderRadius.circular(AppRadius.r10),
+                                                      BorderRadius.circular(
+                                                        AppRadius.r10,
+                                                      ),
                                                 ),
                                                 child: Text(
                                                   badgeCount > 99
@@ -1620,15 +1632,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                       label: '',
                                       isToggled: _showInactive,
                                       onToggle: (v) async {
-                                        await _applyFiltersToCubit(
-                                          {
-                                            ..._currentFilters,
-                                            'Status': [
-                                              v ? 'Inactive' : 'Active',
-                                            ],
-                                          },
-                                          showInactive: v,
-                                        );
+                                        await _applyFiltersToCubit({
+                                          ..._currentFilters,
+                                          'Status': [v ? 'Inactive' : 'Active'],
+                                        }, showInactive: v);
 
                                         if (!mounted) return;
                                         final err = context
@@ -1641,8 +1648,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                           CoreUtils.showTopSnackBar(
                                             context: context,
                                             message: v
-                                                ? StudentStrings.showingInactiveStudents
-                                                : StudentStrings.showingActiveStudents,
+                                                ? StudentStrings
+                                                      .showingInactiveStudents
+                                                : StudentStrings
+                                                      .showingActiveStudents,
                                             isSuccess: true,
                                           );
                                         }
@@ -1754,7 +1763,8 @@ class _StudentScreenState extends State<StudentScreen> {
                                         studentMap['Classroom'] as String,
                                     tags: studentMap['Tags'] as List<String>,
                                     sibling:
-                                        studentMap['sibling'] as StudentSiblingInfo,
+                                        studentMap['sibling']
+                                            as StudentSiblingInfo,
                                     schedule:
                                         studentMap['schedule'] as List<String>,
                                     scheduleByDay:

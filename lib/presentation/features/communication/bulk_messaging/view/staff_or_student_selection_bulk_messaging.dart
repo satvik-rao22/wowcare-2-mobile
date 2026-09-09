@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
@@ -10,26 +10,26 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/recipient_selection_state.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
 import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../../app/theme/colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../app/theme/media_res.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../core/theme/app_media_res.dart';
+import '../../../../../core/utils/core_utils.dart';
+import '../../../../../core/utils/safe_state_mixin.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
-import '../../../classroom/views/filters/designation_display_utils.dart';
+import '../../../classroom/view/filters/designation_display_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
-import '../../../students/cubit/student_cubit.dart';
+import '../../../students/view_model/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {

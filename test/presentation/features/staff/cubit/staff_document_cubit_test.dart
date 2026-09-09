@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/add_staff_document_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/update_staff_document_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_document_cubit.dart';
 
 /// Hand-written fake standing in for the [StaffRepository] add/update document
 /// calls the cubit routes through its use cases. Both writes park on an

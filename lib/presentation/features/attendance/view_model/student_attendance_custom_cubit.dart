@@ -2,8 +2,8 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';

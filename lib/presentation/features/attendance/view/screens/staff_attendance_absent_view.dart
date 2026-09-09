@@ -16,17 +16,17 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStaffModel {

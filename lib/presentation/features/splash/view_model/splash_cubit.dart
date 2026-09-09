@@ -8,8 +8,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
@@ -18,8 +18,8 @@ import 'package:wowcare/domain/features/notifications/usecases/register_device_f
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart'
     show consumePendingNotificationDeepLink, consumePendingNotificationOrgSchool;
 

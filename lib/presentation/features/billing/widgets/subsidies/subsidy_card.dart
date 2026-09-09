@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/billing/view_model/subsidies_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class SubsidyCard extends StatefulWidget {

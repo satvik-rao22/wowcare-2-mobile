@@ -1,13 +1,13 @@
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -16,21 +16,21 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
 import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
 import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_edit_cubit.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
@@ -1072,7 +1072,8 @@ class _EditStudentProfileDetailsScreenState
                               !_isTodayStatusLoading && !_isSignedInToday,
                           disabledTooltip: _isTodayStatusLoading
                               ? null
-                              : StudentStrings.classroomCantBeChangedWhileSignedIn,
+                              : StudentStrings
+                                    .classroomCantBeChangedWhileSignedIn,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
@@ -1085,9 +1086,16 @@ class _EditStudentProfileDetailsScreenState
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField(StudentStrings.dateOfBirth, _selectedBirthDate),
+                        _buildDateField(
+                          StudentStrings.dateOfBirth,
+                          _selectedBirthDate,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField(StudentStrings.notes, "", _notesController),
+                        _buildInputField(
+                          StudentStrings.notes,
+                          "",
+                          _notesController,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
                           label: StudentStrings.siblings,
@@ -1292,7 +1300,9 @@ class _EditStudentProfileDetailsScreenState
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

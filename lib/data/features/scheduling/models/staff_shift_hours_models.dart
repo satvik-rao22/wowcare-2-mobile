@@ -1,4 +1,4 @@
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
 import 'scheduling_json_parsing.dart';
 

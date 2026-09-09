@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';

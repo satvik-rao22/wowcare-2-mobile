@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 
 enum IndividualMovementAction { edit, confirm, reject, moveToPending, delete }
 
@@ -123,10 +123,7 @@ String _actionLabel(IndividualMovementAction a) {
 }
 
 class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.action,
-    required this.onTap,
-  });
+  const _ActionTile({required this.action, required this.onTap});
 
   final IndividualMovementAction action;
   final VoidCallback onTap;
@@ -150,7 +147,9 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _isDestructive ? AppColors.errorColor : AppColors.primaryColor;
+    final color = _isDestructive
+        ? AppColors.errorColor
+        : AppColors.primaryColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(

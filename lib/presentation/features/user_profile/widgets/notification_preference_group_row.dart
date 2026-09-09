@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/domain/features/notifications/entities/notification_preference_group.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 

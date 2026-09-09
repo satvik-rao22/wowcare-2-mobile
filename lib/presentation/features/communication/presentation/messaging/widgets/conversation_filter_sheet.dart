@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 /// Filter bottom sheet for STAFF_DIRECT conversations.

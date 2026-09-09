@@ -1,5 +1,5 @@
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';

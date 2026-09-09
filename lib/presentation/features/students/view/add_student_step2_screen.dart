@@ -6,25 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_create_cubit.dart';
+import 'package:wowcare/presentation/features/students/utils/profile_photo_background.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
@@ -485,8 +485,8 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               if (!mounted) return;
               CoreUtils.showTopSnackBar(
                 context: context,
-                message:
-                    StudentStrings.organizationIsMissingReSelectYourSchoolFromThe,
+                message: StudentStrings
+                    .organizationIsMissingReSelectYourSchoolFromThe,
                 isError: true,
               );
               return;
@@ -1096,7 +1096,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

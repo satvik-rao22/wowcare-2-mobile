@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/view_model/auto_pay_methods_cubit.dart';
 import 'package:go_router/go_router.dart';

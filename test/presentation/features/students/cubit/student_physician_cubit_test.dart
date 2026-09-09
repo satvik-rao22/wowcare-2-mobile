@@ -7,7 +7,7 @@ import 'package:wowcare/domain/features/student/usecases/add_physician_usecase.d
 import 'package:wowcare/domain/features/student/usecases/delete_physician_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_physicians_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_physician_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_physician_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_physician_cubit.dart';
 
 StudentPhysician _physician(String code) => StudentPhysician(
   code: code,

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 // import 'package:wowcare/core/common/widgets/simmer_loader.dart';
 // import 'package:wowcare/core/extentions/context_extentions.dart';
 // import 'package:wowcare/core/res/decorations.dart';
-// import 'package:wowcare/core/util/color_utils.dart';
-// import 'package:wowcare/core/util/string_utils.dart';
+// import 'package:wowcare/core/utils/color_utils.dart';
+// import 'package:wowcare/core/utils/string_utils.dart';
 
 class CustomProfileAvatar extends StatelessWidget {
   const CustomProfileAvatar({

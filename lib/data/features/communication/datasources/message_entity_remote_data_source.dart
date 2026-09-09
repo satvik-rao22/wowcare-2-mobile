@@ -1,9 +1,9 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
 import 'package:wowcare/data/features/communication/models/send_message_request.dart';
 import 'package:wowcare/data/features/communication/models/edit_message_request.dart';

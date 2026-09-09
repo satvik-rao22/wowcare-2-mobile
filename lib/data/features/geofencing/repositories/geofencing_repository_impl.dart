@@ -1,6 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import '../../../../domain/features/geofencing/entities/attendance_settings_entity.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
 import '../../../../domain/features/geofencing/entities/location_permission_level.dart';

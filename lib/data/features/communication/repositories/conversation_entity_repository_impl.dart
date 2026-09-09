@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';

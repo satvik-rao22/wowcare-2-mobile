@@ -1,6 +1,6 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 
 /// DI wiring for [ConversationListCubit], kept OUT of the presentation layer
 /// (Mandate 5: views reference no `serviceLocator`).

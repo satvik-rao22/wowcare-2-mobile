@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,22 +19,22 @@ import 'package:wowcare/presentation/features/attendance/view/screens/widgets/st
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
 import 'package:wowcare/data/features/attendance/models/student_attendance_absent_view_response_model.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
 
 // Dummy data model for UI-only implementation

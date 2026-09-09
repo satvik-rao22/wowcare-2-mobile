@@ -1,10 +1,10 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import '../models/staff_models.dart';
 import '../models/staff_count_models.dart';
 import '../models/staff_document_models.dart';

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
@@ -11,14 +11,14 @@ import 'package:wowcare/presentation/features/newsletter/model/newsletter_list_i
 import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 import 'package:wowcare/data/features/newsletter/mappers/newsletter_entity_mapper.dart';
 import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/send_newsletter_list.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart'
     show GeneratedReportItem;
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';

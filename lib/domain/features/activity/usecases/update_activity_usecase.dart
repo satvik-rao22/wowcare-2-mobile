@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import '../entities/activity_parameter_value.dart';
 import '../repositories/activity_repository.dart';

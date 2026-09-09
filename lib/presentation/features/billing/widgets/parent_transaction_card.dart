@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
@@ -11,8 +11,8 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/core/util/billing_school_time.dart';
+import 'package:wowcare/core/utils/date_utils.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 /// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {

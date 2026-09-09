@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).

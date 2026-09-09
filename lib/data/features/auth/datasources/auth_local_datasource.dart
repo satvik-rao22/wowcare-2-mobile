@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/jwt_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/jwt_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
 abstract class AuthLocalDataSource {

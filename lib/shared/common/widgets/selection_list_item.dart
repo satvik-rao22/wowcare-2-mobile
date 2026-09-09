@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'custom_checkbox.dart';
 import 'ellipsis_tooltip_text.dart';
 import 'profile_show_widget.dart';

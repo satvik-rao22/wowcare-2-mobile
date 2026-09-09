@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Loading placeholder that mirrors [NewsletterSentListCard] so the list
 /// keeps its shape while the first page is fetched.

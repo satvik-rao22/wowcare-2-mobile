@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/util/idempotency_key.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
 
 /// Adapter that records the request it is asked to send and returns 200, so we
 /// can inspect exactly which headers went out on the replayed request.

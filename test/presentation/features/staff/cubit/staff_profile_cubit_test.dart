@@ -3,7 +3,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 
 StaffProfile _profile(String staffCode) => StaffProfile(
   staffCode: staffCode,

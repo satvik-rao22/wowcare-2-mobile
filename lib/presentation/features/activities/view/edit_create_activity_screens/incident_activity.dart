@@ -15,10 +15,10 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/guardian_code_resolver.dart';
-import '../../../../../core/util/logger_service.dart';
+import '../../../../../core/utils/api_error_handler.dart';
+import '../../../../../core/utils/core_utils.dart';
+import '../../../../../core/utils/guardian_code_resolver.dart';
+import '../../../../../core/utils/logger_service.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
@@ -26,7 +26,7 @@ import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/incident_activity_cubit.dart';
-import '../../../../../shared/common/app/cubit/role_cubit.dart';
+import '../../../../../shared/common/app/cubits/role_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';

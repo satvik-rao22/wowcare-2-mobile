@@ -1,5 +1,5 @@
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../../domain/features/classroom/entities/classroom_details.dart';
 import '../../../../domain/features/classroom/entities/classroom_logo_upload_session.dart';

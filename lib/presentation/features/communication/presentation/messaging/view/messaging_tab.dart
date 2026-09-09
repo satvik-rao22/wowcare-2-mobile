@@ -2,15 +2,15 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import '../../../../../../app/theme/colors.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 
 class MessagingTab extends StatefulWidget {

@@ -1,10 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;

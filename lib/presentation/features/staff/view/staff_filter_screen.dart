@@ -4,10 +4,10 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view/filters/designation_display_utils.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_filter_data.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 

@@ -1,6 +1,6 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/utils/school_timezone_resolver.dart';
 
 /// Resolves and caches the current school's IANA timezone for scheduling
 /// screens. [SchoolTimezoneResolver] caches its result internally, so

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Themed floating overlay for newsletter image preview (replaces full-screen black viewer).
 Future<void> showNewsletterImagePreview(

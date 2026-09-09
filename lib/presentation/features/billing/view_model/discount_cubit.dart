@@ -3,7 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/delete_discount_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/deactivate_discount_usecase.dart';

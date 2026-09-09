@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
-import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -812,8 +812,9 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                                 initialCdaExaminationDate: _parseIsoDate(
                                   cda?.dueDate,
                                 ),
-                                initialFirstAidCprExpirationDate:
-                                    _parseIsoDate(firstAid?.dueDate),
+                                initialFirstAidCprExpirationDate: _parseIsoDate(
+                                  firstAid?.dueDate,
+                                ),
                                 initialBackgroundRecordCheckExpirationDate:
                                     _parseIsoDate(brc?.dueDate),
                                 initialPhysicalCheckupDate: _parseIsoDate(

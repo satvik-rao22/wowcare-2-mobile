@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import 'scheduling_json_parsing.dart';
 

@@ -14,7 +14,7 @@ import 'package:wowcare/domain/features/student/usecases/update_student_address_
 import 'package:wowcare/domain/features/student/usecases/update_student_profile_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_siblings_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_profile_edit_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_edit_cubit.dart';
 
 const _profileReq = UpdateStudentProfileRequest(
   firstName: 'A',

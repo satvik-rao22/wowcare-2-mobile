@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 
 /// Reusable text style widgets following the design patterns from staff_card.dart
 class AppTextStyles {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
 
 /// Characterisation test (Mandate 8) for the two message sub-DTOs converted to

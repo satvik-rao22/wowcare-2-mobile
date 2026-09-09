@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/text_field.dart';
 
 class SignInForm extends StatelessWidget {

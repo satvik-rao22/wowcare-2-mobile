@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 /// Minimal in-memory [StorageService] fake. Only the string operations this

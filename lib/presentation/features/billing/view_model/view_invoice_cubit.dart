@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';

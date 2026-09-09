@@ -5,15 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local

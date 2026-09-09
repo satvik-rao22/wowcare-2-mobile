@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';

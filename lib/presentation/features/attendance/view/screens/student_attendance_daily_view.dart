@@ -1,20 +1,20 @@
 import 'dart:async' show unawaited;
 
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -33,12 +33,12 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_d
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/attendance_attended_duration.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/attendance_attended_duration.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_edit_attendance_form.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
