@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
@@ -12,6 +12,8 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/model/user_persona.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({
@@ -70,6 +72,12 @@ class _MessagingScreenState extends State<MessagingScreen>
   // conversation list/thread state from the previous school/persona kept
   // showing (now pointing at wiped/empty caches) until the user manually
   // navigated away and back.
+  //
+  // Mandate 2: this stays `setState` deliberately. It is not UI micro-state
+  // nor business data — it is a whole-subtree re-key trigger, and the
+  // `BlocProvider` it re-keys wraps the entire body, so a `ValueNotifier` +
+  // `ValueListenableBuilder` would rebuild exactly the same subtree with no
+  // scoping win, while adding risk to load-bearing switch-invalidation.
   int _contextReloadEpoch = 0;
 
   @override
@@ -151,7 +159,7 @@ class _MessagingScreenState extends State<MessagingScreen>
 
     return BlocProvider<CommunicationCubit>(
       key: ValueKey('communication_cubit_$_contextReloadEpoch'),
-      create: (context) => serviceLocator<CommunicationCubit>(),
+      create: (context) => resolveCommunicationCubit(),
       child: GlobalScaffold(
         hasBackButton: !isParentPersona,
         showCustomNavigationBar: !isLandscape,
@@ -163,29 +171,25 @@ class _MessagingScreenState extends State<MessagingScreen>
                 controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                dividerColor: Colors.transparent,
+                dividerColor: AppColors.transparentColor,
                 indicator: const UnderlineTabIndicator(
                   borderSide: BorderSide(color: AppColors.themeColor),
                 ),
                 indicatorPadding: const EdgeInsets.only(bottom: 8),
-                labelStyle: const TextStyle(
-                  color: Color(0xFF241631),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
+                labelStyle: AppTextStyles.size16.copyWith(
+                  color: AppColors.messagingTabLabel,
                   fontWeight: FontWeight.w500,
                 ),
-                unselectedLabelStyle: TextStyle(
+                unselectedLabelStyle: AppTextStyles.size16.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontFamily: 'Manrope',
-                  fontSize: 16,
                 ),
-                labelColor: const Color(0xFF241631),
+                labelColor: AppColors.messagingTabLabel,
                 unselectedLabelColor: AppColors.primaryColor.withValues(
                   alpha: 0.5,
                 ),
                 tabs: const [
-                  Tab(text: 'Messaging'),
-                  Tab(text: 'Newsletter'),
+                  Tab(text: AppStrings.messagingTitle),
+                  Tab(text: AppStrings.newsletter),
                 ],
               ),
             if (isParentPersona)

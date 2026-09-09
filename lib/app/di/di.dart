@@ -2703,6 +2703,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       discardCachedMessageUseCase:
           serviceLocator<DiscardCachedMessageUseCase>(),
       getMessageReceiptsUseCase: serviceLocator<GetMessageReceiptsUseCase>(),
+      createOrOpenConversationUseCase:
+          serviceLocator<CreateOrOpenConversationUseCase>(),
+      communicationRepository: serviceLocator<CommunicationRepository>(),
+      getTagNameCodeMapUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getConversationEntityUseCase:
+          serviceLocator<GetConversationEntityUseCase>(),
     ),
   );
 

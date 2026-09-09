@@ -1,11 +1,25 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'conversation_model.dart';
 
+part 'get_conversations_response.g.dart';
+
+/// Response envelope for `GET /conversations` (and search). Inbound only —
+/// never serialised out, so `createToJson: false`. `@JsonKey` defaults
+/// reproduce the previous hand-written parser exactly.
+@JsonSerializable(createToJson: false)
 class GetConversationsResponse extends Equatable {
+  @JsonKey(defaultValue: false)
   final bool success;
+
+  @JsonKey(defaultValue: '')
   final String message;
+
   final ConversationsData? data;
+
+  @JsonKey(defaultValue: '')
   final String timestamp;
+
   final String? correlationId;
 
   const GetConversationsResponse({
@@ -16,30 +30,37 @@ class GetConversationsResponse extends Equatable {
     this.correlationId,
   });
 
-  factory GetConversationsResponse.fromJson(Map<String, dynamic> json) {
-    return GetConversationsResponse(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
-      data: json['data'] != null
-          ? ConversationsData.fromJson(json['data'] as Map<String, dynamic>)
-          : null,
-      timestamp: json['timestamp'] as String? ?? '',
-      correlationId: json['correlationId'] as String?,
-    );
-  }
+  factory GetConversationsResponse.fromJson(Map<String, dynamic> json) =>
+      _$GetConversationsResponseFromJson(json);
 
   @override
   List<Object?> get props => [success, message, data, timestamp, correlationId];
 }
 
+@JsonSerializable(createToJson: false)
 class ConversationsData extends Equatable {
+  @JsonKey(defaultValue: [])
   final List<ConversationModel> content;
+
+  @JsonKey(defaultValue: 0)
   final int totalElements;
+
+  @JsonKey(defaultValue: 0)
   final int totalPages;
+
+  @JsonKey(defaultValue: 0)
   final int size;
+
+  @JsonKey(defaultValue: 0)
   final int number;
+
+  @JsonKey(defaultValue: true)
   final bool first;
+
+  @JsonKey(defaultValue: true)
   final bool last;
+
+  @JsonKey(defaultValue: true)
   final bool empty;
 
   const ConversationsData({
@@ -53,31 +74,18 @@ class ConversationsData extends Equatable {
     required this.empty,
   });
 
-  factory ConversationsData.fromJson(Map<String, dynamic> json) {
-    return ConversationsData(
-      content: (json['content'] as List<dynamic>?)
-              ?.map((e) => ConversationModel.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      totalElements: json['totalElements'] as int? ?? 0,
-      totalPages: json['totalPages'] as int? ?? 0,
-      size: json['size'] as int? ?? 0,
-      number: json['number'] as int? ?? 0,
-      first: json['first'] as bool? ?? true,
-      last: json['last'] as bool? ?? true,
-      empty: json['empty'] as bool? ?? true,
-    );
-  }
+  factory ConversationsData.fromJson(Map<String, dynamic> json) =>
+      _$ConversationsDataFromJson(json);
 
   @override
   List<Object?> get props => [
-        content,
-        totalElements,
-        totalPages,
-        size,
-        number,
-        first,
-        last,
-        empty,
-      ];
+    content,
+    totalElements,
+    totalPages,
+    size,
+    number,
+    first,
+    last,
+    empty,
+  ];
 }

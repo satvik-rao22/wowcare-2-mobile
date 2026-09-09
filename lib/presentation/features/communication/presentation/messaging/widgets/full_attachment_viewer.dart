@@ -8,10 +8,32 @@ import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../shared/utils/attachment_open_helper.dart';
 import '../../../shared/utils/attachment_url_resolver.dart';
-import 'show_full_screen_media_view.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
+
+/// Resolves [att] and opens the full-screen media viewer route. Top-level so
+/// the extracted layout widgets can call it directly (Mandate 6 — the layout
+/// `_buildXxx` methods became `StatelessWidget`s).
+Future<void> _openFullScreen(BuildContext context, ChatAttachment att) async {
+  final resolvedUrl = await resolveAttachmentUrl(att);
+  if (!context.mounted) return;
+  context.push(
+    CommunicationRoutes.mediaViewer,
+    extra: MediaViewerArgs(
+      imageUrl: (resolvedUrl != null && resolvedUrl.isNotEmpty)
+          ? resolvedUrl
+          : (att.remoteUrl.isNotEmpty ? att.remoteUrl : null),
+      imageFile: att.localPath != null ? File(att.localPath!) : null,
+      title: att.name,
+    ),
+  );
+}
 
 class FullAttachmentViewer extends StatelessWidget {
   final List<ChatAttachment> attachments;
@@ -24,52 +46,94 @@ class FullAttachmentViewer extends StatelessWidget {
   List<ChatAttachment> get _documents =>
       attachments.where((a) => !a.isImage).toList();
 
-  Widget _buildImageGrid(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final images = _images;
-    if (images.isEmpty) return const SizedBox.shrink();
+    final documents = _documents;
+    final hasImages = images.isNotEmpty;
+    final hasDocuments = documents.isNotEmpty;
 
-    // Instagram-style layouts based on image count
-    if (images.length == 1) {
-      return _buildSingleImageLayout(context, images[0]);
-    } else if (images.length == 2) {
-      return _buildTwoImageLayout(context, images);
-    } else if (images.length == 3) {
-      return _buildThreeImageLayout(context, images);
-    } else {
-      return _buildGridLayout(context, images);
-    }
-  }
-
-  Widget _buildSingleImageLayout(BuildContext context, ChatAttachment att) {
-    return GestureDetector(
-      onTap: () => _openFullScreen(context, att),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: _buildImageWithPlaceholder(att),
+    return Scaffold(
+      appBar: AppBar(
+        title: const CustomTextWidget(text: AppStrings.attachments),
+        elevation: 0,
+        backgroundColor: AppColors.cardColor,
+        foregroundColor: AppColors.primaryColor,
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImages) _ImageGrid(images: images),
+            if (hasImages && hasDocuments)
+              const Divider(color: AppColors.messagingBorderColor, height: 1),
+            if (hasDocuments) _DocumentCards(documents: documents),
+            if (!hasImages && !hasDocuments) const _EmptyAttachments(),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildTwoImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+/// Instagram-style image layout, chosen by image count.
+class _ImageGrid extends StatelessWidget {
+  const _ImageGrid({required this.images});
+
+  final List<ChatAttachment> images;
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.isEmpty) return const SizedBox.shrink();
+    if (images.length == 1) return _SingleImageLayout(image: images[0]);
+    if (images.length == 2) return _TwoImageLayout(images: images);
+    if (images.length == 3) return _ThreeImageLayout(images: images);
+    return _GridLayout(images: images);
+  }
+}
+
+class _SingleImageLayout extends StatelessWidget {
+  const _SingleImageLayout({required this.image});
+
+  final ChatAttachment image;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _openFullScreen(context, image),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSizes.md),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _ImageWithPlaceholder(attachment: image),
+        ),
+      ),
+    );
+  }
+}
+
+class _TwoImageLayout extends StatelessWidget {
+  const _TwoImageLayout({required this.images});
+
+  final List<ChatAttachment> images;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.md),
       child: Row(
         children: List.generate(
           2,
           (index) => Expanded(
             child: Padding(
-              padding: EdgeInsets.only(right: index == 0 ? 4 : 0),
+              padding: EdgeInsets.only(right: index == 0 ? AppSizes.xxs : 0),
               child: GestureDetector(
                 onTap: () => _openFullScreen(context, images[index]),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: _buildImageWithPlaceholder(images[index]),
+                    child: _ImageWithPlaceholder(attachment: images[index]),
                   ),
                 ),
               ),
@@ -79,11 +143,17 @@ class FullAttachmentViewer extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildThreeImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+class _ThreeImageLayout extends StatelessWidget {
+  const _ThreeImageLayout({required this.images});
+
+  final List<ChatAttachment> images;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.md),
       child: Column(
         children: [
           GestureDetector(
@@ -92,24 +162,26 @@ class FullAttachmentViewer extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 2,
-                child: _buildImageWithPlaceholder(images[0]),
+                child: _ImageWithPlaceholder(attachment: images[0]),
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSizes.xxs),
           Row(
             children: List.generate(
               2,
               (index) => Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(right: index == 0 ? 4 : 0),
+                  padding: EdgeInsets.only(right: index == 0 ? AppSizes.xxs : 0),
                   child: GestureDetector(
                     onTap: () => _openFullScreen(context, images[index + 1]),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: AspectRatio(
                         aspectRatio: 1,
-                        child: _buildImageWithPlaceholder(images[index + 1]),
+                        child: _ImageWithPlaceholder(
+                          attachment: images[index + 1],
+                        ),
                       ),
                     ),
                   ),
@@ -121,17 +193,24 @@ class FullAttachmentViewer extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildGridLayout(BuildContext context, List<ChatAttachment> images) {
+class _GridLayout extends StatelessWidget {
+  const _GridLayout({required this.images});
+
+  final List<ChatAttachment> images;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.md),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
+          crossAxisSpacing: AppSizes.xxs,
+          mainAxisSpacing: AppSizes.xxs,
           childAspectRatio: 1,
         ),
         itemCount: images.length,
@@ -140,25 +219,32 @@ class FullAttachmentViewer extends StatelessWidget {
             onTap: () => _openFullScreen(context, images[index]),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: _buildImageWithPlaceholder(images[index]),
+              child: _ImageWithPlaceholder(attachment: images[index]),
             ),
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildImageWithPlaceholder(ChatAttachment att) {
+class _ImageWithPlaceholder extends StatelessWidget {
+  const _ImageWithPlaceholder({required this.attachment});
+
+  final ChatAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
     return AttachmentUrlResolver(
-      attachment: att,
+      attachment: attachment,
       builder: (context, resolvedUrl, isLoading, isProcessing) {
         final resolved = (resolvedUrl != null && resolvedUrl.isNotEmpty)
-            ? att.copyWith(remoteUrl: resolvedUrl)
-            : att;
+            ? attachment.copyWith(remoteUrl: resolvedUrl)
+            : attachment;
         final source = resolved.displaySource;
         if (source == null) {
           return Container(
-            color: Colors.grey[200],
+            color: AppColors.messagingSurfaceMuted,
             child: Center(
               child: isLoading
                   ? const PrimaryCircularLoader(size: 28, strokeWidth: 2.5)
@@ -166,21 +252,20 @@ class FullAttachmentViewer extends StatelessWidget {
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const PrimaryCircularLoader(
-                          size: 28,
-                          strokeWidth: 2.5,
-                        ),
-                        const SizedBox(height: 8),
+                        const PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
+                        const SizedBox(height: AppSizes.xs),
                         Text(
-                          'Processing…',
-                          style: TextStyle(color: Colors.grey[700]),
+                          AppStrings.processing,
+                          style: TextStyle(
+                            color: AppColors.messagingChipTextUnselected,
+                          ),
                         ),
                       ],
                     )
                   : const Icon(
                       Icons.image_not_supported_outlined,
                       size: 48,
-                      color: Colors.grey,
+                      color: AppColors.messagingIconMuted,
                     ),
             ),
           );
@@ -197,69 +282,90 @@ class FullAttachmentViewer extends StatelessWidget {
       },
     );
   }
+}
 
-  Widget _buildDocumentCards(BuildContext context) {
-    final documents = _documents;
+class _DocumentCards extends StatelessWidget {
+  const _DocumentCards({required this.documents});
+
+  final List<ChatAttachment> documents;
+
+  @override
+  Widget build(BuildContext context) {
     if (documents.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.md,
+            AppSizes.lg,
+            AppSizes.md,
+            AppSizes.sm,
+          ),
           child: CustomTextWidget(
-            text: 'Documents (${documents.length})',
+            text: AppStrings.documentsCount(documents.length),
             fontSize: 16,
             fontWeight: FontWeight.w600,
             fontColor: AppColors.primaryColor,
           ),
         ),
-        ...documents.map((doc) => _buildDocumentCard(context, doc)),
+        ...documents.map((doc) => _DocumentCard(document: doc)),
       ],
     );
   }
+}
 
-  Widget _buildDocumentCard(
-      BuildContext context, ChatAttachment document) {
-    final iconData = Thumbnailer.getIconDataForMimeType(document.mimeType) ??
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard({required this.document});
+
+  final ChatAttachment document;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconData =
+        Thumbnailer.getIconDataForMimeType(document.mimeType) ??
         FontAwesomeIcons.file;
-    final isPdf = document.mimeType.contains('pdf') ||
+    final isPdf =
+        document.mimeType.contains('pdf') ||
         document.name.toLowerCase().endsWith('.pdf');
     final iconColor = isPdf
-        ? Colors.red
+        ? AppColors.messagingFilePdf
         : iconData == FontAwesomeIcons.fileExcel
-            ? Colors.green.shade700
-            : iconData == FontAwesomeIcons.filePowerpoint
-                ? Colors.orange.shade800
-                : iconData == FontAwesomeIcons.fileWord
-                    ? Colors.blue.shade700
-                    : AppColors.primaryColor;
-    final fileSize =
-        (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
+        ? AppColors.messagingFileExcel
+        : iconData == FontAwesomeIcons.filePowerpoint
+        ? AppColors.messagingFilePowerpoint
+        : iconData == FontAwesomeIcons.fileWord
+        ? AppColors.messagingFileWord
+        : AppColors.primaryColor;
+    final fileSize = (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.md,
+        vertical: AppSizes.xs,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => AttachmentOpenHelper.open(context, document),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.shade200,
+              color: AppColors.messagingSurfaceMuted,
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: AppColors.blackColor.withValues(alpha: 0.04),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSizes.sm),
             child: Row(
               children: [
                 Container(
@@ -270,14 +376,10 @@ class FullAttachmentViewer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
-                    child: FaIcon(
-                      iconData,
-                      color: iconColor,
-                      size: 24,
-                    ),
+                    child: FaIcon(iconData, color: iconColor, size: 24),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSizes.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,22 +390,19 @@ class FullAttachmentViewer extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSizes.xxs),
                       CustomTextWidget(
                         text: '$fileSize MB • ${document.type.toUpperCase()}',
                         fontSize: 12,
-                        fontColor: Colors.grey[600],
+                        fontColor: AppColors.messagingTextMeta,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSizes.xs),
                 IconButton(
                   onPressed: () => AttachmentOpenHelper.open(context, document),
-                  icon: const Icon(
-                    Icons.download_outlined,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.download_outlined, size: 20),
                   color: AppColors.primaryColor,
                 ),
               ],
@@ -313,65 +412,29 @@ class FullAttachmentViewer extends StatelessWidget {
       ),
     );
   }
+}
 
-  Future<void> _openFullScreen(BuildContext context, ChatAttachment att) async {
-    final resolvedUrl = await resolveAttachmentUrl(att);
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ShowFullScreenMediaView(
-          imageUrl: (resolvedUrl != null && resolvedUrl.isNotEmpty)
-              ? resolvedUrl
-              : (att.remoteUrl.isNotEmpty ? att.remoteUrl : null),
-          imageFile: att.localPath != null ? File(att.localPath!) : null,
-          title: att.name,
-        ),
-      ),
-    );
-  }
+class _EmptyAttachments extends StatelessWidget {
+  const _EmptyAttachments();
 
   @override
   Widget build(BuildContext context) {
-    final hasImages = _images.isNotEmpty;
-    final hasDocuments = _documents.isNotEmpty;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const CustomTextWidget(text: 'Attachments'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.primaryColor,
-      ),
-      body: SingleChildScrollView(
+    return Padding(
+      padding: const EdgeInsets.all(AppSizes.xxl),
+      child: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (hasImages) _buildImageGrid(context),
-            if (hasImages && hasDocuments)
-              Divider(color: Colors.grey[300], height: 1),
-            if (hasDocuments) _buildDocumentCards(context),
-            if (!hasImages && !hasDocuments)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.folder_open_outlined,
-                        size: 80,
-                        color: Colors.grey[300],
-                      ),
-                      const SizedBox(height: 16),
-                      CustomTextWidget(
-                        text: 'No attachments',
-                        fontSize: 16,
-                        fontColor: Colors.grey[600],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            const Icon(
+              Icons.folder_open_outlined,
+              size: 80,
+              color: AppColors.messagingBorderColor,
+            ),
+            const SizedBox(height: AppSizes.md),
+            CustomTextWidget(
+              text: AppStrings.noAttachments,
+              fontSize: 16,
+              fontColor: AppColors.messagingTextMeta,
+            ),
           ],
         ),
       ),
@@ -434,15 +497,15 @@ class _ResilientImageState extends State<_ResilientImage> {
   }
 
   Widget _broken() => Container(
-        color: Colors.grey[200],
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: Colors.grey,
-          ),
-        ),
-      );
+    color: AppColors.messagingSurfaceMuted,
+    child: const Center(
+      child: Icon(
+        Icons.broken_image_outlined,
+        size: 48,
+        color: AppColors.messagingIconMuted,
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +514,7 @@ class _ResilientImageState extends State<_ResilientImage> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return Container(
-            color: Colors.grey[200],
+            color: AppColors.messagingSurfaceMuted,
             child: const Center(
               child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
             ),

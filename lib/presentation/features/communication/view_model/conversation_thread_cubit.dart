@@ -1,11 +1,17 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:dartz/dartz.dart' show Either;
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
@@ -13,7 +19,7 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
+import 'package:wowcare/data/services/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
@@ -29,6 +35,16 @@ import 'package:wowcare/domain/features/communication/usecases/remove_reaction_u
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
 import 'conversation_thread_state.dart';
+
+/// Default foreground check for [ConversationThreadCubit] — reads the real
+/// [WidgetsBinding] lifecycle. Injected (rather than called directly in the
+/// cubit) so the mark-read path is unit-testable without a widget binding
+/// (Mandate 5: platform access behind an injected seam).
+bool _widgetsBindingForegrounded() {
+  final lifecycle = WidgetsBinding.instance.lifecycleState;
+  return lifecycle != AppLifecycleState.paused &&
+      lifecycle != AppLifecycleState.detached;
+}
 
 /// Manages the full message thread for a single conversation.
 ///
@@ -59,10 +75,21 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required CacheDraftMessageUseCase cacheDraftMessageUseCase,
     required MarkDraftMessageFailedUseCase markDraftMessageFailedUseCase,
     required GetCachedMessagesEntityUseCase getCachedMessagesEntityUseCase,
+    required StorageService storageService,
+    required ConversationEntityRepository conversationRepository,
+    required GetClassroomRosterPresentUserCodesUseCase getClassroomRosterUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
     bool isDraft = false,
     Future<ConversationEntity?> Function()? onResolveConversation,
+    PendingAttachmentStore pendingAttachmentStore =
+        const PendingAttachmentStoreImpl(),
+    bool Function() isAppForegrounded = _widgetsBindingForegrounded,
   }) : _currentUserCode = currentUserCode,
+       _storageService = storageService,
+       _conversationRepository = conversationRepository,
+       _getClassroomRosterUseCase = getClassroomRosterUseCase,
+       _pendingAttachmentStore = pendingAttachmentStore,
+       _isAppForegrounded = isAppForegrounded,
        _isDraft = isDraft,
        _onResolveConversation = onResolveConversation,
        _watchMessagesUseCase = watchMessagesUseCase,
@@ -93,6 +120,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        );
 
   final String _currentUserCode;
+  final StorageService _storageService;
+  final ConversationEntityRepository _conversationRepository;
+  final GetClassroomRosterPresentUserCodesUseCase _getClassroomRosterUseCase;
 
   /// True until a draft conversation (e.g. a classroom chat that doesn't exist
   /// yet) has been created on the server. While draft, realtime/API loads are
@@ -113,6 +143,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final DeleteAttachmentEntityUseCase _deleteAttachmentUseCase;
   final GetMessageEntityReceiptsUseCase _getMessageReceiptsUseCase;
   final ChatAttachmentUploader _attachmentUploader;
+  final PendingAttachmentStore _pendingAttachmentStore;
+  final bool Function() _isAppForegrounded;
   final AddReactionEntityUseCase _addReactionUseCase;
   final RemoveReactionUseCase _removeReactionUseCase;
   final MarkConversationReadUseCase _markConversationReadUseCase;
@@ -342,6 +374,42 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     emit(state.copyWith(conversation: conversation));
   }
 
+  /// Use-case/repository/storage access exposed so the thread view goes through
+  /// its owning cubit rather than resolving these directly (Mandate 5). Each
+  /// forwards to the injected dependency and returns its result unchanged — no
+  /// behaviour change.
+  Future<Either<Failure, Set<String>>> loadClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) => _getClassroomRosterUseCase(classroomCode);
+
+  Future<Either<Failure, ConversationEntity>> fetchConversation(String code) =>
+      _conversationRepository.getConversation(code);
+
+  Future<String?> readCurrentUserCode() =>
+      _storageService.getString(StorageKeys.userCode);
+
+  Future<String?> readDisplayName() =>
+      _storageService.getString(StorageKeys.displayName);
+
+  Future<String?> readOrganizationCode() =>
+      _storageService.getString(StorageKeys.organizationCode);
+
+  Future<String?> readActiveSchoolCode() =>
+      _storageService.getString(StorageKeys.schoolCode);
+
+  /// The active-persona backend role, via the app's single source of truth
+  /// ([resolveActiveBackendRole]) using the cubit's injected storage.
+  Future<String> resolveActiveViewerRole() =>
+      resolveActiveBackendRole(_storageService);
+
+  Future<String?> readComposerDraft(String key) =>
+      _storageService.getString(key);
+
+  Future<void> saveComposerDraft(String key, String text) =>
+      _storageService.saveString(key, text);
+
+  Future<void> removeComposerDraft(String key) => _storageService.remove(key);
+
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 
   /// Load messages from API. Used on first entry and as Firestore fallback.
@@ -564,7 +632,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // temp-dir path can promise (the OS is free to clear it at any time,
     // which silently blanks the preview even though the message/attachment
     // record itself is fine). See [PendingAttachmentStorage].
-    attachments = await PendingAttachmentStorage.persistLocally(attachments);
+    attachments = await _pendingAttachmentStore.persistLocally(attachments);
 
     final tempCode = 'temp-${AppTime.nowUtc().millisecondsSinceEpoch}';
 
@@ -755,7 +823,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         // The real delivery URL now renders fine — drop the durable local
         // copy [PendingAttachmentStorage] made so it doesn't sit around
         // forever. Fire-and-forget: never blocks showing the resolved image.
-        unawaited(PendingAttachmentStorage.delete(original.localFilePath));
+        unawaited(_pendingAttachmentStore.delete(original.localFilePath));
       } else {
         updatedAttachments.add(original);
       }
@@ -1173,12 +1241,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // snapshot emissions, so without the gate a message arriving while the recipient's app is
     // backgrounded would be stamped read — zeroing their unread badge for a message they never
     // actually saw (the unread badges are receipt-based).
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle == AppLifecycleState.paused ||
-        lifecycle == AppLifecycleState.detached) {
+    if (!_isAppForegrounded()) {
       debugPrint(
         '[UnreadDebug][markRead] SKIPPED conv=${state.conversationCode} '
-        '(lifecycle=$lifecycle)',
+        '(app backgrounded)',
       );
       return;
     }

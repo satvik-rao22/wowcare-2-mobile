@@ -1,23 +1,57 @@
+import 'package:json_annotation/json_annotation.dart';
 import '../../../../domain/features/communication/entities/communication_settings.dart';
 
-class CommunicationSettingsModel extends CommunicationSettings {
+part 'communication_settings_model.g.dart';
+
+/// API model for `GET /api/v1/messaging/communication-settings`.
+///
+/// Serialisation is generated (`json_serializable`); the `@JsonKey` defaults
+/// preserve the previous hand-written `fromJson` behaviour exactly — missing
+/// or null `schoolCode` → `''`, missing/null notify flags → `true`,
+/// `adminCanDeleteAny` → `false`, and `deleteTimeLimitMinutes` stays nullable
+/// (parsed as `num?` then `.toInt()` so a double-encoded value never throws).
+///
+/// The model is a plain DTO; [toEntity] maps it to the pure-Dart
+/// [CommunicationSettings] entity (mandate: entities carry no serialisation).
+@JsonSerializable()
+class CommunicationSettingsModel {
   const CommunicationSettingsModel({
-    required super.schoolCode,
-    required super.adminCanDeleteAny,
-    required super.deleteTimeLimitMinutes,
-    required super.notifyStaffToParent,
-    required super.notifyStaffToStaff,
-    required super.notifyParentToStaff,
+    required this.schoolCode,
+    required this.adminCanDeleteAny,
+    required this.deleteTimeLimitMinutes,
+    required this.notifyStaffToParent,
+    required this.notifyStaffToStaff,
+    required this.notifyParentToStaff,
   });
 
-  factory CommunicationSettingsModel.fromJson(Map<String, dynamic> json) {
-    return CommunicationSettingsModel(
-      schoolCode: (json['schoolCode'] as String?) ?? '',
-      adminCanDeleteAny: json['adminCanDeleteAny'] as bool? ?? false,
-      deleteTimeLimitMinutes: (json['deleteTimeLimitMinutes'] as num?)?.toInt(),
-      notifyStaffToParent: json['notifyStaffToParent'] as bool? ?? true,
-      notifyStaffToStaff: json['notifyStaffToStaff'] as bool? ?? true,
-      notifyParentToStaff: json['notifyParentToStaff'] as bool? ?? true,
-    );
-  }
+  @JsonKey(defaultValue: '')
+  final String schoolCode;
+
+  @JsonKey(defaultValue: false)
+  final bool adminCanDeleteAny;
+
+  final int? deleteTimeLimitMinutes;
+
+  @JsonKey(defaultValue: true)
+  final bool notifyStaffToParent;
+
+  @JsonKey(defaultValue: true)
+  final bool notifyStaffToStaff;
+
+  @JsonKey(defaultValue: true)
+  final bool notifyParentToStaff;
+
+  factory CommunicationSettingsModel.fromJson(Map<String, dynamic> json) =>
+      _$CommunicationSettingsModelFromJson(json);
+
+  Map<String, dynamic> toJson() => _$CommunicationSettingsModelToJson(this);
+
+  CommunicationSettings toEntity() => CommunicationSettings(
+    schoolCode: schoolCode,
+    adminCanDeleteAny: adminCanDeleteAny,
+    deleteTimeLimitMinutes: deleteTimeLimitMinutes,
+    notifyStaffToParent: notifyStaffToParent,
+    notifyStaffToStaff: notifyStaffToStaff,
+    notifyParentToStaff: notifyParentToStaff,
+  );
 }

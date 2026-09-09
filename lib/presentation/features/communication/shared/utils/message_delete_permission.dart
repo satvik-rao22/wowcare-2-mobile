@@ -1,5 +1,4 @@
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_communication_settings_usecase.dart';
+import 'package:wowcare/app/di/messaging_resolvers.dart';
 
 /// Resolves the `communication-settings` values [MessageBubble] needs to
 /// decide whether Delete shows on a message — see
@@ -31,7 +30,7 @@ class MessageDeletePermission {
     final code = schoolCode.trim();
     if (code.isEmpty) return none;
     try {
-      final result = await serviceLocator<GetCommunicationSettingsUseCase>()(
+      final result = await resolveGetCommunicationSettingsUseCase()(
         code,
       );
       return result.fold(

@@ -1200,4 +1200,275 @@ class AppColors {
   static final Color newsletterOverlaySurface = whiteColor.withValues(
     alpha: 0.95,
   );
+  // Communication / messaging (Mandate 4) — see
+  // lib/presentation/features/communication/. Semantic names; light-mode hex
+  // preserved exactly.
+  /// Hairline row divider between conversation-list tiles.
+  static const Color messagingDividerLight = Color(0xFFF1F3F5);
+  /// Secondary text: message preview, the private-mode lock icon.
+  static const Color messagingTextSecondary = Color(0xFF636E72);
+  /// Conversation-list timestamp (muted grey).
+  static const Color messagingTimestamp = Color(0xFFA0A0A0);
+  /// Unread-count badge fill (also its own drop-shadow at reduced alpha).
+  static const Color messagingUnreadBadge = Color(0xFF00B894);
+  /// Text/icon drawn ON a coloured messaging accent (e.g. the unread badge).
+  static const Color messagingOnAccent = Colors.white;
+  /// Subtle InkWell splash on a conversation tile.
+  static const Color messagingTileSplash = Color(0x1A6C5CE7);
+
+  // Participant role colour-coding (Mandate 4 — semantic). Chips tint by role;
+  // every chip also carries its role label text, so it stays distinguishable
+  // without colour.
+  /// ADMIN.
+  static const Color messagingRoleAdmin = Color(0xFF6C63FF);
+  /// GUARDIAN / PARENT.
+  static const Color messagingRoleGuardian = Color(0xFF00B4DB);
+  /// STAFF / TEACHER / LEAD_TEACHER.
+  static const Color messagingRoleStaff = Color(0xFFFF9F1C);
+  /// DIRECTOR / PRINCIPAL.
+  static const Color messagingRoleDirector = Color(0xFFE63946);
+  /// ASSISTANT_DIRECTOR.
+  static const Color messagingRoleAssistant = Color(0xFFF4A460);
+
+  /// Placeholder / empty-state text in messaging sheets (e.g. "No tags
+  /// available") — a cool muted grey.
+  static const Color messagingTextPlaceholder = Color(0xFFB2BEC3);
+
+  /// Field / chip outline in filter sheets (was Colors.grey[300]).
+  static const Color messagingBorderColor = Color(0xFFE0E0E0);
+  /// Input hint text in filter fields (was Colors.grey[400]).
+  static const Color messagingHintText = Color(0xFFBDBDBD);
+  /// Unselected filter-chip label (was Colors.grey[700]).
+  static const Color messagingChipTextUnselected = Color(0xFF616161);
+
+  /// Composer TextField outline (slate-200).
+  static const Color messagingInputBorder = Color(0xFFE2E8F0);
+  /// Composer TextField hint text.
+  static const Color messagingComposerHint = Color(0xFFA0AEC0);
+  /// Reply/quote preview background gradient (subtle two-tone tint).
+  static const Color messagingQuoteGradientStart =
+      Color.fromRGBO(89, 120, 247, 0.1);
+  static const Color messagingQuoteGradientEnd =
+      Color.fromRGBO(156, 132, 255, 0.1);
+
+  // Participant-info dialog (Mandate 4).
+  /// Dialog surface behind the participant cards.
+  static const Color messagingDialogBackground = Color(0xFFF4F6FB);
+  /// Dialog title / student name (dark navy).
+  static const Color messagingTitleColor = Color(0xFF1A1A2E);
+  /// Strong body text (slate-800) — participant names, etc.
+  static const Color messagingTextStrong = Color(0xFF1E293B);
+  /// Dialog close-button outline (slate-300).
+  static const Color messagingCloseBorder = Color(0xFFCBD5E1);
+  /// Dialog close-button glyph (slate-500).
+  static const Color messagingCloseIcon = Color(0xFF64748B);
+  // Role badges (semantic bg/fg pairs) — the label text also names the role,
+  // so they stay distinguishable without colour.
+  static const Color messagingBadgeAdminBg = Color(0xFFFEF3C7);
+  static const Color messagingBadgeAdminFg = Color(0xFF92400E);
+  static const Color messagingBadgeStaffBg = Color(0xFFD1FAE5);
+  static const Color messagingBadgeStaffFg = Color(0xFF065F46);
+  static const Color messagingBadgeGuardianBg = Color(0xFFEDE9FE);
+  static const Color messagingBadgeGuardianFg = Color(0xFF5B21B6);
+
+  /// Message-info dialog: quoted-message preview box background.
+  static const Color messagingMessageBoxBg = Color(0xFFF4F7FD);
+  /// Read-receipt "read by" tick (semantic — read state); paired with a
+  /// done-all icon so it reads as "read" without relying on colour.
+  static const Color messagingReadCheckColor = Color(0xFF2ECC71);
+
+  // Attachment viewer.
+  /// Muted surface behind an image placeholder / a card outline (grey-200).
+  static const Color messagingSurfaceMuted = Color(0xFFEEEEEE);
+  /// Muted glyph (broken/unsupported image icon) (grey-500).
+  static const Color messagingIconMuted = Color(0xFF9E9E9E);
+  /// Secondary metadata text (file size/type, empty note) (grey-600).
+  static const Color messagingTextMeta = Color(0xFF757575);
+  // Document type-badge tints (semantic — the file-type icon shape also
+  // conveys the type, so these are not colour-only signals).
+  static const Color messagingFilePdf = Color(0xFFF44336);
+  static const Color messagingFileExcel = Color(0xFF388E3C);
+  static const Color messagingFilePowerpoint = Color(0xFFEF6C00);
+  static const Color messagingFileWord = Color(0xFF1976D2);
+
+  // Attachment bottom sheet.
+  /// Drag handle at the top of the sheet.
+  static const Color messagingSheetHandle = Color(0xFFDFE6E9);
+  // Attachment-source accent tints (Camera / Gallery / Document) — each option
+  // also carries an icon + label, so the colour is not the only signal.
+  static const Color messagingAttachmentCamera = Color(0xFF6366F1);
+  static const Color messagingAttachmentGallery = Color(0xFF10B981);
+  static const Color messagingAttachmentDocument = Color(0xFFF59E0B);
+
+  // Full-screen media viewer (dark surface overlay whites).
+  /// 54% white — hint text / broken-media icons over the black viewer.
+  static const Color messagingMediaHint = Color(0x8AFFFFFF);
+  /// 70% white — loaders over the black viewer.
+  static const Color messagingMediaSubtle = Color(0xB3FFFFFF);
+  /// 24% white — video scrubber track background.
+  static const Color messagingMediaTrackBg = Color(0x3DFFFFFF);
+
+  // Link / contact preview cards.
+  /// Email/phone contact-preview chip background (receiver scheme).
+  static const Color messagingContactChipBg = Color(0xFFF0F4FF);
+  /// Composer link-preview dismiss (×) glyph (slate-400).
+  static const Color messagingDismissIcon = Color(0xFF94A3B8);
+
+  // Composer (chat input bar).
+  /// Reply/edit preview body text (slate-700).
+  static const Color messagingPreviewBody = Color(0xFF4A5568);
+  /// Left-border accent on the "editing" preview strip (amber-600).
+  static const Color messagingEditAccent = Color(0xFFFFB300);
+  /// Pending-attachment "remove" badge fill (red-500).
+  static const Color messagingRemoveBadge = Color(0xFFF44336);
+  /// Dark scrim over an attachment thumbnail (video play chip / filename strip)
+  /// — const-usable equivalent of the old Colors.black54.
+  static const Color messagingScrimDark = Color(0x8A000000);
+
+  // ── Message bubble — semantic fills (Mandate 4) ────────────────────────────
+  // Bubble background encodes WHO sent the message. The three fills are told
+  // apart WITHOUT relying on colour: a sent bubble is right-aligned and carries
+  // delivery ticks; a received bubble is left-aligned; a private message shows
+  // a lock icon; a failed one shows an error icon + "Failed · Retry" label.
+  // These named tokens exist so that distinction is never re-encoded as a raw
+  // hex in a view (the sent / opposite-role fills stay the primary / pink
+  // GRADIENTS via buildPrimaryGradient()/buildPinkGradient()).
+
+  /// Received (peer) message bubble fill — flat white, left-aligned.
+  static const Color messagingBubbleReceived = Colors.white;
+
+  /// Staff-Direct (1:1) legacy "their message" fill — flat light blue, used
+  /// only where role-colouring is intentionally off (senderIsOrgSide == null).
+  static const Color messagingBubbleIncomingLegacy =
+      Color.fromRGBO(220, 230, 255, 1);
+
+  /// Dialog title / sender-name / deleted-text plum. Used at full strength and
+  /// at 0.6/0.7 alpha (deleted body, confirm-sheet body, sender label).
+  static const Color messagingHeadingPlum = Color(0xFF573353);
+
+  /// Delete-confirm primary button gradient stops.
+  static const Color messagingConfirmGradientStart = Color(0xFF7175F4);
+  static const Color messagingConfirmGradientEnd = Color(0xFF9287F4);
+
+  /// Private-message lock icon (a message only the opposite role can see).
+  static const Color messagingPrivateLock = Color(0xFFD63031);
+
+  /// Failed-send retry affordance (icon + "Failed · Retry" label). Same hex as
+  /// [messagingPrivateLock] but a distinct semantic — a delivery failure, not a
+  /// privacy marker.
+  static const Color messagingFailed = Color(0xFFD63031);
+
+  /// Link colour inside a message rendered on a dark/gradient bubble.
+  static const Color messagingLinkOnAccent = Color(0xFF64B5F6);
+
+  /// Link colour inside a message rendered on a light bubble.
+  static const Color messagingLink = Colors.blue;
+
+  /// Document-attachment file-type icon (PDF/doc/xls in the file card).
+  static const Color messagingDocumentIcon = Colors.redAccent;
+
+  /// Image-attachment placeholder background while a thumbnail loads/fails.
+  static const Color messagingThumbPlaceholderBg = Color(0xFFE0E0E0);
+
+  /// Stronger meta grey — file-size caption + "Processing…" label (grey700).
+  static const Color messagingMetaStrong = Color(0xFF616161);
+
+  // ── Conversation list (Mandate 4) ──────────────────────────────────────────
+
+  /// Shared accent purple — staff-directory "Message" chip and the
+  /// Staff-Direct conversation-type indicator.
+  static const Color messagingAccentPurple = Color(0xFF6C5CE7);
+
+  // Conversation-type indicator chip accents (each type also carries its own
+  // text LABEL, so the type is legible without relying on colour).
+  static const Color messagingTypeRoomChat = Color(0xFF00B894);
+  static const Color messagingTypeAdminChat = Color(0xFF0984E3);
+  static const Color messagingTypeClassroom = Color(0xFFE17055);
+
+  /// Search-field container tint (translucent lavender).
+  static const Color messagingSearchFieldBg = Color(0x33B1AFE9);
+
+  /// Staff-directory tile background (near-white lavender).
+  static const Color messagingTileBg = Color(0xFFFAFAFF);
+
+  /// Presence "online" dot on a conversation avatar.
+  static const Color messagingOnlineDot = Color(0xFF00B115);
+
+  // Inline error banner (staff-search failure) + its retry button.
+  static const Color messagingErrorBannerBg = Color(0xFFFFE5E5);
+  static const Color messagingErrorBannerBorder = Color(0xFFE57373);
+  static const Color messagingErrorBannerText = Color(0xFFC62828);
+
+  // Soft warning banner (stale/cached data notice).
+  static const Color messagingWarningBannerBg = Color(0xFFFFF3CD);
+  static const Color messagingWarningBannerBorder = Color(0xFFFFEBA0);
+  static const Color messagingWarningBannerText = Color(0xFF856404);
+
+  // ── Admin chat host (Mandate 4) ────────────────────────────────────────────
+
+  /// Muted purple-grey — "START NEW CHAT" section header.
+  static const Color messagingMutedPurple = Color(0xFF9B96B0);
+
+  /// Active-filter indicator dot on the filter button.
+  static const Color messagingNotificationDot = Colors.red;
+
+  /// Admin-chat conversation-tile ink splash (blue, matches the admin accent).
+  static const Color messagingAdminChatSplash = Color(0x1A0984E3);
+
+  // ── Parent messaging thread (Mandate 4) ────────────────────────────────────
+
+  /// Transient flash when auto-scrolling to a quoted/target message.
+  static const Color messagingScrollHighlight = Colors.green;
+
+  /// Thread header bottom divider (slightly cooler than [messagingDividerLight]).
+  static const Color messagingBorderSubtle = Color(0xFFE9ECEF);
+
+  /// Error/"unable to load" icon (distinct meaning from the document-icon red).
+  static const Color messagingErrorIcon = Colors.redAccent;
+
+  /// Read-only participant name-badge chip background (translucent plum).
+  static const Color messagingChipBgPlum = Color(0x1A573353);
+
+  // "Private mode" notice pill (amber).
+  static const Color messagingNoticeBg = Color(0xFFFFF9E6);
+  static const Color messagingNoticeBorder = Color(0xFFFFE8B3);
+  static const Color messagingNoticeText = Color(0xFFC9A000);
+
+  // ── Staff messaging thread (Mandate 4) ─────────────────────────────────────
+
+  /// Staff-info dialog field label (Designation/Email) — near-black (black87).
+  static const Color messagingMenuText = Color(0xDD000000);
+
+  /// Staff-info dialog field value — mid-grey (black54).
+  static const Color messagingMenuSubtext = Color(0x8A000000);
+
+  // ── Conversation thread — participant role badges (Mandate 4) ──────────────
+  // A distinct scheme from the messagingRoleXxx set: this screen's participant
+  // name badges carry the role word ("Guardian"/"Staff"/"Admin") alongside the
+  // colour, so the role is legible without it.
+  static const Color messagingRoleBadgeGuardian = Color(0xFF6C63FF);
+  static const Color messagingRoleBadgeStaff = Color(0xFF00897B);
+  static const Color messagingRoleBadgeAdmin = Color(0xFFE65100);
+
+  // ── Parent direct messaging (Mandate 4) ────────────────────────────────────
+  // Strong error banner (load-failure notice) — deeper red than the soft
+  // staff-search banner.
+  static const Color messagingErrorSoftBg = Color(0xFFFFF3F3);
+  static const Color messagingErrorSoftBorder = Color(0xFFFFCDD2);
+  static const Color messagingErrorRed = Color(0xFFE53935);
+  static const Color messagingErrorDarkText = Color(0xFFB71C1C);
+
+  /// Character-counter colour once the message exceeds the limit.
+  static const Color messagingCounterExceeded = Colors.red;
+
+  // ── Shimmer placeholders (Mandate 4) ───────────────────────────────────────
+  // Two shimmer palettes are in use across the messaging placeholders: a warm
+  // grey pair (list/selection shimmers) and a cooler slate pair (thread shimmer).
+  static const Color messagingShimmerBase = Color(0xFFE0E0E0);
+  static const Color messagingShimmerHighlight = Color(0xFFF5F5F5);
+  static const Color messagingShimmerBaseCool = Color(0xFFE2E8F0);
+  static const Color messagingShimmerHighlightCool = Color(0xFFF8FAFC);
+
+  /// Messaging tab bar selected-label colour (near-black plum).
+  static const Color messagingTabLabel = Color(0xFF241631);
 }

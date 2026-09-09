@@ -5,12 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -45,7 +50,7 @@ class ChatInputBar extends StatefulWidget {
     this.quotedMessage,
     this.onCancelQuote,
     this.onRemoveAttachment,
-    this.hintText = 'Type a message…',
+    this.hintText = 'Type your message here…',
     this.maxLength = 2000,
     this.showCharCounter = false,
     this.focusNode,
@@ -86,13 +91,22 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
-  bool _emojiPickerVisible = false;
-  bool _hasText = false;
-  bool _hasFocus = false;
+  // UI micro-state (Mandate 2): ValueNotifiers rather than `setState` so each
+  // dynamic region of the composer rebuilds independently — `_hasText` changes
+  // on every keystroke, so a whole-widget rebuild there is exactly the cost
+  // this rule targets.
+  final ValueNotifier<bool> _emojiPickerVisible = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _hasText = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _hasFocus = ValueNotifier<bool>(false);
 
-  // Link preview state
-  PreviewMatch? _detectedPreview;
-  bool _linkPreviewDismissed = false;
+  /// Detected link/email/phone preview for the draft, plus whether the user
+  /// dismissed it. One notifier so the preview strip is the only thing that
+  /// rebuilds when either changes.
+  final ValueNotifier<({PreviewMatch? preview, bool dismissed})> _linkPreview =
+      ValueNotifier<({PreviewMatch? preview, bool dismissed})>((
+        preview: null,
+        dismissed: false,
+      ));
   Timer? _urlDetectDebounce;
 
   late final FocusNode _internalFocusNode;
@@ -122,6 +136,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     widget.controller.removeListener(_onTextChanged);
     _effectiveFocusNode.removeListener(_onFocusChanged);
     _internalFocusNode.dispose();
+    _emojiPickerVisible.dispose();
+    _hasText.dispose();
+    _hasFocus.dispose();
+    _linkPreview.dispose();
     super.dispose();
   }
 
@@ -131,10 +149,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
     // typed inside it (e.g. `<b></b>` left over from toggling Bold on then
     // off without typing) is non-empty text but has no actual visible
     // content, and must not enable Send.
-    final hasText = MessageContentProcessor.stripHtmlTags(
+    // Assigning an unchanged value is a no-op — the notifier only fires on a
+    // real change, so no manual diff is needed.
+    _hasText.value = MessageContentProcessor.stripHtmlTags(
       widget.controller.text,
     ).trim().isNotEmpty;
-    if (hasText != _hasText) setState(() => _hasText = hasText);
 
     // Debounce preview detection to avoid spamming on every keystroke.
     _urlDetectDebounce?.cancel();
@@ -143,15 +162,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
       final preview = MessageContentProcessor.detectFirstPreview(
         widget.controller.text,
       );
+      final current = _linkPreview.value.preview;
       final samePreview =
-          preview?.kind == _detectedPreview?.kind &&
-          preview?.value == _detectedPreview?.value;
+          preview?.kind == current?.kind && preview?.value == current?.value;
       if (!samePreview) {
-        setState(() {
-          _detectedPreview = preview;
+        _linkPreview.value = (
+          preview: preview,
           // Reset dismiss flag whenever the preview changes.
-          if (preview != null) _linkPreviewDismissed = false;
-        });
+          dismissed: preview != null ? false : _linkPreview.value.dismissed,
+        );
       }
     });
   }
@@ -159,24 +178,22 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _onFocusChanged() {
     if (!mounted) return;
     final focused = _effectiveFocusNode.hasFocus;
-    if (focused == _hasFocus) return;
-    setState(() {
-      _hasFocus = focused;
-      // The text field regaining focus brings up the system keyboard —
-      // without this, the custom emoji grid could stay open underneath it,
-      // both reserving bottom space at once (visible as a layout jump /
-      // "keyboard reopening" on top of the already-open panel).
-      if (focused && _emojiPickerVisible) _emojiPickerVisible = false;
-    });
+    if (focused == _hasFocus.value) return;
+    _hasFocus.value = focused;
+    // The text field regaining focus brings up the system keyboard — without
+    // this, the custom emoji grid could stay open underneath it, both
+    // reserving bottom space at once (visible as a layout jump / "keyboard
+    // reopening" on top of the already-open panel).
+    if (focused && _emojiPickerVisible.value) _emojiPickerVisible.value = false;
   }
 
   void _toggleEmojiPicker() {
-    if (_emojiPickerVisible) {
+    if (_emojiPickerVisible.value) {
       FocusScope.of(context).requestFocus(FocusNode());
     } else {
       FocusScope.of(context).unfocus();
     }
-    setState(() => _emojiPickerVisible = !_emojiPickerVisible);
+    _emojiPickerVisible.value = !_emojiPickerVisible.value;
   }
 
   void _onEmojiSelected(Category? _, Emoji emoji) {
@@ -193,8 +210,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _handleSend() {
     if (widget.isSending) return;
     widget.onSend();
-    if (_emojiPickerVisible) {
-      setState(() => _emojiPickerVisible = false);
+    if (_emojiPickerVisible.value) {
+      _emojiPickerVisible.value = false;
     }
     // Restore focus so the keyboard stays open between sends.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -206,9 +223,6 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    // final screenSize = MediaQuery.of(context).size;
-    // final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    // final safeAreaInset = MediaQuery.of(context).padding.bottom;
 
     return SafeArea(
       top: false,
@@ -229,31 +243,40 @@ class _ChatInputBarState extends State<ChatInputBar> {
           ),
           // Composer preview strip — shown when a URL/email/phone is
           // detected in the draft and the user has not dismissed it.
-          if (_detectedPreview != null && !_linkPreviewDismissed)
-            ComposerLinkPreview(
-              preview: _detectedPreview!,
-              onDismiss: () => setState(() => _linkPreviewDismissed = true),
-            )
-          else
-            const SizedBox.shrink(),
+          ValueListenableBuilder<({PreviewMatch? preview, bool dismissed})>(
+            valueListenable: _linkPreview,
+            builder: (context, lp, _) => (lp.preview != null && !lp.dismissed)
+                ? ComposerLinkPreview(
+                    preview: lp.preview!,
+                    onDismiss: () => _linkPreview.value = (
+                      preview: _linkPreview.value.preview,
+                      dismissed: true,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
 
           widget.enabled
-              ? _InputRow(
-                  key: const ValueKey('chat_input_row'),
-                  controller: widget.controller,
-                  focusNode: _effectiveFocusNode,
-                  hintText: widget.hintText,
-                  maxLength: widget.maxLength,
-                  showCharCounter: widget.showCharCounter,
-                  isSending: widget.isSending,
-                  // An attachment-only message is valid too — the send
-                  // button must not stay disabled just because the text
-                  // field is empty.
-                  hasText: _hasText || widget.pendingAttachments.isNotEmpty,
-                  emojiVisible: _emojiPickerVisible,
-                  onEmojiToggle: _toggleEmojiPicker,
-                  onAttachmentTap: widget.onAttachmentTap,
-                  onSend: _handleSend,
+              ? ListenableBuilder(
+                  listenable: Listenable.merge([_hasText, _emojiPickerVisible]),
+                  builder: (context, _) => _InputRow(
+                    key: const ValueKey('chat_input_row'),
+                    controller: widget.controller,
+                    focusNode: _effectiveFocusNode,
+                    hintText: widget.hintText,
+                    maxLength: widget.maxLength,
+                    showCharCounter: widget.showCharCounter,
+                    isSending: widget.isSending,
+                    // An attachment-only message is valid too — the send
+                    // button must not stay disabled just because the text
+                    // field is empty.
+                    hasText:
+                        _hasText.value || widget.pendingAttachments.isNotEmpty,
+                    emojiVisible: _emojiPickerVisible.value,
+                    onEmojiToggle: _toggleEmojiPicker,
+                    onAttachmentTap: widget.onAttachmentTap,
+                    onSend: _handleSend,
+                  ),
                 )
               : _DisabledInputRow(
                   key: const ValueKey('chat_input_row_disabled'),
@@ -264,44 +287,49 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
           // Rich-text formatting toolbar — visible when field is focused or
           // text already contains formatted content (indicated by _hasText).
-          if (widget.enabled &&
-              widget.showRichTextToolbar &&
-              (_hasFocus || _hasText))
-            RichTextToolbar(controller: widget.controller)
-          else
-            const SizedBox.shrink(),
-
-          if (_emojiPickerVisible)
-            SizedBox(
-              height: (MediaQuery.of(context).size.height * 0.35).clamp(
-                160.0,
-                280.0,
-              ),
-              child: EmojiPicker(
-                onEmojiSelected: _onEmojiSelected,
-                config: Config(
-                  checkPlatformCompatibility: true,
-                  emojiViewConfig: EmojiViewConfig(
-                    backgroundColor: const Color(0xFFF4F6FB),
-                    emojiSizeMax: 28,
-                  ),
-                  categoryViewConfig: const CategoryViewConfig(
-                    backgroundColor: Colors.white,
-                    indicatorColor: AppColors.primaryColor,
-                    iconColorSelected: AppColors.primaryColor,
-                    recentTabBehavior: RecentTabBehavior.RECENT,
-                  ),
-                  bottomActionBarConfig: const BottomActionBarConfig(
-                    enabled: false,
-                  ),
-                  searchViewConfig: const SearchViewConfig(
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-              ),
+          if (widget.enabled && widget.showRichTextToolbar)
+            ListenableBuilder(
+              listenable: Listenable.merge([_hasFocus, _hasText]),
+              builder: (context, _) => (_hasFocus.value || _hasText.value)
+                  ? RichTextToolbar(controller: widget.controller)
+                  : const SizedBox.shrink(),
             )
           else
             const SizedBox.shrink(),
+
+          ValueListenableBuilder<bool>(
+            valueListenable: _emojiPickerVisible,
+            builder: (context, visible, _) => visible
+                ? SizedBox(
+                    height: (MediaQuery.sizeOf(context).height * 0.35).clamp(
+                      160.0,
+                      280.0,
+                    ),
+                    child: EmojiPicker(
+                      onEmojiSelected: _onEmojiSelected,
+                      config: Config(
+                        checkPlatformCompatibility: true,
+                        emojiViewConfig: EmojiViewConfig(
+                          backgroundColor: AppColors.messagingDialogBackground,
+                          emojiSizeMax: 28,
+                        ),
+                        categoryViewConfig: const CategoryViewConfig(
+                          backgroundColor: AppColors.cardColor,
+                          indicatorColor: AppColors.primaryColor,
+                          iconColorSelected: AppColors.primaryColor,
+                          recentTabBehavior: RecentTabBehavior.RECENT,
+                        ),
+                        bottomActionBarConfig: const BottomActionBarConfig(
+                          enabled: false,
+                        ),
+                        searchViewConfig: const SearchViewConfig(
+                          backgroundColor: AppColors.cardColor,
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
@@ -320,7 +348,7 @@ class _QuotePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (message == null) return const SizedBox.shrink();
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      margin: const EdgeInsets.fromLTRB(AppSizes.sm, 0, AppSizes.sm, 6),
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
@@ -330,10 +358,10 @@ class _QuotePreview extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSizes.sm),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -341,8 +369,8 @@ class _QuotePreview extends StatelessWidget {
                   Text(
                     (message!.senderName?.isNotEmpty ?? false)
                         ? message!.senderName!
-                        : 'You',
-                    style: TextStyle(
+                        : AppStrings.you,
+                    style: AppTextStyles.size14.copyWith(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryColor,
@@ -354,7 +382,7 @@ class _QuotePreview extends StatelessWidget {
                     fontSize: 13,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    fontColor: const Color(0xFF4A5568),
+                    fontColor: AppColors.messagingPreviewBody,
                   ),
                 ],
               ),
@@ -362,7 +390,7 @@ class _QuotePreview extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 18),
-            color: const Color(0xFF94A3B8),
+            color: AppColors.messagingDismissIcon,
             onPressed: onCancel,
           ),
         ],
@@ -381,20 +409,20 @@ class _EditPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     if (message == null) return const SizedBox.shrink();
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      margin: const EdgeInsets.fromLTRB(AppSizes.sm, 0, AppSizes.sm, 6),
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border(
-          left: BorderSide(color: Colors.amber.shade600, width: 3),
+          left: BorderSide(color: AppColors.messagingEditAccent, width: 3),
         ),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSizes.sm),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -402,10 +430,10 @@ class _EditPreview extends StatelessWidget {
                   Row(
                     children: [
                       Icon(Icons.edit, size: 14, color: AppColors.primaryColor),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppSizes.xxs),
                       Text(
-                        'Editing Message',
-                        style: TextStyle(
+                        AppStrings.editingMessage,
+                        style: AppTextStyles.size14.copyWith(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryColor,
@@ -419,7 +447,7 @@ class _EditPreview extends StatelessWidget {
                     fontSize: 13,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    fontColor: const Color(0xFF4A5568),
+                    fontColor: AppColors.messagingPreviewBody,
                   ),
                 ],
               ),
@@ -427,7 +455,7 @@ class _EditPreview extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 18),
-            color: const Color(0xFF94A3B8),
+            color: AppColors.messagingDismissIcon,
             onPressed: onCancel,
           ),
         ],
@@ -437,31 +465,6 @@ class _EditPreview extends StatelessWidget {
 }
 
 // ── Attachment thumbnails ──────────────────────────────────────────────────────
-
-/// Stand-in tile for a pending attachment with no readable file on disk.
-///
-/// Keeps the strip's geometry identical to a real thumbnail so adding/removing
-/// one of these doesn't reflow the row.
-class _AttachmentPlaceholderTile extends StatelessWidget {
-  const _AttachmentPlaceholderTile({required this.isImage});
-
-  final bool isImage;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 76,
-      height: 76,
-      color: Colors.white,
-      alignment: Alignment.center,
-      child: Icon(
-        isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
-        color: AppColors.primaryColor,
-        size: 28,
-      ),
-    );
-  }
-}
 
 class _AttachmentPreviewStrip extends StatelessWidget {
   const _AttachmentPreviewStrip({required this.attachments, this.onRemove});
@@ -478,37 +481,27 @@ class _AttachmentPreviewStrip extends StatelessWidget {
       height: 100,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+        padding: const EdgeInsets.fromLTRB(AppSizes.sm, AppSizes.sm, AppSizes.sm, 6),
         itemCount: attachments.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: AppSizes.xs),
         itemBuilder: (context, i) {
           final att = attachments[i];
           final isVideo =
               att.type == 'video' || att.mimeType.startsWith('video/');
-          // A pending attachment does not necessarily have a file on disk yet
-          // — one restored from a draft, or rehydrated from `remoteUrl` after a
-          // failed send, carries a null `localPath`. Everything below that
-          // touches the filesystem is gated on this; the tile falls back to a
-          // typed placeholder rather than force-unwrapping (which threw
-          // "Null check operator used on a null value" out of the ListView's
-          // itemBuilder and took down the whole input bar).
-          final localPath = att.localPath?.trim() ?? '';
-          final hasLocalFile = localPath.isNotEmpty;
-          final canPreview = (att.isImage || isVideo) && hasLocalFile;
+          final canPreview =
+              (att.isImage || isVideo) && (att.localPath?.isNotEmpty ?? false);
           return Stack(
             clipBehavior: Clip.none,
             children: [
               // Tapping an image/video tile opens a full-screen in-app preview.
               GestureDetector(
                 onTap: canPreview
-                    ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ShowFullScreenMediaView(
-                            imageFile: att.isImage ? File(localPath) : null,
-                            videoFile: isVideo ? File(localPath) : null,
-                            title: att.name,
-                          ),
+                    ? () => context.push(
+                        CommunicationRoutes.mediaViewer,
+                        extra: MediaViewerArgs(
+                          imageFile: att.isImage ? File(att.localPath!) : null,
+                          videoFile: isVideo ? File(att.localPath!) : null,
+                          title: att.name,
                         ),
                       )
                     : null,
@@ -517,31 +510,40 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: !hasLocalFile
-                          ? _AttachmentPlaceholderTile(isImage: att.isImage)
+                      // A pending composer attachment normally carries a local
+                      // file path; guard against a null path (e.g. a
+                      // remote-only/not-yet-materialized entry) so the preview
+                      // strip renders a neutral placeholder instead of throwing
+                      // a null-check error at build.
+                      child: att.localPath == null
+                          ? Container(
+                              width: 76,
+                              height: 76,
+                              color: AppColors.messagingDividerLight,
+                              child: Icon(
+                                att.isImage
+                                    ? Icons.image_outlined
+                                    : Icons.insert_drive_file_outlined,
+                                color: AppColors.primaryColor,
+                              ),
+                            )
                           : att.isImage
                           ? Image.file(
-                              File(localPath),
+                              File(att.localPath!),
                               width: 76,
                               height: 76,
                               fit: BoxFit.cover,
-                              // A file that has been deleted/moved between the
-                              // pick and this build would otherwise throw
-                              // during paint.
-                              errorBuilder: (_, __, ___) =>
-                                  const _AttachmentPlaceholderTile(
-                                    isImage: true,
-                                  ),
                             )
                           : Thumbnail(
                               mimeType: att.mimeType,
-                              dataResolver: () => File(localPath).readAsBytes(),
+                              dataResolver: () =>
+                                  File(att.localPath!).readAsBytes(),
                               widgetSize: 76,
                               decoration: WidgetDecoration(
-                                backgroundColor: Colors.white,
+                                backgroundColor: AppColors.cardColor,
                                 iconColor: AppColors.primaryColor,
                                 textColor: AppColors.primaryColor,
-                                wrapperBgColor: Colors.transparent,
+                                wrapperBgColor: AppColors.transparentColor,
                                 wrapperSize: 80,
                               ),
                             ),
@@ -552,12 +554,12 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: const BoxDecoration(
-                          color: Colors.black54,
+                          color: AppColors.messagingScrimDark,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
+                          color: AppColors.messagingOnAccent,
                           size: 20,
                         ),
                       ),
@@ -575,15 +577,15 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
+                      color: AppColors.messagingScrimDark,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       att.name.length > 12
                           ? '${att.name.substring(0, 10)}…'
                           : att.name,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: AppTextStyles.size14.copyWith(
+                        color: AppColors.messagingOnAccent,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                       ),
@@ -601,14 +603,14 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: Colors.red.shade500,
+                      color: AppColors.messagingRemoveBadge,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+                      border: Border.all(color: AppColors.messagingOnAccent, width: 1.5),
                     ),
                     child: const Icon(
                       Icons.close_rounded,
                       size: 12,
-                      color: Colors.white,
+                      color: AppColors.messagingOnAccent,
                     ),
                   ),
                 ),
@@ -652,13 +654,13 @@ class _DisabledInputRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.all(AppSizes.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: AppSizes.sm),
               decoration: BoxDecoration(
                 color: AppColors.primaryColor.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(26),
@@ -668,16 +670,15 @@ class _DisabledInputRow extends StatelessWidget {
               ),
               child: Text(
                 message,
-                style: TextStyle(
+                style: AppTextStyles.size14.copyWith(
                   fontSize: 13,
                   fontStyle: FontStyle.italic,
-                  fontFamily: 'Manrope',
                   color: AppColors.primaryColor.withValues(alpha: 0.6),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.xs),
           Container(
             width: 48,
             height: 48,
@@ -767,18 +768,16 @@ class _InputRow extends StatelessWidget {
                 maxLength != null
                     ? '$visibleLength/$maxLength'
                     : '$visibleLength',
-                style: const TextStyle(
+                style: AppTextStyles.size14.copyWith(
                   fontSize: 12,
-                  color: Color(0xFFB2BEC3),
-                  fontFamily: 'Manrope',
+                  color: AppColors.messagingTextPlaceholder,
                 ),
               );
             },
         textCapitalization: TextCapitalization.sentences,
-        style: const TextStyle(
+        style: AppTextStyles.size16.copyWith(
           fontSize: 15,
-          color: Color(0xFF1E293B),
-          fontFamily: 'Manrope',
+          color: AppColors.messagingTextStrong,
         ),
         onChanged: (value) {
           if (controller is HtmlAwareTextController) {
@@ -793,10 +792,9 @@ class _InputRow extends StatelessWidget {
         },
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(
-            color: Color(0xFFB2BEC3),
+          hintStyle: AppTextStyles.size16.copyWith(
+            color: AppColors.messagingTextPlaceholder,
             fontSize: 15,
-            fontFamily: 'Manrope',
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
@@ -871,7 +869,7 @@ class _InputRow extends StatelessWidget {
         : textField;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.all(AppSizes.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -893,19 +891,19 @@ class _InputRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.xs),
 
           // ── Text field pill ────────────────────────────────────────
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 48),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                border: Border.all(color: AppColors.messagingInputBorder, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: AppColors.blackColor.withValues(alpha: 0.04),
                     blurRadius: 6,
                     offset: const Offset(0, 1),
                   ),
@@ -928,7 +926,7 @@ class _InputRow extends StatelessWidget {
                     child: GestureDetector(
                       onTap: onAttachmentTap,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 0, 10, 10),
+                        padding: const EdgeInsets.fromLTRB(0, 0, AppSizes.xsPlus, AppSizes.xsPlus),
                         child: Container(
                           width: 32,
                           height: 32,
@@ -951,7 +949,7 @@ class _InputRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.xs),
 
           // ── Send button (always visible, disabled when empty) ─────
           Tooltip(
@@ -986,13 +984,13 @@ class _InputRow extends StatelessWidget {
                         child: PrimaryCircularLoader(
                           size: 22,
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppColors.messagingOnAccent,
                         ),
                       )
                     : Icon(
                         Icons.send_rounded,
                         color: hasText
-                            ? Colors.white
+                            ? AppColors.messagingOnAccent
                             : AppColors.primaryColor.withValues(alpha: 0.35),
                         size: 22,
                       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 /// Gradient pill button used by [MessagingEntryScreen] to launch a
 /// communication module (Staff Messaging / Admin Chat / Room Chat).
@@ -42,18 +44,31 @@ class CommunicationLauncherButton extends StatefulWidget {
 
 class _CommunicationLauncherButtonState
     extends State<CommunicationLauncherButton> {
-  bool _isPressed = false;
+  /// UI-only tap-scale feedback. A [ValueNotifier] rather than `setState` so
+  /// only the [AnimatedScale] rebuilds on press — the pill subtree below is
+  /// handed in as a built-once `child`.
+  final ValueNotifier<bool> _isPressed = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isPressed.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
+      onTapDown: (_) => _isPressed.value = true,
+      onTapUp: (_) => _isPressed.value = false,
+      onTapCancel: () => _isPressed.value = false,
       onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 50),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _isPressed,
+        builder: (context, isPressed, child) => AnimatedScale(
+          scale: isPressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 50),
+          child: child,
+        ),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -82,7 +97,7 @@ class _CommunicationLauncherButtonState
                     width: widget.iconSize,
                     height: widget.iconSize,
                     colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                      AppColors.messagingOnAccent,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -92,11 +107,10 @@ class _CommunicationLauncherButtonState
                       widget.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
+                      style: AppTextStyles.size14.copyWith(
+                        color: AppColors.messagingOnAccent,
                         fontSize: widget.fontSize,
                         fontWeight: FontWeight.w700,
-                        fontFamily: 'Manrope',
                       ),
                     ),
                   ),
@@ -115,12 +129,17 @@ class _CommunicationLauncherButtonState
                   decoration: BoxDecoration(
                     color: AppColors.successColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white, width: 1.5),
+                    border: Border.all(
+                      color: AppColors.messagingOnAccent,
+                      width: 1.5,
+                    ),
                   ),
                   child: Text(
-                    widget.unreadCount > 99 ? '99+' : '${widget.unreadCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    widget.unreadCount > 99
+                        ? AppStrings.unreadCountOverflow
+                        : '${widget.unreadCount}',
+                    style: AppTextStyles.size14.copyWith(
+                      color: AppColors.messagingOnAccent,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),

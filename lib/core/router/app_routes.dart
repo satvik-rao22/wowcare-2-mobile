@@ -384,3 +384,26 @@ abstract final class NewsletterRoutes {
   static String messagingPreview(String newsletterCode) =>
       '${ShellBranchRoutes.messaging}/newsletter/${Uri.encodeComponent(newsletterCode)}';
 }
+
+abstract final class CommunicationRoutes {
+  /// Generic conversation thread. Destination owns its own cubit (§5.4).
+  static const String conversationThread = '/messaging/conversation-thread';
+
+  /// Staff or parent thread wrapped in a seeded per-thread `CommunicationCubit`.
+  static const String seededThread = '/messaging/thread';
+
+  /// Bulk message composition for an already-selected recipient set.
+  static const String bulkCompose = '/messaging/bulk-compose';
+
+  /// Staff/student recipient picker for bulk messaging.
+  static const String recipientSelection = '/messaging/recipient-selection';
+
+  /// Full-screen image/video viewer opened from a chat.
+  static const String mediaViewer = '/messaging/media-viewer';
+
+  /// Multi-attachment gallery opened from a message bubble.
+  static const String attachmentGallery = '/messaging/attachment-gallery';
+
+  /// The shared full-screen filter UI as opened from messaging.
+  static const String filter = '/messaging/filter';
+}
