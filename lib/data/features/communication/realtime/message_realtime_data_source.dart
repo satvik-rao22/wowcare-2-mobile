@@ -18,6 +18,17 @@ import 'package:wowcare/domain/features/communication/entities/reaction_entry.da
 ///
 /// The backend writes this when a message is sent/edited/deleted.
 /// Flutter only reads it — never writes directly.
+///
+/// MANDATE 8 SCOPE NOTE — [fromFirestore] is intentionally NOT converted to
+/// generated `json_serializable`. It is a Firestore mapper, not a JSON
+/// serializer: (1) `code` falls back to `doc.id`, the DocumentSnapshot key,
+/// which is not a field inside `doc.data()` — a factory that receives only the
+/// map can never see it; (2) `attachments` inject four sibling fields
+/// (messageCode/conversationCode/senderCode/sentAt) into each element, a
+/// cross-field dependency `@JsonKey` cannot express; (3) values are Firestore
+/// `Timestamp`s (plus an int seconds/ms heuristic), not plain JSON. It is
+/// already a typed DTO with [toEntity], so no raw map escapes the datasource —
+/// `watchMessages` returns `List<MessageEntity>`.
 class MessageFirestoreItem {
   const MessageFirestoreItem({
     required this.code,

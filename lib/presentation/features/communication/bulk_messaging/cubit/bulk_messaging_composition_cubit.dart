@@ -18,7 +18,8 @@ import 'package:wowcare/domain/features/communication/usecases/create_or_open_co
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
+import 'package:wowcare/data/services/pending_attachment_storage.dart';
+import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
 
 class SelectedAttachment extends Equatable {
   final File file;
@@ -31,7 +32,7 @@ class SelectedAttachment extends Equatable {
 }
 
 class BulkMessagingCompositionState extends Equatable {
-  final List<Map<String, dynamic>> selectedRecipients;
+  final List<MessagingRecipient> selectedRecipients;
   final List<String> selectedRecipientNames;
   final List<SelectedAttachment> attachments;
   final String messageText;
@@ -48,7 +49,7 @@ class BulkMessagingCompositionState extends Equatable {
 
   /// Recipients that failed to receive the message in the last bulk send.
   /// Non-empty after the job completes with at least one failure.
-  final List<Map<String, dynamic>> failedRecipients;
+  final List<MessagingRecipient> failedRecipients;
 
   const BulkMessagingCompositionState({
     this.selectedRecipients = const [],
@@ -79,7 +80,7 @@ class BulkMessagingCompositionState extends Equatable {
       (messageText.trim().isNotEmpty || attachments.isNotEmpty);
 
   BulkMessagingCompositionState copyWith({
-    List<Map<String, dynamic>>? selectedRecipients,
+    List<MessagingRecipient>? selectedRecipients,
     List<String>? selectedRecipientNames,
     List<SelectedAttachment>? attachments,
     String? messageText,
@@ -90,7 +91,7 @@ class BulkMessagingCompositionState extends Equatable {
     bool? isBulkStarted,
     String? errorMessage,
     String? progressMessage,
-    List<Map<String, dynamic>>? failedRecipients,
+    List<MessagingRecipient>? failedRecipients,
   }) {
     return BulkMessagingCompositionState(
       selectedRecipients: selectedRecipients ?? this.selectedRecipients,
@@ -131,6 +132,7 @@ class BulkMessagingCompositionCubit
   final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
   final SendMessageEntityUseCase _sendMessageUseCase;
   final ChatAttachmentUploader _attachmentUploader;
+  final PendingAttachmentStore _pendingAttachmentStore;
   final StorageService _storageService;
 
   /// STAFF_DIRECT recipients are viewed through the LEGACY
@@ -154,7 +156,7 @@ class BulkMessagingCompositionCubit
   final CacheDraftMessageUseCase _cacheDraftMessageUseCase;
 
   BulkMessagingCompositionCubit({
-    required List<Map<String, dynamic>> initialRecipients,
+    required List<MessagingRecipient> initialRecipients,
     required bool isStaff,
     required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
@@ -164,9 +166,12 @@ class BulkMessagingCompositionCubit
     required DiscardCachedMessageUseCase discardCachedMessageUseCase,
     required CacheDraftMessageUseCase cacheDraftMessageUseCase,
     String conversationType = 'ROOM_CHAT',
+    PendingAttachmentStore pendingAttachmentStore =
+        const PendingAttachmentStoreImpl(),
   }) : _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _attachmentUploader = attachmentUploader,
+       _pendingAttachmentStore = pendingAttachmentStore,
        _storageService = storageService,
        _cacheMessageUseCase = cacheMessageUseCase,
        _discardCachedMessageUseCase = discardCachedMessageUseCase,
@@ -175,11 +180,11 @@ class BulkMessagingCompositionCubit
          BulkMessagingCompositionState(
            isStaff: isStaff,
            conversationType: conversationType,
-           selectedRecipients: List<Map<String, dynamic>>.from(
+           selectedRecipients: List<MessagingRecipient>.from(
              initialRecipients,
            ),
            selectedRecipientNames: initialRecipients
-               .map((recipient) => recipient['name'] as String)
+               .map((recipient) => recipient.name)
                .toList(),
          ),
        );
@@ -227,7 +232,7 @@ class BulkMessagingCompositionCubit
     if (isClosed) return;
     final names = List<String>.from(state.selectedRecipientNames)..remove(name);
     final recipients = state.selectedRecipients
-        .where((recipient) => recipient['name'] != name)
+        .where((recipient) => recipient.name != name)
         .toList();
 
     emit(
@@ -274,7 +279,7 @@ class BulkMessagingCompositionCubit
     if (isClosed) return;
 
     // Snapshot state before going async — it won't change under us.
-    final recipients = List<Map<String, dynamic>>.from(
+    final recipients = List<MessagingRecipient>.from(
       state.selectedRecipients,
     );
     final messageText = state.messageText.trim();
@@ -310,7 +315,7 @@ class BulkMessagingCompositionCubit
     required String actualSenderCode,
   }) async {
     if (isClosed || state.failedRecipients.isEmpty) return;
-    final toRetry = List<Map<String, dynamic>>.from(state.failedRecipients);
+    final toRetry = List<MessagingRecipient>.from(state.failedRecipients);
     emit(state.copyWith(failedRecipients: const [], isBulkStarted: true));
     unawaited(
       _runBulkJob(
@@ -502,13 +507,13 @@ class BulkMessagingCompositionCubit
     required String schoolCode,
     required String senderUserCode,
     required String actualSenderCode,
-    required List<Map<String, dynamic>> recipients,
+    required List<MessagingRecipient> recipients,
     required String messageText,
     required List<SelectedAttachment> attachments,
     required bool isStaff,
     required String conversationType,
   }) async {
-    final failed = <Map<String, dynamic>>[];
+    final failed = <MessagingRecipient>[];
     // Build the local ChatAttachment list once (picked files → attachments).
     // Each recipient's conversation uploads its own copy of these below —
     // attachments are scoped per conversation. Copied into permanent app
@@ -516,7 +521,7 @@ class BulkMessagingCompositionCubit
     // just reads the same file) so the local preview survives the composer
     // screen having already been popped/disposed by the time any of this
     // runs.
-    final baseAttachments = await PendingAttachmentStorage.persistLocally(
+    final baseAttachments = await _pendingAttachmentStore.persistLocally(
       await _baseAttachments(attachments),
     );
 
@@ -535,9 +540,8 @@ class BulkMessagingCompositionCubit
               // compose screen is disposed (immediately after isBulkStarted
               // fires), but the job must continue to completion regardless
               // of widget lifecycle.
-              final recipientCode = _recipientCode(recipient);
-              final recipientName = (recipient['name'] ?? 'recipient')
-                  .toString();
+              final recipientCode = recipient.resolvedCode;
+              final recipientName = recipient.name;
               if (recipientCode.isEmpty) return;
 
               try {
@@ -626,8 +630,8 @@ class BulkMessagingCompositionCubit
         }
       } else {
         final isAdminChat = conversationType == 'ADMIN_CHAT';
-        final recipientByCode = <String, Map<String, dynamic>>{
-          for (final r in recipients) _recipientCode(r): r,
+        final recipientByCode = <String, MessagingRecipient>{
+          for (final r in recipients) r.resolvedCode: r,
         }..removeWhere((code, _) => code.isEmpty);
 
         final filteredRecipientCodes = isAdminChat
@@ -647,10 +651,8 @@ class BulkMessagingCompositionCubit
           await Future.wait(
             batch.map((recipientCode) async {
               final recipient = recipientByCode[recipientCode]!;
-              final recipientName = (recipient['name'] ?? 'recipient')
-                  .toString();
-              final recipientClassroomCode = (recipient['classroomCode'] ?? '')
-                  .toString();
+              final recipientName = recipient.name;
+              final recipientClassroomCode = recipient.classroomCode ?? '';
 
               try {
                 final result = await _createOrOpenConversationUseCase(
@@ -754,13 +756,4 @@ class BulkMessagingCompositionCubit
     }
   }
 
-  String _recipientCode(Map<String, dynamic> recipient) {
-    return (recipient['userCode'] ??
-            recipient['code'] ??
-            recipient['staffCode'] ??
-            recipient['studentCode'] ??
-            '')
-        .toString()
-        .trim();
-  }
 }

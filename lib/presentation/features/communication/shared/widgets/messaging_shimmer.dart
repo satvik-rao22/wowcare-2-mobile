@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class MessagingShimmer extends StatelessWidget {
   const MessagingShimmer({super.key});
@@ -10,13 +11,13 @@ class MessagingShimmer extends StatelessWidget {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           return Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
+            baseColor: AppColors.messagingShimmerBase,
+            highlightColor: AppColors.messagingShimmerHighlight,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                  bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
                 ),
               ),
               child: Row(
@@ -26,7 +27,7 @@ class MessagingShimmer extends StatelessWidget {
                     width: 45,
                     height: 45,
                     decoration: const BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -39,13 +40,13 @@ class MessagingShimmer extends StatelessWidget {
                         Container(
                           width: 120,
                           height: 14,
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                         ),
                         const SizedBox(height: 8),
                         Container(
                           width: double.infinity,
                           height: 12,
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                         ),
                       ],
                     ),
@@ -59,14 +60,14 @@ class MessagingShimmer extends StatelessWidget {
                       Container(
                         width: 60,
                         height: 10,
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                       ),
                       const SizedBox(height: 8),
                       Container(
                         width: 20,
                         height: 20,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                           shape: BoxShape.circle,
                         ),
                       ),

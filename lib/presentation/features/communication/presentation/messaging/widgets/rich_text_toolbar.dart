@@ -21,11 +21,20 @@ class RichTextToolbar extends StatefulWidget {
   State<RichTextToolbar> createState() => _RichTextToolbarState();
 }
 
+/// The four selection-driven formatting flags, updated together.
+typedef _FormatState = ({bool bold, bool italic, bool underline, bool strike});
+
 class _RichTextToolbarState extends State<RichTextToolbar> {
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
-  bool _isStrikethrough = false;
+  /// UI-only active-formatting state derived from the current selection. A
+  /// [ValueNotifier] rather than `setState` so only the toolbar row rebuilds
+  /// (the container chrome around it stays static). Records compare by value,
+  /// so assigning an unchanged state is a no-op — no manual diff needed.
+  final ValueNotifier<_FormatState> _format = ValueNotifier<_FormatState>((
+    bold: false,
+    italic: false,
+    underline: false,
+    strike: false,
+  ));
 
   @override
   void initState() {
@@ -47,6 +56,7 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
   @override
   void dispose() {
     widget.controller.removeListener(_updateFormatState);
+    _format.dispose();
     super.dispose();
   }
 
@@ -65,22 +75,12 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
       return lastOpen != -1 && lastOpen > lastClose;
     }
 
-    final newBold = isInside('<b>', '</b>');
-    final newItalic = isInside('<i>', '</i>');
-    final newUnderline = isInside('<u>', '</u>');
-    final newStrike = isInside('<s>', '</s>');
-
-    if (newBold != _isBold ||
-        newItalic != _isItalic ||
-        newUnderline != _isUnderline ||
-        newStrike != _isStrikethrough) {
-      setState(() {
-        _isBold = newBold;
-        _isItalic = newItalic;
-        _isUnderline = newUnderline;
-        _isStrikethrough = newStrike;
-      });
-    }
+    _format.value = (
+      bold: isInside('<b>', '</b>'),
+      italic: isInside('<i>', '</i>'),
+      underline: isInside('<u>', '</u>'),
+      strike: isInside('<s>', '</s>'),
+    );
   }
 
   // ── Tag wrapping ─────────────────────────────────────────────────────────
@@ -238,44 +238,47 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            _ToolbarBtn(
-              icon: Icons.format_bold,
-              label: 'Bold',
-              isActive: _isBold,
-              onTap: () => _wrapWith('<b>', '</b>'),
-            ),
-            _ToolbarBtn(
-              icon: Icons.format_italic,
-              label: 'Italic',
-              isActive: _isItalic,
-              onTap: () => _wrapWith('<i>', '</i>'),
-            ),
-            _ToolbarBtn(
-              icon: Icons.format_underlined,
-              label: 'Underline',
-              isActive: _isUnderline,
-              onTap: () => _wrapWith('<u>', '</u>'),
-            ),
-            _ToolbarBtn(
-              icon: Icons.format_strikethrough,
-              label: 'Strikethrough',
-              isActive: _isStrikethrough,
-              onTap: () => _wrapWith('<s>', '</s>'),
-            ),
-            const _Divider(),
-            _ToolbarBtn(
-              icon: Icons.format_list_bulleted,
-              label: 'Bullet list',
-              onTap: () => _prefixCurrentLine('• '),
-            ),
-            _ToolbarBtn(
-              icon: Icons.format_list_numbered,
-              label: 'Numbered list',
-              onTap: () => _prefixCurrentLine('1. '),
-            ),
-          ],
+        child: ValueListenableBuilder<_FormatState>(
+          valueListenable: _format,
+          builder: (context, format, _) => Row(
+            children: [
+              _ToolbarBtn(
+                icon: Icons.format_bold,
+                label: 'Bold',
+                isActive: format.bold,
+                onTap: () => _wrapWith('<b>', '</b>'),
+              ),
+              _ToolbarBtn(
+                icon: Icons.format_italic,
+                label: 'Italic',
+                isActive: format.italic,
+                onTap: () => _wrapWith('<i>', '</i>'),
+              ),
+              _ToolbarBtn(
+                icon: Icons.format_underlined,
+                label: 'Underline',
+                isActive: format.underline,
+                onTap: () => _wrapWith('<u>', '</u>'),
+              ),
+              _ToolbarBtn(
+                icon: Icons.format_strikethrough,
+                label: 'Strikethrough',
+                isActive: format.strike,
+                onTap: () => _wrapWith('<s>', '</s>'),
+              ),
+              const _Divider(),
+              _ToolbarBtn(
+                icon: Icons.format_list_bulleted,
+                label: 'Bullet list',
+                onTap: () => _prefixCurrentLine('• '),
+              ),
+              _ToolbarBtn(
+                icon: Icons.format_list_numbered,
+                label: 'Numbered list',
+                onTap: () => _prefixCurrentLine('1. '),
+              ),
+            ],
+          ),
         ),
       ),
     );

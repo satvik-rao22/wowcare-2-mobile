@@ -5,6 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -57,7 +60,7 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (_) => MessageAttachmentBottomSheet(
         onAttachmentsSelected: onAttachmentsSelected,
         onEmojiSelected: onEmojiSelected,
@@ -133,7 +136,10 @@ class _MessageAttachmentBottomSheetState
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;
-    CoreUtils.showTopSnackBar(context: context, message: '$feature coming soon');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: AppStrings.comingSoon(feature),
+    );
   }
 
   /// Classifies each file by its own extension (image / video / document)
@@ -215,33 +221,41 @@ class _MessageAttachmentBottomSheetState
     if (unsupported.isEmpty) {
       if (oversized.length == 1) {
         final entry = oversized.entries.first;
-        return '${entry.key} exceeds the ${_readableSize(entry.value)} limit';
+        return AppStrings.fileExceedsLimit(
+          entry.key,
+          _readableSize(entry.value),
+        );
       }
       final distinctLimits = oversized.values.toSet();
       if (distinctLimits.length == 1) {
-        return '${oversized.length} files exceed the '
-            '${_readableSize(distinctLimits.first)} limit';
+        return AppStrings.filesExceedLimit(
+          oversized.length,
+          _readableSize(distinctLimits.first),
+        );
       }
-      return '${oversized.length} files exceed the size limit '
-          '(${_readableSize(_imageMaxSizeBytes)} for images/documents, '
-          '${_readableSize(_videoMaxSizeBytes)} for video)';
+      return AppStrings.filesExceedMixedLimits(
+        oversized.length,
+        _readableSize(_imageMaxSizeBytes),
+        _readableSize(_videoMaxSizeBytes),
+      );
     }
 
     if (oversized.isEmpty) {
       if (unsupported.length == 1) {
-        return '${unsupported.first} is not a supported file type';
+        return AppStrings.fileUnsupportedType(unsupported.first);
       }
-      return '${unsupported.length} files are not a supported file type';
+      return AppStrings.filesUnsupportedType(unsupported.length);
     }
 
-    final total = oversized.length + unsupported.length;
-    return "$total files couldn't be attached: ${oversized.length} "
-        'exceed${oversized.length == 1 ? 's' : ''} the size limit, '
-        '${unsupported.length} unsupported file type'
-        '${unsupported.length == 1 ? '' : 's'}';
+    return AppStrings.filesPartiallyRejected(
+      oversized.length + unsupported.length,
+      oversized.length,
+      unsupported.length,
+    );
   }
 
-  String _readableSize(int bytes) => '${(bytes / (1024 * 1024)).round()} MB';
+  String _readableSize(int bytes) =>
+      AppStrings.megabytes((bytes / (1024 * 1024)).round());
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -249,7 +263,7 @@ class _MessageAttachmentBottomSheetState
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -258,11 +272,11 @@ class _MessageAttachmentBottomSheetState
           // Handle
           Center(
             child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              margin: const EdgeInsets.only(top: AppSizes.sm, bottom: AppSizes.xxs),
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFDFE6E9),
+                color: AppColors.messagingSheetHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -270,14 +284,17 @@ class _MessageAttachmentBottomSheetState
 
           // ── Quick reactions ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.md,
+              AppSizes.sm,
+              AppSizes.md,
+              AppSizes.xxs,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Quick Reactions',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                AppStrings.quickReactions,
+                style: AppTextStyles.sectionHeader.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.7),
                 ),
               ),
@@ -287,13 +304,13 @@ class _MessageAttachmentBottomSheetState
             height: 52,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
               itemCount: _emojis.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, __) => const SizedBox(width: AppSizes.xs),
               itemBuilder: (_, i) {
                 final emoji = _emojis[i];
                 return Tooltip(
-                  message: 'Quick Reactions',
+                  message: AppStrings.quickReactions,
                   child: GestureDetector(
                     onTap: () {
                       Navigator.of(context).pop();
@@ -303,12 +320,15 @@ class _MessageAttachmentBottomSheetState
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6FB),
+                        color: AppColors.messagingDialogBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppColors.messagingInputBorder),
                       ),
                       alignment: Alignment.center,
-                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                      child: Text(
+                        emoji,
+                        style: AppTextStyles.size16.copyWith(fontSize: 22),
+                      ),
                     ),
                   ),
                 );
@@ -316,37 +336,37 @@ class _MessageAttachmentBottomSheetState
             ),
           ),
 
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.sm),
+          const Divider(height: 1, color: AppColors.messagingDividerLight),
+          const SizedBox(height: AppSizes.xs),
 
           // ── Attachment grid ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
             child: GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: AppSizes.sm,
+              crossAxisSpacing: AppSizes.sm,
               childAspectRatio: 1.15,
               children: [
                 _AttachmentGridItem(
                   icon: Icons.camera_alt_rounded,
-                  label: 'Camera',
-                  color: const Color(0xFF6366F1),
+                  label: AppStrings.camera,
+                  color: AppColors.messagingAttachmentCamera,
                   onTap: _pickCamera,
                 ),
                 _AttachmentGridItem(
                   icon: Icons.photo_library_rounded,
-                  label: 'Gallery',
-                  color: const Color(0xFF10B981),
+                  label: AppStrings.gallery,
+                  color: AppColors.messagingAttachmentGallery,
                   onTap: _pickGallery,
                 ),
                 _AttachmentGridItem(
                   icon: Icons.insert_drive_file_rounded,
-                  label: 'Document',
-                  color: const Color(0xFFF59E0B),
+                  label: AppStrings.documentOption,
+                  color: AppColors.messagingAttachmentDocument,
                   onTap: _pickDocument,
                 ),
                 // _AttachmentGridItem(
@@ -365,13 +385,13 @@ class _MessageAttachmentBottomSheetState
             ),
           ),
 
-          const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
+          const SizedBox(height: AppSizes.xs),
+          const Divider(height: 1, color: AppColors.messagingDividerLight),
 
           // ── View Participants ───────────────────────────────────────
           if (widget.onViewParticipants != null)
             Tooltip(
-              message: 'View Participants',
+              message: AppStrings.viewParticipants,
               child: InkWell(
                 onTap: () {
                   Navigator.of(context).pop();
@@ -379,7 +399,7 @@ class _MessageAttachmentBottomSheetState
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: AppSizes.lg,
                     vertical: 14,
                   ),
                   child: Row(
@@ -398,13 +418,12 @@ class _MessageAttachmentBottomSheetState
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'View Participants',
-                          style: TextStyle(
+                          AppStrings.viewParticipants,
+                          style: AppTextStyles.sectionHeader.copyWith(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: AppColors.messagingTextStrong,
                           ),
                         ),
                       ),
@@ -418,7 +437,7 @@ class _MessageAttachmentBottomSheetState
               ),
             ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.xs),
         ],
       ),
     );
@@ -457,7 +476,7 @@ class _AttachmentGridItem extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               label,
-              style: TextStyle(
+              style: AppTextStyles.size14.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: color,

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/di/messaging_resolvers.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
+import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
+import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
 
 /// A recipient picked via checkboxes on any multi-select directory/roster
 /// screen (Student Directory, Staff Directory, Classroom Students/Staff
@@ -110,7 +110,7 @@ Future<void> _openSingleRecipientConversation(
       ? recipient.userCode
       : recipient.code;
 
-  final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
+  final result = await resolveCreateOrOpenConversationUseCase()(
     type: type,
     studentCode: recipient.isStaff ? '' : recipient.code,
     classroomCode: recipient.isStaff ? null : recipient.classroomCode,
@@ -153,28 +153,25 @@ Future<void> _openSingleRecipientConversation(
     // required, not just an optimization.
     final recipientCount =
         conversation.participants.where((p) => p.isActive).length - 1;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BlocProvider<CommunicationCubit>(
-          create: (context) => serviceLocator<CommunicationCubit>()
-            ..seedRecipientCount(conversation.code, recipientCount),
-          child: StaffMessagingThread(
-            staffInfo: {
-              'name': name,
-              'avatar': conversation.avatarUrl,
-              'code': conversation.code,
-            },
-          ),
+    context.push(
+      CommunicationRoutes.seededThread,
+      extra: SeededThreadArgs(
+        isStaffMessaging: true,
+        conversationCode: conversation.code,
+        recipientCount: recipientCount,
+        staffInfo: StaffThreadInfo(
+          name: name,
+          avatar: conversation.avatarUrl,
+          code: conversation.code,
         ),
       ),
     );
     return;
   }
 
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => ConversationThreadScreen(conversation: conversation),
-    ),
+  context.push(
+    CommunicationRoutes.conversationThread,
+    extra: ConversationThreadArgs(conversation: conversation),
   );
 }
 
@@ -183,22 +180,21 @@ void _openBulkCompose(
   List<SelectedRecipient> recipients, {
   required bool isStaff,
 }) {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => MessageCompositionBulkMessaging(
-        selectedRecipients: recipients
-            .map(
-              (r) => <String, dynamic>{
-                'code': r.code,
-                'name': r.name,
-                'avatar': r.avatar,
-                'designation': r.designation,
-              },
-            )
-            .toList(),
-        isStaff: isStaff,
-        conversationType: isStaff ? 'STAFF_DIRECT' : 'ROOM_CHAT',
-      ),
+  context.push(
+    CommunicationRoutes.bulkCompose,
+    extra: MessageCompositionArgs(
+      selectedRecipients: recipients
+          .map(
+            (r) => MessagingRecipient(
+              code: r.code,
+              name: r.name,
+              avatar: r.avatar,
+              designation: r.designation,
+            ),
+          )
+          .toList(),
+      isStaff: isStaff,
+      conversationType: isStaff ? 'STAFF_DIRECT' : 'ROOM_CHAT',
     ),
   );
 }

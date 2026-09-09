@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'conversation_list_state.dart';
 
 /// Manages the conversation list for a single [ConversationType].
@@ -26,12 +30,16 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     required GetCachedConversationsEntityUseCase getCachedConversationsUseCase,
     required ConversationEntityRepository conversationRepository,
     required StorageService storageService,
+    required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
+    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapUseCase,
   }) : _conversationType = conversationType,
        _watchConversationsUseCase = watchConversationsUseCase,
        _getConversationsUseCase = getConversationsUseCase,
        _getCachedConversationsUseCase = getCachedConversationsUseCase,
        _conversationRepo = conversationRepository,
        _storageService = storageService,
+       _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
+       _getTagNameCodeMapUseCase = getTagNameCodeMapUseCase,
        super(ConversationListState.initial(conversationType: conversationType));
 
   final ConversationType _conversationType;
@@ -40,6 +48,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   final GetCachedConversationsEntityUseCase _getCachedConversationsUseCase;
   final ConversationEntityRepository _conversationRepo;
   final StorageService _storageService;
+  final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
+  final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapUseCase;
 
   StreamSubscription<List<ConversationEntity>>? _firestoreSubscription;
   StreamSubscription<String>? _markedReadSubscription;
@@ -80,6 +90,51 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// Also subscribes to [MessagingEventService] so it can zero a conversation's
   /// badge immediately when the user opens that thread — before Firestore
   /// confirms the read receipt (~1-3 s later).
+  /// Identity/session values from local storage, exposed so views read them
+  /// through their owning cubit instead of reaching `StorageService` directly
+  /// (Mandate 5). These are thin passthroughs over the same injected
+  /// [StorageService] the cubit already uses — same read, same value.
+  Future<String?> readActiveSchoolRole() =>
+      _storageService.getString(StorageKeys.activeSchoolRole);
+
+  Future<String?> readCurrentUserCode() =>
+      _storageService.getString(StorageKeys.userCode);
+
+  Future<String?> readActiveSchoolCode() =>
+      _storageService.getString(StorageKeys.schoolCode);
+
+  /// Use-case/repository access exposed so views go through their owning cubit
+  /// rather than resolving these directly (Mandate 5). Each forwards to the
+  /// injected dependency and returns its result unchanged — no behaviour change.
+  Future<Map<String, String>> loadSchoolTagNameCodeMap(String schoolCode) =>
+      _getTagNameCodeMapUseCase(schoolCode: schoolCode);
+
+  Future<Either<Failure, ConversationEntity>> createOrOpenConversation({
+    required ConversationType type,
+    required String studentCode,
+    String? classroomCode,
+    List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
+  }) => _createOrOpenConversationUseCase(
+    type: type,
+    studentCode: studentCode,
+    classroomCode: classroomCode,
+    participantCodes: participantCodes,
+    title: title,
+    description: description,
+    avatarUrl: avatarUrl,
+  );
+
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation(
+    String studentCode,
+  ) => _conversationRepo.findAdminChatConversation(studentCode: studentCode);
+
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation(
+    String studentCode,
+  ) => _conversationRepo.findRoomChatConversation(studentCode: studentCode);
+
   Future<void> startWatching() async {
     emit(state.copyWith(isLoading: true));
 

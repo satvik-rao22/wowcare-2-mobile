@@ -1,9 +1,35 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/core/util/app_time.dart';
 
-/// API response DTO for a message.
+part 'message_entity_dto.g.dart';
+
+/// `DateTime.parse` with a now-fallback when absent — matches the old
+/// `parse(x ?? now.toIso8601String())` helpers on the sub-DTOs.
+DateTime _parseDateOrNow(Object? value) =>
+    value != null ? DateTime.parse(value as String) : AppTime.nowUtc();
+
+/// `attachmentId`/`id` alias, int-or-parse — matches the old inline expression.
+Object? _readAttachmentId(Map<dynamic, dynamic> json, String key) {
+  final raw = json['attachmentId'] ?? json['id'];
+  return raw is int ? raw : int.tryParse('$raw');
+}
+
+/// Reaction role from `role`/`userRole`.
+Object? _readReactionRole(Map<dynamic, dynamic> json, String key) =>
+    (json['role'] ?? json['userRole'])?.toString();
+
+/// MANDATE 8 SCOPE NOTE — [MessageEntityDto.fromJson] is intentionally kept
+/// hand-written. It is a mapper, not a plain serializer: `id` is coerced via
+/// `toString()`, many fields accept two backend key spellings, `isPrivate` is
+/// derived (ppc-presence OR `isPrivate` OR `private`), and — the blocker for
+/// generation — `readReceipts` is built from a SIBLING key (`json['code']`)
+/// passed into [ReadReceiptEntityDto.fromJson] as a fallback, a cross-field
+/// dependency `@JsonKey` cannot express. It is still a typed DTO with
+/// [toEntity]; the leaf sub-DTOs it composes ([AttachmentEntityDto],
+/// [ReactionDto]) ARE generated.
 class MessageEntityDto {
   const MessageEntityDto({
     required this.id,
@@ -249,6 +275,7 @@ class MessageEntityDto {
   }
 }
 
+@JsonSerializable()
 class AttachmentEntityDto {
   const AttachmentEntityDto({
     required this.code,
@@ -264,55 +291,38 @@ class AttachmentEntityDto {
     this.attachmentId,
   });
 
+  @JsonKey(defaultValue: '')
   final String code;
+  @JsonKey(defaultValue: '')
   final String messageCode;
+  @JsonKey(defaultValue: '')
   final String conversationCode;
+  @JsonKey(defaultValue: '')
   final String fileName;
+  @JsonKey(defaultValue: '')
   final String fileUrl;
+  @JsonKey(defaultValue: 'application/octet-stream')
   final String mimeType;
+  @JsonKey(defaultValue: 0)
   final int fileSizeBytes;
+  @JsonKey(includeIfNull: false)
   final String? thumbnailUrl;
+  @JsonKey(defaultValue: '')
   final String uploadedBy;
+  @JsonKey(fromJson: _parseDateOrNow)
   final DateTime uploadedAt;
 
   /// Messaging-service attachment id — same backend field legacy's
   /// `ChatAttachmentModel.fromJson` reads as `attachmentId`/`id`, required by
   /// `DELETE /messages/attachments/{id}`. Was previously dropped here even
   /// though the backend already returns it on every message response.
+  @JsonKey(readValue: _readAttachmentId, includeIfNull: false)
   final int? attachmentId;
 
-  factory AttachmentEntityDto.fromJson(Map<String, dynamic> json) {
-    final rawId = json['attachmentId'] ?? json['id'];
-    return AttachmentEntityDto(
-      code: json['code'] as String? ?? '',
-      messageCode: json['messageCode'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String? ?? '',
-      fileName: json['fileName'] as String? ?? '',
-      fileUrl: json['fileUrl'] as String? ?? '',
-      mimeType: json['mimeType'] as String? ?? 'application/octet-stream',
-      fileSizeBytes: json['fileSizeBytes'] as int? ?? 0,
-      thumbnailUrl: json['thumbnailUrl'] as String?,
-      uploadedBy: json['uploadedBy'] as String? ?? '',
-      uploadedAt: DateTime.parse(
-        json['uploadedAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
-      ),
-      attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
-    );
-  }
+  factory AttachmentEntityDto.fromJson(Map<String, dynamic> json) =>
+      _$AttachmentEntityDtoFromJson(json);
 
-  Map<String, dynamic> toJson() => {
-    'code': code,
-    'messageCode': messageCode,
-    'conversationCode': conversationCode,
-    'fileName': fileName,
-    'fileUrl': fileUrl,
-    'mimeType': mimeType,
-    'fileSizeBytes': fileSizeBytes,
-    if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
-    'uploadedBy': uploadedBy,
-    'uploadedAt': uploadedAt.toIso8601String(),
-    if (attachmentId != null) 'attachmentId': attachmentId,
-  };
+  Map<String, dynamic> toJson() => _$AttachmentEntityDtoToJson(this);
 
   AttachmentEntity toEntity() {
     return AttachmentEntity(
@@ -332,6 +342,7 @@ class AttachmentEntityDto {
   }
 }
 
+@JsonSerializable()
 class ReactionDto {
   const ReactionDto({
     required this.messageCode,
@@ -342,39 +353,32 @@ class ReactionDto {
     this.role,
   });
 
+  @JsonKey(defaultValue: '')
   final String messageCode;
+  @JsonKey(defaultValue: '')
   final String userCode;
+  @JsonKey(defaultValue: '')
   final String userName;
+  @JsonKey(defaultValue: '')
   final String emoji;
+  @JsonKey(fromJson: _parseDateOrNow)
   final DateTime createdAt;
 
   /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
-  /// confirmed present on the reaction row as `role`/`userRole`.
+  /// confirmed present on the reaction row as `role`/`userRole`. `toJson`
+  /// always emits it (nullable, includeIfNull default), matching the old map.
+  @JsonKey(readValue: _readReactionRole)
   final String? role;
 
-  factory ReactionDto.fromJson(Map<String, dynamic> json) {
-    return ReactionDto(
-      messageCode: json['messageCode'] as String? ?? '',
-      userCode: json['userCode'] as String? ?? '',
-      userName: json['userName'] as String? ?? '',
-      emoji: json['emoji'] as String? ?? '',
-      createdAt: DateTime.parse(
-        json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
-      ),
-      role: (json['role'] ?? json['userRole'])?.toString(),
-    );
-  }
+  factory ReactionDto.fromJson(Map<String, dynamic> json) =>
+      _$ReactionDtoFromJson(json);
 
-  Map<String, dynamic> toJson() => {
-    'messageCode': messageCode,
-    'userCode': userCode,
-    'userName': userName,
-    'emoji': emoji,
-    'createdAt': createdAt.toIso8601String(),
-    'role': role,
-  };
+  Map<String, dynamic> toJson() => _$ReactionDtoToJson(this);
 }
 
+/// MANDATE 8 SCOPE NOTE — kept hand-written: its `fromJson` takes a
+/// `fallbackMessageCode` argument (the parent message's code, unavailable on
+/// the receipt row itself), which `json_serializable` factories cannot accept.
 class ReadReceiptEntityDto {
   const ReadReceiptEntityDto({
     required this.messageCode,

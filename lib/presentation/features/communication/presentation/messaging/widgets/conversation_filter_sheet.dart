@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -23,9 +26,12 @@ class ConversationFilterSheet extends StatefulWidget {
 }
 
 class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
-  late String? selectedDesignation;
-  late String? selectedStaffStatus;
-  late String? selectedClassroom;
+  // UI-only draft selections local to this modal, applied to the cubit only on
+  // "Apply". ValueNotifiers rather than `setState` so each section rebuilds on
+  // its own change.
+  final ValueNotifier<String?> _designation = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _staffStatus = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _classroom = ValueNotifier<String?>(null);
 
   final List<String> designations = [
     'DIRECTOR',
@@ -51,15 +57,23 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
   void initState() {
     super.initState();
     final state = context.read<ConversationListCubit>().state;
-    selectedDesignation = state.activeDesignations.isNotEmpty
+    _designation.value = state.activeDesignations.isNotEmpty
         ? state.activeDesignations.first
         : null;
-    selectedStaffStatus = state.activeStaffStatuses.isNotEmpty
+    _staffStatus.value = state.activeStaffStatuses.isNotEmpty
         ? state.activeStaffStatuses.first
         : null;
-    selectedClassroom = state.activeClassroomCodes.isNotEmpty
+    _classroom.value = state.activeClassroomCodes.isNotEmpty
         ? state.activeClassroomCodes.first
         : null;
+  }
+
+  @override
+  void dispose() {
+    _designation.dispose();
+    _staffStatus.dispose();
+    _classroom.dispose();
+    super.dispose();
   }
 
   @override
@@ -73,19 +87,24 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
           builder: (BuildContext context, ScrollController scrollController) {
             return Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
                   // Header
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSizes.md,
+                      AppSizes.md,
+                      AppSizes.md,
+                      AppSizes.sm,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const CustomTextWidget(
-                          text: 'Filters',
+                          text: AppStrings.filters,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -102,49 +121,44 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                   Expanded(
                     child: ListView(
                       controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      padding: const EdgeInsets.all(AppSizes.md),
                       children: [
                         // Designation filter
-                        _FilterSection(
-                          title: 'Designation',
-                          options: designations,
-                          selectedValue: selectedDesignation,
-                          onChanged: (value) {
-                            setState(() => selectedDesignation = value);
-                          },
-                          onClear: () {
-                            setState(() => selectedDesignation = null);
-                          },
+                        ValueListenableBuilder<String?>(
+                          valueListenable: _designation,
+                          builder: (context, selected, _) => _FilterSection(
+                            title: AppStrings.designation,
+                            options: designations,
+                            selectedValue: selected,
+                            onChanged: (value) => _designation.value = value,
+                            onClear: () => _designation.value = null,
+                          ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSizes.xl),
 
                         // Staff Status filter
-                        _FilterSection(
-                          title: 'Staff Status',
-                          options: staffStatuses,
-                          selectedValue: selectedStaffStatus,
-                          onChanged: (value) {
-                            setState(() => selectedStaffStatus = value);
-                          },
-                          onClear: () {
-                            setState(() => selectedStaffStatus = null);
-                          },
+                        ValueListenableBuilder<String?>(
+                          valueListenable: _staffStatus,
+                          builder: (context, selected, _) => _FilterSection(
+                            title: AppStrings.staffStatus,
+                            options: staffStatuses,
+                            selectedValue: selected,
+                            onChanged: (value) => _staffStatus.value = value,
+                            onClear: () => _staffStatus.value = null,
+                          ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: AppSizes.xl),
 
                         // Classroom filter (text input)
-                        _ClassroomFilterField(
-                          value: selectedClassroom ?? '',
-                          onChanged: (value) {
-                            setState(
-                              () => selectedClassroom = value.isEmpty
-                                  ? null
-                                  : value,
-                            );
-                          },
-                          onClear: () {
-                            setState(() => selectedClassroom = null);
-                          },
+                        ValueListenableBuilder<String?>(
+                          valueListenable: _classroom,
+                          builder: (context, selected, _) =>
+                              _ClassroomFilterField(
+                                value: selected ?? '',
+                                onChanged: (value) => _classroom.value =
+                                    value.isEmpty ? null : value,
+                                onClear: () => _classroom.value = null,
+                              ),
                         ),
                       ],
                     ),
@@ -152,7 +166,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
 
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSizes.md),
                     child: Row(
                       children: [
                         Expanded(
@@ -165,44 +179,48 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                             },
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: AppColors.primaryColor),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSizes.sm,
+                              ),
                             ),
                             child: Text(
-                              'Clear All',
-                              style: TextStyle(
+                              AppStrings.clearAll,
+                              style: AppTextStyles.mediumWeight.copyWith(
                                 color: AppColors.primaryColor,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSizes.sm),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
                               context
                                   .read<ConversationListCubit>()
                                   .applyFilters(
-                                    designations: selectedDesignation != null
-                                        ? [selectedDesignation!]
+                                    designations: _designation.value != null
+                                        ? [_designation.value!]
                                         : const [],
-                                    staffStatuses: selectedStaffStatus != null
-                                        ? [selectedStaffStatus!]
+                                    staffStatuses: _staffStatus.value != null
+                                        ? [_staffStatus.value!]
                                         : const [],
-                                    classroomCodes: selectedClassroom != null
-                                        ? [selectedClassroom!]
+                                    classroomCodes: _classroom.value != null
+                                        ? [_classroom.value!]
                                         : const [],
                                   );
                               Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryColor,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSizes.sm,
+                              ),
                             ),
-                            child: const Text(
-                              'Apply',
-                              style: TextStyle(
-                                color: Colors.white,
+                            child: Text(
+                              AppStrings.apply,
+                              style: AppTextStyles.mediumWeight.copyWith(
+                                color: AppColors.messagingOnAccent,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -254,8 +272,8 @@ class _FilterSection extends StatelessWidget {
               GestureDetector(
                 onTap: onClear,
                 child: Text(
-                  'Clear',
-                  style: TextStyle(
+                  AppStrings.clear,
+                  style: AppTextStyles.size14.copyWith(
                     color: AppColors.primaryColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -264,10 +282,10 @@ class _FilterSection extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSizes.xs),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: AppSizes.xs,
+          runSpacing: AppSizes.xs,
           children: options.map((option) {
             final isSelected = selectedValue == option;
             return FilterChip(
@@ -276,14 +294,18 @@ class _FilterSection extends StatelessWidget {
               onSelected: (_) {
                 onChanged(isSelected ? null : option);
               },
-              backgroundColor: Colors.transparent,
+              backgroundColor: AppColors.transparentColor,
               selectedColor: AppColors.primaryColor.withValues(alpha: 0.2),
               side: BorderSide(
-                color: isSelected ? AppColors.primaryColor : Colors.grey[300]!,
+                color: isSelected
+                    ? AppColors.primaryColor
+                    : AppColors.messagingBorderColor,
                 width: isSelected ? 2 : 1,
               ),
-              labelStyle: TextStyle(
-                color: isSelected ? AppColors.primaryColor : Colors.grey[700],
+              labelStyle: AppTextStyles.mediumWeight.copyWith(
+                color: isSelected
+                    ? AppColors.primaryColor
+                    : AppColors.messagingChipTextUnselected,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             );
@@ -334,7 +356,7 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const CustomTextWidget(
-              text: 'Classroom Code',
+              text: AppStrings.classroomCode,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -345,8 +367,8 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
                   widget.onClear();
                 },
                 child: Text(
-                  'Clear',
-                  style: TextStyle(
+                  AppStrings.clear,
+                  style: AppTextStyles.size14.copyWith(
                     color: AppColors.primaryColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -355,28 +377,28 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSizes.xs),
         TextField(
           controller: controller,
           onChanged: widget.onChanged,
           decoration: InputDecoration(
-            hintText: 'Enter classroom code (e.g., CLS_123)',
-            hintStyle: TextStyle(color: Colors.grey[400]),
+            hintText: AppStrings.classroomCodeHint,
+            hintStyle: const TextStyle(color: AppColors.messagingHintText),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: const BorderSide(color: AppColors.messagingBorderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: const BorderSide(color: AppColors.messagingBorderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+              horizontal: AppSizes.sm,
+              vertical: AppSizes.sm,
             ),
             suffixIcon: widget.value.isNotEmpty
                 ? GestureDetector(

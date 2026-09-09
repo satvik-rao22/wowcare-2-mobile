@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/di/messaging_resolvers.dart';
+import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
+import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
@@ -54,8 +55,7 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
   Future<ConversationEntity?> _load() async {
     final code = widget.conversationCode.trim();
     if (code.isEmpty) return null;
-    final result = await serviceLocator<ConversationEntityRepository>()
-        .getConversation(code);
+    final result = await resolveConversationByCode(code);
     return result.fold((_) => null, (c) => c);
   }
 
@@ -111,14 +111,14 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
             final recipientCount =
                 conversation.participants.where((p) => p.isActive).length - 1;
             return BlocProvider<CommunicationCubit>(
-              create: (_) => serviceLocator<CommunicationCubit>()
+              create: (_) => resolveCommunicationCubit()
                 ..seedRecipientCount(conversation.code, recipientCount),
               child: StaffMessagingThread(
-                staffInfo: {
-                  'name': conversation.title,
-                  'avatar': conversation.avatarUrl,
-                  'code': conversation.code,
-                },
+                staffInfo: StaffThreadInfo(
+                  name: conversation.title,
+                  avatar: conversation.avatarUrl,
+                  code: conversation.code,
+                ),
               ),
             );
           }

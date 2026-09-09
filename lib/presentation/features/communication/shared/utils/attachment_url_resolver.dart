@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -26,12 +26,14 @@ Future<String?> resolveAttachmentUrl(ChatAttachment attachment) async {
   final assetCode = attachment.code?.trim() ?? '';
   if (assetCode.isEmpty) return null;
 
-  final uploadService = serviceLocator<ImageUploadService>();
+  final uploadService = resolveImageUploadService();
   final cached = uploadService.cachedMediaAssetUrl(assetCode);
   if (cached != null && cached.isNotEmpty) return cached;
 
   try {
-    final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
+    final url = await uploadService.getMediaAssetUrlByCode(
+      assetCode: assetCode,
+    );
     return url.isEmpty ? null : url;
   } catch (_) {
     return null;
@@ -65,7 +67,12 @@ class AttachmentUrlResolver extends StatefulWidget {
 }
 
 class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
-  late Future<String?> _future;
+  // The in-flight resolution future (Mandate 2). A ValueNotifier rather than
+  // `setState` so a processing-retry swaps the future the FutureBuilder watches
+  // without rebuilding anything else.
+  final ValueNotifier<Future<String?>> _future = ValueNotifier<Future<String?>>(
+    Future<String?>.value(null),
+  );
   Timer? _retryTimer;
 
   /// How long to wait before re-checking an asset that's still backend-side
@@ -98,7 +105,7 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
   void _startResolving(ChatAttachment attachment) {
     _retryTimer?.cancel();
     final future = resolveAttachmentUrl(attachment);
-    _future = future;
+    _future.value = future;
     future.then((url) {
       if (!mounted || (url != null && url.isNotEmpty)) return;
       // Still unresolved. Only keep retrying when the backend reported this
@@ -107,12 +114,12 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
       // forever.
       final assetCode = attachment.code?.trim() ?? '';
       if (assetCode.isEmpty) return;
-      if (!serviceLocator<ImageUploadService>().isAssetProcessing(assetCode)) {
+      if (!resolveImageUploadService().isAssetProcessing(assetCode)) {
         return;
       }
       _retryTimer = Timer(_processingRetryDelay, () {
         if (!mounted) return;
-        setState(() => _startResolving(attachment));
+        _startResolving(attachment);
       });
     });
   }
@@ -120,24 +127,28 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _future.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: _future,
-      builder: (context, snapshot) {
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
-        final url = snapshot.data;
-        final assetCode = widget.attachment.code?.trim() ?? '';
-        final isProcessing =
-            !isLoading &&
-            (url == null || url.isEmpty) &&
-            assetCode.isNotEmpty &&
-            serviceLocator<ImageUploadService>().isAssetProcessing(assetCode);
-        return widget.builder(context, url, isLoading, isProcessing);
-      },
+    return ValueListenableBuilder<Future<String?>>(
+      valueListenable: _future,
+      builder: (context, future, _) => FutureBuilder<String?>(
+        future: future,
+        builder: (context, snapshot) {
+          final isLoading = snapshot.connectionState == ConnectionState.waiting;
+          final url = snapshot.data;
+          final assetCode = widget.attachment.code?.trim() ?? '';
+          final isProcessing =
+              !isLoading &&
+              (url == null || url.isEmpty) &&
+              assetCode.isNotEmpty &&
+              resolveImageUploadService().isAssetProcessing(assetCode);
+          return widget.builder(context, url, isLoading, isProcessing);
+        },
+      ),
     );
   }
 }

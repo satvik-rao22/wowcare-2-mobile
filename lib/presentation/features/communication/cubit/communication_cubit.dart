@@ -1,6 +1,13 @@
 import 'dart:async';
+import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversation_entity_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/app_time.dart';
@@ -27,7 +34,7 @@ import '../../../../domain/features/communication/usecases/watch_messages_legacy
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
+import 'package:wowcare/data/services/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
@@ -49,6 +56,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final ClearMessagesCacheUseCase clearMessagesCacheUseCase;
   final ClearConversationsCacheUseCase clearConversationsCacheUseCase;
   final ChatAttachmentUploader attachmentUploader;
+
+  /// Persists picked attachments locally (path_provider) behind an injectable
+  /// seam so the send path is unit-testable without a platform binding
+  /// (Mandate 5).
+  final PendingAttachmentStore pendingAttachmentStore;
   final WatchMessagesLegacyUseCase watchMessagesUseCase;
   final WatchConversationsLegacyUseCase watchConversationsUseCase;
   final MarkConversationDeliveredUseCase markConversationDeliveredUseCase;
@@ -57,6 +69,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final CacheMessageUseCase cacheMessageUseCase;
   final DiscardCachedMessageUseCase discardCachedMessageUseCase;
   final GetMessageReceiptsUseCase getMessageReceiptsUseCase;
+  final CreateOrOpenConversationUseCase createOrOpenConversationUseCase;
+  final CommunicationRepository communicationRepository;
+  final GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapUseCase;
+  final GetConversationEntityUseCase getConversationEntityUseCase;
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -80,6 +96,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.cacheMessageUseCase,
     required this.discardCachedMessageUseCase,
     required this.getMessageReceiptsUseCase,
+    required this.createOrOpenConversationUseCase,
+    required this.communicationRepository,
+    required this.getTagNameCodeMapUseCase,
+    required this.getConversationEntityUseCase,
+    this.pendingAttachmentStore = const PendingAttachmentStoreImpl(),
   }) : super(CommunicationInitial());
 
   /// Fetches the full per-recipient-per-persona receipts for one message
@@ -98,6 +119,58 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// Marks a conversation as read via the API so the unread badge and count
   /// clear immediately for the current user. Called by screens when they open
   /// a thread or receive new messages while the thread is in the foreground.
+  /// Identity/session values from local storage, exposed so views read them
+  /// through their (ambient) CommunicationCubit instead of reaching
+  /// `StorageService` directly (Mandate 5). Thin passthroughs over the same
+  /// injected [storageService] — same read, same value.
+  Future<String?> readCurrentUserCode() =>
+      storageService.getString(StorageKeys.userCode);
+
+  Future<String?> readActiveSchoolCode() =>
+      storageService.getString(StorageKeys.schoolCode);
+
+  Future<String?> readStaffCode() =>
+      storageService.getString(StorageKeys.staffCode);
+
+  /// Use-case/repository access exposed so views go through their (ambient)
+  /// cubit rather than resolving these directly (Mandate 5). Each forwards to
+  /// the injected dependency and returns its result unchanged — no behaviour
+  /// change.
+  Future<Either<Failure, ConversationsPage>> fetchConversationsPage({
+    String? type,
+    int size = 20,
+  }) => getConversationsUseCase(type: type, size: size);
+
+  Future<Either<Failure, List<Conversation>>> searchConversations({
+    required String query,
+    String? type,
+  }) => communicationRepository.searchConversations(query: query, type: type);
+
+  Future<Either<Failure, ConversationEntity>> createOrOpenConversation({
+    required ConversationType type,
+    required String studentCode,
+    String? classroomCode,
+    List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
+  }) => createOrOpenConversationUseCase(
+    type: type,
+    studentCode: studentCode,
+    classroomCode: classroomCode,
+    participantCodes: participantCodes,
+    title: title,
+    description: description,
+    avatarUrl: avatarUrl,
+  );
+
+  Future<Map<String, String>> loadSchoolTagNameCodeMap(String schoolCode) =>
+      getTagNameCodeMapUseCase(schoolCode: schoolCode);
+
+  Future<Either<Failure, ConversationEntity>> getConversationEntity(
+    String conversationCode,
+  ) => getConversationEntityUseCase(conversationCode);
+
   Future<void> markConversationRead(String conversationCode) async {
     final result = await markConversationReadUseCase(conversationCode);
     result.fold(
@@ -1021,7 +1094,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     // ConversationThreadCubit.sendMessage: the local preview must survive
     // navigating away or the app backgrounding mid-upload, neither of which
     // a temp-dir path can promise.
-    attachments = await PendingAttachmentStorage.persistLocally(attachments);
+    attachments = await pendingAttachmentStore.persistLocally(attachments);
 
     // id/code must be unique per message, not per thread/sender — reusing
     // threadId/senderUserCode meant two messages sent in quick succession

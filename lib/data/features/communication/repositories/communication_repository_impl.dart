@@ -249,7 +249,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     CreateConversationRequest request,
   ) async {
     try {
-      final conversation = await remoteDataSource.createConversation(request);
+      final model = await remoteDataSource.createConversation(request);
+      final conversation = model.toEntity();
 
       // Keep Isar in sync so returning to the list shows the new conversation
       // immediately (even before the next remote refresh).
@@ -308,7 +309,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         // populating it, but until then this stays a no-op and Firestore
         // (via the cubit's own reconciliation) remains the real source.
         final conversations = await _resolveUnreadCounts(
-          response.data!.content,
+          response.data!.content.map((m) => m.toEntity()).toList(),
         );
 
         // 3. Update cache (for first page)
@@ -409,7 +410,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
 
       if (response.success && response.data != null) {
-        return Right(response.data!.content);
+        return Right(
+          response.data!.content.map((m) => m.toEntity()).toList(),
+        );
       }
       return Left(ServerFailure(response.message));
     } catch (e) {

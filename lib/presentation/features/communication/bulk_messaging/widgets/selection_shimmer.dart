@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 class SelectionShimmer extends StatelessWidget {
   final bool isTablet;
@@ -19,11 +20,11 @@ class SelectionShimmer extends StatelessWidget {
         ),
         itemBuilder: (context, index) {
           return Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
+            baseColor: AppColors.messagingShimmerBase,
+            highlightColor: AppColors.messagingShimmerHighlight,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),

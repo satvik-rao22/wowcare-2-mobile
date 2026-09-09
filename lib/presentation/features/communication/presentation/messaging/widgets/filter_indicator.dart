@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 /// Indicator showing active filters with a badge.
 /// Only displayed when filters are active.
@@ -46,8 +47,8 @@ class FilterIndicator extends StatelessWidget {
             ),
             child: Text(
               filterCount.toString(),
-              style: const TextStyle(
-                color: Colors.white,
+              style: AppTextStyles.size14.copyWith(
+                color: AppColors.messagingOnAccent,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
               ),

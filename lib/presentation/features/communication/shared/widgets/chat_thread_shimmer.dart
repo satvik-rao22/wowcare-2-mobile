@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 /// Shimmer skeleton for chat thread loading — replaces CircularProgressIndicator
 /// in StaffMessagingThread, ParentMessagingThread, and ConversationThreadScreen.
@@ -10,8 +11,8 @@ class ChatThreadShimmer extends StatelessWidget {
 
   final int itemCount;
 
-  static const _baseColor = Color(0xFFE2E8F0);
-  static const _highlightColor = Color(0xFFF8FAFC);
+  static const _baseColor = AppColors.messagingShimmerBaseCool;
+  static const _highlightColor = AppColors.messagingShimmerHighlightCool;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +81,7 @@ class _Bubble extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
@@ -111,7 +112,7 @@ class _Circle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           shape: BoxShape.circle,
         ),
       );
@@ -132,7 +133,7 @@ class _Rect extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(radius),
         ),
       );

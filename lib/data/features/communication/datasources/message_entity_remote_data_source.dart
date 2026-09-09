@@ -5,6 +5,9 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
+import 'package:wowcare/data/features/communication/models/send_message_request.dart';
+import 'package:wowcare/data/features/communication/models/edit_message_request.dart';
+import 'package:wowcare/data/features/communication/models/message_reaction_request.dart';
 
 abstract class MessageEntityRemoteDataSource {
   Future<List<MessageEntityDto>> getMessages({
@@ -107,25 +110,20 @@ class MessageEntityRemoteDataSourceImpl
       serviceLocator<StorageService>(),
     );
 
-    final body = <String, dynamic>{
-      'conversationCode': conversationCode,
-      'type': 'TEXT',
-      'content': _wrapAsHtml(text),
-      // Backend tracks attachments by the messaging-service's own integer id
-      // (assigned at registration — see ChatAttachmentUploader.upload), not
-      // by the document-service asset code. Matches
-      // CommunicationRemoteDataSource.sendMessage's confirmed-working
-      // contract for this same endpoint.
-      if (attachmentIds.isNotEmpty) 'attachmentIds': attachmentIds,
-      if (isPrivate) 'isPrivate': true,
-      if (privateParentUserCode != null)
-        'privateParentUserCode': privateParentUserCode,
-      // Backend expects 'replyToMessageCode' on create (distinct from the
-      // 'replyToMessageId' key it echoes back on read — see
-      // MessageEntityDto.fromJson).
-      if (threadParentCode != null) 'replyToMessageCode': threadParentCode,
-      if (activeRole.isNotEmpty) 'role': activeRole,
-    };
+    // Backend tracks attachments by the messaging-service's own integer id
+    // (assigned at registration — see ChatAttachmentUploader.upload), not by
+    // the document-service asset code. `replyToMessageCode` is the create-time
+    // key (distinct from the `replyToMessageId` echoed back on read — see
+    // MessageEntityDto.fromJson).
+    final body = SendMessageRequest(
+      conversationCode: conversationCode,
+      content: _wrapAsHtml(text),
+      attachmentIds: attachmentIds,
+      isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
+      replyToMessageCode: threadParentCode,
+      role: activeRole,
+    ).toJson();
 
     final response = await apiClient.client.post(endpoint, data: body);
     _assertSuccess(response.data, 'Failed to send message');
@@ -157,7 +155,7 @@ class MessageEntityRemoteDataSourceImpl
     final endpoint = _url(ApiPaths.messagingMessage(messageCode));
     final response = await apiClient.client.put(
       endpoint,
-      data: {'content': _wrapAsHtml(newText)},
+      data: EditMessageRequest(content: _wrapAsHtml(newText)).toJson(),
     );
     _assertSuccess(response.data, 'Failed to edit message');
 
@@ -178,7 +176,7 @@ class MessageEntityRemoteDataSourceImpl
     required String emoji,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessageReactions(messageCode));
-    await apiClient.client.post(endpoint, data: {'emoji': emoji});
+    await apiClient.client.post(endpoint, data: MessageReactionRequest(emoji: emoji).toJson());
   }
 
   @override
