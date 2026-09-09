@@ -2,17 +2,16 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversation_entity_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
@@ -33,7 +32,7 @@ import 'package:wowcare/domain/features/communication/usecases/mark_conversation
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_message_receipts_usecase.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
@@ -65,7 +64,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final WatchConversationsLegacyUseCase watchConversationsUseCase;
   final MarkConversationDeliveredUseCase markConversationDeliveredUseCase;
   final MarkConversationReadUseCase markConversationReadUseCase;
-  final StorageService storageService;
+  final MessagingSession _session;
   final CacheMessageUseCase cacheMessageUseCase;
   final DiscardCachedMessageUseCase discardCachedMessageUseCase;
   final GetMessageReceiptsUseCase getMessageReceiptsUseCase;
@@ -92,7 +91,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.watchConversationsUseCase,
     required this.markConversationDeliveredUseCase,
     required this.markConversationReadUseCase,
-    required this.storageService,
+    required MessagingSession session,
     required this.cacheMessageUseCase,
     required this.discardCachedMessageUseCase,
     required this.getMessageReceiptsUseCase,
@@ -101,7 +100,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.getTagNameCodeMapUseCase,
     required this.getConversationEntityUseCase,
     this.pendingAttachmentStore = const PendingAttachmentStoreImpl(),
-  }) : super(CommunicationInitial());
+  }) : _session = session,
+       super(CommunicationInitial());
 
   /// Fetches the full per-recipient-per-persona receipts for one message
   /// on-demand — see [GetMessageReceiptsUseCase]. Returns empty lists on
@@ -121,16 +121,16 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// a thread or receive new messages while the thread is in the foreground.
   /// Identity/session values from local storage, exposed so views read them
   /// through their (ambient) CommunicationCubit instead of reaching
-  /// `StorageService` directly (Mandate 5). Thin passthroughs over the same
-  /// injected [storageService] — same read, same value.
+  /// storage directly (Mandate 5). Thin passthroughs over the injected
+  /// [MessagingSession] — same read, same value.
   Future<String?> readCurrentUserCode() =>
-      storageService.getString(StorageKeys.userCode);
+      _session.userCode();
 
   Future<String?> readActiveSchoolCode() =>
-      storageService.getString(StorageKeys.schoolCode);
+      _session.schoolCode();
 
   Future<String?> readStaffCode() =>
-      storageService.getString(StorageKeys.staffCode);
+      _session.staffCode();
 
   /// Use-case/repository access exposed so views go through their (ambient)
   /// cubit rather than resolving these directly (Mandate 5). Each forwards to
@@ -456,9 +456,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> _markDeliveredForIncomingMessages(
     List<Conversation> conversations,
   ) async {
-    final currentUserCode = (await storageService.getString(
-      StorageKeys.userCode,
-    ))?.trim();
+    final currentUserCode = (await _session.userCode())?.trim();
     if (currentUserCode == null || currentUserCode.isEmpty) return;
 
     for (final conversation in conversations) {

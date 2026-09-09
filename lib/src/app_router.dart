@@ -3173,7 +3173,7 @@ final GoRouter appRouter = GoRouter(
             createOrOpenConversationUseCase: serviceLocator(),
             sendMessageUseCase: serviceLocator(),
             attachmentUploader: serviceLocator(),
-            storageService: serviceLocator(),
+            session: serviceLocator(),
             cacheMessageUseCase: serviceLocator(),
             discardCachedMessageUseCase: serviceLocator(),
             cacheDraftMessageUseCase: serviceLocator(),

@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/messaging/usecases/get_filtered_staff_usecase.dart';
 import 'staff_messaging_filter_state.dart';
 
 class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
   final GetFilteredStaffUseCase _getFilteredStaffUseCase;
-  final StorageService _storageService;
+  final MessagingSession _session;
 
   static const int _pageSize = 20;
   Timer? _debounceTimer;
@@ -17,21 +16,21 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
 
   StaffMessagingFilterCubit({
     required GetFilteredStaffUseCase getFilteredStaffUseCase,
-    required StorageService storageService,
+    required MessagingSession session,
   }) : _getFilteredStaffUseCase = getFilteredStaffUseCase,
-       _storageService = storageService,
+       _session = session,
        super(const StaffMessagingFilterState.initial());
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
-    _schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    _schoolCode = await _session.schoolCode() ?? '';
     return _schoolCode!;
   }
 
   Future<String> _resolveOrganizationCode() async {
     if (_organizationCode != null) return _organizationCode!;
     _organizationCode =
-        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+        await _session.organizationCode() ?? '';
     return _organizationCode!;
   }
 

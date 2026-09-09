@@ -2,10 +2,9 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
@@ -29,7 +28,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     required GetConversationsEntityUseCase getConversationsUseCase,
     required GetCachedConversationsEntityUseCase getCachedConversationsUseCase,
     required ConversationEntityRepository conversationRepository,
-    required StorageService storageService,
+    required MessagingSession session,
     required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
     required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapUseCase,
   }) : _conversationType = conversationType,
@@ -37,7 +36,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
        _getConversationsUseCase = getConversationsUseCase,
        _getCachedConversationsUseCase = getCachedConversationsUseCase,
        _conversationRepo = conversationRepository,
-       _storageService = storageService,
+       _session = session,
        _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _getTagNameCodeMapUseCase = getTagNameCodeMapUseCase,
        super(ConversationListState.initial(conversationType: conversationType));
@@ -47,7 +46,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   final GetConversationsEntityUseCase _getConversationsUseCase;
   final GetCachedConversationsEntityUseCase _getCachedConversationsUseCase;
   final ConversationEntityRepository _conversationRepo;
-  final StorageService _storageService;
+  final MessagingSession _session;
   final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapUseCase;
 
@@ -90,18 +89,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// Also subscribes to [MessagingEventService] so it can zero a conversation's
   /// badge immediately when the user opens that thread — before Firestore
   /// confirms the read receipt (~1-3 s later).
-  /// Identity/session values from local storage, exposed so views read them
-  /// through their owning cubit instead of reaching `StorageService` directly
-  /// (Mandate 5). These are thin passthroughs over the same injected
-  /// [StorageService] the cubit already uses — same read, same value.
+  /// Identity/session values, exposed so views read them through their owning
+  /// cubit instead of reaching storage directly (Mandate 5). These are thin
+  /// passthroughs over the injected [MessagingSession] — same read, same value.
   Future<String?> readActiveSchoolRole() =>
-      _storageService.getString(StorageKeys.activeSchoolRole);
+      _session.activeSchoolRole();
 
   Future<String?> readCurrentUserCode() =>
-      _storageService.getString(StorageKeys.userCode);
+      _session.userCode();
 
   Future<String?> readActiveSchoolCode() =>
-      _storageService.getString(StorageKeys.schoolCode);
+      _session.schoolCode();
 
   /// Use-case/repository access exposed so views go through their owning cubit
   /// rather than resolving these directly (Mandate 5). Each forwards to the
@@ -139,11 +137,11 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     emit(state.copyWith(isLoading: true));
 
     final String debugUserCode =
-        (await _storageService.getString(StorageKeys.userCode)) ?? '';
+        (await _session.userCode()) ?? '';
     final String debugOrgCode =
-        (await _storageService.getString(StorageKeys.organizationCode)) ?? '';
+        (await _session.organizationCode()) ?? '';
     final String debugSchoolCode =
-        (await _storageService.getString(StorageKeys.schoolCode)) ?? '';
+        (await _session.schoolCode()) ?? '';
 
     // 1. Emit Isar cache immediately for a fast first frame.
     final cacheResult = await _getCachedConversationsUseCase(
@@ -230,9 +228,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> _markDeliveredForIncomingMessages(
     List<ConversationEntity> conversations,
   ) async {
-    final currentUserCode = (await _storageService.getString(
-      StorageKeys.userCode,
-    ))?.trim();
+    final currentUserCode = (await _session.userCode())?.trim();
     if (currentUserCode == null || currentUserCode.isEmpty) return;
 
     for (final conversation in conversations) {
@@ -270,10 +266,10 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     emit(state.copyWith(isSearchingStaff: true, clearStaffSearchError: true));
 
     final orgCode =
-        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+        (await _session.organizationCode() ?? '')
             .trim();
     final schoolCode =
-        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+        (await _session.schoolCode() ?? '').trim();
 
     if (isClosed) return;
 

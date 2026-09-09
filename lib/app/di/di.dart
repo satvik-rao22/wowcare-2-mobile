@@ -432,6 +432,8 @@ import '../../domain/features/communication/usecases/watch_conversations_legacy_
 import '../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+import 'package:wowcare/data/features/communication/services/messaging_session_impl.dart';
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import '../../domain/features/communication/repositories/communication_settings_repository.dart';
 import '../../domain/features/communication/usecases/get_communication_settings_usecase.dart';
 import '../../data/features/communication/datasources/communication_settings_remote_data_source.dart';
@@ -496,7 +498,7 @@ import '../../presentation/features/newsletter/view_model/newsletter_list_cubit.
 import '../../presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/view_model/communication_cubit.dart';
-import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
@@ -848,6 +850,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => FirebaseMessageRealtimeDataSource(
       firestore: FirebaseFirestore.instance,
     ),
+  );
+
+  serviceLocator.registerLazySingleton<MessagingSession>(
+    () => MessagingSessionImpl(serviceLocator<StorageService>()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationRepository>(
@@ -2690,7 +2696,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<MarkConversationDeliveredUseCase>(),
       markConversationReadUseCase:
           serviceLocator<MarkConversationReadUseCase>(),
-      storageService: serviceLocator<StorageService>(),
+      session: serviceLocator<MessagingSession>(),
       cacheMessageUseCase: serviceLocator<CacheMessageUseCase>(),
       discardCachedMessageUseCase:
           serviceLocator<DiscardCachedMessageUseCase>(),
