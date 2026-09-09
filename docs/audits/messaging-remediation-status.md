@@ -23,6 +23,7 @@ Guardrail #1 — **behaviour must not change** (same render, same navigation, sa
 | 2 | `9f203de8` | **M3.4** | Converted **all 189** relative cross-folder imports (`../..`) across data + domain + presentation to `package:wowcare/…`. Removes the latent test-breakage the standard warns about. |
 | 3a | `238df6d3` | **M6.1** | Split `message_bubble_widget.dart` **2332 → 1808** + two `part` files (`message_bubble_parts` 173, `message_bubble_reaction_parts` 365). |
 | 3b | `3ff2d28a` | **M6.1** | `chat_input_bar.dart` **1029 → 341** + previews 307 + input_row 391 (**all <400**); `conversation_list_screen.dart` **1036 → 575** + tiles 258 + chips 213; `admin_chat_host_screen.dart` **1299 → 871** + lists 314 + states 124. |
+| 4 | `fa5f847e` | **M5.1 + M5.2** | Removed `StorageService` (and every other forbidden type) from the presentation layer. New injected domain service **`MessagingSession`** (impl `MessagingSessionImpl` over `StorageService` in data, registered in `di.dart`) replaces `StorageService` in all 5 messaging cubits — behaviour-preserving (same keys, same values). Relocated `chat_attachment_uploader.dart` from `presentation/shared/utils` → `data/features/communication/services`. Presentation now has **0** `StorageService`/`Repository`/`DataSource`/`Dio`/`SharedPreferences` types. |
 
 **M6.1 method:** every split is a **pure move** of library-private helper widgets into Dart `part`/`part of` files — no renames, no visibility changes, shared imports, zero behaviour change. `flutter analyze` + the module's widget tests confirm each.
 
@@ -39,8 +40,9 @@ Guardrail #1 — **behaviour must not change** (same render, same navigation, sa
 
 ## Deferred, with reason (a local fix would make production *worse*)
 
-- **M5.1 — `StorageService` injected into cubits.** This is an **app-wide convention**, not a messaging defect: `storageService:` is injected into ~40 cubits across attendance, activities, students, staff, newsletter, kiosk (~90 sites in `di.dart`, ~30 test files). Introducing a messaging-only `MessagingSession` abstraction would make these 5 cubits diverge from 40 others. The mandate rules forbid app-wide changes in one module. **Belongs to the platform-wide Mandate-5 pass.**
 - **M5.3 — two `FutureBuilder`s** (`open_conversation_screen`, `message_info_dialog`) are one-shot *resolve-and-redirect* / modal displays — no cubit "already owns" that data. Converting them adds cubits for transient UI, which Mandate 6's "do not abstract for its own sake" cautions against. Judged **not a violation**.
+
+> **M5.1 update (now FIXED, batch 4).** This was initially deferred as an app-wide convention (`storageService:` is injected into ~40 cubits app-wide). On the direction to make messaging production-grade regardless, it was done for this module — the correct per-module remediation move: messaging is now compliant and the other modules follow in their own passes. The `MessagingSession` seam is the reference pattern for those. **`StaffMessagingFilterCubit` was found to be dead code** (constructed nowhere) — flagged for deletion.
 - **M3.1 / M3.2 / M3.5 — the double-nested `presentation/`, `cubit/`→`view_model/`, the `communication`↔`messaging` feature split.** App-wide structural migration; **develop-refactor is actively performing it** (it advanced twice during remediation). The mandate rules forbid doing it in one module. Defer to that migration.
 
 ---
