@@ -79,7 +79,6 @@ class DateUtilsNew {
     DateTime dateTime = DateTime.parse(dateString);
 
     // Format the DateTime object to the desired date and time format
-    String formattedDate = DateFormat('dd-MMM-yyyy').format(dateTime);
     String formattedTime = DateFormat(
       'hh:mm a',
     ).format(dateTime); // 12-hour format
@@ -95,6 +94,4 @@ class DateUtilsNew {
     final DateFormat formatter = DateFormat('MM/dd/yyyy');
     return formatter.format(date);
   }
-
-  static DateTime? parseReadableDate(String text) {}
 }

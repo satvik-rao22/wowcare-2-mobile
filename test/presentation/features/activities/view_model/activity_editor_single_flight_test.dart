@@ -14,7 +14,11 @@ import 'package:wowcare/domain/features/activity/usecases/guardian_parent_signat
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/update_activity_usecase.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_status_at_time_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
@@ -115,6 +119,14 @@ ActivityEditorCubit _buildCubit(CreateActivityUseCase create) {
         GetGuardianNameCodeMapForSchoolUseCase(_LoudStudentRepo()),
     getStaffTodaySignInStatusUseCase:
         GetStaffTodaySignInStatusUseCase(_LoudAttendanceRepo()),
+    getStaffSignInStatusAtTimeUseCase:
+        GetStaffSignInStatusAtTimeUseCase(_LoudAttendanceRepo()),
+    getStudentSignInStatusAtTimeUseCase:
+        GetStudentSignInStatusAtTimeUseCase(_LoudAttendanceRepo()),
+    getStudentTodaySignInStatusMapUseCase:
+        GetStudentTodaySignInStatusMapUseCase(_LoudAttendanceRepo()),
+    waitActivityAssetsReadyUseCase:
+        WaitActivityAssetsReadyUseCase(_LoudMediaUploadRepo()),
     storageService: _FakeStorage(),
     uploadActivityAssetsUseCase: UploadActivityAssetsUseCase(_LoudMediaUploadRepo()),
     getActivityUploadAssetStatusesUseCase:
@@ -161,7 +173,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       create2.gate.complete('ok');
       await g1;
-      final again = _create(cubit2); // sequential, not concurrent
+      _create(cubit2); // sequential, not concurrent
       await Future<void>.delayed(Duration.zero);
       expect(create2.calls, 2);
       await cubit.close();

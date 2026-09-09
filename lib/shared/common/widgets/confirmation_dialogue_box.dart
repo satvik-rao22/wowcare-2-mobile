@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class ConfirmationDialog extends StatelessWidget {
   final String title;
@@ -20,8 +19,6 @@ class ConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    
     return AlertDialog(
       title: Text(title),
       content: Text(content),

@@ -428,13 +428,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 // ─── Gradient tab indicator ───────────────────────────────────────────────────
 
 class _GradientTabIndicator extends Decoration {
-  const _GradientTabIndicator({
-    required this.gradient,
-    this.height = 2.5,
-  });
+  const _GradientTabIndicator({required this.gradient});
 
   final Gradient gradient;
-  final double height;
+  final double height = 2.5;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>

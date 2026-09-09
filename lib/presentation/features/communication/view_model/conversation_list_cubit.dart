@@ -136,20 +136,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> startWatching() async {
     emit(state.copyWith(isLoading: true));
 
-    final String debugUserCode =
-        (await _session.userCode()) ?? '';
-    final String debugOrgCode =
-        (await _session.organizationCode()) ?? '';
-    final String debugSchoolCode =
-        (await _session.schoolCode()) ?? '';
-
     // 1. Emit Isar cache immediately for a fast first frame.
     final cacheResult = await _getCachedConversationsUseCase(
       type: _conversationType,
     );
     cacheResult.fold((_) {}, (cached) {
       if (cached.isNotEmpty && !isClosed) {
-        final int debugPrevCount = state.conversations.length;
         emit(
           ConversationListState.loaded(
             conversationType: _conversationType,
@@ -192,7 +184,6 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // rather than silently overwriting it with the unfiltered live
         // snapshot; live updates resume once filters are cleared.
         if (state.hasActiveFilters) return;
-        final int debugPrevCount = state.conversations.length;
         debugPrint(
           '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
           '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',

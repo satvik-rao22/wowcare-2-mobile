@@ -58,8 +58,6 @@ class _CustomRepeatOnDaysSelectorState
 
   @override
   Widget build(BuildContext context) {
-    final bool isAllSelected = _selectedDays.length == _allDays.length;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_out_form.dart';
@@ -65,13 +64,6 @@ class _KioskStudentSignInAndSignOutPageState
       'action=$_currentAction, signedIn=${widget.signedInCodes.length}, '
       'signedOut=${widget.signedOutCodes.length}',
     );
-  }
-
-  /// Handle back navigation - always return to kiosk dashboard
-  void _onPopInvokedWithResult(bool didPop, dynamic result) {
-    if (didPop) return;
-    AppLogger.d('[Kiosk] Back button pressed, returning to kiosk dashboard');
-    context.go('/kiosk');
   }
 
   @override

@@ -195,7 +195,6 @@ import 'package:wowcare/presentation/features/students/view/add_document_screen.
 import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
-import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -203,8 +202,6 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/edit_user_profile_screen.dart';
-import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
-import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';

@@ -107,10 +107,9 @@ class _LegendItem extends StatelessWidget {
 }
 
 class _SvgIcon extends StatelessWidget {
-  const _SvgIcon({required this.asset, this.colorFilter});
+  const _SvgIcon({required this.asset});
 
   final String asset;
-  final ColorFilter? colorFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +117,6 @@ class _SvgIcon extends StatelessWidget {
       asset,
       width: 18,
       height: 18,
-      colorFilter: colorFilter,
     );
   }
 }

@@ -12,6 +12,10 @@ class _Harness extends StatefulWidget {
 class _HarnessState extends State<_Harness> {
   List<String> items = const [];
 
+  /// Lets a test swap the item list the way a resolving fetch would, without
+  /// reaching into `setState` (which is protected) from outside the State.
+  void updateItems(List<String> next) => setState(() => items = next);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -46,12 +50,10 @@ void main() {
       // open. Set state directly (rather than tapping a widget) since the
       // open overlay's full-screen dismiss barrier would otherwise swallow
       // any tap meant for something behind it.
-      tester.state<_HarnessState>(find.byType(_Harness)).setState(() {
-        tester.state<_HarnessState>(find.byType(_Harness)).items = const [
-          'Billing Parent',
-          'Silling Parent',
-        ];
-      });
+      tester.state<_HarnessState>(find.byType(_Harness)).updateItems(const [
+        'Billing Parent',
+        'Silling Parent',
+      ]);
       await tester.pumpAndSettle();
 
       // The already-open overlay must reflect the new items, not stay frozen.

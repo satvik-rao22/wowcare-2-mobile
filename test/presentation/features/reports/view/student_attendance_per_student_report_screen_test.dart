@@ -17,7 +17,6 @@ import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usec
 import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';

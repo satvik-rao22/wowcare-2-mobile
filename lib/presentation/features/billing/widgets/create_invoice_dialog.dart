@@ -137,7 +137,7 @@ class BillingActionCardState extends State<BillingActionCard> {
           return InkWell(
             onTap: widget.onTap,
             onHighlightChanged: _setHighlight,
-            overlayColor: MaterialStatePropertyAll(
+            overlayColor: WidgetStatePropertyAll(
               AppColors.themeColor.withValues(alpha: 0.12),
             ),
             splashColor: AppColors.themeColor.withValues(alpha: 0.16),

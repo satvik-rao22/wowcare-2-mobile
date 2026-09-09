@@ -79,7 +79,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     if (_config?.gpsSignInEnabled == false) return;
     final args = call.arguments as Map?;
     final isInside = args?['isInside'] == true;
-    final newStatus = isInside ? GeofenceStatus.within : GeofenceStatus.outside;
     final newCubitStatus = isInside
         ? GeofenceCubitStatus.withinRange
         : GeofenceCubitStatus.outsideRange;
@@ -514,7 +513,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       // ── Resolve state from the parallel GPS fetch (likely already done) ──
       final position = await positionFuture;
       GeofenceCubitStatus immediateStatus;
-      GeofenceStatus? immediateGeofenceStatus;
 
       if (position != null) {
         final distance = Geolocator.distanceBetween(
@@ -537,7 +535,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
         if (isInside) {
           immediateStatus = GeofenceCubitStatus.withinRange;
-          immediateGeofenceStatus = GeofenceStatus.within;
 
           if (isRefresh) {
             final nothingToDo =
@@ -573,7 +570,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           }
         } else if (confidentlyOutside) {
           immediateStatus = GeofenceCubitStatus.outsideRange;
-          immediateGeofenceStatus = GeofenceStatus.outside;
         } else {
           // Near boundary: GPS accuracy is too large to be sure either way.
           // Try the last-persisted status; if there is none (first launch),

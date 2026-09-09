@@ -95,8 +95,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           // Seed the family-balance field once after load.
           if (!state.isLoading && !_seededCurrent) {
             _seededCurrent = true;
-            _currentController.text =
-                state.currentAmount > 0 ? _money(state.currentAmount) : '';
+            _currentController.text = state.currentAmount > 0
+                ? _money(state.currentAmount)
+                : '';
           }
           return StaffFormLayout(
             title: BillingStrings.payNow,
@@ -104,23 +105,31 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             child: state.isLoading
                 ? _buildLoading()
                 : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          BillingStrings.paymentAmount,
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: _primary,
+                    // The two amount options are one radio group; the group
+                    // owns the selection and each Radio just declares its value.
+                    child: RadioGroup<PayNowAmountMode>(
+                      groupValue: state.mode,
+                      onChanged: (PayNowAmountMode? mode) {
+                        if (mode != null) _cubit.setMode(mode);
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            BillingStrings.paymentAmount,
+                            style: TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: _primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildCurrentOption(state),
-                        const SizedBox(height: 16),
-                        _buildCustomOption(state),
-                      ],
+                          const SizedBox(height: 12),
+                          _buildCurrentOption(state),
+                          const SizedBox(height: 16),
+                          _buildCustomOption(state),
+                        ],
+                      ),
                     ),
                   ),
           );
@@ -130,15 +139,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   }
 
   Widget _buildLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerLoader(height: 22, width: 160, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ShimmerLoader(
+        height: 22,
+        width: 160,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ],
+  );
 
   Widget _buildCurrentOption(PayNowState state) {
     final selected = state.mode == PayNowAmountMode.currentOutstanding;
@@ -151,12 +172,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             children: [
               Radio<PayNowAmountMode>(
                 value: PayNowAmountMode.currentOutstanding,
-                groupValue: state.mode,
                 activeColor: _accent,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) =>
-                    _cubit.setMode(PayNowAmountMode.currentOutstanding),
               ),
               const SizedBox(width: 8),
               const Expanded(
@@ -208,11 +226,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             children: [
               Radio<PayNowAmountMode>(
                 value: PayNowAmountMode.custom,
-                groupValue: state.mode,
                 activeColor: _accent,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) => _cubit.setMode(PayNowAmountMode.custom),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -355,16 +371,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         border: Border.all(
-          color: hasError ? AppColors.errorColor : AppColors.billingBorderDefault,
+          color: hasError
+              ? AppColors.errorColor
+              : AppColors.billingBorderDefault,
         ),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         onChanged: onChanged,
         style: textStyle,
         decoration: InputDecoration(

@@ -258,12 +258,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           (fresh) {
             if (isClosed) return;
             _firestoreActive = true;
-            final latest = fresh.isNotEmpty ? fresh.last : null;
             final merged = _mergePendingMessages(
               _sortedOldestFirst(fresh),
               preserveMissingConfirmed: true,
             );
-            final int debugPrevCount = state.messages.length;
             emit(
               ConversationThreadState.loaded(
                 conversationCode: state.conversationCode,

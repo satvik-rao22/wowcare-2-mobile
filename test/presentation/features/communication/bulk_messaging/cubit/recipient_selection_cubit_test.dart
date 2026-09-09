@@ -4,7 +4,6 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/recipient_selection_cubit.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/recipient_selection_state.dart';
 
 void main() {
   late RecipientSelectionCubit cubit;

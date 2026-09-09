@@ -111,7 +111,6 @@ class ActivityStatusPanel extends StatelessWidget {
 
 class _ActivityStatusIcon extends StatelessWidget {
   const _ActivityStatusIcon({
-    super.key,
     required this.iconPath,
     required this.label,
     this.onGoingActivity = false

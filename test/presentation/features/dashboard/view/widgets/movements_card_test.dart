@@ -16,7 +16,6 @@ class MockIndividualMovementsCubit extends Cubit<IndividualMovementsState> imple
   @override
   Future<void> refresh({List<String>? studentCodes, List<String>? fromClassroomCodes, List<String>? toClassroomCodes, DateTime? dateFrom, DateTime? dateTo, List<String>? status}) async {}
   
-  @override
   Future<void> init() async {}
   
   @override

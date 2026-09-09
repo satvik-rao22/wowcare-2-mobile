@@ -856,19 +856,6 @@ String _formatTime(TimeOfDay t) {
   return '$hour:$minute $period';
 }
 
-/// Parses a raw 24h API time string (`HH:mm` or `HH:mm:ss`) into TimeOfDay.
-TimeOfDay? _parse24hTime(String raw) {
-  final trimmed = raw.trim();
-  if (trimmed.isEmpty) return null;
-  final parts = trimmed.split(':');
-  if (parts.length < 2) return null;
-  final h = int.tryParse(parts[0]);
-  final m = int.tryParse(parts[1]);
-  if (h == null || m == null) return null;
-  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-  return TimeOfDay(hour: h, minute: m);
-}
-
 /// Parses `"8:00AM - 8:00PM"` (the format saved by `StaffRepositoryImpl`) into
 /// a `(start, end)` tuple. Returns null on any parse failure.
 (TimeOfDay, TimeOfDay)? _parseTimeRange(String? raw) {

@@ -27,6 +27,8 @@ class _SpyRepository implements ActivityMediaUploadRepository {
     required List<ActivityUploadItem> items,
     void Function(int itemIndex, int totalItems, int percent)? onItemProgress,
     void Function(int completedItems, int totalItems)? onItemComplete,
+    void Function(String filePath, String assetCode, String sessionCode)?
+    onAssetUploaded,
     CancelToken? cancelToken,
   }) async {
     uploadArgs = {

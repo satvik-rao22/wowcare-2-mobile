@@ -8,7 +8,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
@@ -129,9 +128,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
 
-  /// Raw FTE from the API (e.g. "1.0", "0.5"); set when the profile loads.
-  /// Displayed ×100 on the front end only (1.0 → 100, 0.5 → 50).
-  String? _profileFte;
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
@@ -285,27 +281,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
       }
-      _profileFte = profile.fte;
       _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
           ? null
           : profile.profilePhotoUrl!.trim();
     });
   }
 
-  /// FTE for display: the API value multiplied by 100 (front end only) and shown
-  /// as a percentage, with a trailing `.0` dropped for whole numbers.
-  /// Null/blank/non-numeric → null so the field is hidden.
-  String? get _fteDisplay {
-    final raw = (_profileFte ?? '').trim();
-    if (raw.isEmpty) return null;
-    final value = double.tryParse(raw);
-    if (value == null) return null;
-    final scaled = value * 100;
-    final number = scaled == scaled.roundToDouble()
-        ? scaled.toStringAsFixed(0)
-        : scaled.toString();
-    return '$number%';
-  }
 
   Future<void> _loadUploadContext() async {
     final storage = serviceLocator<StorageService>();

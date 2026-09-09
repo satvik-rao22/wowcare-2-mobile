@@ -23,9 +23,7 @@ Future<List<String>?> showSameLastNameSiblingsDialog({
     enableDrag: true,
     builder: (ctx) {
       return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _SameLastNameSiblingsBody(candidates: candidates),
       );
     },
@@ -67,18 +65,12 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
     final isLargeTablet = responsive.isWide;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-    final horizontalPadding =
-        isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final verticalPadding =
-        isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final titleFontSize =
-        isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
-    final buttonHeight =
-        isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
-    final buttonFontSize =
-        isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
-    final borderRadius =
-        isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
+    final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+    final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+    final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
+    final buttonHeight = isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
+    final buttonFontSize = isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
+    final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
     final count = widget.candidates.length;
 
     return SafeArea(
@@ -123,8 +115,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'We found $count student${count == 1 ? '' : 's'} with the same last name',
                   style: TextStyle(
@@ -139,8 +132,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
               ),
               AppSpacing.gapVXs,
               Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   StudentStrings.wouldYouLikeToAddAnyOfThemAsSiblings,
                   style: TextStyle(
@@ -158,106 +152,117 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 constraints: BoxConstraints(
                   maxHeight: responsive.screenHeight * 0.42,
                 ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: widget.candidates.length,
-                  separatorBuilder: (_, __) => SizedBox(height: verticalPadding / 3),
-                  itemBuilder: (context, index) {
-                    final s = widget.candidates[index];
-                    final code = s.code.trim();
-                    final name =
-                        s.fullName.isNotEmpty ? s.fullName : 'Student';
-                    final status = s.status.trim().toUpperCase();
-                    final classroom =
-                        s.classroom.trim().isEmpty ? '—' : s.classroom;
+                child: RadioGroup<String>(
+                  groupValue: _selectedCode,
+                  onChanged: (String? code) {
+                    if (code == null) return;
+                    setState(() {
+                      _selectSingle(code);
+                    });
+                  },
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: widget.candidates.length,
+                    separatorBuilder: (_, __) =>
+                        SizedBox(height: verticalPadding / 3),
+                    itemBuilder: (context, index) {
+                      final s = widget.candidates[index];
+                      final code = s.code.trim();
+                      final name = s.fullName.isNotEmpty
+                          ? s.fullName
+                          : 'Student';
+                      final status = s.status.trim().toUpperCase();
+                      final classroom = s.classroom.trim().isEmpty
+                          ? '—'
+                          : s.classroom;
 
-                    return Material(
-                      color: AppColors.transparentColor,
-                      child: InkWell(
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
-                        onTap: () {
-                          setState(() {
-                            _selectSingle(code);
-                          });
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: horizontalPadding / 2,
-                            vertical: isTablet ? AppSpacing.sm : AppSpacing.s10,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(borderRadius / 2),
-                            border: Border.all(
-                              color: AppColors.cardBorderColor,
+                      return Material(
+                        color: AppColors.transparentColor,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(borderRadius / 2),
+                          onTap: () {
+                            setState(() {
+                              _selectSingle(code);
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding / 2,
+                              vertical: isTablet
+                                  ? AppSpacing.sm
+                                  : AppSpacing.s10,
                             ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: AppSpacing.s2),
-                                child: ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) =>
-                                      AppColors.buildPrimaryGradient()
-                                          .createShader(bounds),
-                                  child: Radio<String>(
-                                    value: code,
-                                    groupValue: _selectedCode,
-                                    activeColor: AppColors.primaryColor,
-                                    visualDensity: VisualDensity.compact,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    onChanged: (_) {
-                                      setState(() {
-                                        _selectSingle(code);
-                                      });
-                                    },
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                borderRadius / 2,
+                              ),
+                              border: Border.all(
+                                color: AppColors.cardBorderColor,
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: AppSpacing.s2,
+                                  ),
+                                  child: ShaderMask(
+                                    blendMode: BlendMode.srcIn,
+                                    shaderCallback: (bounds) =>
+                                        AppColors.buildPrimaryGradient()
+                                            .createShader(bounds),
+                                    child: Radio<String>(
+                                      value: code,
+                                      activeColor: AppColors.primaryColor,
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: horizontalPadding / 4),
-                              DocumentImageWidget(
-                                fileUuid: code,
-                                name: name,
-                                size: isTablet ? 44 : 40,
-                                fontSize: 14,
-                              ),
-                              SizedBox(width: horizontalPadding / 3),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: TextStyle(
-                                        fontFamily: Fonts.manrope,
-                                        fontSize: isTablet ? 16 : 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.primaryColor,
-                                      ),
-                                    ),
-                                    AppSpacing.gapVXxs,
-                                    Text(
-                                      'Status: $status | Classroom: $classroom',
-                                      style: TextStyle(
-                                        fontFamily: Fonts.manrope,
-                                        fontSize: 13,
-                                        color: AppColors.primaryColor
-                                            .withValues(alpha: 0.55),
-                                      ),
-                                    ),
-                                  ],
+                                SizedBox(width: horizontalPadding / 4),
+                                DocumentImageWidget(
+                                  fileUuid: code,
+                                  name: name,
+                                  size: isTablet ? 44 : 40,
+                                  fontSize: 14,
                                 ),
-                              ),
-                            ],
+                                SizedBox(width: horizontalPadding / 3),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: TextStyle(
+                                          fontFamily: Fonts.manrope,
+                                          fontSize: isTablet ? 16 : 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primaryColor,
+                                        ),
+                                      ),
+                                      AppSpacing.gapVXxs,
+                                      Text(
+                                        'Status: $status | Classroom: $classroom',
+                                        style: TextStyle(
+                                          fontFamily: Fonts.manrope,
+                                          fontSize: 13,
+                                          color: AppColors.primaryColor
+                                              .withValues(alpha: 0.55),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
               SizedBox(height: verticalPadding * 1.5),
@@ -268,8 +273,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                       height: buttonHeight,
                       decoration: BoxDecoration(
                         gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
+                        borderRadius: BorderRadius.circular(borderRadius / 2),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
@@ -277,7 +281,8 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                           decoration: BoxDecoration(
                             color: AppColors.whiteColor,
                             borderRadius: BorderRadius.circular(
-                                borderRadius / 2 - 1),
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: () =>
@@ -285,7 +290,8 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
-                                    borderRadius / 2 - 1),
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -308,17 +314,17 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                     child: Container(
                       height: buttonHeight,
                       decoration: BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
+                        borderRadius: BorderRadius.circular(borderRadius / 2),
                         gradient: AppColors.buildPrimaryGradient(),
                       ),
                       child: TextButton(
-                        onPressed: () => Navigator.of(context)
-                            .pop(_selectedCodes.toList()),
+                        onPressed: () =>
+                            Navigator.of(context).pop(_selectedCodes.toList()),
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(
-                                borderRadius / 2),
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(

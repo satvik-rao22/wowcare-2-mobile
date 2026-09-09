@@ -309,7 +309,9 @@ class _ReceivePaymentIssueRefundScreenState
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+          hintStyle: _labelStyle(
+            responsive,
+          ).copyWith(color: AppColors.billingGrey),
           border: InputBorder.none,
           contentPadding: _fieldPadding(responsive),
         ),
@@ -344,8 +346,11 @@ class _ReceivePaymentIssueRefundScreenState
                 _buildPaymentTypeField(responsive, labelGap),
                 if (_selectedPaymentType == 'Cheque') ...<Widget>[
                   SizedBox(height: verticalSpacing),
-                  _fieldLabel(responsive, BillingStrings.chequeNumber,
-                      required: true),
+                  _fieldLabel(
+                    responsive,
+                    BillingStrings.chequeNumber,
+                    required: true,
+                  ),
                   SizedBox(height: labelGap),
                   _outlinedTextField(
                     responsive,
@@ -437,76 +442,83 @@ class _ReceivePaymentIssueRefundScreenState
             (double sum, PayableStudent s) => sum + s.outstanding,
           );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          BillingStrings.receiveMethod,
-          style: TextStyle(
-            fontFamily: Fonts.manrope,
-            fontSize: responsive.isTablet ? 18.0 : 16.0,
-            fontWeight: FontWeight.w700,
-            color: AppColors.billingTextColor,
+    return RadioGroup<bool>(
+      groupValue: _useCustomAmount,
+      onChanged: (bool? useCustom) {
+        if (useCustom == null || _isSubmitting) return;
+        setState(() => _useCustomAmount = useCustom);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            BillingStrings.receiveMethod,
+            style: TextStyle(
+              fontFamily: Fonts.manrope,
+              fontSize: responsive.isTablet ? 18.0 : 16.0,
+              fontWeight: FontWeight.w700,
+              color: AppColors.billingTextColor,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        _methodRadio(
-          responsive,
-          selected: !_useCustomAmount,
-          label: isRefund
-              ? BillingStrings.currentOutstanding
-              : BillingStrings.currentOutstandingFamilyBalance,
-          onTap: () => setState(() => _useCustomAmount = false),
-        ),
-        const SizedBox(height: 8),
-        _buildAmountBox(
-          responsive,
-          active: !_useCustomAmount,
-          readOnlyText: totalOutstanding.toStringAsFixed(2),
-        ),
-        const SizedBox(height: 12),
-        _methodRadio(
-          responsive,
-          selected: _useCustomAmount,
-          label: BillingStrings.customAmount,
-          onTap: () => setState(() => _useCustomAmount = true),
-        ),
-        if (_useCustomAmount) ...<Widget>[
+          const SizedBox(height: 12),
+          _methodRadio(
+            responsive,
+            value: false,
+            label: isRefund
+                ? BillingStrings.currentOutstanding
+                : BillingStrings.currentOutstandingFamilyBalance,
+            onTap: () => setState(() => _useCustomAmount = false),
+          ),
           const SizedBox(height: 8),
-          if (isRefund)
-            _buildAmountBox(
-              responsive,
-              active: true,
-              controller: _amountController,
-            )
-          else if (_cubit.state.isLoadingStudents)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+          _buildAmountBox(
+            responsive,
+            active: !_useCustomAmount,
+            readOnlyText: totalOutstanding.toStringAsFixed(2),
+          ),
+          const SizedBox(height: 12),
+          _methodRadio(
+            responsive,
+            value: true,
+            label: BillingStrings.customAmount,
+            onTap: () => setState(() => _useCustomAmount = true),
+          ),
+          if (_useCustomAmount) ...<Widget>[
+            const SizedBox(height: 8),
+            if (isRefund)
+              _buildAmountBox(
+                responsive,
+                active: true,
+                controller: _amountController,
+              )
+            else if (_cubit.state.isLoadingStudents)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else
+              ...students.map(
+                (PayableStudent s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildStudentAmountRow(responsive, s),
                 ),
               ),
-            )
-          else
-            ...students.map(
-              (PayableStudent s) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildStudentAmountRow(responsive, s),
+          ],
+          if (_amountError)
+            const Padding(
+              padding: EdgeInsets.only(top: 4.0, left: 2.0),
+              child: Text(
+                BillingStrings.pleaseEnterAnAmountError,
+                style: TextStyle(color: AppColors.errorColor, fontSize: 12),
               ),
             ),
         ],
-        if (_amountError)
-          const Padding(
-            padding: EdgeInsets.only(top: 4.0, left: 2.0),
-            child: Text(
-              BillingStrings.pleaseEnterAnAmountError,
-              style: TextStyle(color: AppColors.errorColor, fontSize: 12),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
@@ -613,9 +625,11 @@ class _ReceivePaymentIssueRefundScreenState
     );
   }
 
+  /// [value] is this option's slot in the enclosing `RadioGroup<bool>`:
+  /// `false` = current outstanding, `true` = custom amount.
   Widget _methodRadio(
     ResponsiveHelper responsive, {
-    required bool selected,
+    required bool value,
     required String label,
     required VoidCallback onTap,
   }) {
@@ -625,9 +639,8 @@ class _ReceivePaymentIssueRefundScreenState
       child: Row(
         children: <Widget>[
           Radio<bool>(
-            value: true,
-            groupValue: selected,
-            onChanged: _isSubmitting ? null : (_) => onTap(),
+            value: value,
+            enabled: !_isSubmitting,
             activeColor: AppColors.themeColor,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
@@ -784,9 +797,9 @@ class _ReceivePaymentIssueRefundScreenState
                           selected ?? BillingStrings.selectPaymentType,
                           style: selected != null
                               ? valueStyle
-                              : _labelStyle(
-                                  responsive,
-                                ).copyWith(color: AppColors.billingMutedIconColor),
+                              : _labelStyle(responsive).copyWith(
+                                  color: AppColors.billingMutedIconColor,
+                                ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

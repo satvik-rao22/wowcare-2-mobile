@@ -9,7 +9,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
-import 'package:wowcare/domain/features/newsletter/entities/paginated_newsletters_entity.dart';
 import 'package:wowcare/domain/features/newsletter/repositories/newsletter_repository.dart';
 import 'package:wowcare/domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_list_cubit.dart';

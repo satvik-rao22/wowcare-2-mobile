@@ -196,17 +196,20 @@ class _ClassroomSelectionWidgetExactState
 
     _allowedOverlayEntry = OverlayEntry(
       builder: (context) {
-        return WillPopScope(
-          onWillPop: () async {
+        return PopScope(
+          // While the dropdown is open a back gesture closes it instead of
+          // popping the route — the same contract the old `onWillPop` had
+          // when it returned false.
+          canPop: !_isAllowedDropdownOpen,
+          onPopInvokedWithResult: (bool didPop, Object? result) {
+            if (didPop) return;
             if (_isAllowedDropdownOpen) {
               setState(() {
                 _allowedOverlayEntry?.remove();
                 _allowedOverlayEntry = null;
                 _isAllowedDropdownOpen = false;
               });
-              return false; // Prevent navigation
             }
-            return true;
           },
           child: Stack(
             children: [

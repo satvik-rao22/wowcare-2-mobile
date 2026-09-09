@@ -20,7 +20,6 @@ import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_state.dart';
@@ -112,13 +111,10 @@ class _MockRoleCubit extends Cubit<RoleState> implements RoleCubit {
   bool get isGuardian => false;
   @override
   bool get isStaff => false;
-  @override
   bool get isTeacher => false;
   @override
   bool get isAdmin => true;
-  @override
   bool get isSuperAdmin => false;
-  @override
   bool get isPrincipal => false;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
