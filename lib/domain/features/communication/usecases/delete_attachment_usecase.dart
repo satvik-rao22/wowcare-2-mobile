@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import '../repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 
 class DeleteAttachmentUseCase {
   final CommunicationRepository _repository;

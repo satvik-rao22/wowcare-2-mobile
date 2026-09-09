@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import '../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 part 'conversation_model.g.dart';
 

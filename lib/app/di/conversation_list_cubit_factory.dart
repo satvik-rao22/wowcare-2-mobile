@@ -18,7 +18,7 @@ ConversationListCubit buildConversationListCubit({
     getConversationsUseCase: serviceLocator(),
     getCachedConversationsUseCase: serviceLocator(),
     conversationRepository: serviceLocator(),
-    storageService: serviceLocator(),
+    session: serviceLocator(),
     createOrOpenConversationUseCase: serviceLocator(),
     getTagNameCodeMapUseCase: serviceLocator(),
   );

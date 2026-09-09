@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import '../repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 
 class AddReactionEntityUseCase {
   final MessageEntityRepository _repository;

@@ -46,7 +46,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/new_m
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
@@ -604,7 +604,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -2014,7 +2014,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   @override
   Widget build(BuildContext context) {
     final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     final body = BlocListener<PushNotificationCubit, PushNotificationState>(
       listenWhen: (prev, curr) =>

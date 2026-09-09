@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
@@ -16,7 +15,7 @@ import 'package:wowcare/domain/features/communication/usecases/cache_draft_messa
 import 'package:wowcare/domain/features/communication/usecases/cache_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
@@ -133,7 +132,7 @@ class BulkMessagingCompositionCubit
   final SendMessageEntityUseCase _sendMessageUseCase;
   final ChatAttachmentUploader _attachmentUploader;
   final PendingAttachmentStore _pendingAttachmentStore;
-  final StorageService _storageService;
+  final MessagingSession _session;
 
   /// STAFF_DIRECT recipients are viewed through the LEGACY
   /// CommunicationCubit/StaffMessagingThread stack (its own Isar
@@ -161,7 +160,7 @@ class BulkMessagingCompositionCubit
     required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
     required ChatAttachmentUploader attachmentUploader,
-    required StorageService storageService,
+    required MessagingSession session,
     required CacheMessageUseCase cacheMessageUseCase,
     required DiscardCachedMessageUseCase discardCachedMessageUseCase,
     required CacheDraftMessageUseCase cacheDraftMessageUseCase,
@@ -172,7 +171,7 @@ class BulkMessagingCompositionCubit
        _sendMessageUseCase = sendMessageUseCase,
        _attachmentUploader = attachmentUploader,
        _pendingAttachmentStore = pendingAttachmentStore,
-       _storageService = storageService,
+       _session = session,
        _cacheMessageUseCase = cacheMessageUseCase,
        _discardCachedMessageUseCase = discardCachedMessageUseCase,
        _cacheDraftMessageUseCase = cacheDraftMessageUseCase,
@@ -254,10 +253,10 @@ class BulkMessagingCompositionCubit
     // Collect everything from storage before firing the background job so we
     // don't need the BuildContext after this point.
     final orgCode =
-        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+        (await _session.organizationCode() ?? '')
             .trim();
     final schoolCode =
-        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+        (await _session.schoolCode() ?? '').trim();
 
     if (isClosed) return;
 
@@ -269,9 +268,9 @@ class BulkMessagingCompositionCubit
     }
 
     final senderCode =
-        (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+        (await _session.staffCode() ?? '').trim();
     final senderUserCode =
-        (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
+        (await _session.userCode() ?? '').trim();
     final actualSenderCode = senderCode.isNotEmpty
         ? senderCode
         : senderUserCode;

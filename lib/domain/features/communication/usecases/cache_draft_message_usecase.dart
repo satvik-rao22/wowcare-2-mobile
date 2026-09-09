@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
-import '../repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 
 /// Persists an optimistic [MessageEntity] to Isar immediately — before any
 /// upload or network call runs — so it survives navigating away or the app

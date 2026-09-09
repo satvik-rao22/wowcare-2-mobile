@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import '../entities/conversation.dart';
-import '../repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 
 class GetCachedConversationsUseCase {
   final CommunicationRepository _repository;

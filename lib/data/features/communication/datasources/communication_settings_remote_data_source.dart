@@ -1,6 +1,6 @@
-import '../../../../core/network/api_client.dart';
-import '../../../../core/utils/api_paths.dart';
-import '../models/communication_settings_model.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/data/features/communication/models/communication_settings_model.dart';
 
 abstract class CommunicationSettingsRemoteDataSource {
   Future<CommunicationSettingsModel> getCommunicationSettings(

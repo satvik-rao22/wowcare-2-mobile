@@ -1,4 +1,4 @@
-import '../repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 
 /// Marks a previously-cached draft (by its local temp code) as failed —
 /// used when the attachment upload/registration pipeline itself fails,

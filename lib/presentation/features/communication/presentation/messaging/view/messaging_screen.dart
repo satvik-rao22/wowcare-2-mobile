@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/model/user_persona.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 
@@ -137,7 +137,7 @@ class _MessagingScreenState extends State<MessagingScreen>
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     // Always derived live from RoleCubit — widget.userPersona is only the
     // value resolved when this branch's route was first built (go_router's
     // StatefulShellRoute.indexedStack keeps this screen alive across persona

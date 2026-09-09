@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../domain/features/messaging/usecases/get_feature_flag_usecase.dart';
-import '../../../../domain/features/messaging/usecases/set_feature_flag_usecase.dart';
+import 'package:wowcare/domain/features/messaging/usecases/get_feature_flag_usecase.dart';
+import 'package:wowcare/domain/features/messaging/usecases/set_feature_flag_usecase.dart';
 
 part 'feature_flag_state.dart';
 

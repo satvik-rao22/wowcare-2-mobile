@@ -69,7 +69,7 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
         left: AppSizes.lg,
         right: AppSizes.lg,
         top: AppSizes.md,
-        bottom: AppSizes.md + MediaQuery.of(context).viewInsets.bottom,
+        bottom: AppSizes.md + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(

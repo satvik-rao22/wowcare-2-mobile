@@ -16,21 +16,21 @@ import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../core/theme/app_media_res.dart';
-import '../../../../../core/utils/core_utils.dart';
-import '../../../../../core/utils/safe_state_mixin.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/safe_state_mixin.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
-import '../../../classroom/view/filters/designation_display_utils.dart';
-import '../../../../../shared/common/widgets/custom_checkbox.dart';
-import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
-import '../../../../../shared/common/widgets/custom_search_bar.dart';
-import '../../../students/view_model/student_cubit.dart';
-import '../widgets/selection_shimmer.dart';
+import 'package:wowcare/presentation/features/classroom/view/filters/designation_display_utils.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/widgets/selection_shimmer.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -940,7 +940,7 @@ class _StaffOrStudentSelectionBulkMessagingState
   }
 
   Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(
