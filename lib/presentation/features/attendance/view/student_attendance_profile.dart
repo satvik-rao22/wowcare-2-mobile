@@ -717,12 +717,17 @@ class _StudentCard extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.xxs),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          AppText.body(
-                            currentStudent.roomName,
-                            style: AppTextStyles.mediumWeight,
+                          Expanded(
+                            child: AppText.body(
+                              currentStudent.roomName,
+                              style: AppTextStyles.mediumWeight,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
                           ),
-                          const SizedBox(width: 100),
+                          const SizedBox(width: AppSpacing.sm),
                           InkWell(
                             onTap: () {
                               showDialog(
