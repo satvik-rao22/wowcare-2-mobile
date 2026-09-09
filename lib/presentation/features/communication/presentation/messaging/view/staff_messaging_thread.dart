@@ -460,7 +460,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       isScrollControlled: true,
       builder: (context) {
         final sheetHeight =
-            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
+            (MediaQuery.sizeOf(context).height * 0.55).clamp(240.0, 400.0) +
             MediaQuery.of(context).padding.bottom;
         return Container(
           height: sheetHeight,
@@ -995,7 +995,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                               ),
                               const SizedBox(width: AppSizes.xsPlus),
                               SizedBox(
-                                width: MediaQuery.of(context).size.width * 0.35,
+                                width: MediaQuery.sizeOf(context).width * 0.35,
                                 child: SingleChildScrollView(
                                   reverse:
                                       true, // new messages appear at bottom

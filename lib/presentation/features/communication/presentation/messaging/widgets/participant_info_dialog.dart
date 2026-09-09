@@ -126,7 +126,7 @@ class ParticipantInfoDialog extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 520,
-          maxHeight: MediaQuery.of(context).size.height * 0.82,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -689,7 +689,7 @@ class _MessageBubbleState extends State<MessageBubble>
     // Edit/Delete menu, and delivery/read ticks) that must never flip just
     // because two different people happen to share a side.
     final alignRight = _alignRight;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     // Resolve sender display name once before the widget tree.
     final senderLabel = isMe
         ? 'You'
@@ -1514,7 +1514,7 @@ class _MessageBubbleState extends State<MessageBubble>
     final hasMoreImages = imageCount > 4;
     final displayImages = hasMoreImages ? images.take(4).toList() : images;
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final maxBubbleWidth = screenWidth * 0.70;
     final singleImageWidth = maxBubbleWidth * 0.9;
     final multiImageWidth = maxBubbleWidth * 0.48;

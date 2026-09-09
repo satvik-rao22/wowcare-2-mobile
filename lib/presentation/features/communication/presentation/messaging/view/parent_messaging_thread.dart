@@ -2172,7 +2172,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           ),
                           const SizedBox(width: AppSizes.xsPlus),
                           SizedBox(
-                            width: MediaQuery.of(context).size.width * 0.35,
+                            width: MediaQuery.sizeOf(context).width * 0.35,
                             child: SingleChildScrollView(
                               reverse: true, // new messages appear at bottom
                               padding: EdgeInsets.only(
@@ -3916,7 +3916,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     alignment: Alignment.centerLeft,
                     child: Container(
                       constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.7,
+                        maxWidth: MediaQuery.sizeOf(context).width * 0.7,
                       ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.xsPlus,

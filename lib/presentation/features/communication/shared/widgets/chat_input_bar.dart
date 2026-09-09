@@ -301,7 +301,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             valueListenable: _emojiPickerVisible,
             builder: (context, visible, _) => visible
                 ? SizedBox(
-                    height: (MediaQuery.of(context).size.height * 0.35).clamp(
+                    height: (MediaQuery.sizeOf(context).height * 0.35).clamp(
                       160.0,
                       280.0,
                     ),

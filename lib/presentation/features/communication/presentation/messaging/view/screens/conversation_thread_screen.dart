@@ -1461,7 +1461,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       alignment: Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: MediaQuery.sizeOf(context).width * 0.7,
         ),
         padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: 5),
         decoration: BoxDecoration(
