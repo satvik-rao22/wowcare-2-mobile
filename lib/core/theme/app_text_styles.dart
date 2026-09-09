@@ -1211,6 +1211,22 @@ class AppTextStyles {
     height: 1.3,
   );
 
+  // ── Communication / message bubble (Mandate 4) ──────────────────────────────
+  // These two carry an EXPLICIT [Fonts.manrope] family on purpose: a message
+  // bubble can be re-parented into an Overlay (the long-press reactions
+  // preview), where the ambient DefaultTextStyle no longer supplies the theme
+  // font. The prior inline styles set `fontFamily: 'Manrope'` for exactly that
+  // reason; keeping it on the token preserves an identical render there while
+  // removing the literal from the view. Colour is applied per call via
+  // `.copyWith(color: ...)` since it varies with the bubble's light/dark fill.
+
+  /// Message body text inside a chat bubble. 15.5 / height 1.35, Manrope.
+  static const TextStyle messagingBubbleText = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 15.5,
+    height: 1.35,
+    decoration: TextDecoration.none,
+  );
 }
 
 /// Reusable text widgets with predefined styles

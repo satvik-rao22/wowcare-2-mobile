@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
@@ -30,24 +33,29 @@ class MessagingInputArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppSizes.xs,
+          AppSizes.xs,
+          AppSizes.xs,
+          AppSizes.sm,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (quotedMessage != null)
               Container(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: const EdgeInsets.only(bottom: AppSizes.xs),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: AppSizes.sm,
+                  vertical: AppSizes.xs,
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                     colors: [
-                      Color.fromRGBO(89, 120, 247, 0.1),
-                      Color.fromRGBO(156, 132, 255, 0.1),
+                      AppColors.messagingQuoteGradientStart,
+                      AppColors.messagingQuoteGradientEnd,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -72,13 +80,13 @@ class MessagingInputArea extends StatelessWidget {
             if (pendingAttachments.isNotEmpty)
               Container(
                 constraints: const BoxConstraints(maxHeight: 90),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                margin: const EdgeInsets.only(bottom: AppSizes.xs),
+                padding: const EdgeInsets.symmetric(horizontal: AppSizes.xxs),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: pendingAttachments.length,
                   separatorBuilder: (context, index) =>
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSizes.xs),
                   itemBuilder: (context, index) {
                     final att = pendingAttachments[index];
                     return SizedBox(
@@ -111,15 +119,17 @@ class MessagingInputArea extends StatelessWidget {
                             child: GestureDetector(
                               onTap: () => onRemoveAttachment(index),
                               child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
+                                decoration: BoxDecoration(
+                                  color: AppColors.blackColor.withValues(
+                                    alpha: 0.54,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
-                                padding: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(AppSizes.xxs),
                                 child: const Icon(
                                   Icons.close,
                                   size: 14,
-                                  color: Colors.white,
+                                  color: AppColors.messagingOnAccent,
                                 ),
                               ),
                             ),
@@ -134,7 +144,7 @@ class MessagingInputArea extends StatelessWidget {
               children: [
                 AttachmentWidget(
                   iconWidget: const Padding(
-                    padding: EdgeInsets.all(8.0),
+                    padding: EdgeInsets.all(AppSizes.xs),
                     child: Icon(
                       Icons.add_circle_outline,
                       color: AppColors.primaryColor,
@@ -147,23 +157,21 @@ class MessagingInputArea extends StatelessWidget {
                   child: TextField(
                     controller: controller,
                     decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: const TextStyle(
-                        color: Color(0xFFA0AEC0),
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
+                      hintText: AppStrings.typeAMessage,
+                      hintStyle: AppTextStyles.size14.copyWith(
+                        color: AppColors.messagingComposerHint,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                          color: Color(0xFFE2E8F0),
+                          color: AppColors.messagingInputBorder,
                           width: 1,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                          color: Color(0xFFE2E8F0),
+                          color: AppColors.messagingInputBorder,
                           width: 1,
                         ),
                       ),
@@ -175,8 +183,8 @@ class MessagingInputArea extends StatelessWidget {
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                        horizontal: AppSizes.md,
+                        vertical: AppSizes.sm,
                       ),
                     ),
                     maxLines: 4,
@@ -184,7 +192,7 @@ class MessagingInputArea extends StatelessWidget {
                     onSubmitted: (_) => onSend(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSizes.xs),
                 GestureDetector(
                   onTap: onSend,
                   child: Container(
@@ -192,10 +200,10 @@ class MessagingInputArea extends StatelessWidget {
                       gradient: AppColors.buildPrimaryGradient(),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSizes.sm),
                     child: const Icon(
                       Icons.send,
-                      color: Colors.white,
+                      color: AppColors.messagingOnAccent,
                       size: 24,
                     ),
                   ),

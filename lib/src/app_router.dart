@@ -134,6 +134,18 @@ import 'package:wowcare/presentation/features/newsletter/model/newsletter_previe
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/shared/common/view/filter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/view_model/notification_center_cubit.dart';
@@ -3108,6 +3120,122 @@ final GoRouter appRouter = GoRouter(
           fileData: args.fileData,
           fileName: args.fileName,
           fileType: args.fileType,
+        );
+      },
+    ),
+    // ── Communication / messaging (Mandate 1) ────────────────────────────
+    // All registered at the router root so they cover the bottom nav bar,
+    // exactly as the full-screen `MaterialPageRoute`s they replaced did.
+    GoRoute(
+      path: CommunicationRoutes.conversationThread,
+      builder: (context, state) {
+        final args = state.extra! as ConversationThreadArgs;
+        // The screen creates its own ConversationThreadCubit in initState —
+        // §5.4: no `..load()` here, so nothing re-fires on back navigation.
+        return ConversationThreadScreen(conversation: args.conversation);
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.seededThread,
+      builder: (context, state) {
+        final args = state.extra! as SeededThreadArgs;
+        return BlocProvider<CommunicationCubit>(
+          // The per-thread cubit is seeded with the recipient count so its
+          // read/delivered-by-all tick aggregation has something to work with
+          // — see CommunicationCubit.seedRecipientCount's own doc.
+          create: (_) => serviceLocator<CommunicationCubit>()
+            ..seedRecipientCount(args.conversationCode, args.recipientCount),
+          child: args.isStaffMessaging
+              ? StaffMessagingThread(staffInfo: args.staffInfo!)
+              : ParentMessagingThread(
+                  parentInfo: args.parentInfo!,
+                  isGuardian: false,
+                  conversationType:
+                      (args.conversationType as ConversationType?) ??
+                      ConversationType.roomChat,
+                ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.bulkCompose,
+      builder: (context, state) {
+        final args = state.extra! as MessageCompositionArgs;
+        // Cubit construction (Mandate 5: views don't touch serviceLocator) —
+        // the view reads this instance via context.read; BlocProvider owns its
+        // lifecycle. Same construction args and creation timing as the previous
+        // in-initState build.
+        return BlocProvider<BulkMessagingCompositionCubit>(
+          create: (_) => BulkMessagingCompositionCubit(
+            initialRecipients: args.selectedRecipients,
+            isStaff: args.isStaff,
+            conversationType: args.conversationType,
+            createOrOpenConversationUseCase: serviceLocator(),
+            sendMessageUseCase: serviceLocator(),
+            attachmentUploader: serviceLocator(),
+            storageService: serviceLocator(),
+            cacheMessageUseCase: serviceLocator(),
+            discardCachedMessageUseCase: serviceLocator(),
+            cacheDraftMessageUseCase: serviceLocator(),
+          ),
+          child: MessageCompositionBulkMessaging(
+            selectedRecipients: args.selectedRecipients,
+            isStaff: args.isStaff,
+            conversationType: args.conversationType,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.recipientSelection,
+      builder: (context, state) {
+        final args = state.extra! as RecipientSelectionArgs;
+        // The picker reads Staff/Classroom/Student cubits from ancestors, so
+        // the same MultiBlocProvider the push used is kept.
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+            BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+            BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+          ],
+          child: StaffOrStudentSelectionBulkMessaging(
+            isStaffSelection: args.isStaffSelection,
+            conversationType: args.conversationType,
+            restrictToDesignationCodes: args.restrictToDesignationCodes,
+            hideFilters: args.hideFilters,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.mediaViewer,
+      builder: (context, state) {
+        final args = state.extra! as MediaViewerArgs;
+        return ShowFullScreenMediaView(
+          imageUrl: args.imageUrl,
+          imageFile: args.imageFile,
+          videoUrl: args.videoUrl,
+          videoFile: args.videoFile,
+          title: args.title,
+          heroTag: args.heroTag,
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.attachmentGallery,
+      builder: (context, state) {
+        final args = state.extra! as AttachmentGalleryArgs;
+        return FullAttachmentViewer(attachments: args.attachments);
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.filter,
+      builder: (context, state) {
+        final args = state.extra! as MessagingFilterArgs;
+        return FilterScreen(
+          title: args.title,
+          sections: args.sections,
+          onApply: args.onApply,
         );
       },
     ),

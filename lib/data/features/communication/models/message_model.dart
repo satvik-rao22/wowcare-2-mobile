@@ -1,7 +1,10 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
+
+part 'message_model.g.dart';
 
 /// Parses the message list / receipts endpoint's `receipts` array
 /// (per-recipient-per-persona `{userCode, userName, userRole, deliveredAt,
@@ -67,6 +70,18 @@ List<RecipientStatus> parseRecipientStatuses(
   return result;
 }
 
+/// MANDATE 8 SCOPE NOTE — [MessageModel.fromJson] is intentionally NOT
+/// converted to generated `json_serializable`. It is a mapper, not a
+/// serializer: it takes a runtime `currentUserId` (json_serializable factories
+/// accept only the map), derives `isSentByMe` from that param, derives
+/// `deliveredAt`/`readAt` from the coarse top-level `status`, feeds the single
+/// `receipts` key into TWO fields (`deliveredTo`/`readBy`) via
+/// [parseRecipientStatuses], builds domain [ReactionEntry] objects inline, and
+/// logs. None of that is expressible through `@JsonKey`. The model is still a
+/// typed object at the boundary (no raw map leaves it), and it is constructed
+/// directly at several datasource/repository sites as a [Message] subtype, so
+/// it stays extending [Message]. Its `toJson` is currently unused (sendMessage
+/// builds its body by hand) but retained for compilation/parity.
 class MessageModel extends Message {
   final String? conversationCode;
   final String senderUserCode;
@@ -174,7 +189,9 @@ class MessageModel extends Message {
       attachments:
           (json['attachments'] as List<dynamic>?)
               ?.map(
-                (e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>),
+                (e) => ChatAttachmentModel.fromJson(
+                  e as Map<String, dynamic>,
+                ).toEntity(),
               )
               .toList() ??
           const [],
@@ -214,7 +231,7 @@ class MessageModel extends Message {
       'time': time.toIso8601String(),
       'replyToMessageId': quotedMessageId,
       'attachments': attachments
-          .map((e) => (e as ChatAttachmentModel).toJson())
+          .map((e) => ChatAttachmentModel.fromEntity(e).toJson())
           .toList(),
       'senderName': senderName,
       if (privateParentUserCode != null)
@@ -223,6 +240,11 @@ class MessageModel extends Message {
   }
 }
 
+/// MANDATE 8 SCOPE NOTE — kept hand-written. Its `fromJson` is dead code
+/// ([parseRecipientStatuses] constructs it directly from receipt rows), and it
+/// is built inline as a [RecipientStatus] subtype, so a standalone
+/// `@JsonSerializable` conversion would break those direct constructions for
+/// no serialisation benefit.
 class RecipientStatusModel extends RecipientStatus {
   const RecipientStatusModel({
     required super.name,
@@ -251,57 +273,88 @@ class RecipientStatusModel extends RecipientStatus {
   }
 }
 
-class ChatAttachmentModel extends ChatAttachment {
+// ── ChatAttachment field-quirk readers (were inline aliases) ────────────────
+// The messaging-service inline attachment row and the local upload-pipeline
+// model use different key spellings for the same fields; each reader accepts
+// every known spelling, preserving the previous parser's exact precedence and
+// its `as int?` cast (which throws on a double `size`, unlike num.toInt()).
+
+Object? _readAttName(Map<dynamic, dynamic> j, String k) =>
+    (j['name'] ?? j['originalFilename']) as String? ?? '';
+Object? _readAttType(Map<dynamic, dynamic> j, String k) =>
+    (j['type'] ?? j['attachmentType']) as String? ?? '';
+Object? _readAttSize(Map<dynamic, dynamic> j, String k) =>
+    (j['size_bytes'] ?? j['sizeBytes'] ?? j['fileSize']) as int? ?? 0;
+Object? _readAttMime(Map<dynamic, dynamic> j, String k) =>
+    (j['mime_type'] ?? j['mimeType']) as String? ?? '';
+Object? _readAttRemote(Map<dynamic, dynamic> j, String k) =>
+    (j['remote_url'] ?? j['remoteUrl'] ?? j['fileUrl'] ?? j['thumbnailUrl'])
+        as String? ??
+    '';
+Object? _readAttLocal(Map<dynamic, dynamic> j, String k) =>
+    (j['local_path'] ?? j['localPath']) as String?;
+Object? _readAttCode(Map<dynamic, dynamic> j, String k) =>
+    (j['code'] ?? j['assetCode']) as String?;
+Object? _readAttId(Map<dynamic, dynamic> j, String k) {
+  final raw = j['attachmentId'] ?? j['id'];
+  return raw is int ? raw : int.tryParse('$raw');
+}
+
+@JsonSerializable()
+class ChatAttachmentModel {
   const ChatAttachmentModel({
-    required super.name,
-    required super.type,
-    required super.sizeBytes,
-    required super.mimeType,
-    required super.remoteUrl,
-    super.localPath,
-    super.code,
-    super.attachmentId,
+    required this.name,
+    required this.type,
+    required this.sizeBytes,
+    required this.mimeType,
+    required this.remoteUrl,
+    this.localPath,
+    this.code,
+    this.attachmentId,
   });
 
-  factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
-    final rawId = json['attachmentId'] ?? json['id'];
-    // The messaging service's own attachment row (returned inline with each
-    // message — see GET .../messages/conversation/{code}) uses a different
-    // shape than the local upload-pipeline model below: `originalFilename`,
-    // `attachmentType`, `fileSize`, `assetCode`, and a `fileUrl`/
-    // `thumbnailUrl` that is null until the document service finishes
-    // resolving it (see AttachmentUrlResolver for that resolution step).
-    return ChatAttachmentModel(
-      name: (json['name'] ?? json['originalFilename']) as String? ?? '',
-      type: (json['type'] ?? json['attachmentType']) as String? ?? '',
-      sizeBytes:
-          (json['size_bytes'] ?? json['sizeBytes'] ?? json['fileSize'])
-              as int? ??
-          0,
-      mimeType: (json['mime_type'] ?? json['mimeType']) as String? ?? '',
-      remoteUrl:
-          (json['remote_url'] ??
-                  json['remoteUrl'] ??
-                  json['fileUrl'] ??
-                  json['thumbnailUrl'])
-              as String? ??
-          '',
-      localPath: (json['local_path'] ?? json['localPath']) as String?,
-      code: (json['code'] ?? json['assetCode']) as String?,
-      attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
-    );
-  }
+  @JsonKey(readValue: _readAttName)
+  final String name;
+  @JsonKey(readValue: _readAttType)
+  final String type;
+  @JsonKey(name: 'size_bytes', readValue: _readAttSize)
+  final int sizeBytes;
+  @JsonKey(name: 'mime_type', readValue: _readAttMime)
+  final String mimeType;
+  @JsonKey(name: 'remote_url', readValue: _readAttRemote)
+  final String remoteUrl;
+  @JsonKey(name: 'local_path', readValue: _readAttLocal)
+  final String? localPath;
+  @JsonKey(readValue: _readAttCode)
+  final String? code;
+  @JsonKey(readValue: _readAttId)
+  final int? attachmentId;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'type': type,
-      'size_bytes': sizeBytes,
-      'mime_type': mimeType,
-      'remote_url': remoteUrl,
-      'local_path': localPath,
-      'code': code,
-      'attachmentId': attachmentId,
-    };
-  }
+  factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) =>
+      _$ChatAttachmentModelFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ChatAttachmentModelToJson(this);
+
+  factory ChatAttachmentModel.fromEntity(ChatAttachment e) =>
+      ChatAttachmentModel(
+        name: e.name,
+        type: e.type,
+        sizeBytes: e.sizeBytes,
+        mimeType: e.mimeType,
+        remoteUrl: e.remoteUrl,
+        localPath: e.localPath,
+        code: e.code,
+        attachmentId: e.attachmentId,
+      );
+
+  ChatAttachment toEntity() => ChatAttachment(
+    name: name,
+    type: type,
+    sizeBytes: sizeBytes,
+    mimeType: mimeType,
+    remoteUrl: remoteUrl,
+    localPath: localPath,
+    code: code,
+    attachmentId: attachmentId,
+  );
 }

@@ -6,6 +6,8 @@ import '../models/conversation_model.dart';
 import '../models/create_conversation_response.dart';
 import '../models/get_conversations_response.dart';
 import '../models/message_model.dart';
+import '../models/edit_message_request.dart';
+import '../models/message_reaction_request.dart';
 import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_constants.dart';
@@ -232,7 +234,7 @@ class CommunicationRemoteDataSourceImpl
 
     final response = await apiClient.client.put(
       endpoint,
-      data: {'content': content},
+      data: EditMessageRequest(content: content).toJson(),
     );
 
     if (response.data != null && response.data['success'] == true) {
@@ -412,7 +414,7 @@ class CommunicationRemoteDataSourceImpl
     // optimistically appear and then immediately get reverted. Dio's own
     // status-code-based exception (4xx/5xx) is the only failure signal
     // until the real shape is confirmed.
-    await apiClient.client.post(endpoint, data: {'emoji': emoji});
+    await apiClient.client.post(endpoint, data: MessageReactionRequest(emoji: emoji).toJson());
   }
 
   @override

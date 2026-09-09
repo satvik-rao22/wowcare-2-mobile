@@ -20,7 +20,7 @@ class CommunicationSettingsRepositoryImpl
       final model = await remoteDataSource.getCommunicationSettings(
         schoolCode,
       );
-      return Right(model);
+      return Right(model.toEntity());
     } catch (e) {
       return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }

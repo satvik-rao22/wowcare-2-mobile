@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
@@ -31,12 +33,12 @@ class MessagingEntryScreen {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) => BlocProvider<UnreadBadgeCubit>.value(
-        value: serviceLocator<UnreadBadgeCubit>()..startWatching(),
+        value: resolveUnreadBadgeCubit()..startWatching(),
         child: const _MessagingLauncherSheetContent(),
       ),
     );
@@ -81,11 +83,10 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Messaging',
-                      style: TextStyle(
+                      AppStrings.messagingTitle,
+                      style: AppTextStyles.size16.copyWith(
                         fontSize: responsive.isTablet ? 22 : 18,
                         fontWeight: FontWeight.w800,
-                        fontFamily: 'Manrope',
                         color: AppColors.primaryColor,
                       ),
                     ),
@@ -115,7 +116,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                     children: [
                       if (!isParent) ...[
                         CommunicationLauncherButton(
-                          label: 'Staff',
+                          label: AppStrings.navStaff,
                           // Same chat-bubble icon as the Admin/Students
                           // buttons below, not the people/avatars icon —
                           // every launcher button uses one consistent icon.
@@ -141,7 +142,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                           if (!isStaff) ...[
                             Expanded(
                               child: CommunicationLauncherButton(
-                                label: 'Admin',
+                                label: AppStrings.navAdmin,
                                 iconAsset: MediaRes.chatsIcon,
                                 unreadCount: unread.unreadFor(
                                   ConversationType.adminChat,
@@ -166,7 +167,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                               // guardian's side it's their channel to their
                               // child's staff, so it reads as "Staff" there
                               // instead of "Students".
-                              label: isParent ? 'Staff' : 'Students',
+                              label: isParent ? AppStrings.navStaff : AppStrings.navStudents,
                               iconAsset: MediaRes.chatsIcon,
                               unreadCount: unread.unreadFor(
                                 ConversationType.roomChat,
@@ -197,7 +198,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       if (!isParent) ...[
                         SizedBox(height: responsive.verticalSpacing),
                         CommunicationLauncherButton(
-                          label: 'Classroom Notes',
+                          label: AppStrings.navClassroomNotes,
                           iconAsset: MediaRes.classroomIcon,
                           unreadCount: unread.unreadFor(
                             ConversationType.classroomChat,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -51,7 +54,10 @@ class ParticipantChips extends StatelessWidget {
           final color = _roleColor(roleStr);
 
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.xs,
+              vertical: 3,
+            ),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
@@ -78,19 +84,19 @@ class ParticipantChips extends StatelessWidget {
                   size: 16,
                   fontSize: 9,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSizes.xxs),
                 Text(
                   name,
-                  style: TextStyle(
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: color,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSizes.xxs),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
+                    horizontal: AppSizes.xxs,
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
@@ -99,7 +105,7 @@ class ParticipantChips extends StatelessWidget {
                   ),
                   child: Text(
                     roleStr,
-                    style: TextStyle(
+                    style: AppTextStyles.size14.copyWith(
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                       color: color,
@@ -150,15 +156,15 @@ class ParticipantChips extends StatelessWidget {
   /// Returns fallback name based on role when display name is missing.
   String _roleFallbackName(String roleStr) {
     const fallbacks = {
-      'ADMIN': 'Admin',
-      'GUARDIAN': 'Parent',
-      'PARENT': 'Parent',
-      'STAFF': 'Staff',
-      'TEACHER': 'Teacher',
-      'DIRECTOR': 'Director',
-      'PRINCIPAL': 'Principal',
-      'ASSISTANT_DIRECTOR': 'Assistant',
-      'LEAD_TEACHER': 'Lead Teacher',
+      'ADMIN': AppStrings.roleFallbackAdmin,
+      'GUARDIAN': AppStrings.roleFallbackParent,
+      'PARENT': AppStrings.roleFallbackParent,
+      'STAFF': AppStrings.roleFallbackStaff,
+      'TEACHER': AppStrings.roleFallbackTeacher,
+      'DIRECTOR': AppStrings.roleFallbackDirector,
+      'PRINCIPAL': AppStrings.roleFallbackPrincipal,
+      'ASSISTANT_DIRECTOR': AppStrings.roleFallbackAssistant,
+      'LEAD_TEACHER': AppStrings.roleFallbackLeadTeacher,
     };
     return fallbacks[roleStr] ?? roleStr;
   }
@@ -166,15 +172,15 @@ class ParticipantChips extends StatelessWidget {
   /// Returns role-specific color for chip styling.
   Color _roleColor(String roleStr) {
     return switch (roleStr) {
-      'ADMIN' => const Color(0xFF6C63FF),
-      'GUARDIAN' => const Color(0xFF00B4DB),
-      'PARENT' => const Color(0xFF00B4DB),
-      'STAFF' => const Color(0xFFFF9F1C),
-      'TEACHER' => const Color(0xFFFF9F1C),
-      'DIRECTOR' => const Color(0xFFE63946),
-      'PRINCIPAL' => const Color(0xFFE63946),
-      'ASSISTANT_DIRECTOR' => const Color(0xFFF4A460),
-      'LEAD_TEACHER' => const Color(0xFFFF9F1C),
+      'ADMIN' => AppColors.messagingRoleAdmin,
+      'GUARDIAN' => AppColors.messagingRoleGuardian,
+      'PARENT' => AppColors.messagingRoleGuardian,
+      'STAFF' => AppColors.messagingRoleStaff,
+      'TEACHER' => AppColors.messagingRoleStaff,
+      'DIRECTOR' => AppColors.messagingRoleDirector,
+      'PRINCIPAL' => AppColors.messagingRoleDirector,
+      'ASSISTANT_DIRECTOR' => AppColors.messagingRoleAssistant,
+      'LEAD_TEACHER' => AppColors.messagingRoleStaff,
       _ => AppColors.primaryColor,
     };
   }
