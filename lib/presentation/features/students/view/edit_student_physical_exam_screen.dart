@@ -85,10 +85,20 @@ class _EditStudentPhysicalExamScreenState
 
   Future<void> _pickDate() async {
     try {
+      // A physical exam can only have happened in the past (or today) — cap
+      // the picker at the school's own "today" (same zone `_save()` already
+      // validates against below) rather than only warning after the fact.
+      final today = await _schoolTodayDateOnly();
+      if (!mounted) return;
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) =>
-            const CalendarDialog(isRangePicker: false, isTimePicker: false),
+        builder: (context) => CalendarDialog(
+          isRangePicker: false,
+          isTimePicker: false,
+          initialDate: _examCubit.state.formExamDate,
+          firstDate: DateTime(1900),
+          lastDate: today,
+        ),
       );
 
       if (result != null && result['date'] != null) {
