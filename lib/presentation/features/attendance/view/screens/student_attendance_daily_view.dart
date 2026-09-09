@@ -37,7 +37,6 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/attendance_attended_duration.dart';
 import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_edit_attendance_form.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData;
@@ -1446,36 +1445,44 @@ class _StudentAttendanceDailyViewScreenState
     _isFilterScreenOpen = true;
 
     try {
-      // Open the filter screen directly. StudentFilterScreen loads (and shows a
-      // shimmer for) its own classroom + tag data, so we must NOT block here with
-      // a manual loader dialog + `while (isLoading)` poll: if the classroom load
+      // The shared student-filter ROUTE, the same way the students roster opens
+      // it (student_screen.dart) — not an imperative `Navigator.push` of the
+      // screen.
+      //
+      // That push is what made every apply feel like a new page: go_router
+      // never saw it, so its match list still said we were on the attendance
+      // tabbed view while the filter sat on top of the navigator. The two
+      // stacks disagreed, and the filter page could survive the pop that was
+      // meant to dismiss it — so the next apply layered another one on top.
+      // Pushing the route keeps push and pop symmetric: the filter is a real
+      // page while it's open, and popping it lands back on THIS page, which
+      // then just reloads with the new filters.
+      //
+      // Open it without blocking. StudentFilterScreen loads (and shows a
+      // shimmer for) its own classroom + tag data, so we must NOT gate this on a
+      // manual loader dialog + `while (isLoading)` poll: if the classroom load
       // ever stays in-flight (a hung/guarded request) that barrier-dismissible
       // dialog gets stuck showing a spinner forever. The filter screen's own
       // loading state is dismissible (back button) and self-recovers.
-      // GoRouter holdout (documented): StudentFilterScreen is a SHARED screen
-      // (students feature, used by non-attendance callers) that returns a
-      // consumed Map via Navigator.pop(result). Converting this caller to
-      // context.push would force the shared screen's pop semantics to change,
-      // risking the other callers — so this stays Navigator. It also carries the
-      // live _classroomCubit via BlocProvider.value, which must not be recreated.
-      final result = await Navigator.push<Map<String, List<String>>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: _classroomCubit,
-            child: StudentFilterScreen(
-              initialFilters: {
-                'Classroom': List<String>.from(_selectedClassroomNames),
-                'Tags': List<String>.from(_selectedTagNames),
-              },
-              sections: const [
-                StudentFilterSection.classroom,
-                StudentFilterSection.tags,
-              ],
-              allowCrossClassAttendance: _allowCrossClass,
-            ),
-          ),
-        ),
+      //
+      // The route builds its own ClassroomCubit (a DI factory, so it's a
+      // separate instance) and StudentFilterScreen reloads classrooms on open
+      // with the scope implied by `allowCrossClassAttendance` — so handing it
+      // this screen's `_classroomCubit` bought nothing, and no longer lets the
+      // filter re-scope this screen's classroom list on the way past.
+      final result = await context.push<Map<String, List<String>>>(
+        StudentFilterScreen.routeName,
+        extra: <String, dynamic>{
+          'initialFilters': <String, List<String>>{
+            'Classroom': List<String>.from(_selectedClassroomNames),
+            'Tags': List<String>.from(_selectedTagNames),
+          },
+          'sections': const <StudentFilterSection>[
+            StudentFilterSection.classroom,
+            StudentFilterSection.tags,
+          ],
+          'allowCrossClassAttendance': _allowCrossClass,
+        },
       );
 
       if (!mounted || result == null) return;

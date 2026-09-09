@@ -186,7 +186,19 @@ class EditImportantDatesArgs {
 
 /// `extra` for the shared staff-filter route.
 class StaffFilterArgs {
-  const StaffFilterArgs({this.initialFilters});
+  const StaffFilterArgs({
+    this.initialFilters,
+    this.selectedDate,
+    this.sections,
+  });
 
   final FilterData? initialFilters;
+
+  /// The day the caller is filtering. Only the attendance callers set it.
+  final DateTime? selectedDate;
+
+  /// Which facets the filter shows. `null` keeps `StaffFilterScreen`'s own
+  /// default set (the full staff-roster filter); attendance passes the reduced
+  /// Classroom + Designation pair.
+  final List<StaffFilterSection>? sections;
 }
