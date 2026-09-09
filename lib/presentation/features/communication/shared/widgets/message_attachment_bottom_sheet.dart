@@ -8,7 +8,6 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
@@ -130,16 +129,6 @@ class _MessageAttachmentBottomSheetState
         .toList();
     if (files.isEmpty) return;
     await _processFiles(files);
-  }
-
-  // ignore: unused_element
-  Future<void> _notImplemented(String feature) async {
-    Navigator.of(context).pop();
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: AppStrings.comingSoon(feature),
-    );
   }
 
   /// Classifies each file by its own extension (image / video / document)
@@ -369,18 +358,6 @@ class _MessageAttachmentBottomSheetState
                   color: AppColors.messagingAttachmentDocument,
                   onTap: _pickDocument,
                 ),
-                // _AttachmentGridItem(
-                //   icon: Icons.audiotrack_rounded,
-                //   label: 'Audio',
-                //   color: const Color(0xFF8B5CF6),
-                //   onTap: () => _notImplemented('Audio'),
-                // ),
-                // _AttachmentGridItem(
-                //   icon: Icons.location_on_rounded,
-                //   label: 'Location',
-                //   color: const Color(0xFF14B8A6),
-                //   onTap: () => _notImplemented('Location'),
-                // ),
               ],
             ),
           ),

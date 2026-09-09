@@ -5,15 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../../core/utils/core_utils.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,7 +35,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/messa
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
-import '../widgets/thread_message_tile.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 
@@ -330,7 +330,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -461,7 +461,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       builder: (context) {
         final sheetHeight =
             (MediaQuery.sizeOf(context).height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
+            MediaQuery.paddingOf(context).bottom;
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
@@ -674,7 +674,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ]),
           builder: (context, _) {
             final bool isLandscape =
-                MediaQuery.of(context).orientation == Orientation.landscape;
+                MediaQuery.orientationOf(context) == Orientation.landscape;
 
             if (state is CommunicationError && _messages.isEmpty) {
               return Scaffold(

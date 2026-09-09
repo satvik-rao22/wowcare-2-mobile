@@ -32,7 +32,8 @@ import 'package:wowcare/domain/features/communication/usecases/watch_messages_us
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/data/features/communication/services/messaging_session_impl.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -515,7 +516,7 @@ void main() {
         messageRepo,
       ),
       getMessageReceiptsUseCase: GetMessageEntityReceiptsUseCase(messageRepo),
-      storageService: _UnusedStorageService(),
+      session: MessagingSessionImpl(_UnusedStorageService()),
       conversationRepository: conversationRepo,
       getClassroomRosterUseCase: GetClassroomRosterPresentUserCodesUseCase(
         conversationRepo,

@@ -19,16 +19,16 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
-import '../../../../../../core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import '../../../../../../domain/features/communication/entities/conversation.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
@@ -42,9 +42,9 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/messa
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import '../widgets/thread_message_tile.dart';
-import '../../../view_model/private_mode_toggle_cubit.dart';
-import '../../../view_model/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -409,7 +409,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -1042,7 +1042,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {

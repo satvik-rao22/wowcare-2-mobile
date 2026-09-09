@@ -38,7 +38,7 @@ ConversationThreadCubit buildConversationThreadCubit({
     cacheDraftMessageUseCase: serviceLocator(),
     markDraftMessageFailedUseCase: serviceLocator(),
     getCachedMessagesEntityUseCase: serviceLocator(),
-    storageService: serviceLocator(),
+    session: serviceLocator(),
     conversationRepository: serviceLocator(),
     getClassroomRosterUseCase: serviceLocator(),
     isDraft: isDraft,

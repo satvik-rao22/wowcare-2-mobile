@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/errors/failures.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../domain/features/communication/entities/communication_settings.dart';
-import '../../../../domain/features/communication/repositories/communication_settings_repository.dart';
-import '../datasources/communication_settings_remote_data_source.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/domain/features/communication/entities/communication_settings.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_settings_repository.dart';
+import 'package:wowcare/data/features/communication/datasources/communication_settings_remote_data_source.dart';
 
 class CommunicationSettingsRepositoryImpl
     implements CommunicationSettingsRepository {

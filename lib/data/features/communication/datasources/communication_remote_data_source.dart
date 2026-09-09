@@ -1,19 +1,19 @@
 import 'package:dio/dio.dart';
-import '../../../../app/di/di.dart';
-import '../../../../core/network/api_client.dart';
-import '../models/create_conversation_request.dart';
-import '../models/conversation_model.dart';
-import '../models/create_conversation_response.dart';
-import '../models/get_conversations_response.dart';
-import '../models/message_model.dart';
-import '../models/edit_message_request.dart';
-import '../models/message_reaction_request.dart';
-import '../../../../domain/features/communication/entities/message.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_constants.dart';
-import '../../../../core/utils/api_paths.dart';
-import '../../../../core/utils/logger_service.dart';
-import '../../../../core/utils/user_details_school_roles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/data/features/communication/models/conversation_model.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_response.dart';
+import 'package:wowcare/data/features/communication/models/get_conversations_response.dart';
+import 'package:wowcare/data/features/communication/models/message_model.dart';
+import 'package:wowcare/data/features/communication/models/edit_message_request.dart';
+import 'package:wowcare/data/features/communication/models/message_reaction_request.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(

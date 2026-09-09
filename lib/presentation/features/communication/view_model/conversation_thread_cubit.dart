@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart' show Either;
+import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
@@ -18,7 +17,7 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -75,7 +74,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required CacheDraftMessageUseCase cacheDraftMessageUseCase,
     required MarkDraftMessageFailedUseCase markDraftMessageFailedUseCase,
     required GetCachedMessagesEntityUseCase getCachedMessagesEntityUseCase,
-    required StorageService storageService,
+    required MessagingSession session,
     required ConversationEntityRepository conversationRepository,
     required GetClassroomRosterPresentUserCodesUseCase getClassroomRosterUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
@@ -85,7 +84,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         const PendingAttachmentStoreImpl(),
     bool Function() isAppForegrounded = _widgetsBindingForegrounded,
   }) : _currentUserCode = currentUserCode,
-       _storageService = storageService,
+       _session = session,
        _conversationRepository = conversationRepository,
        _getClassroomRosterUseCase = getClassroomRosterUseCase,
        _pendingAttachmentStore = pendingAttachmentStore,
@@ -120,7 +119,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        );
 
   final String _currentUserCode;
-  final StorageService _storageService;
+  final MessagingSession _session;
   final ConversationEntityRepository _conversationRepository;
   final GetClassroomRosterPresentUserCodesUseCase _getClassroomRosterUseCase;
 
@@ -386,29 +385,29 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       _conversationRepository.getConversation(code);
 
   Future<String?> readCurrentUserCode() =>
-      _storageService.getString(StorageKeys.userCode);
+      _session.userCode();
 
   Future<String?> readDisplayName() =>
-      _storageService.getString(StorageKeys.displayName);
+      _session.displayName();
 
   Future<String?> readOrganizationCode() =>
-      _storageService.getString(StorageKeys.organizationCode);
+      _session.organizationCode();
 
   Future<String?> readActiveSchoolCode() =>
-      _storageService.getString(StorageKeys.schoolCode);
+      _session.schoolCode();
 
   /// The active-persona backend role, via the app's single source of truth
   /// ([resolveActiveBackendRole]) using the cubit's injected storage.
   Future<String> resolveActiveViewerRole() =>
-      resolveActiveBackendRole(_storageService);
+      _session.activeBackendRole();
 
   Future<String?> readComposerDraft(String key) =>
-      _storageService.getString(key);
+      _session.readComposerDraft(key);
 
   Future<void> saveComposerDraft(String key, String text) =>
-      _storageService.saveString(key, text);
+      _session.saveComposerDraft(key, text);
 
-  Future<void> removeComposerDraft(String key) => _storageService.remove(key);
+  Future<void> removeComposerDraft(String key) => _session.removeComposerDraft(key);
 
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 

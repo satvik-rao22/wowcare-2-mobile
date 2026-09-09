@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
-import '../repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 
 class WatchMessagesUseCase {
   const WatchMessagesUseCase(this._repository);

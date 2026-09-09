@@ -1,26 +1,26 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
-import '../../../../core/cache/cache_service.dart';
-import '../../../../core/errors/failures.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../core/utils/isar_utils.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/school_timezone_resolver.dart';
-import '../../../../core/utils/school_zone_datetime.dart';
-import '../../../../core/utils/storage_keys.dart';
-import '../datasources/communication_remote_data_source.dart';
-import '../models/message_collection.dart';
-import '../models/message_model.dart';
-import '../../../../domain/features/communication/entities/message.dart';
-import '../../../../domain/features/communication/entities/message_entity.dart';
-import '../../../../domain/features/communication/repositories/communication_repository.dart';
-import '../../../../domain/features/communication/entities/conversation.dart';
-import '../models/conversation_collection.dart';
-import '../models/create_conversation_request.dart';
+import 'package:wowcare/core/cache/cache_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/isar_utils.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/data/features/communication/datasources/communication_remote_data_source.dart';
+import 'package:wowcare/data/features/communication/models/message_collection.dart';
+import 'package:wowcare/data/features/communication/models/message_model.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import '../realtime/conversation_realtime_data_source.dart';
-import '../realtime/message_realtime_data_source.dart';
+import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
+import 'package:wowcare/data/features/communication/realtime/message_realtime_data_source.dart';
 
 class CommunicationRepositoryImpl implements CommunicationRepository {
   final CommunicationRemoteDataSource remoteDataSource;

@@ -1,5 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
-import '../../../../domain/features/communication/entities/communication_settings.dart';
+import 'package:wowcare/domain/features/communication/entities/communication_settings.dart';
 
 part 'communication_settings_model.g.dart';
 
