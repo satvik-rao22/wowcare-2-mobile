@@ -207,7 +207,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             const CircleAvatar(
               backgroundColor: Colors.white,
               radius: 28,
-              backgroundImage: AssetImage(MediaRes.logo_wow),
+              backgroundImage: AssetImage(MediaRes.appLogo),
             ),
             const SizedBox(width: 16),
             Expanded(
