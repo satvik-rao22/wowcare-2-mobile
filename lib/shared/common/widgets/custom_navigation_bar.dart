@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
-import 'package:wowcare/core/util/tab_visibility_events.dart';
+import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------

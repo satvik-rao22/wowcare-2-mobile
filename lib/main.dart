@@ -7,7 +7,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

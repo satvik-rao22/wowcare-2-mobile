@@ -5,15 +5,15 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show compute;
-import '../../../core/util/app_time.dart';
+import '../../../core/utils/app_time.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
 import '../../../core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import '../../../core/util/api_constants.dart';
-import '../../../core/util/api_paths.dart';
-import '../../../core/util/logger_service.dart';
+import '../../../core/utils/api_constants.dart';
+import '../../../core/utils/api_paths.dart';
+import '../../../core/utils/logger_service.dart';
 import 'image_upload_models.dart';
 
 /// Isolate entry point: streams [path] through SHA-256 and returns the

@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../shared/utils/attachment_open_helper.dart';
 import '../../../shared/utils/attachment_url_resolver.dart';

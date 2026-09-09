@@ -5,23 +5,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../app/theme/colors.dart';
-import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../core/theme/app_colors.dart';
+import '../../../../../../core/utils/core_utils.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
@@ -32,7 +32,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/messa
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 
@@ -85,8 +85,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   Future<void> _loadDeletePermission() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '');
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '');
     if (!mounted) return;
     final isAdminViewer = context.read<RoleCubit>().role == 'admin';
     final permission = await MessageDeletePermission.resolve(
@@ -1678,7 +1677,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         },
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -1710,8 +1713,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       label = 'Yesterday';
     } else {
       const monthNames = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";

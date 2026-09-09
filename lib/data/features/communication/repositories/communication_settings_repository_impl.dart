@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
 import '../../../../domain/features/communication/entities/communication_settings.dart';
 import '../../../../domain/features/communication/repositories/communication_settings_repository.dart';
 import '../datasources/communication_settings_remote_data_source.dart';

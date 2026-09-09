@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_qr_model.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_pin_result_model.dart';
 

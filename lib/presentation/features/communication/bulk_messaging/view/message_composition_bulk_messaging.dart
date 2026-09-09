@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,9 +12,9 @@ import 'package:wowcare/presentation/features/communication/shared/utils/html_aw
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../app/theme/media_res.dart';
-import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_media_res.dart';
+import '../../../../../core/utils/core_utils.dart';
 import '../../../../../shared/common/widgets/selected_student_tile.dart';
 import '../../../../../app/di/di.dart';
 
@@ -154,7 +154,11 @@ class _MessageCompositionBulkMessagingState
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -283,13 +287,14 @@ class _MessageCompositionBulkMessagingState
                                         itemBuilder: (context, index) {
                                           final String name = compositionState
                                               .selectedRecipientNames[index];
-                                          final avatar = index <
+                                          final avatar =
+                                              index <
                                                   compositionState
                                                       .selectedRecipients
                                                       .length
                                               ? compositionState
-                                                      .selectedRecipients[index]['avatar']
-                                                  as String?
+                                                        .selectedRecipients[index]['avatar']
+                                                    as String?
                                               : null;
 
                                           return SelectedStudentTile(
@@ -349,9 +354,11 @@ class _MessageCompositionBulkMessagingState
                                               // (tags stripped), matching the
                                               // 1:1 chat composer.
                                               contextMenuBuilder:
-                                                  (context, editableTextState) =>
-                                                      HtmlAwareTextSelectionControls
-                                                          .buildContextMenu(
+                                                  (
+                                                    context,
+                                                    editableTextState,
+                                                  ) =>
+                                                      HtmlAwareTextSelectionControls.buildContextMenu(
                                                         context,
                                                         editableTextState,
                                                         _controller,

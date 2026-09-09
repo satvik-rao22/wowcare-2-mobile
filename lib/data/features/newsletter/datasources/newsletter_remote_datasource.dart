@@ -1,6 +1,6 @@
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/newsletter/models/newsletter_api_envelope.dart';
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 

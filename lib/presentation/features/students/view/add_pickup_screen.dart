@@ -3,11 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -15,11 +15,11 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/relation_selector.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_pickup_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddPickupScreen extends StatefulWidget {
@@ -366,7 +366,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        _isEditMode ? StudentStrings.editPickup : StudentStrings.addPickup,
+                        _isEditMode
+                            ? StudentStrings.editPickup
+                            : StudentStrings.addPickup,
                         style: TextStyle(
                           fontFamily: Fonts.manrope,
                           fontSize: responsive.titleFontSize,
@@ -649,7 +651,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.attendanceMutedTextColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -694,9 +698,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
   /// Only a match against the dropdown's own known options may become
   /// `relation`; anything else is the "Other" case and belongs in
   /// `relationshipDescription` instead, with `relation` fixed to 'OTHER'.
-  ({String relation, String? relationshipDescription}) _resolveRelationForSubmit(
-    String raw,
-  ) {
+  ({String relation, String? relationshipDescription})
+  _resolveRelationForSubmit(String raw) {
     for (final option in RelationSelector.defaultRelationOptions) {
       if (option.toUpperCase() == raw.toUpperCase()) {
         return (relation: option.toUpperCase(), relationshipDescription: null);

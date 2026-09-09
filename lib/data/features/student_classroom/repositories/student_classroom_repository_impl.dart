@@ -1,6 +1,6 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import '../datasources/student_classroom_remote_datasource.dart';

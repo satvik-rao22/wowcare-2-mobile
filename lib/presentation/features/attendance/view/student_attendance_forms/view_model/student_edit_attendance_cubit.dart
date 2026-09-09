@@ -4,13 +4,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../../../core/network/api_client.dart';
 import '../../../../../../core/storage/storage_service.dart';
-import '../../../../../../core/util/school_timezone_resolver.dart';
-import '../../../../../../core/util/school_zone_datetime.dart';
-import '../../../../../../core/util/staff_code_resolver.dart';
+import '../../../../../../core/utils/school_timezone_resolver.dart';
+import '../../../../../../core/utils/school_zone_datetime.dart';
+import '../../../../../../core/utils/staff_code_resolver.dart';
 import '../../../../../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import '../../../view_model/attendance_time_parse_util.dart';
 import '../../../view_model/edit_attendance_submit_outcome.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 part 'student_edit_attendance_state.dart';
 

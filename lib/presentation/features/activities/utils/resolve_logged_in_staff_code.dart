@@ -1,8 +1,8 @@
 import '../../../../app/di/di.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/login_persona_util.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/utils/core_utils.dart';
+import '../../../../core/utils/login_persona_util.dart';
+import '../../../../core/utils/storage_keys.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
 /// Resolves `staffCode` for the logged-in user: prefers validated cache, then

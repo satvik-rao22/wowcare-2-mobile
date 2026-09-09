@@ -1,8 +1,8 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 
 /// On a fresh install, clears the Keychain-backed secure credential store so
 /// "Remember me" data from a previous install (which survives uninstall on iOS)

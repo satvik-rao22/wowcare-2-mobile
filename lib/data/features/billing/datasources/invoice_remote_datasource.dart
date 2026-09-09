@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/idempotency_key.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_analytics_models.dart';

@@ -1,5 +1,5 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/qr_validation_result.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 

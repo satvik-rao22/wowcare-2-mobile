@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_all_models.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_attendance_summary_model.dart';
 import 'package:wowcare/data/features/classroom/models/classroom_details_models.dart';

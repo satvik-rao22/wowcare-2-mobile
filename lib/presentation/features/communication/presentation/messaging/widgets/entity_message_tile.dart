@@ -7,9 +7,9 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
 
 /// Builds a lightweight quoted [Message] from the denormalized reply context
 /// (threadParentText / threadParentSender*) carried on [reply] itself, for when

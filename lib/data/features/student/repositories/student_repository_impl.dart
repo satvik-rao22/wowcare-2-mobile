@@ -1,7 +1,7 @@
 import 'package:intl/intl.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/student/entities/school_guardian_summary.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_settings.dart';

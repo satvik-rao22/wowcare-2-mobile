@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_pickup_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_pickup_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -19,7 +19,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
@@ -91,7 +91,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.none,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -330,8 +332,9 @@ class _PickupCardState extends State<_PickupCard> {
       AddPickupScreen.routeName,
       extra: <String, dynamic>{
         'studentCode': widget.studentCode,
-        'pickupCode':
-            widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+        'pickupCode': widget.pickupCode.trim().isEmpty
+            ? null
+            : widget.pickupCode,
         'initialFirstName': widget.firstName,
         'initialLastName': widget.lastName,
         'initialEmail': widget.rawEmail,
@@ -422,7 +425,10 @@ class _PickupCardState extends State<_PickupCard> {
                 bottomRight: Radius.circular(AppRadius.sm),
               ),
               border: Border.fromBorderSide(
-                BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+                BorderSide(
+                  color: AppColors.themeColor,
+                  width: AppDimensions.hairline,
+                ),
               ),
             ),
             clipBehavior: Clip.antiAlias,

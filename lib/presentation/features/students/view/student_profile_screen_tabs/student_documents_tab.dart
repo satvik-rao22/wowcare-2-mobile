@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,12 +11,12 @@ import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -24,14 +24,14 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
+import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_documents_list_cubit.dart';
 import 'package:wowcare/domain/features/student/entities/student_document.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
@@ -495,7 +495,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
                       // Extra bottom padding so the floating add button doesn't overlap the last items.
-                      padding: const EdgeInsets.fromLTRB(6, AppSpacing.md, 6, 96),
+                      padding: const EdgeInsets.fromLTRB(
+                        6,
+                        AppSpacing.md,
+                        6,
+                        96,
+                      ),
                       child: Column(
                         children: [
                           Container(
@@ -506,8 +511,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   alpha: 0.2,
                                 ),
                               ),
-                              borderRadius: BorderRadius.circular(AppRadius.r14),
-                              color: AppColors.whiteColor.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.r14,
+                              ),
+                              color: AppColors.whiteColor.withValues(
+                                alpha: 0.88,
+                              ),
                             ),
                             child: Column(
                               children: [
@@ -526,7 +535,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                             icon: const Icon(Icons.close),
                                           ),
                                     filled: true,
-                                    fillColor: AppColors.staffLightBackgroundColor,
+                                    fillColor:
+                                        AppColors.staffLightBackgroundColor,
                                     border: OutlineInputBorder(
                                       borderRadius: AppRadius.allMd,
                                       borderSide: BorderSide.none,
@@ -558,7 +568,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   ? StudentStrings.noExpiredDocumentsFound
                                   : (query.isEmpty
                                         ? StudentStrings.noDocumentsFound
-                                        : StudentStrings.noDocumentsMatchYourSearch),
+                                        : StudentStrings
+                                              .noDocumentsMatchYourSearch),
                               style: const TextStyle(
                                 color: AppColors.primaryColor,
                                 fontSize: 16,
@@ -607,7 +618,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   });
                                 }
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm,
+                                  ),
                                   child: HighlightableCard(
                                     key: isTarget ? _highlightRowKey : null,
                                     code: doc.documentUuid,
@@ -618,9 +631,15 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       decoration: const BoxDecoration(
                                         color: AppColors.whiteColor,
                                         borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(AppRadius.sm),
-                                          bottomLeft: Radius.circular(AppRadius.sm),
-                                          bottomRight: Radius.circular(AppRadius.sm),
+                                          topRight: Radius.circular(
+                                            AppRadius.sm,
+                                          ),
+                                          bottomLeft: Radius.circular(
+                                            AppRadius.sm,
+                                          ),
+                                          bottomRight: Radius.circular(
+                                            AppRadius.sm,
+                                          ),
                                         ),
                                         border: Border.fromBorderSide(
                                           BorderSide(
@@ -631,7 +650,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       ),
                                       child: Theme(
                                         data: Theme.of(context).copyWith(
-                                          dividerColor: AppColors.transparentColor,
+                                          dividerColor:
+                                              AppColors.transparentColor,
                                         ),
                                         child: ExpansionTile(
                                           initiallyExpanded: isTarget,
@@ -682,11 +702,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                           children: [
                                             const Divider(
                                               height: 1,
-                                              color: AppColors.attendanceCardDividerColor,
+                                              color: AppColors
+                                                  .attendanceCardDividerColor,
                                             ),
                                             AppSpacing.gapVSm,
                                             _DocumentDetailRow(
-                                              label: StudentStrings.documentType,
+                                              label:
+                                                  StudentStrings.documentType,
                                               value: docTypeDisplay,
                                             ),
                                             AppSpacing.gapVXs,
@@ -712,7 +734,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                     child: Container(
                                                       height: 40,
                                                       decoration: BoxDecoration(
-                                                        borderRadius: AppRadius.allSm,
+                                                        borderRadius:
+                                                            AppRadius.allSm,
                                                         gradient:
                                                             AppColors.buildPrimaryGradient(),
                                                       ),
@@ -736,7 +759,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: AppColors.whiteColor,
+                                                            color: AppColors
+                                                                .whiteColor,
                                                           ),
                                                         ),
                                                       ),
@@ -753,13 +777,16 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               doc,
                                                             ),
                                                         style: OutlinedButton.styleFrom(
-                                                          side:
-                                                              const BorderSide(
-                                                                color: AppColors.attendanceActionAccentColor,
-                                                              ),
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius: AppRadius.allSm,
+                                                          side: const BorderSide(
+                                                            color: AppColors
+                                                                .attendanceActionAccentColor,
                                                           ),
+                                                          shape:
+                                                              RoundedRectangleBorder(
+                                                                borderRadius:
+                                                                    AppRadius
+                                                                        .allSm,
+                                                              ),
                                                           padding:
                                                               EdgeInsets.zero,
                                                         ),
@@ -771,7 +798,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: AppColors.attendanceActionAccentColor,
+                                                            color: AppColors
+                                                                .attendanceActionAccentColor,
                                                           ),
                                                         ),
                                                       ),
@@ -796,11 +824,15 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             ),
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
-                                                          color: AppColors.attendanceActionAccentColor,
+                                                          color: AppColors
+                                                              .attendanceActionAccentColor,
                                                         ),
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius: AppRadius.allSm,
-                                                        ),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  AppRadius
+                                                                      .allSm,
+                                                            ),
                                                         padding:
                                                             EdgeInsets.zero,
                                                       ),
@@ -810,19 +842,22 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               height: 18,
                                                               child: PrimaryCircularLoader(
                                                                 size: 18,
-                                                                strokeWidth: AppDimensions.borderThick,
+                                                                strokeWidth:
+                                                                    AppDimensions
+                                                                        .borderThick,
                                                               ),
                                                             )
                                                           : const Text(
                                                               'View',
                                                               style: TextStyle(
-                                                                fontFamily:
-                                                                    Fonts.manrope,
+                                                                fontFamily: Fonts
+                                                                    .manrope,
                                                                 fontSize: 16,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w700,
-                                                                color: AppColors.attendanceActionAccentColor,
+                                                                color: AppColors
+                                                                    .attendanceActionAccentColor,
                                                               ),
                                                             ),
                                                     ),
@@ -833,7 +868,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   child: Container(
                                                     height: 40,
                                                     decoration: BoxDecoration(
-                                                      borderRadius: AppRadius.allSm,
+                                                      borderRadius:
+                                                          AppRadius.allSm,
                                                       gradient:
                                                           AppColors.buildPrimaryGradient(),
                                                     ),
@@ -851,11 +887,13 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                       child: const Text(
                                                         'Download',
                                                         style: TextStyle(
-                                                          fontFamily: Fonts.manrope,
+                                                          fontFamily:
+                                                              Fonts.manrope,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
-                                                          color: AppColors.whiteColor,
+                                                          color: AppColors
+                                                              .whiteColor,
                                                         ),
                                                       ),
                                                     ),

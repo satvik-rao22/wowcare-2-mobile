@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_school_code_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_school_name_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_immunization_settings_usecase.dart';

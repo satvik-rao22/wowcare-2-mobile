@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 
 /// Today's calendar date in the school zone as `yyyy-MM-dd`.
 /// Matches [ActivityStudentSelection] when the user taps Next with the date chip

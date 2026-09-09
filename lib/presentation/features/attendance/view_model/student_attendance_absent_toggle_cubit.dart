@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart';
 import '../../../../domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';

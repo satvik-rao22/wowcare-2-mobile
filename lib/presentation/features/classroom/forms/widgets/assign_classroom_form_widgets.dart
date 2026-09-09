@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Shared chrome for [AssignStudentToClassroomForm]/[AssignStaffToClassroomForm]

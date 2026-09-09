@@ -1,31 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/profile_info_card.dart';
@@ -344,7 +344,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         ),
         // Square top so the card reads as one continuous surface with the tabs
         // (rounded top would bump/overlap the tab borders).
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.lg)),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.lg),
+        ),
         scrollController: widget.scrollController,
         onEdit: canEdit
             ? (isStaffPersona
@@ -472,7 +474,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     })
             : null,
         children: [
-          ProfileField(label: StudentStrings.name, value: _getValueOrDash(widget.name)),
+          ProfileField(
+            label: StudentStrings.name,
+            value: _getValueOrDash(widget.name),
+          ),
 
           ProfileField(
             label: StudentStrings.status,
@@ -1040,11 +1045,11 @@ class _ProfileTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: AppRadius.allSm,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
       ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.allSm),
       child: Text(
         label,
         style: const TextStyle(
@@ -1077,12 +1082,18 @@ class _ScheduleChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.s6,
+      ),
       decoration: BoxDecoration(
         color: color,
         borderRadius: AppRadius.allSm,
         border: isTimeChip
-            ? Border.all(color: AppColors.staffBadgeActiveBg, width: AppDimensions.borderThin)
+            ? Border.all(
+                color: AppColors.staffBadgeActiveBg,
+                width: AppDimensions.borderThin,
+              )
             : null,
       ),
       alignment: Alignment.center,
@@ -1117,11 +1128,11 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.xxs),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: AppRadius.allSm,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
       ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.allSm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

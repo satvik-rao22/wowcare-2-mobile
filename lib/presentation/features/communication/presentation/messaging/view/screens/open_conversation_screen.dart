@@ -5,7 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -78,16 +78,12 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-              body: Center(child: PrimaryCircularLoader()),
-            );
+            return const Scaffold(body: Center(child: PrimaryCircularLoader()));
           }
           final conversation = snapshot.data;
           if (conversation == null) {
             return Scaffold(
-              appBar: AppBar(
-                leading: BackButton(onPressed: _goBackOrHome),
-              ),
+              appBar: AppBar(leading: BackButton(onPressed: _goBackOrHome)),
               body: const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -111,8 +107,9 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
             final recipientCount =
                 conversation.participants.where((p) => p.isActive).length - 1;
             return BlocProvider<CommunicationCubit>(
-              create: (_) => serviceLocator<CommunicationCubit>()
-                ..seedRecipientCount(conversation.code, recipientCount),
+              create: (_) =>
+                  serviceLocator<CommunicationCubit>()
+                    ..seedRecipientCount(conversation.code, recipientCount),
               child: StaffMessagingThread(
                 staffInfo: {
                   'name': conversation.title,

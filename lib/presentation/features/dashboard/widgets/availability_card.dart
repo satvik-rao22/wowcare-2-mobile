@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
-import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view_model/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.

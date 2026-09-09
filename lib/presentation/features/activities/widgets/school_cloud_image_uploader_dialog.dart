@@ -8,8 +8,8 @@ import 'package:mime/mime.dart';
 import '../../../../app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/util/app_time.dart';
-import '../../../../core/util/core_utils.dart';
+import '../../../../core/utils/app_time.dart';
+import '../../../../core/utils/core_utils.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
 

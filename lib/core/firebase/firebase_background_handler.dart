@@ -3,7 +3,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:wowcare/core/firebase/firebase_initializer.dart';
 import 'package:wowcare/core/notifications/notification_channel_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Handle FCM messages in background / terminated state.
 ///

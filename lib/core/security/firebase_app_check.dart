@@ -15,7 +15,7 @@
 
 // Uncomment when firebase_app_check is added to pubspec.yaml:
 // import 'package:firebase_app_check/firebase_app_check.dart';
-// import '../util/logger_service.dart';
+// import '../utils/logger_service.dart';
 //
 // class FirebaseAppCheckSetup {
 //   /// Initializes Firebase App Check with platform-specific providers

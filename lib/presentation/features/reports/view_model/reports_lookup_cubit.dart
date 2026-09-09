@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'dart:async';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_school_code_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_school_name_usecase.dart';

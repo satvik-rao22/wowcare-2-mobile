@@ -1,22 +1,22 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
@@ -27,25 +27,25 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -381,9 +381,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.allLg,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.allLg),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
@@ -863,9 +861,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                                 ? StudentStrings.finalizing
                                                 : StudentStrings.uploading,
                                             style: TextStyle(
-                                              color: AppColors.whiteColor.withValues(
-                                                alpha: 0.92,
-                                              ),
+                                              color: AppColors.whiteColor
+                                                  .withValues(alpha: 0.92),
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -890,7 +887,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 borderRadius: AppRadius.allLg,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.blackColor.withValues(alpha: 0.08),
+                                    color: AppColors.blackColor.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
@@ -996,7 +995,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasMedication)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.healthIcon,
                                       height: 20,
@@ -1005,7 +1006,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasAllergy)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.alertIcon,
                                       height: 20,
@@ -1014,7 +1017,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (isPhotoPermissionOff)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: AppSpacing.xxs),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.cameraIcon,
                                       height: 20,
@@ -1065,7 +1070,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: StudentStrings.studentCodeIsRequiredForAttendance,
+                      message:
+                          StudentStrings.studentCodeIsRequiredForAttendance,
                       isError: true,
                     );
                     return;
@@ -1150,7 +1156,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
+                  message:
+                      StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
                   isError: true,
                 );
                 return;
@@ -1200,8 +1207,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message:
-                          StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
+                      message: StudentStrings
+                          .studentDetailsNotLoadedYetPleaseTryAgain,
                       isError: true,
                     );
                     return;

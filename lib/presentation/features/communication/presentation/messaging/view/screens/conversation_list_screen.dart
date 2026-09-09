@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
@@ -10,8 +10,8 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_filter_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
@@ -22,7 +22,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../../core/storage/storage_service.dart';
-import '../../../../../../../core/util/storage_keys.dart';
+import '../../../../../../../core/utils/storage_keys.dart';
 
 /// Reusable conversation list for STAFF_DIRECT, ROOM_CHAT, and ADMIN_CHAT.
 ///

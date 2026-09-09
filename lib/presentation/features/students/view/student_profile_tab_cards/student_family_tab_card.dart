@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_guardian_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -214,7 +214,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
-          name: guardianName.isEmpty ? StudentStrings.thisGuardian : guardianName,
+          name: guardianName.isEmpty
+              ? StudentStrings.thisGuardian
+              : guardianName,
           type: 'guardian',
           isLoading: _isMutating,
           onCancel: () => Navigator.of(sheetContext).pop(),
@@ -275,7 +277,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.none),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.none,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -405,7 +409,10 @@ class _FamilyCard extends StatelessWidget {
             bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+            BorderSide(
+              color: AppColors.themeColor,
+              width: AppDimensions.hairline,
+            ),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -466,14 +473,8 @@ class _FamilyCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        StudentStrings.relation,
-                        style: AppTextStyles.label,
-                      ),
-                      Text(
-                        relation,
-                        style: AppTextStyles.value,
-                      ),
+                      Text(StudentStrings.relation, style: AppTextStyles.label),
+                      Text(relation, style: AppTextStyles.value),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s10),
@@ -481,14 +482,8 @@ class _FamilyCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        StudentStrings.emailId,
-                        style: AppTextStyles.label,
-                      ),
-                      Text(
-                        email,
-                        style: AppTextStyles.value,
-                      ),
+                      Text(StudentStrings.emailId, style: AppTextStyles.label),
+                      Text(email, style: AppTextStyles.value),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s10),
@@ -500,10 +495,7 @@ class _FamilyCard extends StatelessWidget {
                         StudentStrings.phoneNumber,
                         style: AppTextStyles.label,
                       ),
-                      Text(
-                        phone,
-                        style: AppTextStyles.value,
-                      ),
+                      Text(phone, style: AppTextStyles.value),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s10),
@@ -515,10 +507,7 @@ class _FamilyCard extends StatelessWidget {
                         StudentStrings.signInPin,
                         style: AppTextStyles.label,
                       ),
-                      Text(
-                        pin,
-                        style: AppTextStyles.value,
-                      ),
+                      Text(pin, style: AppTextStyles.value),
                     ],
                   ),
                   AppSpacing.gapVLg,

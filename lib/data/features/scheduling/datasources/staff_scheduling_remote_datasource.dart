@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/staff/models/staff_shift_models.dart';
 
 /// Staff Scheduling HTTP client — all endpoints are hosted on the **staff**

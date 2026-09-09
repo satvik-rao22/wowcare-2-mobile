@@ -3,8 +3,8 @@ import 'dart:async';
 
 import '../../../../core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../models/activity_asset_presign_model.dart';
 import '../models/activity_feed_models.dart';

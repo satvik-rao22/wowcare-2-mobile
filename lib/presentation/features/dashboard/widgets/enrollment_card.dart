@@ -3,10 +3,10 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/school_status_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';

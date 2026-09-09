@@ -1,5 +1,5 @@
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/src/app_router.dart';
 
 import '../../../../domain/features/notifications/entities/notification_action.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 
 /// Section label shown above the first row of each `categoryName` group of
 /// notification-preference rows.

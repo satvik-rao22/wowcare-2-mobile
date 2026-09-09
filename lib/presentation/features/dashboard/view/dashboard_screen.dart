@@ -3,12 +3,12 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/router/app_routes.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/presentation/features/dashboard/view/admin_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_persona_loading.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 /// Dispatches to the role-appropriate dashboard:
 /// - parent/guardian → [ParentDashboard]

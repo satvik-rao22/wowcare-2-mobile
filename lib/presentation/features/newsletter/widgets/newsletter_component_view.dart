@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';

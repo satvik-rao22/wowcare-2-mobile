@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart' as storage_keys;
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart' as storage_keys;
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 import 'package:wowcare/data/features/reports/models/report_generation_envelope.dart';

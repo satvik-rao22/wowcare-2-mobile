@@ -1,5 +1,5 @@
 import '../../../../domain/features/communication/entities/conversation.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 class ConversationModel extends Conversation {
   const ConversationModel({

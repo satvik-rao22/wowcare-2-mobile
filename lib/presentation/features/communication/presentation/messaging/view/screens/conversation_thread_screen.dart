@@ -7,18 +7,18 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -26,19 +26,19 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/push_notification_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
@@ -47,7 +47,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -820,7 +820,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         onViewParticipants: _showParticipantsDialog,
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -949,8 +953,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       return 'Yesterday';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -1680,7 +1694,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 reactionsController: _reactionsController,
                 currentUserCode: _senderCode,
                 isAdminCanDeleteAny: _deletePermission.isAdminCanDeleteAny,
-                deleteTimeLimitMinutes: _deletePermission.deleteTimeLimitMinutes,
+                deleteTimeLimitMinutes:
+                    _deletePermission.deleteTimeLimitMinutes,
                 onScrollToQuoted: (quoteId) => _scrollToMessage(quoteId),
                 // Deleted messages disable all interactions except viewing/adding reactions
                 onReply: msg.isDeleted
@@ -2022,5 +2037,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             (current.senderCode == _senderCode) &&
         current.sentAt.difference(prev.sentAt).inMinutes <= 5;
   }
-
 }

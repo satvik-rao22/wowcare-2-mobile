@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../app/theme/colors.dart';
+import '../../../../../../core/theme/app_colors.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';

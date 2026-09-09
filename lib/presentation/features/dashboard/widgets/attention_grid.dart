@@ -6,12 +6,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/presentation/features/classroom/view/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_attention_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 
 // ── Tone ─────────────────────────────────────────────────────────────────────

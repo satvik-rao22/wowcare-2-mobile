@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 
 /// JSON-serializable snapshot of [ActivityFeedPage] for [CacheManager].

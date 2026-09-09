@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Student-oriented filter bottom sheet for the Admin Chats list (Classroom +
 /// Tag + Status), mirroring the web Admin Chats filter. Options are derived from

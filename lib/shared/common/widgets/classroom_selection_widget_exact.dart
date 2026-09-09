@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class ClassroomSelectionWidgetExact extends StatefulWidget {

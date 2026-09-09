@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/school_zone_datetime.dart';
+import '../../../../core/utils/logger_service.dart';
+import '../../../../core/utils/school_zone_datetime.dart';
 
 /// Whether two [TimeOfDay]s represent the same hour:minute (null-safe).
 bool sameTimeOfDay(TimeOfDay? a, TimeOfDay? b) {

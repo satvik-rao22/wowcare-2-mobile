@@ -2,12 +2,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/notification_badge_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/theme_cubit.dart';
 
 /// Root-level [MultiProvider] providers — cubits that must be available on
 /// every route, including screens pushed onto the root navigator.

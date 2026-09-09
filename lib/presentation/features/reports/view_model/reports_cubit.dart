@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/usecases/download_report_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/generate_report_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usecase.dart';

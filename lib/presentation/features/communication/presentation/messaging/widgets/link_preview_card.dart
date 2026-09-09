@@ -1,6 +1,6 @@
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
 /// Extracts the first HTTP/HTTPS URL from [text] and returns it, or null if

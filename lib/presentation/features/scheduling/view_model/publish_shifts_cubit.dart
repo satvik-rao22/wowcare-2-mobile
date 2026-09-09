@@ -2,8 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/utils/api_error_handler.dart';
+import '../../../../core/utils/storage_keys.dart';
 import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
 import '../../../../domain/features/scheduling/usecases/publish_staff_shifts_usecase.dart';
 

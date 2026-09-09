@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
@@ -18,7 +18,7 @@ import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_
 import 'package:wowcare/presentation/features/scheduling/widgets/day_classroom_section.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 
 // date formatter used for the scheduling deep-link

@@ -1,6 +1,6 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/school_code_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/school_code_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 
 /// Shared, per-instance-memoized org/school code resolution for the
 /// scheduling cubits.

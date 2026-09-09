@@ -1,6 +1,6 @@
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 
 /// School-calendar "today" using the most recently resolved zone. Falls back
 /// to device-local today when no school zone has been resolved yet, so it is

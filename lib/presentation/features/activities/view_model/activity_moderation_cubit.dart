@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/delete_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';

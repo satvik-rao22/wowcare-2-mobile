@@ -2,15 +2,15 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
 import '../models/student_physician_models.dart';
 import '../models/vaccine_model.dart';
-import '../../../../core/util/logger_service.dart';
+import '../../../../core/utils/logger_service.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({

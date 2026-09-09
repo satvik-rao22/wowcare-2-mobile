@@ -1,6 +1,6 @@
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 /// First non-empty (trimmed) string from [values], or '' if none — the avatar-field resolution
 /// mirrors web's pickString(), so mobile reads the same photo fields the backend actually sends.

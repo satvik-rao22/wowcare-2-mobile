@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_tags_cubit.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_tags_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -122,7 +122,9 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
       Navigator.of(context).pop();
       CoreUtils.showTopSnackBar(
         context: context,
-        message: message.isNotEmpty ? message : StudentStrings.tagsUpdatedSuccessfully,
+        message: message.isNotEmpty
+            ? message
+            : StudentStrings.tagsUpdatedSuccessfully,
         isSuccess: true,
       );
       await widget.onSaved();

@@ -1,14 +1,14 @@
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -22,27 +22,27 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_summary_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_attendance_summary_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_attendance_action_targets_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/staff_attendance_action_targets_cubit.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_attendance_action.dart';
 
 class StaffScreen extends StatefulWidget {
@@ -606,8 +606,8 @@ class _StaffScreenState extends State<StaffScreen> {
                               ))
                                 GradientAddButton(
                                   onTap: () async {
-                                    final result =
-                                        await context.push<AddStaffResult>(
+                                    final result = await context
+                                        .push<AddStaffResult>(
                                           StaffRoutes.add,
                                           extra: AddStaffArgs(
                                             initialClassroomNames:
@@ -920,41 +920,38 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   .where((n) => n.isNotEmpty)
                                                   .toList();
 
-                                          final result =
-                                              await context
-                                                  .push<StaffFilterResult>(
-                                                    StaffRoutes.filter,
-                                                    extra: StaffFilterArgs(
-                                                      initialFilters: FilterData(
-                                                        classroomIds: const [],
-                                                        classrooms: const [],
-                                                        primaryClassrooms:
-                                                            initialPrimaryNames,
-                                                        allowedClassrooms:
-                                                            initialAllowedNames,
-                                                        statuses:
-                                                            initialStatus !=
-                                                                null
-                                                            ? <String>[
-                                                                initialStatus,
-                                                              ]
-                                                            : const <String>[],
-                                                        tags:
-                                                            initialDesignation !=
-                                                                null
-                                                            ? <String>[
-                                                                initialDesignation,
-                                                              ]
-                                                            : const <String>[],
-                                                        attendanceStatuses:
-                                                            staffState
-                                                                .attendanceStatuses ??
-                                                            const <String>[],
-                                                        sortBy:
-                                                            staffState.sortBy,
-                                                      ),
-                                                    ),
-                                                  );
+                                          final result = await context
+                                              .push<StaffFilterResult>(
+                                                StaffRoutes.filter,
+                                                extra: StaffFilterArgs(
+                                                  initialFilters: FilterData(
+                                                    classroomIds: const [],
+                                                    classrooms: const [],
+                                                    primaryClassrooms:
+                                                        initialPrimaryNames,
+                                                    allowedClassrooms:
+                                                        initialAllowedNames,
+                                                    statuses:
+                                                        initialStatus != null
+                                                        ? <String>[
+                                                            initialStatus,
+                                                          ]
+                                                        : const <String>[],
+                                                    tags:
+                                                        initialDesignation !=
+                                                            null
+                                                        ? <String>[
+                                                            initialDesignation,
+                                                          ]
+                                                        : const <String>[],
+                                                    attendanceStatuses:
+                                                        staffState
+                                                            .attendanceStatuses ??
+                                                        const <String>[],
+                                                    sortBy: staffState.sortBy,
+                                                  ),
+                                                ),
+                                              );
                                           if (!mounted) return;
                                           if (result != null) {
                                             staffCubit.updateFilters(
@@ -1568,11 +1565,18 @@ class _StaffScreenState extends State<StaffScreen> {
                                 );
                               }
                             : null,
-                        onSignIn: () => _openAttendanceActionFlow(StaffAttendanceAction.signIn),
-                        onSignOut: () => _openAttendanceActionFlow(StaffAttendanceAction.signOut),
-                        onTransfer: () => _openAttendanceActionFlow(StaffAttendanceAction.transfer),
-                        onAbsent: () =>
-                            _openAttendanceActionFlow(StaffAttendanceAction.markAbsent),
+                        onSignIn: () => _openAttendanceActionFlow(
+                          StaffAttendanceAction.signIn,
+                        ),
+                        onSignOut: () => _openAttendanceActionFlow(
+                          StaffAttendanceAction.signOut,
+                        ),
+                        onTransfer: () => _openAttendanceActionFlow(
+                          StaffAttendanceAction.transfer,
+                        ),
+                        onAbsent: () => _openAttendanceActionFlow(
+                          StaffAttendanceAction.markAbsent,
+                        ),
                         onClearSelections: () {
                           setState(() {
                             _selectAll = false;

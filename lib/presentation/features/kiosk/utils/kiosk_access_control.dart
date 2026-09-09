@@ -1,5 +1,5 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Kiosk access control utility.
 /// Manages kiosk session state and access control.

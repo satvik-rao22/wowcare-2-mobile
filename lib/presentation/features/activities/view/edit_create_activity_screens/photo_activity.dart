@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,8 +17,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/utils/api_error_handler.dart';
+import '../../../../../core/utils/core_utils.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';

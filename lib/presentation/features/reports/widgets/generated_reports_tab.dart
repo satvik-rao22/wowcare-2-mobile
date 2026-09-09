@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 

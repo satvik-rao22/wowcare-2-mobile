@@ -4,21 +4,21 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -66,6 +66,7 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+
   /// From nap-start API (current classroom roster); shown on avatar like classroom list.
   final bool isNapping;
 
@@ -131,14 +132,12 @@ class _StudentCardState extends State<StudentCard> {
 
   static Future<List<String>> _fetchSchoolOpenDays() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return const <String>[];
     final repo = serviceLocator<StaffRepository>();
     final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-    final open = <String>{
-      for (final d in days) d.dayOfWeek.toUpperCase(),
-    };
+    final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
     final ordered = _weekOrder
         .where(open.contains)
         .map((k) => _enumToShort[k]!)
@@ -260,7 +259,8 @@ class _StudentCardState extends State<StudentCard> {
                                   right: 0,
                                   top: 0,
                                   child: Tooltip(
-                                    message: StudentStrings.studentIsCurrentlyNapping,
+                                    message: StudentStrings
+                                        .studentIsCurrentlyNapping,
                                     child: SvgPicture.asset(
                                       MediaRes.napIcon.isNotEmpty
                                           ? MediaRes.napIcon
@@ -350,9 +350,9 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppColors.staffBadgeActiveBg,
-                                              borderRadius:
-                                                  AppRadius.allSm,
+                                              color:
+                                                  AppColors.staffBadgeActiveBg,
+                                              borderRadius: AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[0],
@@ -360,7 +360,8 @@ class _StudentCardState extends State<StudentCard> {
                                                 fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: AppColors.staffBadgeActiveText,
+                                                color: AppColors
+                                                    .staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
@@ -371,9 +372,9 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppColors.classroomStaffTabColor,
-                                              borderRadius:
-                                                  AppRadius.allSm,
+                                              color: AppColors
+                                                  .classroomStaffTabColor,
+                                              borderRadius: AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[1],
@@ -381,7 +382,8 @@ class _StudentCardState extends State<StudentCard> {
                                                 fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: AppColors.staffBadgeActiveText,
+                                                color: AppColors
+                                                    .staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
@@ -395,9 +397,9 @@ class _StudentCardState extends State<StudentCard> {
                                                     vertical: AppSpacing.xxs,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color: AppColors.classroomNotesTabColor,
-                                                borderRadius:
-                                                    AppRadius.allSm,
+                                                color: AppColors
+                                                    .classroomNotesTabColor,
+                                                borderRadius: AppRadius.allSm,
                                               ),
                                               child: Text(
                                                 '+${tags.length - 2}',
@@ -405,7 +407,8 @@ class _StudentCardState extends State<StudentCard> {
                                                   fontFamily: Fonts.inter,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
-                                                  color: AppColors.secondaryColor,
+                                                  color:
+                                                      AppColors.secondaryColor,
                                                   height: 15 / 12,
                                                 ),
                                               ),
@@ -453,15 +456,17 @@ class _StudentCardState extends State<StudentCard> {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.schedule.any(
-                                          (d) =>
-                                              d.trim().toLowerCase() ==
-                                              day.toLowerCase(),
-                                        );
+                                        final hasDayInList = widget.schedule
+                                            .any(
+                                              (d) =>
+                                                  d.trim().toLowerCase() ==
+                                                  day.toLowerCase(),
+                                            );
                                         final hasDayInMap =
                                             scheduleText != null &&
                                             scheduleText.trim().isNotEmpty;
-                                        final isActive = hasDayInList || hasDayInMap;
+                                        final isActive =
+                                            hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: AppSpacing.s10,
@@ -470,7 +475,8 @@ class _StudentCardState extends State<StudentCard> {
                                           decoration: BoxDecoration(
                                             color: isActive
                                                 ? AppColors.staffBadgeActiveBg
-                                                : AppColors.staffBadgeInactiveBg,
+                                                : AppColors
+                                                      .staffBadgeInactiveBg,
                                             borderRadius: AppRadius.allSm,
                                           ),
                                           child: Text(
@@ -480,8 +486,10 @@ class _StudentCardState extends State<StudentCard> {
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? AppColors.staffBadgeActiveText
-                                                  : AppColors.staffBadgeInactiveText,
+                                                  ? AppColors
+                                                        .staffBadgeActiveText
+                                                  : AppColors
+                                                        .staffBadgeInactiveText,
                                             ),
                                           ),
                                         );
@@ -500,8 +508,9 @@ class _StudentCardState extends State<StudentCard> {
                                           message: tooltipText,
                                           triggerMode:
                                               TooltipTriggerMode.longPress,
-                                          showDuration:
-                                              const Duration(seconds: 3),
+                                          showDuration: const Duration(
+                                            seconds: 3,
+                                          ),
                                           preferBelow: true,
                                           child: dayChip,
                                         );
@@ -545,58 +554,6 @@ class _StudentCardState extends State<StudentCard> {
                               AppSpacing.gapVLg,
                               Row(
                                 children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: AppSpacing.xxxl,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: AppColors.transparentColor,
-                                          builder: (ctx) {
-                                            return DeleteConfirmationBottomSheet(
-                                              name: widget.name,
-                                              type: showActiveActions
-                                                  ? 'student_deactivate'
-                                                  : 'student_reactivate',
-                                              onDelete: () {
-                                                widget.onPrimaryAction?.call();
-                                                return Future.value();
-                                              },
-                                              onCancel: () {
-                                                Navigator.of(ctx).pop();
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: AppColors.attendanceActionAccentColor,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: AppRadius.allSm,
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                      child: Text(
-                                        showActiveActions
-                                            ? StudentStrings.deactivate
-                                            : StudentStrings.reactivate,
-                                        style: const TextStyle(
-                                          fontFamily: Fonts.manrope,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.attendanceActionAccentColor,
-                                          height: 16 / 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (!showActiveActions) ...[
-                                  AppSpacing.gapHMd,
                                   Expanded(
                                     child: SizedBox(
                                       height: AppSpacing.xxxl,
@@ -605,13 +562,17 @@ class _StudentCardState extends State<StudentCard> {
                                           showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
-                                            backgroundColor: AppColors.transparentColor,
+                                            backgroundColor:
+                                                AppColors.transparentColor,
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
-                                                type: 'student_delete',
+                                                type: showActiveActions
+                                                    ? 'student_deactivate'
+                                                    : 'student_reactivate',
                                                 onDelete: () {
-                                                  widget.onDeleteAction?.call();
+                                                  widget.onPrimaryAction
+                                                      ?.call();
                                                   return Future.value();
                                                 },
                                                 onCancel: () {
@@ -623,54 +584,110 @@ class _StudentCardState extends State<StudentCard> {
                                         },
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
-                                            color: AppColors.attendanceActionAccentColor,
+                                            color: AppColors
+                                                .attendanceActionAccentColor,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: AppRadius.allSm,
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
-                                        child: const Text(
-                                          StudentStrings.delete,
-                                          style: TextStyle(
+                                        child: Text(
+                                          showActiveActions
+                                              ? StudentStrings.deactivate
+                                              : StudentStrings.reactivate,
+                                          style: const TextStyle(
                                             fontFamily: Fonts.manrope,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
-                                            color: AppColors.attendanceActionAccentColor,
+                                            color: AppColors
+                                                .attendanceActionAccentColor,
                                             height: 16 / 16,
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ],
-                                AppSpacing.gapHMd,
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: AppRadius.allSm,
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      onPressed: widget.onEdit,
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
+                                  if (!showActiveActions) ...[
+                                    AppSpacing.gapHMd,
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: AppSpacing.xxxl,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  AppColors.transparentColor,
+                                              builder: (ctx) {
+                                                return DeleteConfirmationBottomSheet(
+                                                  name: widget.name,
+                                                  type: 'student_delete',
+                                                  onDelete: () {
+                                                    widget.onDeleteAction
+                                                        ?.call();
+                                                    return Future.value();
+                                                  },
+                                                  onCancel: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                );
+                                              },
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: AppColors
+                                                  .attendanceActionAccentColor,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: AppRadius.allSm,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            StudentStrings.delete,
+                                            style: TextStyle(
+                                              fontFamily: Fonts.manrope,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors
+                                                  .attendanceActionAccentColor,
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      child: const Text(
-                                        StudentStrings.edit,
-                                        style: TextStyle(
-                                          fontFamily: Fonts.manrope,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.whiteColor,
-                                          height: 16 / 16,
+                                    ),
+                                  ],
+                                  AppSpacing.gapHMd,
+                                  Expanded(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: AppRadius.allSm,
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: widget.onEdit,
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          StudentStrings.edit,
+                                          style: TextStyle(
+                                            fontFamily: Fonts.manrope,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.whiteColor,
+                                            height: 16 / 16,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
                                 ],
                               ),
                             ],
@@ -687,5 +704,4 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
-
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// A work/break time chip shown in [StaffProfileTab]'s schedule section.
 class ScheduleChip extends StatelessWidget {

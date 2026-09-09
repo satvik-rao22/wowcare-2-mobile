@@ -5,15 +5,15 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_student_confirmation_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_student_confirmation_state.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_student_selection_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_student_selection_state.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_student_confirmation_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_student_confirmation_state.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_student_selection_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_student_selection_state.dart';
 import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -45,8 +45,9 @@ class AssignStudentToClassroomForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AssignStudentSelectionCubit>(
-      create: (_) => serviceLocator<AssignStudentSelectionCubit>()
-        ..init(classroomCode: classroomCode),
+      create: (_) =>
+          serviceLocator<AssignStudentSelectionCubit>()
+            ..init(classroomCode: classroomCode),
       child: _AssignStudentSelectionView(
         selectedRoomName: selectedRoomName,
         classroomCode: classroomCode,
@@ -259,7 +260,10 @@ class StudentConfirmationForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<AssignStudentConfirmationCubit>(
       create: (_) => serviceLocator<AssignStudentConfirmationCubit>()
-        ..init(initialSelection: selectedStudents, classroomCode: classroomCode),
+        ..init(
+          initialSelection: selectedStudents,
+          classroomCode: classroomCode,
+        ),
       child: _StudentConfirmationView(
         selectedRoomName: selectedRoomName,
         classroomCode: classroomCode,
@@ -344,13 +348,12 @@ class _StudentConfirmationView extends StatelessWidget {
               final studentList = state.selectedStudents.toList();
               return Expanded(
                 child: GridView.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        mainAxisExtent: 72,
-                      ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 72,
+                  ),
                   itemCount: studentList.length,
                   itemBuilder: (context, index) {
                     final student = studentList[index];

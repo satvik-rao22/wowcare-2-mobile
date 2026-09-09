@@ -1,19 +1,19 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen_formatters.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/staff/cubit/create_school_user_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/staff/view_model/create_school_user_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'dart:io';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
@@ -680,7 +680,8 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
               final photo = _profilePhoto;
               final newStaffCode = (u.staffCode ?? u.userCode).trim();
               if (photo != null && newStaffCode.isNotEmpty) {
-                context.read<CreateSchoolUserCubit>()
+                context
+                    .read<CreateSchoolUserCubit>()
                     .uploadProfilePhotoInBackground(
                       staffCode: newStaffCode,
                       file: photo,

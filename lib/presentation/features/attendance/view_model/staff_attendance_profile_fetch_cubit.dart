@@ -1,7 +1,7 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/attendance_cross_class_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';

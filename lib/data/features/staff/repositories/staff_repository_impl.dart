@@ -1,7 +1,7 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/app_time.dart';
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/app_time.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/entities/staff_documents_page.dart';

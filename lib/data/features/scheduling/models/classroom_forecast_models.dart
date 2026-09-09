@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import 'scheduling_json_parsing.dart';
 import 'staff_shift_models.dart';

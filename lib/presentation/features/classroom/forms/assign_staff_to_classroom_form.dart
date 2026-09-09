@@ -5,15 +5,15 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_staff_confirmation_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_staff_confirmation_state.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_staff_selection_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/assign_staff_selection_state.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_confirmation_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_confirmation_state.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_selection_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/assign_staff_selection_state.dart';
 import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_classroom_form_widgets.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -49,8 +49,9 @@ class AssignStaffToClassroomForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AssignStaffSelectionCubit>(
-      create: (_) => serviceLocator<AssignStaffSelectionCubit>()
-        ..init(classroomCode: classroomCode),
+      create: (_) =>
+          serviceLocator<AssignStaffSelectionCubit>()
+            ..init(classroomCode: classroomCode),
       child: _AssignStaffSelectionView(
         selectedRoomName: selectedRoomName,
         classroomCode: classroomCode,
@@ -169,7 +170,10 @@ class _AssignStaffSelectionViewState extends State<_AssignStaffSelectionView> {
           const SizedBox(height: 12),
           Expanded(
             child:
-                BlocBuilder<AssignStaffSelectionCubit, AssignStaffSelectionState>(
+                BlocBuilder<
+                  AssignStaffSelectionCubit,
+                  AssignStaffSelectionState
+                >(
                   builder: (context, state) => AssignFormResultsArea(
                     isLoading: state.isLoading,
                     errorMessage: state.errorMessage,
@@ -190,7 +194,8 @@ class _AssignStaffSelectionViewState extends State<_AssignStaffSelectionView> {
                           staff: staff,
                           isSelected: isSelected,
                           isSignedIn: state.isStaffSignedIn(staff.staffCode),
-                          todayStatusRaw: state.todayStatusByCode[staff.staffCode],
+                          todayStatusRaw:
+                              state.todayStatusByCode[staff.staffCode],
                           onSelectionChanged: (value) =>
                               cubit.toggleStaff(staff, value ?? false),
                         );
@@ -292,7 +297,10 @@ class _StaffConfirmationView extends StatelessWidget {
         children: [
           AssignFormHeader(title: 'Assign to $selectedRoomName'),
           const SizedBox(height: 16),
-          BlocBuilder<AssignStaffConfirmationCubit, AssignStaffConfirmationState>(
+          BlocBuilder<
+            AssignStaffConfirmationCubit,
+            AssignStaffConfirmationState
+          >(
             builder: (context, state) {
               if (state.selectedStaff.isEmpty) {
                 return const AssignFormEmptySelection(
@@ -302,13 +310,12 @@ class _StaffConfirmationView extends StatelessWidget {
               final staffList = state.selectedStaff.toList();
               return Expanded(
                 child: GridView.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        mainAxisExtent: 72,
-                      ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 72,
+                  ),
                   itemCount: staffList.length,
                   itemBuilder: (context, index) {
                     final staff = staffList[index];
@@ -360,7 +367,10 @@ class _StaffConfirmationView extends StatelessWidget {
             },
           ),
           const SizedBox(height: 16),
-          BlocBuilder<AssignStaffConfirmationCubit, AssignStaffConfirmationState>(
+          BlocBuilder<
+            AssignStaffConfirmationCubit,
+            AssignStaffConfirmationState
+          >(
             builder: (context, state) => CustomButtonLayout(
               confirmButtonLabel: 'Submit',
               cancelButtonLabel: 'Cancel',
@@ -407,7 +417,8 @@ class StaffListItem extends StatelessWidget {
   // here since the status is already batch-fetched for this whole grid.
   Color? get _attendanceDotColor {
     final normalized = (todayStatusRaw ?? '').trim().toUpperCase();
-    if (normalized == 'SIGNED_IN') return AppColors.classroomPositiveStatusColor;
+    if (normalized == 'SIGNED_IN')
+      return AppColors.classroomPositiveStatusColor;
     if (normalized == 'ABSENT') return AppColors.classroomNegativeStatusColor;
     return null;
   }

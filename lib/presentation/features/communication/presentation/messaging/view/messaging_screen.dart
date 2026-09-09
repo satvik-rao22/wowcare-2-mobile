@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/tab_visibility_events.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/shared/common/app/user_persona.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/model/user_persona.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import '../../../../../../app/theme/colors.dart';
+import '../../../../../../core/theme/app_colors.dart';
 
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({

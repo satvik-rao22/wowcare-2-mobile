@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_qr_entity.dart';
 
 class KioskQrModel extends KioskQrEntity {

@@ -4,17 +4,17 @@ import 'package:wowcare/presentation/features/newsletter/model/newsletter_previe
 import 'package:wowcare/data/features/newsletter/mappers/newsletter_entity_mapper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/date_utils.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 

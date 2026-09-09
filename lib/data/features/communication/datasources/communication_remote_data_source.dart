@@ -8,10 +8,10 @@ import '../models/get_conversations_response.dart';
 import '../models/message_model.dart';
 import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/user_details_school_roles.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
+import '../../../../core/utils/logger_service.dart';
+import '../../../../core/utils/user_details_school_roles.dart';
 
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(

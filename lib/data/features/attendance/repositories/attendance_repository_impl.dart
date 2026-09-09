@@ -1,9 +1,9 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/attendance_classroom_scope.dart';
-import '../../../../core/util/attendance_events.dart';
-import '../../../../core/util/cache_manager.dart';
-import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/utils/attendance_classroom_scope.dart';
+import '../../../../core/utils/attendance_events.dart';
+import '../../../../core/utils/cache_manager.dart';
+import '../../../../core/utils/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
 import '../../../../domain/features/attendance/entities/student_transfer_request.dart';
 import '../../../../domain/features/attendance/entities/staff_transfer_request.dart';

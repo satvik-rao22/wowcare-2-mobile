@@ -1,5 +1,5 @@
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/data/features/availability/datasources/availability_remote_datasource.dart';
 import 'package:wowcare/data/features/availability/models/future_availability_models.dart';
 import 'package:wowcare/data/features/availability/models/individual_movement_models.dart';

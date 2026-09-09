@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// `RequestOptions.extra` flag marking a request as UNSAFE to auto-replay after
 /// a 401 token refresh — a non-idempotent mutation (e.g. a create/upload) whose

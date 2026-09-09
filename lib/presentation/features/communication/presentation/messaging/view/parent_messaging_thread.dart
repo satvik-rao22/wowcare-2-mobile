@@ -15,12 +15,12 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/parent_participant_chips.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import '../../../../../../app/theme/colors.dart';
-import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../core/theme/app_colors.dart';
+import '../../../../../../core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
@@ -28,10 +28,10 @@ import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
@@ -40,13 +40,13 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/react
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../widgets/thread_message_tile.dart';
-import '../../../cubit/private_mode_toggle_cubit.dart';
-import '../../../cubit/private_mode_toggle_state.dart';
+import '../../../view_model/private_mode_toggle_cubit.dart';
+import '../../../view_model/private_mode_toggle_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 import '../../../../../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../../../../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({

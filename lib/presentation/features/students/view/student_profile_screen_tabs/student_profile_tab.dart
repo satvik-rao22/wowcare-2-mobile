@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/spacing.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_family_tab_card.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_pickup_tab_card.dart';
@@ -202,7 +202,9 @@ class _StudentProfileTabState extends State<StudentProfileTab>
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.md)),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.md),
+          ),
         ),
         child: Center(child: Text(label)),
       ),
@@ -340,9 +342,16 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       onRefresh: _refreshProfile,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xl),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xl,
+        ),
         children: [
-          const Icon(Icons.error_outline, size: AppDimensions.iconXl, color: AppColors.errorColor),
+          const Icon(
+            Icons.error_outline,
+            size: AppDimensions.iconXl,
+            color: AppColors.errorColor,
+          ),
           AppSpacing.gapVMd,
           Text(
             StudentStrings.failedToLoadStudentProfile,

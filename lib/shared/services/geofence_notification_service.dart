@@ -1,7 +1,7 @@
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/core/utils/active_school_switcher.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/notification_payload.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../app/theme/media_res.dart';
+import '../../../../core/theme/app_media_res.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
 

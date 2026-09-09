@@ -3,13 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/dimensions.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/radius.dart';
-import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
@@ -76,7 +76,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
         (failure) {
           setState(() {
             _isLoading = false;
-            _errorMessage = failure.message ?? StudentStrings.failedToLoadImportantDates;
+            _errorMessage =
+                failure.message ?? StudentStrings.failedToLoadImportantDates;
             _dates = null;
           });
         },
@@ -174,13 +175,22 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
     final entries = <MapEntry<String, String>>[
       MapEntry(StudentStrings.enrollDate, _format(_dates?.enrollDate)),
-      MapEntry(StudentStrings.schoolStartDate, _format(_dates?.schoolStartDate)),
+      MapEntry(
+        StudentStrings.schoolStartDate,
+        _format(_dates?.schoolStartDate),
+      ),
       MapEntry(
         StudentStrings.currentClassroomStartDate,
         _format(_dates?.currentClassroomStartDate),
       ),
-      MapEntry(StudentStrings.upcomingMovingDate, _format(_dates?.upcomingMoveDate)),
-      MapEntry(StudentStrings.schoolLeavingDate, _format(_dates?.schoolLeavingDate)),
+      MapEntry(
+        StudentStrings.upcomingMovingDate,
+        _format(_dates?.upcomingMoveDate),
+      ),
+      MapEntry(
+        StudentStrings.schoolLeavingDate,
+        _format(_dates?.schoolLeavingDate),
+      ),
     ];
 
     return Stack(
@@ -207,7 +217,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: AppSpacing.none, vertical: AppSpacing.md),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.none,
+                  vertical: AppSpacing.md,
+                ),
                 padding: const EdgeInsets.all(AppSpacing.xs),
                 // Match the Family/Pickup cards: themeColor outline, square top-left.
                 decoration: const BoxDecoration(
@@ -218,7 +231,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     bottomRight: Radius.circular(AppRadius.sm),
                   ),
                   border: Border.fromBorderSide(
-                    BorderSide(color: AppColors.themeColor, width: AppDimensions.hairline),
+                    BorderSide(
+                      color: AppColors.themeColor,
+                      width: AppDimensions.hairline,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -227,7 +243,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(StudentStrings.importantDates, style: AppTextStyles.title),
+                        Text(
+                          StudentStrings.importantDates,
+                          style: AppTextStyles.title,
+                        ),
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),

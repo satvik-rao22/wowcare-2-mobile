@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Filter funnel icon button that overlays a red dot on [iconAsset] whenever
 /// [isActive] is true, so the applied-filter state stays visible on the

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
@@ -9,9 +9,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/school_zone_datetime.dart';
+import '../../../../core/theme/app_media_res.dart';
+import '../../../../core/utils/core_utils.dart';
+import '../../../../core/utils/school_zone_datetime.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';

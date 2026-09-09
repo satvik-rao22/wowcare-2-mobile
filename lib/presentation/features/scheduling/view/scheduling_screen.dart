@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +8,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../presentation/features/classroom/cubit/classroom_cubit.dart';
+import '../../../../presentation/features/classroom/view_model/classroom_cubit.dart';
 import '../view_model/scheduling_staff_list_cubit.dart';
 import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -16,7 +16,7 @@ import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../shared/common/app/cubit/role_cubit.dart';
+import '../../../../shared/common/app/cubits/role_cubit.dart';
 import '../../students/module_access.dart';
 import '../view_model/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';

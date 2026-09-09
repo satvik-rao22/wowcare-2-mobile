@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Gradient pill button used by [MessagingEntryScreen] to launch a
 /// communication module (Staff Messaging / Admin Chat / Room Chat).

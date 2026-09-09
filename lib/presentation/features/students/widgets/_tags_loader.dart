@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/cubit/student_tags_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_tags_cubit.dart';
 
 /// Lightweight widget to lazily load tags for a student using
 /// `GET /api/v1/student-tags/{studentCode}` and report them back
@@ -38,9 +38,7 @@ class _TagsLoaderState extends State<TagsLoader> {
       // Uses repository-level caching via CacheManager.
       final names = await _tagsCubit.fetchStudentTagNames(widget.studentCode);
       if (!mounted) return;
-      widget.onTagsLoaded(
-        names.isNotEmpty ? names : widget.initialTags,
-      );
+      widget.onTagsLoaded(names.isNotEmpty ? names : widget.initialTags);
     } catch (_) {
       if (!mounted) return;
       // On error, just use initial tags so UI still shows something.
