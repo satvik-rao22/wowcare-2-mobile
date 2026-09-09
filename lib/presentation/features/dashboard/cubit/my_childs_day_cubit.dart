@@ -12,7 +12,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
-import '../../../../core/util/storage_keys.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'my_childs_day_state.dart';

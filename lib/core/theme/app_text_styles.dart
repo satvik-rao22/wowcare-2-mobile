@@ -952,6 +952,265 @@ class AppTextStyles {
     color: color,
   );
 
+  // ── Dashboard: My Day card ────────────────────────────────────────────────
+  // Mandate 4 §4.4. Exact values lifted from my_day_card.dart's inline styles;
+  // rendered output is unchanged. Named for the role they play, not the size.
+
+  /// The countdown's hour/minute/second digits.
+  static const TextStyle myDayCountdownDigits = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 44,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// The ':' between countdown units. Deliberately a different size from the
+  /// digits — that is the existing rendering, not a mistake.
+  static const TextStyle myDayCountdownSeparator = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 48,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// The 'HH' / 'MM' / 'SS' caption under each countdown unit.
+  static TextStyle myDayCountdownUnitLabel = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+    fontSize: 12,
+    height: 0.1,
+  );
+
+  /// Day name shown above the countdown for an upcoming shift.
+  static const TextStyle myDayUpcomingDayName = TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// The card's one-line schedule status sentence.
+  static const TextStyle myDayStatusLine = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Work Time / Break Time chip label.
+  static const TextStyle myDayChipLabel = TextStyle(
+    color: AppColors.secondaryColor,
+  );
+
+  /// The clock-in PIN, rendered on the primary gradient.
+  static const TextStyle myDayClockInPin = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 17,
+    fontWeight: FontWeight.bold,
+    letterSpacing: 17 * (-3 / 100),
+  );
+
+  /// Self-attendance action button label (Sign In / Sign Out / Transfer /
+  /// Mark Absent).
+  static const TextStyle myDayActionButtonLabel = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Geofence status line under the card body.
+  static const TextStyle myDayGeofenceStatus = TextStyle(
+    fontSize: 12,
+    height: 1.4,
+  );
+
+  // ── Dashboard: chat-preview row ───────────────────────────────────────────
+
+  /// "No recent chat" placeholder.
+  static TextStyle chatPreviewEmpty = TextStyle(
+    fontSize: 13,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Conversation title on a preview row.
+  static const TextStyle chatPreviewTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Relative timestamp on a preview row.
+  static TextStyle chatPreviewTime = TextStyle(
+    fontSize: 11,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Last-message snippet on a preview row.
+  static TextStyle chatPreviewSnippet = TextStyle(
+    fontSize: 12,
+    color: AppColors.primaryColor.withValues(alpha: 0.5),
+  );
+
+  /// Unread-count text inside the badge.
+  static const TextStyle chatPreviewUnreadBadge = TextStyle(
+    color: AppColors.cardColor,
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+  );
+
+  // ── Newsletter (Mandate 4) ────────────────────────────────────────────────
+  // Feature-prefixed, matching the `activity*` convention above.
+  //
+  // None of these set `fontFamily`. `ThemeData.fontFamily` is 'Manrope' on
+  // both the light and dark themes, and a `Text`'s style merges onto the
+  // ambient DefaultTextStyle, so the family resolves to Manrope without being
+  // restated (§4: "these lines are a find-and-delete").
+  //
+  // Styles whose colour comes from the newsletter's AUTHOR-CHOSEN palette are
+  // NOT here — see [newsletterTitleBar] / [newsletterRichBody], which carry
+  // chrome only and take their colour via `.copyWith()`.
+
+  /// Tab label in the newsletter tab bars. Colour varies by selection, so
+  /// callers apply `.copyWith(color: …)`.
+  static const TextStyle newsletterTabLabel = TextStyle(fontSize: 15);
+
+  /// "Newsletter" header above the parent tab bar.
+  static const TextStyle newsletterScreenTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Centred "No Newsletters" / "No Sent Newsletters" / error text in a list.
+  static const TextStyle newsletterEmptyState = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Centred failure text on the preview screen.
+  static const TextStyle newsletterPreviewError = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Text inside the stale-content banner on the preview screen.
+  static final TextStyle newsletterStaleBanner = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.9),
+    fontSize: 13,
+  );
+
+  /// The large recipient count in the recipients sheet header.
+  static const TextStyle newsletterRecipientCount = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 18,
+    fontWeight: FontWeight.w800,
+  );
+
+  /// "Recipients" caption under the count.
+  static final TextStyle newsletterRecipientCountCaption = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.66),
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// One recipient's name in the sheet list.
+  static const TextStyle newsletterRecipientName = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// The recipient-count badge on a list card.
+  static const TextStyle newsletterRecipientBadge = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// Title row of the recipients sheet.
+  static const TextStyle newsletterSheetTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// "+N" extra-attachment count over a card thumbnail.
+  static const TextStyle newsletterAttachmentCountBadge = TextStyle(
+    color: AppColors.whiteColor,
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// "Attachments" heading above the preview grid.
+  static final TextStyle newsletterAttachmentsHeading = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.85),
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// File name under one attachment tile.
+  static final TextStyle newsletterAttachmentFileName = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.85),
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// "No newsletter content available." in the preview body.
+  static final TextStyle newsletterEmptyContent = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.65),
+    fontSize: 14,
+  );
+
+  /// Newsletter title on a list card.
+  static const TextStyle newsletterCardTitle = TextStyle(
+    color: AppColors.primaryColor,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+
+  /// Meta label ("Date", "Created by") on a list card.
+  static final TextStyle newsletterCardMetaLabel = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.58),
+    fontSize: 13,
+  );
+
+  /// Meta value beside a [newsletterCardMetaLabel].
+  static final TextStyle newsletterCardMetaValue = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.82),
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Caption under the full-screen image preview overlay.
+  static final TextStyle newsletterOverlayCaption = TextStyle(
+    color: AppColors.primaryColor.withValues(alpha: 0.7),
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+
+  /// Newsletter title inside the themed gradient title bar.
+  ///
+  /// CHROME ONLY — no colour. The bar paints its text in
+  /// `NewsletterThemeColors.titleTextColor`, which is author data, so the
+  /// caller applies `.copyWith(color: theme.titleTextColor)`.
+  static const TextStyle newsletterTitleBar = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+  );
+
+  /// Base style for rendered newsletter body HTML. CHROME ONLY — the colour is
+  /// `NewsletterThemeColors.body`, chosen by the newsletter's author.
+  static const TextStyle newsletterRichBody = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    height: 1.45,
+  );
+
+  /// Base style for a rendered newsletter heading part. CHROME ONLY — the
+  /// colour is `NewsletterThemeColors.heading`.
+  static const TextStyle newsletterRichHeading = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+  );
+
   // ── Communication / message bubble (Mandate 4) ──────────────────────────────
   // These two carry an EXPLICIT [Fonts.manrope] family on purpose: a message
   // bubble can be re-parented into an Overlay (the long-press reactions

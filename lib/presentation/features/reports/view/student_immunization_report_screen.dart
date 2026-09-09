@@ -82,8 +82,6 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _endDate = ValueNotifier<DateTime>(now);
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ReportsCubit>().loadVaccines();
@@ -104,11 +102,11 @@ class _StudentImmunizationReportScreenState
     final state = cubit.state;
 
     // ── Classroom codes ──────────────────────────────────────────────────────
+    // Empty selection → no codes → `classroomCodes: null` below omits the
+    // key, which is how this endpoint expresses "all classrooms".
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: state.classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -213,13 +211,16 @@ class _StudentImmunizationReportScreenState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Pre-select every vaccine the first time the list arrives, which is
-        // what the old in-widget _loadVaccines() did inline (mirrors web).
+        // Drop selections that no longer exist when a refreshed vaccine list
+        // arrives. Nothing is pre-selected — an empty filter already means
+        // every vaccine.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.vaccineNames != current.vaccineNames,
           listener: (context, state) {
-            _selectedVaccines.value = List<String>.from(state.vaccineNames);
+            _selectedVaccines.value = _selectedVaccines.value
+                .where(state.vaccineNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -294,8 +295,7 @@ class _StudentImmunizationReportScreenState
                         valueListenable: _selectedVaccines,
                         builder: (_, selected, __) => CustomMultiSelectDropdown(
                           label: ReportsStrings.vaccines,
-                          hintText: ReportsStrings.select,
-                          isRequired: true,
+                          hintText: ReportsStrings.allVaccines,
                           items: data.vaccines,
                           selectedItems: selected,
                           onChanged: (s) => _selectedVaccines.value = s,
@@ -331,9 +331,8 @@ class _StudentImmunizationReportScreenState
                       valueListenable: _selectedClassrooms,
                       builder: (_, v, __) => CustomMultiSelectDropdown(
                         label: ReportsStrings.classroom,
-                        hintText: ReportsStrings.selectClassroom,
+                        hintText: ReportsStrings.allClassrooms,
                         items: widget.classrooms,
-                        isRequired: true,
                         selectedItems: v,
                         onChanged: (s) => _selectedClassrooms.value = s,
                         showSelectAll: true,
@@ -341,7 +340,7 @@ class _StudentImmunizationReportScreenState
                     ),
                     const ReportDefaultNote(
                       text: ReportsStrings
-                          .noteAllClassroomsWillBeSelectedByDefault,
+                          .noteAllClassroomsIncludedByDefault,
                     ),
                     SizedBox(
                       height: context.responsive(compact: 16.0, medium: 24.0),
@@ -351,16 +350,15 @@ class _StudentImmunizationReportScreenState
                       valueListenable: _selectedTags,
                       builder: (_, v, __) => CustomMultiSelectDropdown(
                         label: ReportsStrings.tag,
-                        hintText: ReportsStrings.selectTag,
+                        hintText: ReportsStrings.allTags,
                         items: widget.tags,
-                        isRequired: true,
                         selectedItems: v,
                         onChanged: (s) => _selectedTags.value = s,
                         showSelectAll: true,
                       ),
                     ),
                     const ReportDefaultNote(
-                      text: ReportsStrings.noteAllTagsWillBeSelectedByDefault,
+                      text: ReportsStrings.noteAllTagsIncludedByDefault,
                     ),
                     SizedBox(
                       height: context.responsive(compact: 16.0, medium: 24.0),

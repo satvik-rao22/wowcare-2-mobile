@@ -1,17 +1,22 @@
+import 'dart:io';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student.dart';
-import '../../../../domain/features/student/entities/student_profile.dart';
-import '../../../../domain/features/student/usecases/add_student_sibling_usecase.dart';
-import '../../../../domain/features/student/usecases/create_guardian_user_usecase.dart';
-import '../../../../domain/features/student/usecases/create_student_usecase.dart';
-import '../../../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_profile_usecase.dart';
-import '../../../../domain/features/student/usecases/link_existing_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
+import 'package:wowcare/domain/features/student/entities/student_profile.dart';
+import 'package:wowcare/domain/features/student/usecases/add_student_sibling_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/create_guardian_user_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/create_student_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/link_existing_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
 
 part 'student_create_state.dart';
 
@@ -109,6 +114,130 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
     required String schoolCode,
   }) {
     return _getGuardianNameCodeMapForSchoolUseCase(schoolCode: schoolCode);
+  }
+
+  // --- Step 1 form model ---
+
+  /// Seed step 1 from the caller's initial values (status defaults to 'Active').
+  void initializeStep1({
+    String? status,
+    String? classroom,
+    DateTime? birthdate,
+    DateTime? schoolStartDate,
+    File? profilePhoto,
+  }) {
+    emit(state.copyWith(
+      step1Status: status ?? 'Active',
+      step1Classroom: classroom,
+      step1Birthdate: birthdate,
+      step1SchoolStartDate: schoolStartDate,
+      step1ProfilePhoto: profilePhoto,
+      step1AgeLabel: birthdate != null ? ageLabelFor(birthdate) : null,
+    ));
+  }
+
+  void setStep1Status(String? status) {
+    emit(state.copyWith(step1Status: status));
+  }
+
+  void setStep1Classroom(String? classroom) {
+    emit(state.copyWith(step1Classroom: classroom));
+  }
+
+  /// Sets the birthdate AND its derived age label together.
+  void setStep1Birthdate(DateTime? birthdate) {
+    emit(state.copyWith(
+      step1Birthdate: birthdate,
+      step1AgeLabel: birthdate != null ? ageLabelFor(birthdate) : null,
+    ));
+  }
+
+  void setStep1SchoolStartDate(DateTime? date) {
+    emit(state.copyWith(step1SchoolStartDate: date));
+  }
+
+  void setStep1ProfilePhoto(File? photo) {
+    emit(state.copyWith(step1ProfilePhoto: photo));
+  }
+
+  /// Flow-level submit flag spanning create → sibling-link → hand-off.
+  void setStep1Submitting(bool value) {
+    emit(state.copyWith(step1Submitting: value));
+  }
+
+  /// "Xy Zm" age label from a birthdate, relative to the school clock (AppTime).
+  static String ageLabelFor(DateTime birthdate) {
+    final now = AppTime.now();
+    var years = now.year - birthdate.year;
+    var months = now.month - birthdate.month;
+    if (now.day < birthdate.day) months--;
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
+    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
+    return years <= 0 ? monthPart : '$yearPart $monthPart';
+  }
+
+  // --- Step 2 (add-parent) form model ---
+
+  void initializeStep2({
+    bool? selectFromExisting,
+    List<String>? selectedExistingParents,
+    String? relation,
+    bool? isEmergencyContact,
+    bool? isChildCustody,
+    File? profilePhoto,
+  }) {
+    emit(state.copyWith(
+      step2SelectFromExisting: selectFromExisting,
+      step2SelectedExistingParents: selectedExistingParents,
+      step2Relation: relation,
+      step2IsEmergencyContact: isEmergencyContact,
+      step2IsChildCustody: isChildCustody,
+      step2ProfilePhoto: profilePhoto,
+    ));
+  }
+
+  void setStep2SelectFromExisting(bool value) {
+    emit(state.copyWith(step2SelectFromExisting: value));
+  }
+
+  void setStep2SelectedExistingParents(List<String> parents) {
+    emit(state.copyWith(step2SelectedExistingParents: parents));
+  }
+
+  void setStep2Relation(String? relation) {
+    emit(state.copyWith(step2Relation: relation));
+  }
+
+  void setStep2IsEmergencyContact(bool value) {
+    emit(state.copyWith(step2IsEmergencyContact: value));
+  }
+
+  void setStep2IsChildCustody(bool value) {
+    emit(state.copyWith(step2IsChildCustody: value));
+  }
+
+  void setStep2ProfilePhoto(File? photo) {
+    emit(state.copyWith(step2ProfilePhoto: photo));
+  }
+
+  void setStep2Submitting(bool value) {
+    emit(state.copyWith(step2Submitting: value));
+  }
+
+  /// Store the fetched existing-parent [names] and prune any selected parents
+  /// that no longer exist in the latest list.
+  void setStep2ExistingParents(List<String> names) {
+    final pruned = state.step2SelectedExistingParents
+        .where(names.contains)
+        .toList();
+    emit(state.copyWith(
+      step2ExistingParents: names,
+      step2SelectedExistingParents: pruned,
+    ));
   }
 
   // --- Mutations (each keyed single-flight; rethrow) ---
@@ -250,7 +379,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     return _singleFlight<String>('updateGuardian:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
@@ -258,7 +387,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
         return await _updateGuardianUseCase(
           code: code,
           studentCode: studentCode,
-          fields: fields,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));
@@ -269,7 +398,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _singleFlight<String>('updateSchedule:$studentCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));

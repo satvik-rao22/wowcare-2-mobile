@@ -1,3 +1,4 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import java.util.Base64
 import java.util.Properties
 
@@ -62,6 +63,41 @@ val dartEnvironment: String by lazy {
         ?.removePrefix("ENVIRONMENT=")
         ?: "local"
     env.lowercase()
+}
+
+// ---------------------------------------------------------------------------
+// Crashlytics mapping-file upload
+//
+// `uploadCrashlyticsMappingFile<Variant>` gzips the R8 mapping file (~91 MB
+// uncompressed here) and PUTs it to Firebase as one non-resumable fixed-length
+// body — verified in firebase-crashlytics-buildtools 3.0.2: RestfulWebApi.sendFile
+// builds a FileEntity on an HttpClients.createDefault() client, so it gets at
+// most Apache's 3 transport-level attempts, with no socket timeout and no resume.
+// When all three lose the connection the whole build fails with
+// `java.net.SocketException: Broken pipe` — after the APK is built and signed.
+//
+// This cannot be repaired after the fact: when the upload is disabled the plugin
+// also sets InjectMappingFileIdTask.useBlankMappingFileId, so the APK ships a
+// BLANK com_crashlytics_android_build_id. Re-running the upload task later mints
+// a new id that matches nothing in that APK. Symbols must be uploaded by the
+// same build that produces the artifact you ship, or that artifact's Java/Kotlin
+// crash reports stay obfuscated forever.
+//
+// So: upload for anything anyone else will run — prod, and every CI build — and
+// skip it for throwaway local release builds, where it only adds a flaky
+// multi-megabyte upload to each iteration. Override explicitly with:
+//
+//   flutter build apk --release --dart-define=ENVIRONMENT=UAT -Pcrashlytics.mappingUpload=true
+//
+// If an upload fails in CI, re-run the build: Gradle skips the up-to-date R8
+// task and retries only the upload, so a retry costs a minute, not a rebuild.
+// ---------------------------------------------------------------------------
+val crashlyticsMappingUploadEnabled: Boolean by lazy {
+    val override = (project.findProperty("crashlytics.mappingUpload") as String?)?.takeIf { it.isNotBlank() }
+    val isCi = !System.getenv("CI").isNullOrBlank()
+    val enabled = override?.toBooleanStrictOrNull() ?: (dartEnvironment == "prod" || isCi)
+    println("[crashlytics] mapping file upload=$enabled (env=$dartEnvironment, ci=$isCi)")
+    enabled
 }
 
 // Copy the environment-specific google-services.json into the position the
@@ -156,10 +192,30 @@ android {
     }
 
 
+    // Android App Link host, injected into AndroidManifest.xml as
+    // ${appLinkHost}. The manifest previously hardcoded this and had no
+    // debug/release split, so a local ngrok tunnel used for testing shipped to
+    // release and broke autoVerify for every real deep link.
+    //
+    // Override locally WITHOUT editing a tracked file:
+    //   flutter run --dart-define=… -PappLinkHost=your-tunnel.ngrok-free.dev
+    // or add `appLinkHost=your-tunnel.ngrok-free.dev` to android/local.properties.
+    val defaultAppLinkHost = "uat-wowcare.childcarewow.app"
+    val overriddenAppLinkHost =
+        (project.findProperty("appLinkHost") as String?)?.takeIf { it.isNotBlank() }
+
     buildTypes {
         release {
+            // Release ALWAYS uses the real host — a local override must never
+            // reach a shipped build, which is the defect this replaces.
+            manifestPlaceholders["appLinkHost"] = defaultAppLinkHost
+
             // ⚠️ Replace with your release keystore later
             signingConfig = signingConfigs.getByName("release")
+
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = crashlyticsMappingUploadEnabled
+            }
             // ✅ Enable shrinking
             isMinifyEnabled = true
             isShrinkResources = true
@@ -177,6 +233,13 @@ android {
                     flutterProguardRules,
                 )
             }
+        }
+
+        debug {
+            // Debug may point at a local tunnel via -PappLinkHost=…; defaults to
+            // the same UAT host so a plain `flutter run` behaves like release.
+            manifestPlaceholders["appLinkHost"] =
+                overriddenAppLinkHost ?: defaultAppLinkHost
         }
     }
 }

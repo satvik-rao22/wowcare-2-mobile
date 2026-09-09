@@ -33,8 +33,12 @@ ActivityFeedPage mergeActivityFeedPages(List<ActivityFeedPage> pages) {
 
   final last = pages.every((p) => p.last);
   final pageNumber = pages.first.pageNumber;
-  final maxTotalPages = pages.map((p) => p.totalPages).fold<int>(0, (a, b) => a > b ? a : b);
-  final totalElements = pages.map((p) => p.totalElements).fold<int>(0, (a, b) => a + b);
+  final maxTotalPages = pages
+      .map((p) => p.totalPages)
+      .fold<int>(0, (a, b) => a > b ? a : b);
+  final totalElements = pages
+      .map((p) => p.totalElements)
+      .fold<int>(0, (a, b) => a + b);
 
   return ActivityFeedPage(
     content: deduped,

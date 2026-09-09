@@ -1,8 +1,7 @@
+import '../entities/student_regular_schedule_input.dart';
 import '../repositories/student_repository.dart';
 
-/// Updates a student's regular schedule (add-student wizard, Step 3 data).
-///
-/// Returns the backend `message` field.
+/// Use case to update a student's regular (weekly) schedule.
 class UpdateStudentRegularSchedulesUseCase {
   UpdateStudentRegularSchedulesUseCase(this._repository);
 
@@ -11,7 +10,7 @@ class UpdateStudentRegularSchedulesUseCase {
   Future<String> call({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _repository.updateStudentRegularSchedules(
       schoolCode: schoolCode,

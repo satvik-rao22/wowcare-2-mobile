@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -39,7 +37,7 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
   double? _lastValidValue;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
     _controller.addListener(_validate);
@@ -48,11 +46,11 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
     });
   }
 
-  void _validate(){
+  void _validate() {
     final text = _controller.text.trim();
     if (text.isEmpty) {
       setState(() {
-        _errorText =  null;
+        _errorText = null;
         _lastValidValue = null;
       });
       widget.onValidChanged?.call(null);
@@ -67,7 +65,7 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
       });
       widget.onValidChanged?.call(null);
       return;
-    } else if (value < widget.min || value > widget.max){
+    } else if (value < widget.min || value > widget.max) {
       setState(() {
         _errorText = 'Must be between ${widget.min} - ${widget.max} oz';
         _lastValidValue = null;
@@ -86,20 +84,19 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
   @override
   void didUpdateWidget(covariant OunceInputWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if(oldWidget.min != widget.min || oldWidget.max != widget.max) {
+    if (oldWidget.min != widget.min || oldWidget.max != widget.max) {
       _validate();
     }
   }
 
   @override
-  void dispose(){
+  void dispose() {
     _controller.removeListener(_validate);
-    if(widget.controller == null) _controller.dispose();
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
   double? get validValue => _lastValidValue;
-
 
   @override
   Widget build(BuildContext context) {
@@ -115,17 +112,25 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
             style: labelStyle,
             children: [
               TextSpan(text: widget.label),
-              if (widget.isRequired) const TextSpan(text: ' *', style: AppTextStyles.activityRequiredMarker),
+              if (widget.isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: AppTextStyles.activityRequiredMarker,
+                ),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(minHeight: widget.height ?? responsive.inputFieldHeight),
+          constraints: BoxConstraints(
+            minHeight: widget.height ?? responsive.inputFieldHeight,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardColor,
             border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _controller,
@@ -137,14 +142,16 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
               // values like 5.5 could be typed and anything finer (5.25,
               // 5.75, ...) got silently cut off after the first decimal
               // digit — read by users as "only accepts multiples of 0.5".
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$'))
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
             ],
             decoration: InputDecoration(
               hintText: '${widget.min} - ${widget.max} oz',
               //helperText: '${widget.min} - ${widget.max} oz',
               errorText: _errorText,
               errorMaxLines: 2,
-              hintStyle: labelStyle.copyWith(color: AppColors.activityMutedGreyColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.activityMutedGreyColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

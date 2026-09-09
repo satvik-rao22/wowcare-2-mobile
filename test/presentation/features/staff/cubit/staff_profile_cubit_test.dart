@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 
 StaffProfile _profile(String staffCode) => StaffProfile(
@@ -46,27 +47,30 @@ class _RecordingRepo implements StaffRepository {
 }
 
 void main() {
-  test('fetchProfile returns the use-case value and forwards staffCode', () async {
-    final repo = _RecordingRepo();
-    final cubit = StaffProfileCubit(
-      getStaffProfileUseCase: GetStaffProfileUseCase(repo),
-      repository: repo,
-    );
+  test(
+    'fetchProfile returns the use-case value and forwards staffCode',
+    () async {
+      final repo = _RecordingRepo();
+      final cubit = StaffProfileCubit(
+        getStaffProfileUseCase: GetStaffProfileUseCase(repo),
+        loadCachedStaffProfileUseCase: LoadCachedStaffProfileUseCase(repo),
+      );
 
-    final result = await cubit.fetchProfile(staffCode: 'S9');
+      final result = await cubit.fetchProfile(staffCode: 'S9');
 
-    expect(result.staffCode, 'S9');
-    expect(repo.lastStaffCode, 'S9');
-    // Default mirrors StaffRepository.getStaffProfile (forEditStaff: false).
-    expect(repo.lastForEditStaff, isFalse);
-    await cubit.close();
-  });
+      expect(result.staffCode, 'S9');
+      expect(repo.lastStaffCode, 'S9');
+      // Default mirrors StaffRepository.getStaffProfile (forEditStaff: false).
+      expect(repo.lastForEditStaff, isFalse);
+      await cubit.close();
+    },
+  );
 
   test('fetchProfile forwards forEditStaff:true when requested', () async {
     final repo = _RecordingRepo();
     final cubit = StaffProfileCubit(
       getStaffProfileUseCase: GetStaffProfileUseCase(repo),
-      repository: repo,
+      loadCachedStaffProfileUseCase: LoadCachedStaffProfileUseCase(repo),
     );
 
     await cubit.fetchProfile(staffCode: 'S9', forEditStaff: true);

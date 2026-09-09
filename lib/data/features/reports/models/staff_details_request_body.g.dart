@@ -7,8 +7,7 @@ part of 'staff_details_request_body.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$StaffDetailsRequestBodyToJson(
-  StaffDetailsRequestBody instance,
-) {
+    StaffDetailsRequestBody instance) {
   final val = <String, dynamic>{
     'reportType': instance.reportType,
     'status': instance.status,

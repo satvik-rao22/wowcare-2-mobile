@@ -2,6 +2,10 @@ import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
+import '../entities/guardian_profile.dart';
+import '../entities/update_student_address_request.dart';
+import '../entities/update_student_profile_request.dart';
+import '../entities/update_guardian_request.dart';
 import '../entities/student_health.dart';
 import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
@@ -11,6 +15,7 @@ import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
+import '../entities/student_regular_schedule_input.dart';
 import '../entities/student_settings.dart';
 import '../entities/vaccine_item.dart';
 
@@ -29,7 +34,7 @@ abstract class StudentRepository {
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   });
 
   Future<StudentPage> getStudentPage({
@@ -76,17 +81,15 @@ abstract class StudentRepository {
   });
 
   /// Updates student profile core details via `/api/v1/student/{code}/profile`.
-  ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/student/{code}/profile`.
   Future<String> updateStudentProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   });
 
   /// Updates the student's address via `/api/v1/student/{studentCode}/address`.
   Future<String> updateStudentAddress({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   });
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
@@ -222,9 +225,9 @@ abstract class StudentRepository {
 
   /// Logged-in guardian profile from `GET /api/v1/guardian/profile`.
   ///
-  /// Query: [schoolCode], [userCode]. Returns API `data` (includes guardian
-  /// `code` and `userCode`).
-  Future<Map<String, dynamic>> getGuardianProfile({
+  /// Query: [schoolCode], [userCode]. Returns the typed [GuardianProfile]
+  /// (guardian record code + name + photo).
+  Future<GuardianProfile> getGuardianProfile({
     required String schoolCode,
     required String userCode,
   });
@@ -283,11 +286,10 @@ abstract class StudentRepository {
 
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
   ///
-  /// [fields] should follow the backend PATCH contract.
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   });
 
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.

@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 2.2.9+12
+version: 2.2.10+13
 
 environment:
   sdk: ^3.9.2
@@ -108,7 +108,14 @@ dependencies:
   flutter_chat_reactions: ^0.2.7
   scroll_to_index: ^3.0.1
   thumbnailer: ^3.2.0
-  better_player_plus: ^1.1.5
+  # Vendored fork of better_player_plus, pinned to what pub.dev resolved as
+  # `better_player_plus: ^1.1.5` -> 1.2.1
+  # (sha256 133e212e68ce830d0fa72da02efe597571a9915b526927fa3b427c70dea64613).
+  # Forked because the iOS PiP path needs Swift changes upstream doesn't have;
+  # third_party/better_player/FORK.md lists every local change. To take an
+  # upstream release, re-copy the package and re-apply that list.
+  better_player_plus:
+    path: third_party/better_player
   ffmpeg_kit_flutter_new_https: ^2.1.0
   gal: ^2.3.2
   go_router: ^17.2.3

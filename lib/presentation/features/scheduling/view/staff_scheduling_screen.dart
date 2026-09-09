@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -44,7 +45,7 @@ class StaffSchedulingScreen extends StatelessWidget {
     this.highlightShiftCode,
   });
 
-  static const String routeName = '/dashboard/staff-scheduling';
+  static const String routeName = DashboardRoutes.staffScheduling;
 
   /// Notification deep-link: jump to this day on open (shift's date).
   final DateTime? initialDate;

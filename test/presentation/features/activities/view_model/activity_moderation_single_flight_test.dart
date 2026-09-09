@@ -5,7 +5,7 @@ import 'package:wowcare/domain/features/activity/repositories/activity_repositor
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/delete_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_moderation_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_moderation_cubit.dart';
 
 class _LoudRepo implements ActivityRepository {
   @override

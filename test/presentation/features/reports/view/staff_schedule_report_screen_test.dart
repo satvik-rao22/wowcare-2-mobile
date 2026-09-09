@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -20,14 +21,14 @@ import 'package:wowcare/domain/features/reports/usecases/staff_scheduling_report
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_schedule_report_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:go_router/go_router.dart';
@@ -270,7 +271,7 @@ void main() {
   }
 
   testWidgets(
-    'StaffScheduleReportScreen generates STAFF_SCHEDULING with all classrooms including Office and primary rooms',
+    'A fresh form generates STAFF_SCHEDULING with no classroom filter',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -288,11 +289,12 @@ void main() {
       final params =
           fakeReportsRepo.lastGeneratedParams as StaffSchedulingReportParams;
       expect(params.reportType, ReportType.staffScheduling);
-      expect(params.classroomCodes, [
-        'CLS_06C3AF97-6',
-        'CLS_OFFICE_01',
-        'CLS_PRIMARY_01',
-      ]);
+      // "All classrooms" is the absence of the key, never an implicitly
+      // expanded list of every code.
+      expect(params.classroomCodes, isNull);
+
+      final requestBody = ReportRequestPayload.fromParams(params).toJson();
+      expect(requestBody.containsKey('classroomCodes'), isFalse);
     },
   );
 }

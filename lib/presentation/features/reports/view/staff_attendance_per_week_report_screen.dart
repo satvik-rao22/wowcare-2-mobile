@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.d
 import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -53,7 +52,6 @@ class _StaffAttendancePerWeekReportScreenState
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
-  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   List<String> _getAvailableStaff(BuildContext context) {
     final cubitStaff = context.watch<ReportsCubit>().state.staffNames;
@@ -67,9 +65,6 @@ class _StaffAttendancePerWeekReportScreenState
     final now = AppTime.now();
     _periodMonth = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
 
-    _selectedStaff.value = List<String>.from(widget.staff);
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Staff reports need the wider list that also contains Office and
@@ -83,13 +78,6 @@ class _StaffAttendancePerWeekReportScreenState
 
   void _onGenerate() async {
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
-
-    if (!_validateInputs()) {
-      AppLogger.w(
-        '[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation',
-      );
-      return;
-    }
 
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
@@ -109,11 +97,11 @@ class _StaffAttendancePerWeekReportScreenState
     final nameToCode = reportsState.allClassroomNameToCode.isNotEmpty
         ? reportsState.allClassroomNameToCode
         : reportsState.classroomNameToCode;
+    // Empty selection → no codes → the key is omitted below, which is how
+    // this endpoint expresses "all classrooms" / "all staff".
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -123,25 +111,13 @@ class _StaffAttendancePerWeekReportScreenState
       reportType: ReportType.staffAttendancePerStaff,
       startDate: _periodMonth.value,
       endDate: _periodMonth.value.add(const Duration(days: 30)),
-      staffCodes: staffCodes,
-      roomCodes: classroomCodes,
+      staffCodes: staffCodes.isEmpty ? null : staffCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format.value,
       schoolName: schoolName,
     );
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
-  }
-
-  bool _validateInputs() {
-    if (_selectedStaff.value.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOneStaffMember,
-        isError: true,
-      );
-      return false;
-    }
-    return true;
   }
 
   TextStyle _labelStyle(BuildContext context) =>
@@ -165,25 +141,25 @@ class _StaffAttendancePerWeekReportScreenState
 
     return MultiBlocListener(
       listeners: [
-        // Keep the "all classrooms selected by default" behaviour once the
-        // wider list arrives, the way the old setState in the fetch did.
+        // Drop selections that no longer exist when a refreshed list
+        // arrives. Neither filter ever re-expands to "all" — an empty filter
+        // already means every classroom / every staff member.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.allClassroomNames != current.allClassroomNames,
           listener: (context, state) {
-            _selectedClassrooms.value = _classroomFilter.resolve(
-              options: state.allClassroomNames,
-              current: _selectedClassrooms.value,
-            );
+            _selectedClassrooms.value = _selectedClassrooms.value
+                .where(state.allClassroomNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.staffNames != current.staffNames,
           listener: (context, state) {
-            if (_selectedStaff.value.isEmpty && state.staffNames.isNotEmpty) {
-              _selectedStaff.value = List<String>.from(state.staffNames);
-            }
+            _selectedStaff.value = _selectedStaff.value
+                .where(state.staffNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -285,13 +261,12 @@ class _StaffAttendancePerWeekReportScreenState
                   valueListenable: _selectedStaff,
                   builder: (_, v, __) => MultiSelectFilterField<String>(
                     label: ReportsStrings.tabStaff,
-                    hintText: ReportsStrings.selectStaffMembers,
+                    hintText: ReportsStrings.allStaffMembers,
                     items: availableStaff,
                     selectedItems: v,
                     onChanged: (s) => _selectedStaff.value = s,
                     itemToString: (item) => item,
                     singularLabel: ReportsStrings.staffMember,
-                    isRequired: true,
                     pluralLabel: ReportsStrings.staffMembers,
                     showSelectAll: true,
                     enableSearch: true,
@@ -310,18 +285,16 @@ class _StaffAttendancePerWeekReportScreenState
                     builder: (context, classroomItems) =>
                         CustomMultiSelectDropdown(
                           label: ReportsStrings.classroom,
-                          hintText: ReportsStrings.selectClassroom,
+                          hintText: ReportsStrings.allClassrooms,
                           items: classroomItems,
                           selectedItems: _selectedClassrooms.value,
-                          onChanged: (s) => _selectedClassrooms.value =
-                              _classroomFilter.userSelected(s),
+                          onChanged: (s) => _selectedClassrooms.value = s,
                           showSelectAll: true,
-                          isRequired: true,
                         ),
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

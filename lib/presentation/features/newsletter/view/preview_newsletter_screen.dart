@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
-import 'package:wowcare/presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_preview_content.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_preview_content.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class PreviewNewsletterScreen extends StatefulWidget {
@@ -14,8 +16,6 @@ class PreviewNewsletterScreen extends StatefulWidget {
     this.initialNewsletter,
   });
 
-  static const String routeName = 'preview-newsletter-screen';
-
   final String newsletterCode;
   final Newsletter? initialNewsletter;
 
@@ -24,92 +24,98 @@ class PreviewNewsletterScreen extends StatefulWidget {
 }
 
 class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
-  late final PreviewNewsletterCubit _cubit;
-
   @override
   void initState() {
     super.initState();
-    _cubit = serviceLocator<PreviewNewsletterCubit>()
-      ..load(
-        newsletterCode: widget.newsletterCode,
-        initialNewsletter: widget.initialNewsletter,
-      );
+    // §5.4: the cubit is constructed by the GoRoute builder, but the load is
+    // triggered here rather than with a `..load()` in that builder. A
+    // `pageBuilder` re-runs whenever the branch's route stack changes — a
+    // push or a pop of any sibling — and firing the fetch from there would
+    // re-request the newsletter on back navigation. `initState` runs once per
+    // screen instance, which is exactly the call count the imperative push
+    // this replaced produced.
+    _load();
   }
 
-  @override
-  void dispose() {
-    _cubit.close();
-    super.dispose();
+  void _load() {
+    context.read<PreviewNewsletterCubit>().load(
+          newsletterCode: widget.newsletterCode,
+          initialNewsletter: widget.initialNewsletter,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<PreviewNewsletterCubit>.value(
-      value: _cubit,
-      child: GlobalScaffold(
-        hasBackButton: true,
-        showCustomNavigationBar: false,
-        body: BlocBuilder<PreviewNewsletterCubit, PreviewNewsletterState>(
-          builder: (BuildContext context, PreviewNewsletterState state) {
-            if (state.isLoading && state.newsletter == null) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: false,
+      body: BlocBuilder<PreviewNewsletterCubit, PreviewNewsletterState>(
+        builder: (BuildContext context, PreviewNewsletterState state) {
+          if (state.isLoading && state.newsletter == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            if (state.newsletter == null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    state.errorMessage ?? 'Unable to load newsletter.',
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+          if (state.newsletter == null) {
+            // The failure state had no way out but the back button — and this
+            // screen is the landing point for the NEWSLETTER_SENT push
+            // deep-link, i.e. exactly when connectivity is least reliable.
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSizes.xl),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      state.errorMessage ?? AppStrings.newsletterLoadFailed,
+                      style: AppTextStyles.newsletterPreviewError,
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
+                    const SizedBox(height: AppSizes.md),
+                    TextButton.icon(
+                      onPressed: _load,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text(AppStrings.newsletterRetry),
+                    ),
+                  ],
                 ),
-              );
-            }
+              ),
+            );
+          }
 
-            return Column(
-              children: [
-                if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Text(
-                          state.errorMessage!,
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.9),
-                            fontSize: 13,
-                          ),
-                        ),
+          return Column(
+            children: [
+              if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSizes.xs),
+                  child: Material(
+                    color: AppColors.newsletterStaleBannerBackground,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSizes.xsPlus),
+                      child: Text(
+                        state.errorMessage!,
+                        style: AppTextStyles.newsletterStaleBanner,
                       ),
                     ),
                   ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      NewsletterPreviewContent(newsletter: state.newsletter!),
-                      if (state.isLoading)
-                        const Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
-                    ],
-                  ),
                 ),
-              ],
-            );
-          },
-        ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    NewsletterPreviewContent(newsletter: state.newsletter!),
+                    if (state.isLoading)
+                      const Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: LinearProgressIndicator(minHeight: 2),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

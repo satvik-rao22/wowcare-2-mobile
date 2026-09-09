@@ -1,11 +1,14 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student_health.dart';
-import '../../../../domain/features/student/entities/student_settings.dart';
-import '../../../../domain/features/student/usecases/get_student_health_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_settings_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_settings_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_regular_schedules_usecase.dart';
+
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 part 'student_profile_state.dart';
 
@@ -44,6 +47,30 @@ class StudentProfileCubit extends Cubit<StudentProfileState> {
   }
 
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
+  /// State-based load of the header health record — the profile screen renders
+  /// `state.health` via BlocBuilder for its allergy/medication/diet/photo icons.
+  /// On error the icons simply stay hidden (health stays null), matching the
+  /// previous FutureBuilder behaviour.
+  Future<void> loadHealth(String studentCode) async {
+    if (studentCode.isEmpty) {
+      if (!isClosed) emit(state.copyWith(healthLoading: false));
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(healthLoading: true, errorMessage: null));
+    try {
+      final health = await _getStudentHealthUseCase(studentCode: studentCode);
+      if (isClosed) return;
+      emit(state.copyWith(health: health, healthLoading: false));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        healthLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
   Future<StudentHealth> fetchHealth(String studentCode) {
     return _getStudentHealthUseCase(studentCode: studentCode);
   }
@@ -69,7 +96,7 @@ class StudentProfileCubit extends Cubit<StudentProfileState> {
   Future<String> updateRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _singleFlight<String>('updateSchedule:$studentCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));

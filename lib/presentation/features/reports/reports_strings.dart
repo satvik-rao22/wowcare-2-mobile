@@ -118,6 +118,18 @@ class ReportsStrings {
       'Unable to resolve school name';
   static const String classroomsLabelPlural = 'classrooms';
 
+  // Empty-state placeholders for the report filter dropdowns. An unselected
+  // filter means "no filter" — the request omits the key and the backend
+  // returns every row — so the field reads "All ..." rather than "Select ...".
+  static const String allClassrooms = 'All Classrooms';
+  static const String allStudents = 'All Students';
+  static const String allStaffMembers = 'All Staff Members';
+  static const String allTags = 'All Tags';
+  static const String allVaccines = 'All Vaccines';
+  static const String allInvoiceStatuses = 'All Invoice Statuses';
+  static const String allTransactionStatuses = 'All Transaction Statuses';
+  static const String allPaymentMethods = 'All Payment Methods';
+
   /// Interpolated copy. Kept as functions so the surrounding text is
   /// centralised even though the value is not.
   static String comingSoon(String action) => '$action — coming soon';
@@ -191,12 +203,12 @@ class ReportsStrings {
   static const String name = 'Name';
   static const String noReportsGeneratedYetAlt = 'No reports generated yet.';
   static const String note = 'Note';
-  static const String noteAllClassroomsWillBeSelectedByDefault =
-      'Note: All Classrooms will be selected by Default.';
-  static const String noteAllStudentsWillBeSelectedByDefault =
-      'Note: All Students will be selected by Default.';
-  static const String noteAllTagsWillBeSelectedByDefault =
-      'Note: All Tags will be selected by Default.';
+  static const String noteAllClassroomsIncludedByDefault =
+      'Note: All Classrooms are included unless you select specific ones.';
+  static const String noteAllStudentsIncludedByDefault =
+      'Note: All Students are included unless you select specific ones.';
+  static const String noteAllTagsIncludedByDefault =
+      'Note: All Tags are included unless you select specific ones.';
   static const String nov = 'Nov';
   static const String oct = 'Oct';
   static const String parentGuardianAuthorizedPickupInfo =
@@ -207,18 +219,8 @@ class ReportsStrings {
   static const String phoneNumberAlt = 'Phone number';
   static const String pleaseCloseAndReopenThisFormThenReselectThem =
       'Please close and reopen this form, then reselect them.';
-  static const String pleaseSelectAtLeastOneClassroom =
-      'Please select at least one classroom';
   static const String pleaseSelectAtLeastOneField =
       'Please select at least one field';
-  static const String pleaseSelectAtLeastOnePaymentMethod =
-      'Please select at least one Payment Method';
-  static const String pleaseSelectAtLeastOneStaffMember =
-      'Please select at least one staff member';
-  static const String pleaseSelectAtLeastOneStudent =
-      'Please select at least one student';
-  static const String pleaseSelectAtLeastOneTransactionStatus =
-      'Please select at least one Transaction Status';
   static const String primaryClassroom = 'Primary Classroom';
   static const String recentlyGeneratedReports = 'Recently Generated Reports';
   static const String relation = 'Relation';
@@ -232,16 +234,9 @@ class ReportsStrings {
   static const String searchStudents = 'Search Students';
   static const String select = 'Select';
   static const String selectAll = 'Select All';
-  static const String selectClassroom = 'Select Classroom';
-  static const String selectClassroomFirst = 'Select Classroom First';
-  static const String selectClassrooms = 'Select Classrooms';
   static const String selectFormat = 'Select Format';
   static const String selectGrouping = 'Select Grouping';
   static const String selectMonth = 'Select Month';
-  static const String selectStaffMembers = 'Select Staff Members';
-  static const String selectStudents = 'Select Students';
-  static const String selectTag = 'Select Tag';
-  static const String selectTransactionStatuses = 'Select Transaction Statuses';
   static const String sep = 'Sep';
   static const String showParentNameAndEmails = 'Show Parent name and emails';
   static const String signInPin = 'Sign-in-Pin';

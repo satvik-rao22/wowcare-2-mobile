@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +20,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -327,17 +329,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     await context.push(
       StaffProfileScreen.routeName,
-      extra: <String, dynamic>{
-        'staffCode': profile.staffCode,
-        'userCode': profile.userCode,
-        'name': profile.fullName.trim().isNotEmpty
+      extra: StaffProfileArgs(
+        staffCode: profile.staffCode,
+        userCode: profile.userCode,
+        name: profile.fullName.trim().isNotEmpty
             ? profile.fullName.trim()
             : '-',
-        'classroom': classroom,
-        'designation': profile.designation,
-        'phoneNumber': profile.phoneNumber,
-        'employmentStatus': profile.status,
-      },
+        classroom: classroom,
+        designation: profile.designation,
+        phoneNumber: profile.phoneNumber,
+        employmentStatus: profile.status,
+      ),
     );
   }
 
@@ -371,11 +373,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         'classroom': resolvedClassroom,
         'tags': selected.tags,
         'schedule': selected.schedule,
-        'sibling': const <String, dynamic>{
-          'name': [],
-          'relation': [],
-          'status': [],
-        },
+        'sibling': const StudentSiblingInfo(),
         'studentCode': selected.code,
         'syncWithParentChildSelection': true,
       },
@@ -587,7 +585,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                               14,
                                                             ),
                                                         border: Border.all(
-                                                          color: AppColors.cardColor
+                                                          color: AppColors
+                                                              .cardColor
                                                               .withValues(
                                                                 alpha: 0.22,
                                                               ),
@@ -627,7 +626,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                       ),
                                                               minHeight: 4,
                                                               backgroundColor:
-                                                                  AppColors.cardColor
+                                                                  AppColors
+                                                                      .cardColor
                                                                       .withValues(
                                                                         alpha:
                                                                             0.22,
@@ -655,7 +655,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                 height: 10,
                                                                 width: 10,
                                                                 colorFilter: ColorFilter.mode(
-                                                                  AppColors.cardColor
+                                                                  AppColors
+                                                                      .cardColor
                                                                       .withValues(
                                                                         alpha:
                                                                             0.92,
@@ -705,7 +706,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                       BorderRadius.circular(16),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: AppColors.blackColor
+                                                      color: AppColors
+                                                          .blackColor
                                                           .withValues(
                                                             alpha: 0.08,
                                                           ),
@@ -798,15 +800,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         ),
                                         child: ValueListenableBuilder<bool>(
                                           valueListenable: _openingProfile,
-                                          builder: (context, openingProfile, _) =>
-                                              TextButton(
+                                          builder: (context, openingProfile, _) => TextButton(
                                             onPressed: openingProfile
                                                 ? null
                                                 : () async {
                                                     // Block re-entry until the pushed
                                                     // profile screen is popped, so
                                                     // rapid taps open only one instance.
-                                                    _openingProfile.value = true;
+                                                    _openingProfile.value =
+                                                        true;
                                                     try {
                                                       if (isParentPersona) {
                                                         await _viewStudentProfileForParent();
@@ -840,7 +842,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                       valueColor:
                                                           AlwaysStoppedAnimation<
                                                             Color
-                                                          >(AppColors.cardColor),
+                                                          >(
+                                                            AppColors.cardColor,
+                                                          ),
                                                     ),
                                                   )
                                                 : CustomTextWidget(
@@ -850,8 +854,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                     textStyle: TextStyle(
                                                       fontFamily: Fonts.manrope,
                                                       fontSize: 16,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: AppColors.cardColor,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color:
+                                                          AppColors.cardColor,
                                                       height: 16 / 16,
                                                     ),
                                                     maxLines: 1,
@@ -882,7 +888,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           borderRadius: BorderRadius.circular(9),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.blackColor.withValues(alpha: 0.06),
+                              color: AppColors.blackColor.withValues(
+                                alpha: 0.06,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -955,8 +963,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                 .read<RoleCubit>()
                                                 .isParent;
 
-                                            final updated =
-                                                await context.push<bool>(
+                                            final updated = await context
+                                                .push<bool>(
                                                   AppRoutes.editUserProfile,
                                                   extra: <String, dynamic>{
                                                     'initialFirstName':
@@ -1111,7 +1119,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     const Divider(
                                       height: 1,
                                       thickness: 1,
-                                      color: AppColors.userProfileSectionDividerColor,
+                                      color: AppColors
+                                          .userProfileSectionDividerColor,
                                     ),
                                     const SizedBox(height: 16),
 

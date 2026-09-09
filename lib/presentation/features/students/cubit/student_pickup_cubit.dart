@@ -1,13 +1,14 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
-import '../../../../domain/features/student/entities/school_guardian_summary.dart';
-import '../../../../domain/features/student/entities/student_pickup.dart';
-import '../../../../domain/features/student/usecases/add_pickup_usecase.dart';
-import '../../../../domain/features/student/usecases/delete_pickup_usecase.dart';
-import '../../../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_pickups_usecase.dart';
-import '../../../../domain/features/student/usecases/update_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/school_guardian_summary.dart';
+import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
+import 'package:wowcare/domain/features/student/usecases/add_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/delete_pickup_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_pickups_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_pickup_usecase.dart';
 
 part 'student_pickup_state.dart';
 
@@ -37,6 +38,37 @@ class StudentPickupCubit extends Cubit<StudentPickupState> {
   final UpdatePickupUseCase _updatePickupUseCase;
   final DeletePickupUseCase _deletePickupUseCase;
 
+  /// State-based load of a student's pickups — the card renders `state.pickups`
+  /// via BlocBuilder instead of driving its own FutureBuilder.
+  Future<void> load(String studentCode, {bool forceRefresh = false}) async {
+    if (studentCode.isEmpty) {
+      if (!isClosed) {
+        emit(state.copyWith(
+          pickups: const <StudentPickup>[],
+          isLoading: false,
+          errorMessage: null,
+        ));
+      }
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+    try {
+      final pickups = await _getStudentPickupsUseCase(
+        studentCode: studentCode,
+        forceRefresh: forceRefresh,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(pickups: pickups, isLoading: false, errorMessage: null));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
   /// Thin Future-based read for callers that drive their own `FutureBuilder`.
   Future<List<StudentPickup>> fetchPickups(
     String studentCode, {
@@ -54,6 +86,65 @@ class StudentPickupCubit extends Cubit<StudentPickupState> {
   /// Raw guardians for the add-pickup "select from existing" dropdown.
   Future<List<SchoolGuardianSummary>> fetchGuardiansRaw(String schoolCode) {
     return _getGuardiansRawForSchoolUseCase(schoolCode: schoolCode);
+  }
+
+  // --- add-pickup form model ---
+
+  /// Seed the form (edit/prefill mode toggles off "select from existing" and
+  /// carries the incoming relation).
+  void initializeForm({bool? selectFromExisting, String? selectedRelation}) {
+    emit(state.copyWith(
+      selectFromExisting: selectFromExisting,
+      selectedRelation: selectedRelation,
+    ));
+  }
+
+  void setSelectFromExisting(bool value) {
+    emit(state.copyWith(selectFromExisting: value));
+  }
+
+  void setSelectedCarer(String? carer) {
+    emit(state.copyWith(selectedCarer: carer));
+  }
+
+  void setSelectedRelation(String? relation) {
+    emit(state.copyWith(selectedRelation: relation));
+  }
+
+  /// Load the "select from existing" carer list. The display [names] come from
+  /// the caller (same guardian-names API the filters use); this fetches the raw
+  /// guardians to build the name→details lookup, and drops a stale selection.
+  /// Non-fatal: on error the list stays empty (pickups still work manually).
+  Future<void> loadCarers({
+    required String schoolCode,
+    required List<String> names,
+  }) async {
+    try {
+      final rawGuardians =
+          await _getGuardiansRawForSchoolUseCase(schoolCode: schoolCode);
+      final details = <String, Map<String, String>>{};
+      for (final g in rawGuardians) {
+        final display = g.fullName;
+        if (display.isEmpty) continue;
+        details[display] = <String, String>{
+          'code': g.code,
+          'firstName': g.firstName,
+          'lastName': g.lastName,
+          'email': g.email,
+          'mobile': g.mobile,
+        };
+      }
+      if (isClosed) return;
+      final selected = state.selectedCarer;
+      emit(state.copyWith(
+        existingCarers: names,
+        guardianDetailsByName: details,
+        selectedCarer:
+            (selected != null && !names.contains(selected)) ? null : selected,
+      ));
+    } catch (_) {
+      // Non-critical for pickups; keep the list empty on error.
+    }
   }
 
   /// In-flight mutations keyed by `action:code`. A second identical call while

@@ -19,7 +19,7 @@ class StaffFormLayout extends StatelessWidget {
 
   final String title;
   final Widget child;
-  final Widget bottomBar;
+  final Widget? bottomBar;
   final bool isKiosk;
 
   /// Shows a back arrow in the kiosk header. Only relevant when [isKiosk] is

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
@@ -5,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -104,12 +106,40 @@ class ParentChildState extends Equatable {
   ];
 }
 
-/// Bloc replacement for the old `ParentChildCubit` (a `ChangeNotifier`).
+/// The app's **single source of truth** for which of a guardian's children is
+/// currently selected, and for the set of children that guardian is allowed to
+/// see at all.
 ///
-/// Behaviour is preserved exactly; only the state-propagation mechanism changed
-/// from `notifyListeners()` to `_safeEmit()`. The previous public getters/methods
-/// are kept (getters delegate to [state]) so consumers can switch from
-/// `context.watch/read<ParentChildCubit>()` to the cubit with minimal churn.
+/// Everything student-scoped on the parent side reads from here — the app-bar
+/// switcher, the dashboard coordinator, the activity feed, the newsletter list,
+/// the student/attendance profiles, the parent messaging thread, and (via
+/// [isOwnedStudent]) the router's guardian scope guard. No screen keeps its own
+/// copy of "the selected child"; screens that need to react cache the *code*
+/// and re-fetch when this cubit emits a different one.
+///
+/// ## Selection contract
+///
+/// Selection is **deterministic** and resolved in exactly one place
+/// ([_resolveSelection]), with this precedence:
+///
+///   1. an explicit pending request ([selectByCode] made before the list was
+///      ready — e.g. a notification deep-link about child B),
+///   2. the child already selected in memory (a switch survives a refresh),
+///   3. the child persisted for THIS session scope (survives a cold start),
+///   4. the first child in the list.
+///
+/// Every step is filtered through the loaded child list, so a code that is not
+/// linked to the authenticated guardian can never become the selection — from a
+/// deep link, a notification payload, a QR scan or a stale persisted value.
+///
+/// ## Session isolation
+///
+/// The persisted selection is stamped with a `userCode|orgCode|schoolCode`
+/// scope key ([StorageKeys.selectedStudentContext]) and only restored when that
+/// key matches the session being loaded, so it cannot leak across users,
+/// organisations, schools or personas. [resetForLogout] erases it outright.
+/// Staff/admin personas short-circuit to an empty, loaded state and never hold
+/// a selection at all.
 class ParentChildCubit extends Cubit<ParentChildState> {
   ParentChildCubit() : super(const ParentChildState());
 
@@ -117,10 +147,79 @@ class ParentChildCubit extends Cubit<ParentChildState> {
   /// on context change.
   String _lastLoadedContextKey = '';
 
+  /// A selection requested before the child list could satisfy it — see
+  /// [selectByCode]. Applied by [_resolveSelection] the moment the list
+  /// resolves, and only if the code turns out to be one of this guardian's
+  /// children. Cleared on every completed load, so it can never carry over
+  /// into a different school's or user's list.
+  String? _pendingSelectionCode;
+
+  /// The in-flight [ensureLoaded], shared by concurrent callers.
+  ///
+  /// The previous `if (state.isLoading) return;` guard made a second caller
+  /// return an ALREADY-COMPLETED future while the first load was still running,
+  /// so `await ensureLoaded(); final child = selectedChild;` could read null /
+  /// the previous school's child. Every caller now awaits the same load.
+  Future<void>? _inFlight;
+
   ParentChildRef? get selectedChild => state.selectedChild;
   List<ParentChildRef> get children => state.children;
   bool get isLoading => state.isLoading;
   bool get isLoaded => state.isLoaded;
+
+  /// Uppercased codes of every child linked to the authenticated guardian.
+  /// The authorization set the router's guardian scope guard checks against.
+  Set<String> get ownedStudentCodes => <String>{
+    for (final child in state.children)
+      if (child.code.trim().isNotEmpty) child.code.trim().toUpperCase(),
+  };
+
+  /// Whether [code] belongs to the authenticated guardian.
+  ///
+  /// **Not an authorization decision on its own** — it is a UI-side guard that
+  /// complements the backend's own checks, and it answers `false` for a
+  /// guardian whose list has not loaded yet. Callers that must fail safe
+  /// should gate on [isLoaded] first (the router guard does).
+  bool isOwnedStudent(String? code) {
+    final trimmed = (code ?? '').trim();
+    if (trimmed.isEmpty) return false;
+    return ownedStudentCodes.contains(trimmed.toUpperCase());
+  }
+
+  /// Labels for the app-bar switcher, **guaranteed unique and index-aligned
+  /// with [children]**.
+  ///
+  /// The switcher is a label-based dropdown, so two siblings whose names
+  /// resolve identically (same first+last on file, or both falling back to
+  /// their code) used to collapse into one entry that always resolved to the
+  /// first of them — a multi-child parent simply could not switch to the
+  /// second. Colliding names are disambiguated with their code; unique names
+  /// are left exactly as they were.
+  List<String> get displayLabels {
+    final counts = <String, int>{};
+    for (final child in state.children) {
+      final name = child.name.trim();
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    return <String>[
+      for (final child in state.children)
+        (counts[child.name.trim()] ?? 0) > 1
+            ? '${child.name.trim()} (${child.code.trim()})'
+            : child.name.trim(),
+    ];
+  }
+
+  /// The [displayLabels] entry for [code], or null when it is not one of this
+  /// guardian's children. Used to drive the switcher's current value.
+  String? labelForCode(String? code) {
+    final trimmed = (code ?? '').trim();
+    if (trimmed.isEmpty) return null;
+    final labels = displayLabels;
+    for (var i = 0; i < state.children.length; i++) {
+      if (state.children[i].code.trim() == trimmed) return labels[i];
+    }
+    return null;
+  }
 
   List<String> get childNames =>
       state.children.map((e) => e.name).toList(growable: false);
@@ -139,10 +238,106 @@ class ParentChildCubit extends Cubit<ParentChildState> {
       '${userCode.toLowerCase()}|${orgCode.toLowerCase()}|${schoolCode.toLowerCase()}';
 
   /// Clears cached children so the next [ensureLoaded] runs a full fetch
-  /// (e.g. logout, manual refresh).
+  /// (e.g. manual refresh, school switch, re-login as the same user).
+  ///
+  /// Deliberately leaves the PERSISTED selection alone: a refresh or a
+  /// re-login must land the parent back on the child they were looking at.
+  /// Use [resetForLogout] to erase it.
   void invalidate() {
     _lastLoadedContextKey = '';
+    _pendingSelectionCode = null;
     _safeEmit(const ParentChildState());
+  }
+
+  /// [invalidate] plus erasure of the persisted selection.
+  ///
+  /// Call this on logout / session expiry, so the next account to sign in on
+  /// this device starts from its own child list with nothing inherited. The
+  /// scope key on the persisted record already prevents another user from
+  /// *restoring* this one, but a logout should not leave a child's code on
+  /// disk at all.
+  Future<void> resetForLogout() async {
+    invalidate();
+    await _clearPersistedSelection();
+  }
+
+  // ── Persistence ──────────────────────────────────────────────────────────
+
+  Future<void> _persistSelection(String? code) async {
+    final contextKey = _lastLoadedContextKey;
+    final trimmed = (code ?? '').trim();
+    if (contextKey.isEmpty || trimmed.isEmpty) return;
+    try {
+      final storage = serviceLocator<StorageService>();
+      await storage.saveString(StorageKeys.selectedStudentCode, trimmed);
+      await storage.saveString(StorageKeys.selectedStudentContext, contextKey);
+    } catch (_) {
+      // Persistence is a convenience, never a correctness requirement: the
+      // in-memory selection stays authoritative for this session.
+    }
+  }
+
+  Future<void> _clearPersistedSelection() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      await storage.remove(StorageKeys.selectedStudentCode);
+      await storage.remove(StorageKeys.selectedStudentContext);
+    } catch (_) {}
+  }
+
+  /// The child code persisted for [contextKey], or null when nothing was
+  /// stored for THIS user/org/school scope.
+  Future<String?> _readPersistedSelection(String contextKey) async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final storedContext =
+          (await storage.getString(StorageKeys.selectedStudentContext) ?? '')
+              .trim();
+      if (storedContext != contextKey) return null;
+      final code =
+          (await storage.getString(StorageKeys.selectedStudentCode) ?? '')
+              .trim();
+      return code.isEmpty ? null : code;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Selection resolution ─────────────────────────────────────────────────
+
+  static ParentChildRef? _findByCode(
+    List<ParentChildRef> children,
+    String? code,
+  ) {
+    final trimmed = (code ?? '').trim();
+    if (trimmed.isEmpty) return null;
+    for (final child in children) {
+      if (child.code.trim() == trimmed) return child;
+    }
+    return null;
+  }
+
+  /// The one place a selection is decided. See the class doc for the
+  /// precedence and why each step is filtered through [children].
+  ///
+  /// [children] is never empty here — the caller handles that case by
+  /// clearing the selection.
+  ParentChildRef _resolveSelection(
+    List<ParentChildRef> children,
+    String? persistedCode,
+  ) {
+    final requested = _pendingSelectionCode;
+    if (requested != null) {
+      final match = _findByCode(children, requested);
+      if (match != null) return match;
+      AppLogger.w(
+        '[ParentChild] Pending selection "$requested" is not linked to this '
+        'guardian in the loaded context — falling back.',
+      );
+    }
+    return _findByCode(children, state.selectedChild?.code) ??
+        _findByCode(children, persistedCode) ??
+        children.first;
   }
 
   /// Reactively triggers a refresh for all listeners of the parent children state.
@@ -150,9 +345,21 @@ class ParentChildCubit extends Cubit<ParentChildState> {
     _safeEmit(state.copyWith(refreshNonce: state.refreshNonce + 1));
   }
 
-  Future<void> ensureLoaded({bool force = false}) async {
-    if (state.isLoading) return;
+  /// Loads (or reloads) this guardian's children and resolves the selection.
+  ///
+  /// Concurrent callers share one load — see [_inFlight] for the stale-read
+  /// bug the previous `isLoading` early-return caused.
+  Future<void> ensureLoaded({bool force = false}) {
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    final future = _load(force: force);
+    _inFlight = future;
+    return future.whenComplete(() {
+      if (identical(_inFlight, future)) _inFlight = null;
+    });
+  }
 
+  Future<void> _load({required bool force}) async {
     final storage = serviceLocator<StorageService>();
     final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
         .trim();
@@ -163,14 +370,19 @@ class ParentChildCubit extends Cubit<ParentChildState> {
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
 
     if (userCode.isEmpty) {
+      _pendingSelectionCode = null;
       _lastLoadedContextKey = '';
       _safeEmit(const ParentChildState());
       return;
     }
 
     // Parent/guardian child scope is not applicable for staff/admin personas.
+    // Emitting an empty LOADED state (rather than leaving the previous
+    // persona's) is what keeps a parent's child selection from surviving into
+    // a staff/admin session on the same device.
     final bool hasGuardianPersona = _hasGuardianPersona(rolesRaw);
     if (!hasGuardianPersona) {
+      _pendingSelectionCode = null;
       _lastLoadedContextKey = '';
       _safeEmit(const ParentChildState(isLoaded: true));
       return;
@@ -266,17 +478,10 @@ class ParentChildCubit extends Cubit<ParentChildState> {
       if (loadedChildren.isEmpty) {
         resultSelected = null;
       } else {
-        final selectedCode = state.selectedChild?.code.trim();
-        ParentChildRef? matching;
-        if (selectedCode != null && selectedCode.isNotEmpty) {
-          for (final child in loadedChildren) {
-            if (child.code.trim() == selectedCode) {
-              matching = child;
-              break;
-            }
-          }
-        }
-        resultSelected = matching ?? loadedChildren.first;
+        resultSelected = _resolveSelection(
+          loadedChildren,
+          await _readPersistedSelection(contextKey),
+        );
       }
       resultLoaded = true;
       resultContextKey = contextKey;
@@ -286,6 +491,10 @@ class ParentChildCubit extends Cubit<ParentChildState> {
       resultLoaded = true;
       resultContextKey = '';
     } finally {
+      // Consumed either way: a pending request that the loaded list could not
+      // satisfy is not this guardian's child, and must not be carried into a
+      // later load of a different school's or user's list.
+      _pendingSelectionCode = null;
       _lastLoadedContextKey = resultContextKey;
       _safeEmit(
         ParentChildState(
@@ -295,6 +504,7 @@ class ParentChildCubit extends Cubit<ParentChildState> {
           isLoaded: resultLoaded,
         ),
       );
+      unawaited(_persistSelection(resultSelected?.code));
     }
   }
 
@@ -317,35 +527,89 @@ class ParentChildCubit extends Cubit<ParentChildState> {
     return false;
   }
 
-  void selectByName(String? name) {
-    final trimmed = (name ?? '').trim();
-    if (trimmed.isEmpty) return;
-    ParentChildRef? next;
-    for (final child in state.children) {
-      if (child.name == trimmed) {
-        next = child;
-        break;
-      }
-    }
-    if (next == null) return;
-    if (state.selectedChild?.code == next.code) return;
-    _safeEmit(state.copyWith(selectedChild: next));
+  /// Selects by the label the app-bar switcher renders — see [displayLabels]
+  /// for why the switcher cannot select by bare name.
+  bool selectByLabel(String? label) {
+    final trimmed = (label ?? '').trim();
+    if (trimmed.isEmpty) return false;
+    final labels = displayLabels;
+    final index = labels.indexOf(trimmed);
+    if (index < 0) return false;
+    return selectByCode(state.children[index].code);
   }
 
-  /// Selects the child matching [code] (e.g. after parent sign-in/out for a
-  /// specific student).
-  void selectByCode(String? code) {
-    final trimmed = (code ?? '').trim();
-    if (trimmed.isEmpty) return;
-    ParentChildRef? next;
+  /// Selects the child whose display name is [name].
+  ///
+  /// Retained for callers that only have a name. Prefer [selectByLabel] (the
+  /// switcher) or [selectByCode] (everything else): a name is not a stable
+  /// identity, and this resolves an ambiguous name to the first match.
+  bool selectByName(String? name) {
+    final trimmed = (name ?? '').trim();
+    if (trimmed.isEmpty) return false;
     for (final child in state.children) {
-      if (child.code.trim() == trimmed) {
-        next = child;
-        break;
-      }
+      if (child.name == trimmed) return selectByCode(child.code);
     }
-    if (next == null) return;
-    if (state.selectedChild?.code == next.code) return;
+    return false;
+  }
+
+  /// Selects the child matching [code] — the ONE way the selection changes.
+  ///
+  /// Returns whether [code] is now the selection. Three outcomes, all
+  /// deliberate:
+  ///
+  ///   * **Owned and loaded** → selected and persisted; `true`.
+  ///   * **Loaded but not owned** → *rejected*, logged, selection untouched;
+  ///     `false`. A student code arriving from a notification payload, a QR
+  ///     scan or a deep link is untrusted input, and must never move the
+  ///     guardian's context onto a child that is not theirs.
+  ///   * **Not loaded yet** → recorded as pending and applied the moment the
+  ///     list resolves (still subject to the ownership check); `false` for
+  ///     now. Silently dropping it — the previous behaviour — is what let a
+  ///     notification about child B navigate to B's screen while the list
+  ///     finished loading and defaulted the global selection to child A, so
+  ///     the app bar and every other student-scoped screen disagreed with the
+  ///     screen the user was looking at.
+  bool selectByCode(String? code) {
+    final trimmed = (code ?? '').trim();
+    if (trimmed.isEmpty) return false;
+
+    if (!state.isLoaded) {
+      _pendingSelectionCode = trimmed;
+      unawaited(ensureLoaded().then((_) => _applyRequestedSelection(trimmed)));
+      return false;
+    }
+
+    final next = _findByCode(state.children, trimmed);
+    if (next == null) {
+      AppLogger.w(
+        '[ParentChild] Rejected selection of "$trimmed" — not linked to the '
+        'authenticated guardian (${state.children.length} child(ren) loaded).',
+      );
+      return false;
+    }
+    if (state.selectedChild?.code == next.code) return true;
     _safeEmit(state.copyWith(selectedChild: next));
+    unawaited(_persistSelection(next.code));
+    return true;
+  }
+
+  /// Re-applies a pending [selectByCode] once the list has loaded.
+  ///
+  /// [_resolveSelection] normally handles this inside the load itself; this
+  /// covers the case where the request arrived while a load was ALREADY past
+  /// its selection step, which would otherwise drop it on the `finally`.
+  void _applyRequestedSelection(String code) {
+    if (isClosed || !state.isLoaded) return;
+    if (state.selectedChild?.code.trim() == code) return;
+    final match = _findByCode(state.children, code);
+    if (match == null) {
+      AppLogger.w(
+        '[ParentChild] Deferred selection of "$code" rejected — not linked to '
+        'the authenticated guardian.',
+      );
+      return;
+    }
+    _safeEmit(state.copyWith(selectedChild: match));
+    unawaited(_persistSelection(match.code));
   }
 }

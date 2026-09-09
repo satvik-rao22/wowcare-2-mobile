@@ -38,10 +38,8 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms = ValueNotifier<List<String>>(
-      List<String>.from(widget.classrooms),
-    );
+    // No classroom is pre-selected: an empty filter means "All Classrooms".
+    _selectedClassrooms = ValueNotifier<List<String>>(<String>[]);
   }
 
   @override
@@ -60,7 +58,6 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     toDate: _toDate.value,
     format: _format.value,
     selectedClassrooms: _selectedClassrooms.value,
-    fallbackClassrooms: widget.classrooms,
     logTag: 'STUDENT-ABSENT-UI',
     useWiderClassroomSet: false,
   );
@@ -152,16 +149,15 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.classroom,
-                    hintText: ReportsStrings.selectClassroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
                     selectedItems: selected,
-                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

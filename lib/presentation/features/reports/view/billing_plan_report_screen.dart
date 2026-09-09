@@ -158,7 +158,7 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
               valueListenable: _selectedClassrooms,
               builder: (_, v, __) => MultiSelectFilterField<String>(
                 label: ReportsStrings.classroom,
-                hintText: ReportsStrings.selectClassrooms,
+                hintText: ReportsStrings.allClassrooms,
                 items: widget.classrooms,
                 selectedItems: v,
                 onChanged: (c) => _selectedClassrooms.value = c,
@@ -169,7 +169,7 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
                 enableSearch: true,
                 searchHintText: ReportsStrings.searchClassrooms,
                 defaultNote:
-                    ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                    ReportsStrings.noteAllClassroomsIncludedByDefault,
               ),
             ),
             SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),

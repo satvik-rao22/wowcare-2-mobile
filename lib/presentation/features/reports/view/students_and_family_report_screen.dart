@@ -66,6 +66,10 @@ class _StudentsAndFamilyReportScreenState
     ReportsStrings.signInPin,
   ];
 
+  /// The columns ticked when the form opens. Only the *field* checkboxes get
+  /// a default — the classroom and tag filters stay empty, because an empty
+  /// filter means "all" there, whereas an empty column set means an empty
+  /// report.
   static const List<String> _defaultStudentFields = <String>[
     ReportsStrings.fullName,
     ReportsStrings.dob,
@@ -85,9 +89,9 @@ class _StudentsAndFamilyReportScreenState
     'Inactive',
   ];
 
-  late final ValueNotifier<Set<String>> _selectedStudentFields =
+  final ValueNotifier<Set<String>> _selectedStudentFields =
       ValueNotifier<Set<String>>(_defaultStudentFields.toSet());
-  late final ValueNotifier<Set<String>> _selectedParentFields =
+  final ValueNotifier<Set<String>> _selectedParentFields =
       ValueNotifier<Set<String>>(_defaultParentFields.toSet());
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
@@ -124,13 +128,6 @@ class _StudentsAndFamilyReportScreenState
     final next = Set<String>.from(_selectedParentFields.value);
     checked ? next.add(field) : next.remove(field);
     _selectedParentFields.value = next;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   void _onGenerate() async {
@@ -325,16 +322,15 @@ class _StudentsAndFamilyReportScreenState
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.classroom,
-                    hintText: ReportsStrings.selectClassroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
                     selectedItems: selected,
-                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),
@@ -343,16 +339,15 @@ class _StudentsAndFamilyReportScreenState
                   valueListenable: _selectedTags,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.tag,
-                    hintText: ReportsStrings.selectTag,
+                    hintText: ReportsStrings.allTags,
                     items: widget.tags,
-                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedTags.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllTagsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllTagsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

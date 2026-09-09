@@ -553,8 +553,12 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       final dt = (p.dataType ?? '').toUpperCase();
       if (dt == 'BOOLEAN') {
         final b = _boolValueForParameter(p);
-        out.add(ActivityParameterValue(
-            parameterCode: p.code, value: b ? 'true' : 'false'));
+        out.add(
+          ActivityParameterValue(
+            parameterCode: p.code,
+            value: b ? 'true' : 'false',
+          ),
+        );
         continue;
       }
       if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
@@ -742,6 +746,10 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
+      // Must stay in step with `_selectedStudents`: `_selectedStudentsData` is
+      // what the save path builds `studentCodes` from, and the student tiles
+      // pair `_selectedStudents[i]` with `_selectedStudentsData[i]`.
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -1073,17 +1081,27 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       // Build parameterValues in backend-required shape (supports multi-student fan-out via studentCodes).
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),
@@ -1301,17 +1319,27 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),

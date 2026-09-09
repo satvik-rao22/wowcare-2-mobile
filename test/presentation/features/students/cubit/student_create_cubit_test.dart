@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
 import 'package:wowcare/domain/features/student/entities/student_profile.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/add_student_sibling_usecase.dart';
@@ -210,7 +212,7 @@ class _FakeUpdateGuardianUseCase extends UpdateGuardianUseCase {
   Future<String> call({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -229,7 +231,7 @@ class _FakeUpdateSchedulesUseCase extends UpdateStudentRegularSchedulesUseCase {
   Future<String> call({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     calls++;
     if (error != null) return Future.error(error!);
@@ -385,7 +387,18 @@ void main() {
       final message = await cubit.updateGuardian(
         code: 'G1',
         studentCode: 'STU1',
-        fields: const {'legalCustody': true},
+        request: const UpdateGuardianRequest(
+          userCode: 'U1',
+          schoolCode: 'SCH',
+          studentCode: 'STU1',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          email: 'jane@x.com',
+          mobile: '5551234567',
+          relationToStudent: 'MOTHER',
+          primaryContact: true,
+          legalCustody: true,
+        ),
       );
 
       expect(fakes.updateGuardian.calls, 1);
@@ -401,7 +414,12 @@ void main() {
         schoolCode: 'SCH',
         studentCode: 'STU1',
         schedule: const [
-          {'dayOfWeek': 'MONDAY'},
+          StudentRegularScheduleInput(
+            dayOfWeek: 'MONDAY',
+            startTime: '08:00:00',
+            halfDay: '12:00:00',
+            endTime: '16:00:00',
+          ),
         ],
       );
 
@@ -513,4 +531,116 @@ void main() {
       await cubit.close();
     },
   );
+
+  group('step 1 form model', () {
+    test('initial fields are unset', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.step1Status, isNull);
+      expect(cubit.state.step1Classroom, isNull);
+      expect(cubit.state.step1Birthdate, isNull);
+      expect(cubit.state.step1ProfilePhoto, isNull);
+      expect(cubit.state.step1Submitting, isFalse);
+    });
+
+    test('initializeStep1 defaults status to Active and derives age label', () {
+      final cubit = _Fakes().build()
+        ..initializeStep1(birthdate: DateTime(2022, 1, 1));
+      expect(cubit.state.step1Status, 'Active');
+      expect(cubit.state.step1AgeLabel, isNotNull);
+      expect(cubit.state.step1AgeLabel, contains('year'));
+    });
+
+    test('initializeStep1 respects an explicit status', () {
+      final cubit = _Fakes().build()..initializeStep1(status: 'Upcoming');
+      expect(cubit.state.step1Status, 'Upcoming');
+      expect(cubit.state.step1AgeLabel, isNull);
+    });
+
+    test('setters update each field', () {
+      final cubit = _Fakes().build()
+        ..setStep1Status('Upcoming')
+        ..setStep1Classroom('Blue-A')
+        ..setStep1SchoolStartDate(DateTime(2027, 9, 1));
+      expect(cubit.state.step1Status, 'Upcoming');
+      expect(cubit.state.step1Classroom, 'Blue-A');
+      expect(cubit.state.step1SchoolStartDate, DateTime(2027, 9, 1));
+    });
+
+    test('setStep1Birthdate also derives the age label; null clears it', () {
+      final cubit = _Fakes().build()..setStep1Birthdate(DateTime(2020, 6, 1));
+      expect(cubit.state.step1Birthdate, DateTime(2020, 6, 1));
+      expect(cubit.state.step1AgeLabel, isNotNull);
+      cubit.setStep1Birthdate(null);
+      expect(cubit.state.step1Birthdate, isNull);
+      expect(cubit.state.step1AgeLabel, isNull);
+    });
+
+    test('setStep1Submitting toggles the flow flag', () {
+      final cubit = _Fakes().build()..setStep1Submitting(true);
+      expect(cubit.state.step1Submitting, isTrue);
+      cubit.setStep1Submitting(false);
+      expect(cubit.state.step1Submitting, isFalse);
+    });
+
+    test('ageLabelFor formats months-only for infants', () {
+      final now = DateTime.now();
+      final label = StudentCreateCubit.ageLabelFor(
+        DateTime(now.year, now.month - 3 <= 0 ? 1 : now.month - 3, 1),
+      );
+      expect(label, contains('month'));
+    });
+  });
+
+  group('step 2 form model', () {
+    test('initial defaults (emergency + custody on)', () {
+      final cubit = _Fakes().build();
+      expect(cubit.state.step2SelectFromExisting, isFalse);
+      expect(cubit.state.step2SelectedExistingParents, isEmpty);
+      expect(cubit.state.step2IsEmergencyContact, isTrue);
+      expect(cubit.state.step2IsChildCustody, isTrue);
+      expect(cubit.state.step2Submitting, isFalse);
+    });
+
+    test('initializeStep2 seeds provided values', () {
+      final cubit = _Fakes().build()
+        ..initializeStep2(
+          selectFromExisting: true,
+          selectedExistingParents: const ['Jane Doe'],
+          relation: 'Mother',
+          isEmergencyContact: false,
+          isChildCustody: false,
+        );
+      expect(cubit.state.step2SelectFromExisting, isTrue);
+      expect(cubit.state.step2SelectedExistingParents, const ['Jane Doe']);
+      expect(cubit.state.step2Relation, 'Mother');
+      expect(cubit.state.step2IsEmergencyContact, isFalse);
+      expect(cubit.state.step2IsChildCustody, isFalse);
+    });
+
+    test('setters update each field', () {
+      final cubit = _Fakes().build()
+        ..setStep2SelectFromExisting(true)
+        ..setStep2SelectedExistingParents(const ['A', 'B'])
+        ..setStep2Relation('Father')
+        ..setStep2IsEmergencyContact(false)
+        ..setStep2IsChildCustody(false)
+        ..setStep2Submitting(true);
+      expect(cubit.state.step2SelectFromExisting, isTrue);
+      expect(cubit.state.step2SelectedExistingParents, const ['A', 'B']);
+      expect(cubit.state.step2Relation, 'Father');
+      expect(cubit.state.step2IsEmergencyContact, isFalse);
+      expect(cubit.state.step2IsChildCustody, isFalse);
+      expect(cubit.state.step2Submitting, isTrue);
+    });
+
+    test('setStep2ExistingParents stores names and prunes a stale selection',
+        () {
+      final cubit = _Fakes().build()
+        ..setStep2SelectedExistingParents(const ['Jane Doe', 'Gone Person'])
+        ..setStep2ExistingParents(const ['Jane Doe', 'New Parent']);
+      expect(cubit.state.step2ExistingParents,
+          const ['Jane Doe', 'New Parent']);
+      expect(cubit.state.step2SelectedExistingParents, const ['Jane Doe']);
+    });
+  });
 }

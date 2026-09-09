@@ -916,7 +916,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'studentCode': studentCode,
       'firstName': firstName,
       'lastName': lastName,
-      'email': email,
+      // Email has no "required" validation in the Add Pickup form (unlike
+      // first/last name, phone, relation, which all block submit when
+      // empty) - it's intentionally optional. Sending 'email': '' anyway
+      // got rejected by backend validation ("must be a valid email") that
+      // treats an empty string as present-but-invalid rather than absent.
+      // Omit the key entirely when blank, same as relationshipDescription/
+      // carpoolId below.
+      if (email.trim().isNotEmpty) 'email': email.trim(),
       'phoneNumber': phoneNumber,
       'relation': relation,
       if (relationshipDescription != null &&

@@ -111,13 +111,17 @@ void main() {
       getStaffProfileUseCase: GetStaffProfileUseCase(_UnusedRepo()),
       activateSchoolUserUseCase: ActivateSchoolUserUseCase(_UnusedRepo()),
       deactivateSchoolUserUseCase: DeactivateSchoolUserUseCase(_UnusedRepo()),
-      activateOrganizationAdminUseCase:
-          ActivateOrganizationAdminUseCase(_UnusedRepo()),
-      deactivateOrganizationAdminUseCase:
-          DeactivateOrganizationAdminUseCase(_UnusedRepo()),
+      activateOrganizationAdminUseCase: ActivateOrganizationAdminUseCase(
+        _UnusedRepo(),
+      ),
+      deactivateOrganizationAdminUseCase: DeactivateOrganizationAdminUseCase(
+        _UnusedRepo(),
+      ),
       deleteSchoolUserUseCase: DeleteSchoolUserUseCase(_UnusedRepo()),
       loadCachedStaffPageUseCase: LoadCachedStaffPageUseCase(_UnusedRepo()),
-  invalidateCachedStaffPageUseCase: InvalidateCachedStaffPageUseCase(_UnusedRepo()),
+      invalidateCachedStaffPageUseCase: InvalidateCachedStaffPageUseCase(
+        _UnusedRepo(),
+      ),
       storageService: storage,
     );
   });
@@ -131,17 +135,19 @@ void main() {
     expect(cubit.state.isRefreshing, isFalse);
   });
 
-  test('wrong-school: a response is DISCARDED if the school changed mid-flight',
-      () async {
-    final gate = Completer<StaffPage>();
-    page.enqueue(gate);
-    final future = cubit.refresh(); // starts under SCH-A
-    await Future<void>.delayed(Duration.zero);
-    storage.schoolCode = 'SCH-B'; // live switch
-    gate.complete(_page(['SCH-A-STAFF']));
-    await future;
-    expect(cubit.state.items, isEmpty);
-  });
+  test(
+    'wrong-school: a response is DISCARDED if the school changed mid-flight',
+    () async {
+      final gate = Completer<StaffPage>();
+      page.enqueue(gate);
+      final future = cubit.refresh(); // starts under SCH-A
+      await Future<void>.delayed(Duration.zero);
+      storage.schoolCode = 'SCH-B'; // live switch
+      gate.complete(_page(['SCH-A-STAFF']));
+      await future;
+      expect(cubit.state.items, isEmpty);
+    },
+  );
 
   test('loadNextPage superseded by a filter change is DISCARDED', () async {
     page
@@ -160,42 +166,39 @@ void main() {
     expect(cubit.state.items.map((s) => s.code), isNot(contains('E')));
   });
 
-  test(
-    'loadNextPage is REFUSED while a refresh is in flight, so no page is '
-    'skipped when the refresh resets the list',
-    () async {
-      // Walk the list out to page 3 so a skip would be observable.
-      page
-        ..enqueue(_page(['A'], page: 0, hasMore: true))
-        ..enqueue(_page(['B'], page: 1, hasMore: true))
-        ..enqueue(_page(['C'], page: 2, hasMore: true))
-        ..enqueue(_page(['D'], page: 3, hasMore: true));
-      await cubit.refresh(); // pages 0 + 1
-      await cubit.loadNextPage(); // page 2
-      await cubit.loadNextPage(); // page 3
-      expect(cubit.state.currentPage, 3);
+  test('loadNextPage is REFUSED while a refresh is in flight, so no page is '
+      'skipped when the refresh resets the list', () async {
+    // Walk the list out to page 3 so a skip would be observable.
+    page
+      ..enqueue(_page(['A'], page: 0, hasMore: true))
+      ..enqueue(_page(['B'], page: 1, hasMore: true))
+      ..enqueue(_page(['C'], page: 2, hasMore: true))
+      ..enqueue(_page(['D'], page: 3, hasMore: true));
+    await cubit.refresh(); // pages 0 + 1
+    await cubit.loadNextPage(); // page 2
+    await cubit.loadNextPage(); // page 3
+    expect(cubit.state.currentPage, 3);
 
-      // A refresh starts and is still in flight.
-      final gate = Completer<StaffPage>();
-      page.enqueue(gate);
-      final refreshing = cubit.refresh();
-      await Future<void>.delayed(Duration.zero);
-      expect(cubit.state.isRefreshing, isTrue);
+    // A refresh starts and is still in flight.
+    final gate = Completer<StaffPage>();
+    page.enqueue(gate);
+    final refreshing = cubit.refresh();
+    await Future<void>.delayed(Duration.zero);
+    expect(cubit.state.isRefreshing, isTrue);
 
-      final pagesBefore = List<int>.from(page.requestedPages);
-      await cubit.loadNextPage();
+    final pagesBefore = List<int>.from(page.requestedPages);
+    await cubit.loadNextPage();
 
-      // The load-more issued no request at all — without the guard it would
-      // have asked for page 4 and then set currentPage: 4 on top of the
-      // reset list, stranding pages 1..3 of the refreshed query.
-      expect(page.requestedPages, pagesBefore);
+    // The load-more issued no request at all — without the guard it would
+    // have asked for page 4 and then set currentPage: 4 on top of the
+    // reset list, stranding pages 1..3 of the refreshed query.
+    expect(page.requestedPages, pagesBefore);
 
-      gate.complete(_page(['A2'], page: 0, hasMore: true));
-      await refreshing;
-      expect(cubit.state.currentPage, 0);
-      expect(cubit.state.items.map((s) => s.code), ['A2']);
-    },
-  );
+    gate.complete(_page(['A2'], page: 0, hasMore: true));
+    await refreshing;
+    expect(cubit.state.currentPage, 0);
+    expect(cubit.state.items.map((s) => s.code), ['A2']);
+  });
 
   test('pagination dedup: an overlapping page-1 is deduped by code', () async {
     page

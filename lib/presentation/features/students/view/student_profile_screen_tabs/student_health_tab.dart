@@ -5,12 +5,17 @@ import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
-import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../student_health_tab_cards/student_dates_tab_card.dart';
-import '../student_health_tab_cards/student_immunization_tab_card.dart';
-import '../student_health_tab_cards/student_physician_tab_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_dates_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_immunization_tab_card.dart';
+import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_physician_tab_card.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 
 class StudentHealthTab extends StatefulWidget {
@@ -91,7 +96,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
         decoration: BoxDecoration(
           color: color,
           borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(12),
+            top: Radius.circular(AppRadius.md),
           ),
         ),
         child: Center(
@@ -127,7 +132,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
         Column(
           children: [
         if (isImmunizationTab && canEditStudentData) ...[
-          SizedBox(height: 10,),
+          SizedBox(height: AppSpacing.s10,),
           CustomSectionCard(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -140,17 +145,17 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                     setState(() => _isImmunizationExempt = v);
                   },
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: AppSpacing.s10),
                 Expanded(
                   child: Text(
-                    'Exempt students from immunizations',
+                    StudentStrings.exemptStudentsFromImmunizations,
                     maxLines: 3,
                     softWrap: true,
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
-                      color: Color(0xff573353),
+                      color: AppColors.primaryColor,
                       height: 16 / 13,
                     ),
                   ),
@@ -158,7 +163,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          AppSpacing.gapVLg,
         ],
 
         Transform.translate(
@@ -171,7 +176,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
             dividerHeight: 0,
             indicator: BoxDecoration(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(AppRadius.md),
               ),
               border: Border.all(
                 color: AppColors.classroomStudentTabColor
@@ -188,46 +193,46 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               color: AppColors.primaryColor.withValues(alpha: 0.5),
               fontSize: 14,
             ),
-            labelPadding: const EdgeInsets.all(0),
+            labelPadding: const EdgeInsets.all(AppSpacing.none),
             indicatorPadding: _tabController.index == 0
-                ? const EdgeInsets.only(right: 4)
+                ? const EdgeInsets.only(right: AppSpacing.xxs)
                 : _tabController.index == 1
-                ? const EdgeInsets.symmetric(horizontal: 2)
+                ? const EdgeInsets.symmetric(horizontal: AppSpacing.s2)
                 : _tabController.index == 2
-                ? const EdgeInsets.symmetric(horizontal: 2)
-                : const EdgeInsets.only(left: 4),
+                ? const EdgeInsets.symmetric(horizontal: AppSpacing.s2)
+                : const EdgeInsets.only(left: AppSpacing.xxs),
             splashFactory: NoSplash.splashFactory,
             tabs: [
               Padding(
-                padding: const EdgeInsets.only(right: 2),
+                padding: const EdgeInsets.only(right: AppSpacing.s2),
                 child: _buildTab(
                   //width: 80,
-                  label: 'Health',
+                  label: StudentStrings.health,
                   color: AppColors.classroomStudentTabColor,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
                 child: _buildTab(
                   //width: 90,
-                  label: 'Physician',
+                  label: StudentStrings.physician,
                   color: AppColors.classroomStaffTabColor,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
                 child: _buildTab(
                   //width: 200,
-                  label: 'Physical Examination Dates',
+                  label: StudentStrings.physicalExaminationDates,
                   color: AppColors.classroomNotesTabColor,
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(left: 2),
+                padding: const EdgeInsets.only(left: AppSpacing.s2),
                 child: _buildTab(
                   //width: 120,
-                  label: 'Immunization',
-                  color: Color(0x66EAD6FF),
+                  label: StudentStrings.immunization,
+                  color: AppColors.studentLavenderTint,
                 ),
               ),
             ],
@@ -272,40 +277,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
           ],
         ),
       ],
-    );
-  }
-}
-
-class CustomSectionCard extends StatelessWidget {
-  const CustomSectionCard({
-    required this.child,
-    this.padding = const EdgeInsets.all(12),
-    this.margin,
-    this.backgroundColor,
-    this.minHeight,
-    Key? key,
-  }) : super(key: key);
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final EdgeInsetsGeometry? margin;
-  final Color? backgroundColor;
-  final double? minHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: margin,
-      padding: padding,
-      constraints: BoxConstraints(
-        minHeight: minHeight ?? 0,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor, width: 1.2),
-        borderRadius: BorderRadius.circular(12),
-        color: backgroundColor ?? AppColors.cardColor,
-      ),
-      child: child,
     );
   }
 }

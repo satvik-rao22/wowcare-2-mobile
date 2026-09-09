@@ -32,7 +32,6 @@ Future<void> submitClassroomRangeReport({
   required DateTime toDate,
   required String format,
   required List<String> selectedClassrooms,
-  required List<String> fallbackClassrooms,
   required String logTag,
 
   /// True for the staff reports, which offer the wider `onlyTypeClassroom:
@@ -59,9 +58,13 @@ Future<void> submitClassroomRangeReport({
       ? state.allClassroomNameToCode
       : state.classroomNameToCode;
 
+  // An empty selection means "all classrooms": it resolves to no codes, and
+  // `roomCodes: null` below omits the key so the backend returns every room.
+  // Substituting the full classroom list here would send an implicit filter
+  // the user never chose.
   final classroomCodes = resolveReportCodes(
     context: context,
-    names: selectedClassrooms.isEmpty ? fallbackClassrooms : selectedClassrooms,
+    names: selectedClassrooms,
     nameToCode: nameToCode,
     labelPlural: ReportsStrings.classroomsLabelPlural,
   );

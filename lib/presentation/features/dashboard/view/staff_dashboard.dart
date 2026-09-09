@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'package:wowcare/core/responsive/app_breakpoints.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
@@ -9,11 +13,11 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.da
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_attendance_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/my_attendance_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/my_day_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/ratio_monitoring_card.dart';
+import 'package:wowcare/presentation/features/dashboard/model/staff_dashboard_viewmodel.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -27,7 +31,8 @@ class StaffDashboard extends StatefulWidget {
   State<StaffDashboard> createState() => _StaffDashboardState();
 }
 
-class _StaffDashboardState extends State<StaffDashboard> {
+class _StaffDashboardState extends State<StaffDashboard>
+    with TabBecameVisibleMixin {
   late final StaffDashboardCoordinatorCubit _coordinator;
 
   // static const double _maxContentWidth = 640;
@@ -36,6 +41,26 @@ class _StaffDashboardState extends State<StaffDashboard> {
   void initState() {
     super.initState();
     _coordinator = serviceLocator<StaffDashboardCoordinatorCubit>();
+  }
+
+  // Dashboard is branch index 0 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 0;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Returning to the Dashboard tab (or re-tapping it while already there)
+    // refreshes the coordinator that is ALREADY alive. This used to live in
+    // DashboardScreen, where it bumped a KeyedSubtree epoch and destroyed the
+    // whole subtree — which re-resolved this coordinator from GetIt (a
+    // `registerFactory`, so a brand-new instance) and re-ran its constructor's
+    // `initialize()`, i.e. the entire cold-open fan-out, every single time.
+    //
+    // `refresh()` is the same call pull-to-refresh already makes, and every
+    // child cubit behind it has an in-flight guard plus a silent-refresh mode,
+    // so this is idempotent and cheap. Same visible outcome: fresh data.
+    unawaited(_coordinator.refresh());
   }
 
   @override
@@ -112,15 +137,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        }
-        // else if (state.isPartialError) {
-        //   CoreUtils.showTopSnackBar(
-        //     context: context,
-        //     message: 'Some sections could not be loaded. Pull down to retry.',
-        //     isWarning: true,
-        //   );
-        // }
-        else if (state.isReady) {
+        } else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',
@@ -135,7 +152,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
           type: MaterialType.transparency,
           child: CustomRefreshIndicator(
             onRefresh: () => coordinator.refresh(),
-            child: _DashboardCardList(cardFor: _cardFor),
+            child: _StaffDashboardCardList(cardFor: _cardFor),
           ),
         ),
       ),
@@ -143,8 +160,8 @@ class _StaffDashboardState extends State<StaffDashboard> {
   }
 }
 
-class _DashboardCardList extends StatelessWidget {
-  const _DashboardCardList({required this.cardFor});
+class _StaffDashboardCardList extends StatelessWidget {
+  const _StaffDashboardCardList({required this.cardFor});
 
   final Widget Function(StaffDashboardCard) cardFor;
 
@@ -157,7 +174,22 @@ class _DashboardCardList extends StatelessWidget {
       builder: (context, dashState) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+            // §7.2 KEEPS this LayoutBuilder — it is one of the "dashboard
+            // gutter checks" the mandate names, and it decides only this
+            // subtree's own horizontal padding.
+            //
+            // Precise about what it measures: this sits OUTSIDE the 640 cap
+            // below, so `constraints.maxWidth` is the width the shell hands
+            // the list, not the capped content box. That distinction cannot
+            // change the outcome, because the threshold (360) is below the cap
+            // (640): at every width where this ternary flips, the cap is not
+            // binding and the two are the same number. Above 640 both sides
+            // yield 16.
+            //
+            // The 360 literal is gone — the boundary is AppBreakpoints', so
+            // nothing here defines a breakpoint locally.
+            final double gutter =
+                constraints.maxWidth < AppBreakpoints.narrowMaxWidth ? 12 : 16;
 
             return Align(
               alignment: Alignment.topCenter,

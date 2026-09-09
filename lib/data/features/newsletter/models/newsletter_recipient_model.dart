@@ -1,6 +1,12 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
+import 'package:wowcare/data/features/newsletter/models/newsletter_json.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_recipient_entity.dart';
 
+part 'newsletter_recipient_model.g.dart';
+
+/// One recipient of a student-scoped newsletter.
+@JsonSerializable()
 class NewsletterRecipientModel extends Equatable {
   const NewsletterRecipientModel({
     required this.id,
@@ -10,31 +16,24 @@ class NewsletterRecipientModel extends Equatable {
     required this.status,
   });
 
+  factory NewsletterRecipientModel.fromJson(Map<String, dynamic> json) =>
+      _$NewsletterRecipientModelFromJson(json);
+
   final int? id;
+
+  @JsonKey(fromJson: jsonTrimmedString)
   final String code;
+
+  @JsonKey(fromJson: jsonTrimmedString)
   final String userCode;
+
+  @JsonKey(fromJson: jsonTrimmedString)
   final String userName;
+
+  @JsonKey(fromJson: jsonTrimmedString)
   final String status;
 
-  factory NewsletterRecipientModel.fromJson(Map<String, dynamic> json) {
-    return NewsletterRecipientModel(
-      id: json['id'] as int?,
-      code: (json['code'] ?? '').toString().trim(),
-      userCode: (json['userCode'] ?? '').toString().trim(),
-      userName: (json['userName'] ?? '').toString().trim(),
-      status: (json['status'] ?? '').toString().trim(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'code': code,
-      'userCode': userCode,
-      'userName': userName,
-      'status': status,
-    };
-  }
+  Map<String, dynamic> toJson() => _$NewsletterRecipientModelToJson(this);
 
   NewsletterRecipientEntity toEntity() {
     return NewsletterRecipientEntity(
@@ -49,4 +48,3 @@ class NewsletterRecipientModel extends Equatable {
   @override
   List<Object?> get props => [id, code, userCode, userName, status];
 }
-

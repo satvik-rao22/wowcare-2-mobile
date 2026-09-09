@@ -6,9 +6,12 @@
 	<string>development</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<!-- TEMP: local-testing override, points at Sairam's ngrok tunnel
-		     instead of uat-wowcare.childcarewow.app. Revert before commit. -->
-		<string>applinks:fitten-vallie-forthrightly.ngrok-free.dev</string>
+		<!-- Debug builds. Must match Runner-Release.entitlements so a
+		     Universal Link behaves the same in both. To test against a local
+		     tunnel, change this line locally and do NOT commit it — a
+		     tunnel host committed here previously shipped in debug and its
+		     Android counterpart shipped in release. -->
+		<string>applinks:uat-wowcare.childcarewow.app</string>
 	</array>
 </dict>
 </plist>

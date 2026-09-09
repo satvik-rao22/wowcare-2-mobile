@@ -37,7 +37,8 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
 
     if (_isFetching) return;
     // Keep the loaded list visible during a background refresh (no shimmer).
-    final hasData = state.status == StudentNewslettersStatus.loaded &&
+    final hasData =
+        state.status == StudentNewslettersStatus.loaded &&
         state.selectedChildCode == code;
     _isFetching = true;
     if (!(background && hasData)) {

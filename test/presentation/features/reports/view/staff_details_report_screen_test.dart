@@ -21,14 +21,14 @@ import 'package:wowcare/domain/features/reports/usecases/staff_details_report_pa
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_details_report_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:go_router/go_router.dart';
@@ -271,7 +271,7 @@ void main() {
   }
 
   testWidgets(
-    'Tapping Generate generates STAFF_DETAILS with classroomCodes and without startDate/endDate',
+    'Tapping Generate generates STAFF_DETAILS with no classroom filter and without startDate/endDate',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -289,19 +289,13 @@ void main() {
       final params =
           fakeReportsRepo.lastGeneratedParams as StaffDetailsReportParams;
       expect(params.reportType, ReportType.staffDetails);
-      expect(params.classroomCodes, [
-        'CLS_06C3AF97-6',
-        'CLS_BE1976C6-1',
-        'CLS_9A6BD9CC-C',
-      ]);
+      // No classroom is pre-selected, so "all classrooms" is expressed by
+      // omitting the key — never by expanding it to every code.
+      expect(params.classroomCodes, isNull);
 
       final requestBody = ReportRequestPayload.fromParams(params).toJson();
       expect(requestBody['reportType'], 'STAFF_DETAILS');
-      expect(requestBody['classroomCodes'], [
-        'CLS_06C3AF97-6',
-        'CLS_BE1976C6-1',
-        'CLS_9A6BD9CC-C',
-      ]);
+      expect(requestBody.containsKey('classroomCodes'), isFalse);
       expect(requestBody.containsKey('startDate'), isFalse);
       expect(requestBody.containsKey('endDate'), isFalse);
     },

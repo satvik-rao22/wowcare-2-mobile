@@ -8,7 +8,6 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +34,6 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
-  final ReportFilterDefault _classroomFilter = ReportFilterDefault();
 
   @override
   void initState() {
@@ -44,8 +42,6 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
 
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Staff reports need the wider list that also contains Office and
@@ -73,7 +69,6 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     toDate: _toDate.value,
     format: _format.value,
     selectedClassrooms: _selectedClassrooms.value,
-    fallbackClassrooms: widget.classrooms,
     logTag: 'STAFF-ABSENT-UI',
     useWiderClassroomSet: true,
   );
@@ -82,16 +77,16 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Keep the "all classrooms selected by default" behaviour once the
-        // wider list arrives, the way the old setState in the fetch did.
+        // Drop selections that no longer exist when a refreshed classroom
+        // list arrives. Never re-expands to "all" — an empty filter already
+        // means every classroom.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.allClassroomNames != current.allClassroomNames,
           listener: (context, state) {
-            _selectedClassrooms.value = _classroomFilter.resolve(
-              options: state.allClassroomNames,
-              current: _selectedClassrooms.value,
-            );
+            _selectedClassrooms.value = _selectedClassrooms.value
+                .where(state.allClassroomNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -187,19 +182,18 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                           builder: (_, selected, __) =>
                               CustomMultiSelectDropdown(
                                 label: ReportsStrings.classroom,
-                                hintText: ReportsStrings.selectClassroom,
-                                isRequired: true,
+                                hintText: ReportsStrings.allClassrooms,
                                 items: classroomItems,
                                 selectedItems: selected,
-                                onChanged: (s) => _selectedClassrooms.value =
-                                    _classroomFilter.userSelected(s),
+                                onChanged: (s) =>
+                                    _selectedClassrooms.value = s,
                                 showSelectAll: true,
                               ),
                         ),
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

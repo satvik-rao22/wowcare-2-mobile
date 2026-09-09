@@ -18,7 +18,6 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_profile_edit_cub
 import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
 
-
 /// Never invoked by these tests — the cubit only forwards to it from
 /// `uploadProfilePhotoInBackground`, which none of them call.
 class _FakePhotoUploader implements ProfilePhotoUploader {
@@ -480,7 +479,10 @@ void main() {
       final cubit = fakes.build();
 
       await expectLater(
-        cubit.activateOrganizationAdmin(userCode: 'U1', organizationCode: 'ORG'),
+        cubit.activateOrganizationAdmin(
+          userCode: 'U1',
+          organizationCode: 'ORG',
+        ),
         throwsA(isA<Exception>()),
       );
       await cubit.close();

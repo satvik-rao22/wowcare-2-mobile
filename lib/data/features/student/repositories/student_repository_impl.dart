@@ -8,6 +8,10 @@ import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
+import '../../../../domain/features/student/entities/guardian_profile.dart';
+import '../../../../domain/features/student/entities/update_student_address_request.dart';
+import '../../../../domain/features/student/entities/update_student_profile_request.dart';
+import '../../../../domain/features/student/entities/update_guardian_request.dart';
 import '../../../../domain/features/student/entities/student_health.dart';
 import '../../../../domain/features/student/entities/student_health_update_request.dart';
 import '../../../../domain/features/student/entities/student_immunization.dart';
@@ -17,10 +21,18 @@ import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_regular_schedule.dart';
+import '../../../../domain/features/student/entities/student_regular_schedule_input.dart';
 import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
+import '../mappers/school_guardian_summary_mapper.dart';
+import '../mappers/guardian_profile_mapper.dart';
+import '../mappers/student_health_update_request_mapper.dart';
+import '../mappers/update_student_address_request_mapper.dart';
+import '../mappers/update_student_profile_request_mapper.dart';
+import '../mappers/update_guardian_request_mapper.dart';
+import '../mappers/student_regular_schedule_input_mapper.dart';
 import '../mappers/student_health_mapper.dart';
 import '../mappers/student_immunization_mapper.dart';
 import '../mappers/student_physical_exam_mapper.dart';
@@ -49,7 +61,7 @@ class StudentRepositoryImpl
     final raw = await _remoteDataSource.getGuardiansBySchool(
       schoolCode: schoolCode,
     );
-    return raw.map(SchoolGuardianSummary.fromMap).toList();
+    return raw.map(schoolGuardianSummaryFromMap).toList();
   }
 
   String _timeToLabel(dynamic raw) {
@@ -135,12 +147,12 @@ class StudentRepositoryImpl
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
-    required List<Map<String, dynamic>> schedule,
+    required List<StudentRegularScheduleInput> schedule,
   }) {
     return _remoteDataSource.updateStudentRegularSchedules(
       schoolCode: schoolCode,
       studentCode: studentCode,
-      schedule: schedule,
+      schedule: schedule.map(studentRegularScheduleInputToPayload).toList(),
     );
   }
 
@@ -719,7 +731,11 @@ class StudentRepositoryImpl
       'studentCode': studentCode,
       'firstName': firstName,
       'lastName': lastName,
-      'email': email,
+      // Same as addPickup: email is optional in the Add/Edit Pickup form, so
+      // omit it when blank rather than sending 'email': '' (backend rejects
+      // an empty string as an invalid email rather than treating it as
+      // absent).
+      if (email.trim().isNotEmpty) 'email': email.trim(),
       'phoneNumber': phoneNumber,
       'relation': relation,
       'code': code,
@@ -832,7 +848,7 @@ class StudentRepositoryImpl
   }) async {
     final model = await _remoteDataSource.updateStudentHealth(
       code: studentCode,
-      body: request.toPayload(),
+      body: studentHealthUpdateRequestToPayload(request),
     );
 
     await _cacheManager.saveCache(
@@ -1246,14 +1262,15 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<Map<String, dynamic>> getGuardianProfile({
+  Future<GuardianProfile> getGuardianProfile({
     required String schoolCode,
     required String userCode,
-  }) {
-    return _remoteDataSource.getGuardianProfile(
+  }) async {
+    final map = await _remoteDataSource.getGuardianProfile(
       schoolCode: schoolCode,
       userCode: userCode,
     );
+    return guardianProfileFromMap(map);
   }
 
   @override
@@ -1310,11 +1327,11 @@ class StudentRepositoryImpl
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) async {
     final message = await _remoteDataSource.updateGuardian(
       code: code,
-      body: fields,
+      body: updateGuardianRequestToPayload(request),
     );
 
     await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
@@ -1611,14 +1628,14 @@ class StudentRepositoryImpl
   @override
   Future<String> updateStudentProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) async {
     final message = await _remoteDataSource.updateStudentProfile(
       code: code,
-      body: fields,
+      body: updateStudentProfileRequestToPayload(request),
     );
 
-    final schoolCode = (fields['schoolCode'] ?? '').toString().trim();
+    final schoolCode = (request.schoolCode ?? '').trim();
     if (schoolCode.isNotEmpty) {
       await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
     } else {
@@ -1631,14 +1648,14 @@ class StudentRepositoryImpl
   @override
   Future<String> updateStudentAddress({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   }) async {
     final message = await _remoteDataSource.updateStudentAddress(
       studentCode: studentCode,
-      body: fields,
+      body: updateStudentAddressRequestToPayload(request),
     );
 
-    final schoolCode = (fields['schoolCode'] ?? '').toString().trim();
+    final schoolCode = (request.schoolCode ?? '').trim();
     if (schoolCode.isNotEmpty) {
       await _invalidateStudentListAndSummaryCaches(schoolCode: schoolCode);
     } else {

@@ -89,42 +89,43 @@ StaffCubit _buildCubit(GetStaffPageUseCase page) => StaffCubit(
   getStaffProfileUseCase: GetStaffProfileUseCase(_UnusedRepo()),
   activateSchoolUserUseCase: ActivateSchoolUserUseCase(_UnusedRepo()),
   deactivateSchoolUserUseCase: DeactivateSchoolUserUseCase(_UnusedRepo()),
-  activateOrganizationAdminUseCase:
-      ActivateOrganizationAdminUseCase(_UnusedRepo()),
-  deactivateOrganizationAdminUseCase:
-      DeactivateOrganizationAdminUseCase(_UnusedRepo()),
+  activateOrganizationAdminUseCase: ActivateOrganizationAdminUseCase(
+    _UnusedRepo(),
+  ),
+  deactivateOrganizationAdminUseCase: DeactivateOrganizationAdminUseCase(
+    _UnusedRepo(),
+  ),
   deleteSchoolUserUseCase: DeleteSchoolUserUseCase(_UnusedRepo()),
   loadCachedStaffPageUseCase: LoadCachedStaffPageUseCase(_UnusedRepo()),
-  invalidateCachedStaffPageUseCase: InvalidateCachedStaffPageUseCase(_UnusedRepo()),
+  invalidateCachedStaffPageUseCase: InvalidateCachedStaffPageUseCase(
+    _UnusedRepo(),
+  ),
   storageService: _FakeStorage(),
 );
 
 void main() {
-  test(
-    'rapid onSearchChanged debounces to a single refresh; the query updates '
-    'immediately',
-    () async {
-      final useCase = _CountingUseCase();
-      final cubit = _buildCubit(useCase)
-        ..searchDebounceDelay = const Duration(milliseconds: 30);
+  test('rapid onSearchChanged debounces to a single refresh; the query updates '
+      'immediately', () async {
+    final useCase = _CountingUseCase();
+    final cubit = _buildCubit(useCase)
+      ..searchDebounceDelay = const Duration(milliseconds: 30);
 
-      cubit.onSearchChanged('a');
-      cubit.onSearchChanged('ab');
-      cubit.onSearchChanged('abc');
+    cubit.onSearchChanged('a');
+    cubit.onSearchChanged('ab');
+    cubit.onSearchChanged('abc');
 
-      // Query reflects the latest keystroke straight away; no request yet.
-      expect(cubit.state.searchQuery, 'abc');
-      expect(useCase.calls, 0);
+    // Query reflects the latest keystroke straight away; no request yet.
+    expect(cubit.state.searchQuery, 'abc');
+    expect(useCase.calls, 0);
 
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+    await Future<void>.delayed(const Duration(milliseconds: 60));
 
-      // Exactly one settled refresh fired for the whole burst.
-      expect(useCase.calls, 1);
-      expect(cubit.state.searchQuery, 'abc');
+    // Exactly one settled refresh fired for the whole burst.
+    expect(useCase.calls, 1);
+    expect(cubit.state.searchQuery, 'abc');
 
-      await cubit.close();
-    },
-  );
+    await cubit.close();
+  });
 
   test('clearing to empty cancels a pending search fetch', () async {
     final useCase = _CountingUseCase();

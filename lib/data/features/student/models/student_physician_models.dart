@@ -1,5 +1,9 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
 
+part 'student_physician_models.g.dart';
+
+@JsonSerializable(createToJson: false)
 class StudentPhysicianModel extends Equatable {
   const StudentPhysicianModel({
     required this.code,
@@ -13,31 +17,20 @@ class StudentPhysicianModel extends Equatable {
     required this.status,
   });
 
-  final String code;
-  final String firstName;
-  final String lastName;
-  final String email;
-  final String phoneNumber;
-  final String address;
-  final String specialty;
-  final String notes;
-  final String status;
+  @JsonKey(defaultValue: '') final String code;
+  @JsonKey(defaultValue: '') final String firstName;
+  @JsonKey(defaultValue: '') final String lastName;
+  @JsonKey(defaultValue: '') final String email;
+  @JsonKey(defaultValue: '') final String phoneNumber;
+  @JsonKey(defaultValue: '') final String address;
+  @JsonKey(defaultValue: '') final String specialty;
+  @JsonKey(defaultValue: '') final String notes;
+  @JsonKey(defaultValue: '') final String status;
 
   String get fullName => ('$firstName $lastName').trim();
 
-  factory StudentPhysicianModel.fromJson(Map<String, dynamic> json) {
-    return StudentPhysicianModel(
-      code: json['code'] as String? ?? '',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String? ?? '',
-      address: json['address'] as String? ?? '',
-      specialty: json['specialty'] as String? ?? '',
-      notes: json['notes'] as String? ?? '',
-      status: json['status'] as String? ?? '',
-    );
-  }
+  factory StudentPhysicianModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentPhysicianModelFromJson(json);
 
   @override
   List<Object?> get props => [

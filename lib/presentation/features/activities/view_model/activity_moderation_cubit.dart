@@ -20,10 +20,10 @@ class ActivityModerationCubit extends Cubit<ActivityModerationState> {
     required DeleteActivityUseCase deleteActivityUseCase,
     required ApproveActivityUseCase approveActivityUseCase,
     required RejectActivityUseCase rejectActivityUseCase,
-  })  : _delete = deleteActivityUseCase,
-        _approve = approveActivityUseCase,
-        _reject = rejectActivityUseCase,
-        super(const ActivityModerationIdle());
+  }) : _delete = deleteActivityUseCase,
+       _approve = approveActivityUseCase,
+       _reject = rejectActivityUseCase,
+       super(const ActivityModerationIdle());
 
   final DeleteActivityUseCase _delete;
   final ApproveActivityUseCase _approve;
@@ -58,18 +58,18 @@ class ActivityModerationCubit extends Cubit<ActivityModerationState> {
     try {
       final message = await operation();
       if (isClosed) return;
-      emit(ActivityModerationSuccess(
-        action: action,
-        code: key,
-        message: message,
-      ));
+      emit(
+        ActivityModerationSuccess(action: action, code: key, message: message),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(ActivityModerationFailure(
-        action: action,
-        code: key,
-        message: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        ActivityModerationFailure(
+          action: action,
+          code: key,
+          message: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     } finally {
       _inFlight.remove(key);
     }

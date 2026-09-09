@@ -1,3 +1,5 @@
+import 'package:wowcare/presentation/features/students/student_strings.dart';
+
 /// Rules aligned with [StudentAttendanceProfile] / student attendance pop-up:
 /// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
 /// - Sign-out / Transfer: currently signed in (and not absent)
@@ -98,14 +100,14 @@ Map<String, String> studentAttendanceDisabledReasons(
 ) {
   return <String, String>{
     if (!gate.canSignIn)
-      'Sign-in': 'Sign-In can only be done for Students/Staff not signed in.',
+      'Sign-in': StudentStrings.signInCanOnlyBeDoneForStudentsStaffNotSignedIn,
     if (!gate.canSignOut)
       'Sign-Out':
-          'Sign-Out can only be done for Students/Staff already signed in.',
+          StudentStrings.signOutCanOnlyBeDoneForStudentsStaffAlreadySig,
     if (!gate.canTransfer)
       'Transfer':
-          'Transfer can only be done for Students/Staff already signed in.',
-    if (!gate.canMarkAbsent) 'Absent': 'Absent can only be marked for Students/Staff not yet signed in',
+          StudentStrings.transferCanOnlyBeDoneForStudentsStaffAlreadySi,
+    if (!gate.canMarkAbsent) 'Absent': StudentStrings.absentCanOnlyBeMarkedForStudentsStaffNotYetSig,
   };
 }
 

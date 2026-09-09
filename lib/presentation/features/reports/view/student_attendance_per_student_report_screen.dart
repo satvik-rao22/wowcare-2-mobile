@@ -7,7 +7,6 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -55,7 +54,6 @@ class _StudentAttendancePerStudentReportScreenState
 
   // §2.2 bucket A — the student list, its name→code map and the loading flag
   // are API-owned and live on ReportsCubit. No local copies.
-  final ReportFilterDefault _studentFilter = ReportFilterDefault();
 
   @override
   void dispose() {
@@ -73,42 +71,19 @@ class _StudentAttendancePerStudentReportScreenState
     final now = AppTime.now();
     _periodDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
 
-    // All Classrooms / All Students are selected by default until the user
-    // changes them; the post-frame fetch below seeds the students for every
-    // classroom.
-    _selectedClassrooms = ValueNotifier<List<String>>(
-      List<String>.from(widget.classrooms),
-    );
-    _selectedStudents.value = List<String>.from(widget.students);
+    // Nothing is pre-selected: an empty classroom / student filter means
+    // "All Classrooms" / "All Students". The post-frame fetch populates the
+    // student picker with every student, since no classroom is selected.
+    _selectedClassrooms = ValueNotifier<List<String>>(<String>[]);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ReportsCubit>().loadFormStudents(
-        classroomNames: _selectedClassrooms.value.isEmpty
-            ? widget.classrooms
-            : _selectedClassrooms.value,
+        classroomNames: _selectedClassrooms.value,
       );
     });
   }
 
   void _onGenerate() async {
-    if (_selectedClassrooms.value.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOneClassroom,
-        isError: true,
-      );
-      return;
-    }
-
-    if (_selectedStudents.value.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOneStudent,
-        isError: true,
-      );
-      return;
-    }
-
     final cubit = context.read<ReportsCubit>();
     final reportsState = cubit.state;
 
@@ -122,11 +97,11 @@ class _StudentAttendancePerStudentReportScreenState
 
     final mergedClassroomNameToCode = await cubit.ensureClassroomNameToCode();
 
+    // Empty selection → no codes → the key is omitted below, which is how
+    // this endpoint expresses "all classrooms" / "all students".
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: mergedClassroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -138,10 +113,10 @@ class _StudentAttendancePerStudentReportScreenState
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate.value,
       endDate: _rangeEndForFrequency(_periodDate.value),
-      studentCodes: studentCodes,
+      studentCodes: studentCodes.isEmpty ? null : studentCodes,
       format: _format.value,
       schoolName: schoolName.isNotEmpty ? schoolName : null,
-      roomCodes: classroomCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));
@@ -168,16 +143,16 @@ class _StudentAttendancePerStudentReportScreenState
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        // Re-resolve the student selection whenever the cubit publishes a new
-        // list — the rule the old in-widget fetch applied inline.
+        // Drop selections that no longer exist when a refreshed student list
+        // arrives. Never re-expands to "all" — an empty filter already means
+        // every student.
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.studentNames != current.studentNames,
           listener: (context, state) {
-            _selectedStudents.value = _studentFilter.resolve(
-              options: state.studentNames,
-              current: _selectedStudents.value,
-            );
+            _selectedStudents.value = _selectedStudents.value
+                .where(state.studentNames.contains)
+                .toList();
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
@@ -277,16 +252,13 @@ class _StudentAttendancePerStudentReportScreenState
                   valueListenable: _selectedClassrooms,
                   builder: (_, v, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.classroom,
-                    hintText: ReportsStrings.selectClassroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
-                    isRequired: true,
                     selectedItems: v,
                     onChanged: (s) {
                       _selectedClassrooms.value = s;
-                      // Clearing the filter means "no classrooms", not "all"
-                      // — re-expanding it here silently put every classroom's
-                      // students back into a report the user had just narrowed,
-                      // which is exactly what ReportFilterDefault forbids.
+                      // Clearing the filter re-lists every student, matching
+                      // "All Classrooms"; it never re-selects them.
                       context.read<ReportsCubit>().loadFormStudents(
                         classroomNames: s,
                       );
@@ -295,7 +267,7 @@ class _StudentAttendancePerStudentReportScreenState
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),
@@ -311,35 +283,29 @@ class _StudentAttendancePerStudentReportScreenState
                     items: state.studentNames,
                     loading: state.formStudentsLoading,
                   ),
-                  builder: (context, students) => ValueListenableBuilder<List<String>>(
-                    valueListenable: _selectedClassrooms,
-                    builder: (_, classrooms, __) =>
-                        ValueListenableBuilder<List<String>>(
-                          valueListenable: _selectedStudents,
-                          builder: (_, selected, __) =>
-                              MultiSelectFilterField<String>(
-                                label: ReportsStrings.tabStudent,
-                                // An empty student list has two very different
-                                // causes; say which one the user is looking at.
-                                hintText: students.loading
-                                    ? ReportsStrings.loadingStudents
-                                    : classrooms.isEmpty
-                                    ? ReportsStrings.selectClassroomFirst
-                                    : ReportsStrings.selectStudents,
-                                items: students.items,
-                                isRequired: true,
-                                selectedItems: selected,
-                                onChanged: (s) => _selectedStudents.value =
-                                    _studentFilter.userSelected(s),
-                                itemToString: (item) => item,
-                                singularLabel: ReportsStrings.tabStudent,
-                                pluralLabel: ReportsStrings.students,
-                                showSelectAll: true,
-                                enableSearch: true,
-                                searchHintText: ReportsStrings.searchStudents,
-                              ),
-                        ),
-                  ),
+                  builder: (context, students) =>
+                      ValueListenableBuilder<List<String>>(
+                        valueListenable: _selectedStudents,
+                        builder: (_, selected, __) =>
+                            MultiSelectFilterField<String>(
+                              label: ReportsStrings.tabStudent,
+                              // No classroom selected still lists every
+                              // student, so the only empty-state worth
+                              // distinguishing is "still loading".
+                              hintText: students.loading
+                                  ? ReportsStrings.loadingStudents
+                                  : ReportsStrings.allStudents,
+                              items: students.items,
+                              selectedItems: selected,
+                              onChanged: (s) => _selectedStudents.value = s,
+                              itemToString: (item) => item,
+                              singularLabel: ReportsStrings.tabStudent,
+                              pluralLabel: ReportsStrings.students,
+                              showSelectAll: true,
+                              enableSearch: true,
+                              searchHintText: ReportsStrings.searchStudents,
+                            ),
+                      ),
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

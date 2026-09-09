@@ -10,8 +10,8 @@ import '../../../../domain/features/staff/repositories/staff_repository.dart';
 Future<String?> resolveLoggedInStaffCode() async {
   try {
     final storage = serviceLocator<StorageService>();
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (userCode.isEmpty) return null;
 
     final orgCode =
@@ -20,8 +20,8 @@ Future<String?> resolveLoggedInStaffCode() async {
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
     if (orgCode.isNotEmpty) {
-      final rolesJson =
-          (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (shouldSkipStaffCodeResolutionForContext(
         rolesJson: rolesJson,
         organizationCode: orgCode,

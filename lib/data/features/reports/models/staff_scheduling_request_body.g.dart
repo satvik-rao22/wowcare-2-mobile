@@ -7,8 +7,7 @@ part of 'staff_scheduling_request_body.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$StaffSchedulingRequestBodyToJson(
-  StaffSchedulingRequestBody instance,
-) {
+    StaffSchedulingRequestBody instance) {
   final val = <String, dynamic>{
     'reportType': instance.reportType,
     'startDate': instance.startDate,

@@ -31,19 +31,21 @@ class ActivityStudentSelectionCubit
     required StorageService storageService,
     required ApiClient apiClient,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
-    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapForSchoolUseCase,
+    required GetTagNameCodeMapForSchoolUseCase
+    getTagNameCodeMapForSchoolUseCase,
     required GetNapStartStudentsUseCase getNapStartStudentsUseCase,
-    required GetMarkActivityStudentListUseCase getMarkActivityStudentListUseCase,
+    required GetMarkActivityStudentListUseCase
+    getMarkActivityStudentListUseCase,
     required StaffRepository staffRepository,
-  })  : _storage = storageService,
-        _apiClient = apiClient,
-        _cacheManager = CacheManager(storageService),
-        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
-        _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
-        _getMarkActivityStudentListUseCase = getMarkActivityStudentListUseCase,
-        _staffRepository = staffRepository,
-        super(const ActivityStudentSelectionState());
+  }) : _storage = storageService,
+       _apiClient = apiClient,
+       _cacheManager = CacheManager(storageService),
+       _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
+       _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
+       _getMarkActivityStudentListUseCase = getMarkActivityStudentListUseCase,
+       _staffRepository = staffRepository,
+       super(const ActivityStudentSelectionState());
 
   final StorageService _storage;
   final ApiClient _apiClient;
@@ -68,15 +70,20 @@ class ActivityStudentSelectionCubit
 
   /// Resolves school context + scope, then loads classroom and tag metadata.
   Future<void> initFilters() async {
-    _safeEmit(state.copyWith(isLoadingFilters: true, clearFiltersMessage: true));
+    _safeEmit(
+      state.copyWith(isLoadingFilters: true, clearFiltersMessage: true),
+    );
     try {
-      _schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      _schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (_schoolCode.isEmpty) {
-        _safeEmit(state.copyWith(
-          isLoadingFilters: false,
-          filtersMessage:
-              'School code is not set. Please ensure you are logged in and a school is selected.',
-        ));
+        _safeEmit(
+          state.copyWith(
+            isLoadingFilters: false,
+            filtersMessage:
+                'School code is not set. Please ensure you are logged in and a school is selected.',
+          ),
+        );
         return;
       }
 
@@ -91,10 +98,12 @@ class ActivityStudentSelectionCubit
 
       _safeEmit(state.copyWith(isLoadingFilters: false, filtersReady: true));
     } catch (error) {
-      _safeEmit(state.copyWith(
-        isLoadingFilters: false,
-        filtersMessage: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      _safeEmit(
+        state.copyWith(
+          isLoadingFilters: false,
+          filtersMessage: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -122,7 +131,8 @@ class ActivityStudentSelectionCubit
     if (active.isNotEmpty) {
       return active.contains('GUARDIAN') || active.contains('PARENT');
     }
-    final roles = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roles = (await _storage.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     return roles.contains('GUARDIAN') || roles.contains('PARENT');
   }
 
@@ -133,8 +143,9 @@ class ActivityStudentSelectionCubit
       return;
     }
 
-    final staffType =
-        (await _storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    final staffType = (await _storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
@@ -156,7 +167,8 @@ class ActivityStudentSelectionCubit
     }
 
     final cached =
-        (await _storage.getString(StorageKeys.staffAllowedClassroomCodes) ?? '').trim();
+        (await _storage.getString(StorageKeys.staffAllowedClassroomCodes) ?? '')
+            .trim();
     var allowed = decodeCodes(cached);
 
     try {
@@ -204,20 +216,28 @@ class ActivityStudentSelectionCubit
         if (cached != null && cached['classrooms'] is List) {
           final list = (cached['classrooms'] as List)
               .whereType<Map>()
-              .map((e) => <String, String>{
-                    'name': (e['name'] ?? '').toString(),
-                    'code': (e['code'] ?? '').toString(),
-                  })
-              .where((e) =>
-                  e['name']!.trim().isNotEmpty && e['code']!.trim().isNotEmpty)
+              .map(
+                (e) => <String, String>{
+                  'name': (e['name'] ?? '').toString(),
+                  'code': (e['code'] ?? '').toString(),
+                },
+              )
+              .where(
+                (e) =>
+                    e['name']!.trim().isNotEmpty &&
+                    e['code']!.trim().isNotEmpty,
+              )
               .toList();
           if (list.isNotEmpty) {
             final scoped = _allowedClassroomCodes.isEmpty
                 ? list
                 : list
-                    .where((c) =>
-                        _allowedClassroomCodes.contains((c['code'] ?? '').trim()))
-                    .toList();
+                      .where(
+                        (c) => _allowedClassroomCodes.contains(
+                          (c['code'] ?? '').trim(),
+                        ),
+                      )
+                      .toList();
             _emitClassrooms(
               names: scoped.map((c) => c['name']!).toList(),
               codeByName: {for (final c in scoped) c['name']!: c['code']!},
@@ -229,7 +249,9 @@ class ActivityStudentSelectionCubit
       } catch (_) {}
     }
 
-    if (hydratedFromCache && !forceRefresh && _allowedClassroomCodes.isNotEmpty) {
+    if (hydratedFromCache &&
+        !forceRefresh &&
+        _allowedClassroomCodes.isNotEmpty) {
       return;
     }
 
@@ -241,8 +263,8 @@ class ActivityStudentSelectionCubit
       final scoped = _allowedClassroomCodes.isEmpty
           ? classrooms
           : classrooms
-              .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
-              .toList();
+                .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                .toList();
 
       _emitClassrooms(
         names: scoped.map((c) => c.name).toList(),
@@ -251,13 +273,16 @@ class ActivityStudentSelectionCubit
       );
 
       await _cacheManager.saveCache(classroomCacheKey, {
-        'classrooms':
-            classrooms.map((c) => {'name': c.name, 'code': c.code}).toList(),
+        'classrooms': classrooms
+            .map((c) => {'name': c.name, 'code': c.code})
+            .toList(),
       });
     } catch (error) {
-      _safeEmit(state.copyWith(
-        filtersMessage: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      _safeEmit(
+        state.copyWith(
+          filtersMessage: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -274,12 +299,14 @@ class ActivityStudentSelectionCubit
     final defaultName = (primaryName != null && names.contains(primaryName))
         ? primaryName
         : (names.isNotEmpty ? names.first : null);
-    _safeEmit(state.copyWith(
-      classroomOptions: names,
-      classroomCodeByName: codeByName,
-      classroomNameByCode: nameByCode,
-      defaultClassroomName: defaultName,
-    ));
+    _safeEmit(
+      state.copyWith(
+        classroomOptions: names,
+        classroomCodeByName: codeByName,
+        classroomNameByCode: nameByCode,
+        defaultClassroomName: defaultName,
+      ),
+    );
   }
 
   Future<void> _loadTags({bool forceRefresh = false}) async {
@@ -291,15 +318,19 @@ class ActivityStudentSelectionCubit
         schoolCode: _schoolCode,
         forceRefresh: forceRefresh,
       );
-      _safeEmit(state.copyWith(
-        tagCodeByName: Map<String, String>.from(nameCodeMap),
-        tagOptions: nameCodeMap.keys.toList()..sort(),
-      ));
+      _safeEmit(
+        state.copyWith(
+          tagCodeByName: Map<String, String>.from(nameCodeMap),
+          tagOptions: nameCodeMap.keys.toList()..sort(),
+        ),
+      );
     } catch (error) {
       // Tags are non-critical; surface message once.
-      _safeEmit(state.copyWith(
-        filtersMessage: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      _safeEmit(
+        state.copyWith(
+          filtersMessage: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -315,8 +346,8 @@ class ActivityStudentSelectionCubit
         (state.classroomCodeByName[selectedClassroomName]?.trim() ?? '');
     final classroomCodes = selectedClassroomCode.isEmpty
         ? (_primaryClassroomCode?.trim().isNotEmpty == true
-            ? <String>[_primaryClassroomCode!.trim()]
-            : null)
+              ? <String>[_primaryClassroomCode!.trim()]
+              : null)
         : <String>[selectedClassroomCode];
 
     final tagCodes = selectedTagNames
@@ -324,7 +355,9 @@ class ActivityStudentSelectionCubit
         .whereType<String>()
         .toList();
 
-    _safeEmit(state.copyWith(isLoadingStudents: true, clearStudentsError: true));
+    _safeEmit(
+      state.copyWith(isLoadingStudents: true, clearStudentsError: true),
+    );
     try {
       final selectedDate = _formatAttendanceDate(date);
       final students = await _getMarkActivityStudentListUseCase(
@@ -348,19 +381,23 @@ class ActivityStudentSelectionCubit
         }
       }
 
-      _safeEmit(state.copyWith(
-        students: students,
-        nappingStudentCodes: nappingCodes,
-        isLoadingStudents: false,
-        clearStudentsError: true,
-      ));
+      _safeEmit(
+        state.copyWith(
+          students: students,
+          nappingStudentCodes: nappingCodes,
+          isLoadingStudents: false,
+          clearStudentsError: true,
+        ),
+      );
     } catch (error) {
       final message = ApiErrorHandler.extractErrorMessage(error);
-      _safeEmit(state.copyWith(
-        isLoadingStudents: false,
-        studentsError: message,
-        filtersMessage: message,
-      ));
+      _safeEmit(
+        state.copyWith(
+          isLoadingStudents: false,
+          studentsError: message,
+          filtersMessage: message,
+        ),
+      );
     }
   }
 
@@ -431,9 +468,12 @@ class ActivityStudentSelectionState extends Equatable {
       isLoadingFilters: isLoadingFilters ?? this.isLoadingFilters,
       isLoadingStudents: isLoadingStudents ?? this.isLoadingStudents,
       filtersReady: filtersReady ?? this.filtersReady,
-      studentsError: clearStudentsError ? null : (studentsError ?? this.studentsError),
-      filtersMessage:
-          clearFiltersMessage ? null : (filtersMessage ?? this.filtersMessage),
+      studentsError: clearStudentsError
+          ? null
+          : (studentsError ?? this.studentsError),
+      filtersMessage: clearFiltersMessage
+          ? null
+          : (filtersMessage ?? this.filtersMessage),
       classroomOptions: classroomOptions ?? this.classroomOptions,
       classroomCodeByName: classroomCodeByName ?? this.classroomCodeByName,
       classroomNameByCode: classroomNameByCode ?? this.classroomNameByCode,
@@ -448,19 +488,19 @@ class ActivityStudentSelectionState extends Equatable {
 
   @override
   List<Object?> get props => <Object?>[
-        isLoadingFilters,
-        isLoadingStudents,
-        filtersReady,
-        studentsError,
-        filtersMessage,
-        classroomOptions,
-        classroomCodeByName,
-        classroomNameByCode,
-        tagOptions,
-        tagCodeByName,
-        students,
-        nappingStudentCodes,
-        schoolTimeZone,
-        defaultClassroomName,
-      ];
+    isLoadingFilters,
+    isLoadingStudents,
+    filtersReady,
+    studentsError,
+    filtersMessage,
+    classroomOptions,
+    classroomCodeByName,
+    classroomNameByCode,
+    tagOptions,
+    tagCodeByName,
+    students,
+    nappingStudentCodes,
+    schoolTimeZone,
+    defaultClassroomName,
+  ];
 }

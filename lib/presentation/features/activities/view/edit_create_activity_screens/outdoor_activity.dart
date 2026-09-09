@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -116,6 +117,10 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final _attachmentState = ActivityPhotoAttachmentState();
+
+  /// Cancels any in-flight media upload when this screen is disposed, so a
+  /// large upload doesn't keep running after the user leaves the screen.
+  final CancelToken _uploadCancelToken = CancelToken();
   List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
@@ -549,19 +554,29 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final message = await _editor.createActivity(
@@ -639,10 +654,9 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
+      cancelToken: _uploadCancelToken,
     );
   }
 
@@ -737,12 +751,16 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected —
+      // don't surface it as an error. Non-cancel failures show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -772,7 +790,11 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
@@ -787,7 +809,11 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
     if (_uploadedPhotoCount == _newPhotos.length) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
@@ -799,7 +825,11 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
 
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: AppColors.activityUploadWarningColor),
+        const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: AppColors.activityUploadWarningColor,
+        ),
         const SizedBox(width: 8),
         Text(
           'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
@@ -989,19 +1019,29 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
 
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffParamCode, value: staffPresentCode),
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
           ActivityParameterValue(
-              parameterCode: descParamCode, value: description),
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
@@ -1106,6 +1146,11 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
 
   @override
   void dispose() {
+    // Abort any in-flight media upload so it doesn't keep running after the
+    // user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }

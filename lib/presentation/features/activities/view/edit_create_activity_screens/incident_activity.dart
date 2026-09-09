@@ -18,6 +18,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
+import '../../../../../core/util/logger_service.dart';
 import '../../../../../domain/features/activity/entities/activity_attachment.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
@@ -524,7 +525,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         .map((p) => p.parameterCode)
         .where((c) => c.isNotEmpty)
         .toList();
-    debugPrint(
+    AppLogger.d(
       '[Incident][$source] parameterValues: count=${parameterValues.length} '
       'codes=$codes',
     );
@@ -815,7 +816,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         final oc = optionApiCode(pick);
         if (oc != null) {
           return ActivityParameterValue(
-              parameterCode: pc, selectedOptionCode: oc);
+            parameterCode: pc,
+            selectedOptionCode: oc,
+          );
         }
       }
       if (sorted.length == 2) {
@@ -823,7 +826,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         final oc = optionApiCode(o);
         if (oc != null) {
           return ActivityParameterValue(
-              parameterCode: pc, selectedOptionCode: oc);
+            parameterCode: pc,
+            selectedOptionCode: oc,
+          );
         }
       }
     }
@@ -833,7 +838,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       return ActivityParameterValue(parameterCode: pc, value: given);
     }
     return ActivityParameterValue(
-        parameterCode: pc, value: given ? 'Yes' : 'No');
+      parameterCode: pc,
+      value: given ? 'Yes' : 'No',
+    );
   }
 
   @override
@@ -1768,34 +1775,53 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           : '';
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: staffParamCode, value: staffCode),
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffCode,
+          ),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: whatParamCode, value: whatValueForParam),
+            parameterCode: whatParamCode,
+            value: whatValueForParam,
+          ),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
           ActivityParameterValue(
-              parameterCode: notesParamCode, value: additionalNotes),
+            parameterCode: notesParamCode,
+            value: additionalNotes,
+          ),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: staffSignParamCode, value: staffSignValue),
+            parameterCode: staffSignParamCode,
+            value: staffSignValue,
+          ),
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: adminSignParamCode, value: adminSignValue),
+            parameterCode: adminSignParamCode,
+            value: adminSignValue,
+          ),
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: parentSignParamCode, value: parentSignValue),
+            parameterCode: parentSignParamCode,
+            value: parentSignValue,
+          ),
       ];
       _debugIncidentParameterValues('create', parameterValues);
 
@@ -2176,9 +2202,15 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           : '';
       final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: dateParamCode, value: localDate),
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          ActivityParameterValue(parameterCode: timeParamCode, value: localTime),
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             creatorStaffCodeForIncident.isNotEmpty)
@@ -2188,13 +2220,17 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           ),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
           ActivityParameterValue(
-              parameterCode: whatParamCode, value: whatValueForParam),
+            parameterCode: whatParamCode,
+            value: whatValueForParam,
+          ),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
           ActivityParameterValue(
-              parameterCode: notesParamCode, value: additionalNotes),
+            parameterCode: notesParamCode,
+            value: additionalNotes,
+          ),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
           ActivityParameterValue(
             parameterCode: staffSignParamCode,
@@ -2322,10 +2358,8 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
       cancelToken: _incidentUploadCancelToken,
     );
   }
@@ -3026,7 +3060,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -3050,7 +3088,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: AppColors.activityUploadSuccessColor),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -3066,7 +3108,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       ..write('Photos $_uploadedPhotoCount/${_newPhotos.length}');
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: AppColors.activityUploadWarningColor),
+        const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: AppColors.activityUploadWarningColor,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

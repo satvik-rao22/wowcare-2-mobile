@@ -850,6 +850,81 @@ class AppColors {
   static const Color activityVideoProgressBufferedColor =
       Colors.white38; // Video-progress buffered segment (recurs 1x)
 
+  // Student specific colors
+  //
+  // General white alias so bare `Colors.white` surfaces/icons resolve through
+  // AppColors, matching the existing [blackColor] alias.
+  static const Color whiteColor = Colors.white;
+
+  // Profile status-chip palette (StudentAboutTabCard): each status pairs a
+  // saturated label color with a 10%-alpha background of the same hue.
+  // Waitlist/Graduated reuse [secondaryColor] (label) + [staffBadgeActiveBg]
+  // (background) — no dedicated token needed.
+  static const Color studentStatusActiveColor = Color(
+    0xFF38C820,
+  ); // Active label (was rgbo(56,200,32,1))
+  static const Color studentStatusActiveBg = Color(
+    0x1A38C820,
+  ); // Active chip bg (was rgbo(56,200,32,0.1))
+  static const Color studentStatusInactiveColor = Color(
+    0xFFFA4141,
+  ); // Inactive label (was rgbo(250,65,65,1))
+  static const Color studentStatusInactiveBg = Color(
+    0x1AFA4141,
+  ); // Inactive chip bg (was rgbo(250,65,65,0.1))
+  static const Color studentStatusUpcomingColor = Color(
+    0xFF8A6E00,
+  ); // Upcoming label (was fromARGB(255,138,110,0))
+  static const Color studentStatusUpcomingBg = Color(
+    0xFFF2EEB0,
+  ); // Upcoming chip bg (was fromARGB(255,242,238,176))
+
+  // Health / immunization / important-dates status palette (health tab cards):
+  // a saturated hue for icons/labels plus a 10%-alpha tint of the same hue for
+  // the row/badge background. [errorColor] (0xFFD32F2F) covers the red case;
+  // [studentErrorBg] is its 10% tint.
+  static const Color studentHealthOrangeColor = Color(0xFFEF6C00); // overdue/warning
+  static const Color studentHealthOrangeBg = Color(0x1AEF6C00);
+  static const Color studentHealthYellowColor = Color(0xFFEABA00); // due-soon
+  static const Color studentHealthYellowBg = Color(0x1AEABA00);
+  static const Color studentStatusActiveBgSolid = Color(
+    0xFFE8F5E9,
+  ); // solid green "complete" background (was 0xFFE8F5E9)
+  static const Color studentErrorBg = Color(0x1AD32F2F); // errorColor @ 10%
+  static const Color studentHealthRedDark = Color(0xFFC62828); // strong error text
+  static const Color studentHealthGreenDark = Color(0xFF1B5E20); // strong success text
+  static const Color studentHealthBlue = Color(0xFF3B82F6); // info accent
+  static const Color studentHealthRedBg = Color(0xFFFFEBEE); // light error background
+  static const Color studentHealthBlueBg = Color(0xFFE8F1FE); // light info background
+  static const Color studentAmberBg = Color(0xFFFFF8E1); // light amber background
+
+  // Neutral greys used across student cards/forms.
+  static const Color studentMutedText = Color(0xFF6C6377); // muted plum-grey label/icon
+  static const Color studentBorderGrey = Color(0xFFC9C5CE); // input/card border
+  static const Color studentDisabledGrey = Color(0xFFB8B3BE); // disabled/placeholder
+  static const Color studentDividerGrey = Color(0xFFECEFF1); // light divider/border
+  static const Color studentSurfaceGrey = Color(0xFFF2F2F2); // light surface fill
+  static const Color studentGrey = Color(0xFF828282); // medium neutral text/icon
+  static const Color studentDarkPlum = Color(0xFF241631); // avatar/photo overlay base
+
+  // Purple / lavender accents (add-student wizard, chips).
+  static const Color studentLavenderTint = Color(0x66EAD6FF); // light lavender chip bg
+  static const Color studentLavenderBorder = Color(
+    0xB3C8BFFF,
+  ); // lavender border (was rgbo(200,191,255,0.7))
+  static const Color studentPurpleTint = Color(
+    0xFFF1EAFF,
+  ); // light purple fill (was rgbo(241,234,255,1))
+  static const Color studentPurple = Color(
+    0xFFAA8DFF,
+  ); // purple accent (was rgbo(170,141,255,1))
+  static const Color studentAccentPurple = Color(
+    0xFF9C84FF,
+  ); // gradient purple accent (was rgbo(156,132,255,1))
+
+  // Info blue (was bare Colors.blue / Colors.blue[50]).
+  static const Color studentInfoColor = Color(0xFF2196F3);
+  static const Color studentInfoBg = Color(0xFFE3F2FD);
   // Auth module colors — Mandate 4 sweep
   //
   // Primary headings/icons/body text across sign-in, org/school selection,
@@ -1020,6 +1095,111 @@ class AppColors {
   static const Color futureAvailabilityNegativeCountColor = Color.fromRGBO(236, 99, 99, 1);
   static const Color futureAvailabilityPositiveCountColor = Color.fromRGBO(0, 145, 94, 1);
 
+  // ── Dashboard: geofence attendance state (SEMANTIC) ────────────────────────
+  // Mandate 4: these encode whether GPS self-attendance is currently possible,
+  // so they are named semantic tokens, not palette entries. Exact hexes carried
+  // over from my_day_card.dart — rendered output is unchanged.
+  //
+  // NOTE (§4.3 accessibility): the inside/outside states are ALSO distinguished
+  // by their label text and dot, not by colour alone.
+
+  /// Dot shown when the user is inside the school geofence.
+  static const Color geofenceInsideIndicator = Color(0xFF22C55E);
+
+  /// Label text for the inside-geofence state.
+  static const Color geofenceInsideText = Color(0xFF16A34A);
+
+  /// Unread-count badge on a dashboard chat-preview row.
+  static const Color chatUnreadBadge = Color(0xFF00B894);
+
+  /// Tint behind the chat-preview strip at the foot of the My Day card.
+  static const Color chatPreviewSurface = Color.fromRGBO(44, 99, 226, 0.05);
+
+  /// Fill behind the Work Time / Break Time chips on the My Day card.
+  static const Color myDayChipSurface = Color.fromRGBO(177, 175, 233, 0.3);
+
+  // ── Dashboard: disabled / shimmer chrome ──────────────────────────────────
+
+  /// Label of a disabled self-attendance action button.
+  static const Color disabledActionLabel = Color(0xFF757575); // Colors.grey[600]
+
+  /// Border of a disabled self-attendance action button.
+  static const Color disabledActionBorder = Color(0xFFBDBDBD); // Colors.grey[400]
+
+  /// Shimmer skeleton base / highlight.
+  static const Color shimmerBase = Color(0xFFE0E0E0);      // Colors.grey[300]
+  static const Color shimmerHighlight = Color(0xFFF5F5F5); // Colors.grey[100]
+
+  // ── Newsletter (Mandate 4) ────────────────────────────────────────────────
+  // Feature-prefixed, matching the `billing*` convention already in this file.
+  //
+  // NOTE FOR THE OTHER MODULES: the newsletter's *content* colours are NOT
+  // here and must not be. `NewsletterThemeColors` resolves a per-newsletter
+  // palette chosen by the author (vibrant / ocean / forest / sunset /
+  // professional) — that is DATA arriving with the record, not app theming.
+  // Only the app's own chrome around the content is tokenised below.
+
+  /// Unselected newsletter tab label. Was `Color.fromARGB(50, 36, 22, 49)`.
+  static const Color newsletterTabUnselectedLabel = Color.fromARGB(
+    50,
+    36,
+    22,
+    49,
+  );
+
+  /// Unselected newsletter tab chip fill. Was
+  /// `Color.fromARGB(102, 203, 246, 255)`.
+  static const Color newsletterTabUnselectedBackground = Color.fromARGB(
+    102,
+    203,
+    246,
+    255,
+  );
+
+  /// Attachment tile fill in the preview grid.
+  /// Was `Color.fromRGBO(244, 247, 254, 1)`.
+  static const Color newsletterAttachmentTileBackground = Color.fromRGBO(
+    244,
+    247,
+    254,
+    1,
+  );
+
+  /// Document (non-image) thumbnail fill on a list card, when the asset
+  /// resolved. Was `Color(0xFFEAF2FF)`.
+  static const Color newsletterDocumentThumbnailBackground = Color(0xFFEAF2FF);
+
+  /// Document thumbnail fill when no asset resolved, and the fallback behind a
+  /// failed placeholder image. Was `Colors.grey.shade200`.
+  static const Color newsletterThumbnailPlaceholderBackground = Color(
+    0xFFEEEEEE,
+  );
+
+  /// Letterbox behind a component image while it loads.
+  /// Was `Colors.grey.shade100`.
+  ///
+  /// Same hex as [shimmerHighlight] but a different meaning, so it is its own
+  /// token rather than a reuse (§4: a colour that encodes meaning gets a named
+  /// semantic token).
+  static const Color newsletterImageLoadingBackground = Color(0xFFF5F5F5);
+
+  /// Background of the "loaded from cache, refresh failed" banner on the
+  /// preview screen. A SEMANTIC state colour, not a palette entry — it is the
+  /// only thing distinguishing a stale newsletter from a fresh one, and it
+  /// pairs with the banner's own text. Was `Colors.orange.shade50`.
+  static const Color newsletterStaleBannerBackground = Color(0xFFFFF3E0);
+
+  /// Scrim behind the "+N" extra-attachment count on a card thumbnail.
+  /// Was `Colors.black.withValues(alpha: 0.65)`.
+  static final Color newsletterAttachmentCountScrim = blackColor.withValues(
+    alpha: 0.65,
+  );
+
+  /// Card surface of the full-screen image preview overlay.
+  /// Was `Colors.white.withValues(alpha: 0.95)`.
+  static final Color newsletterOverlaySurface = whiteColor.withValues(
+    alpha: 0.95,
+  );
   // Communication / messaging (Mandate 4) — see
   // lib/presentation/features/communication/. Semantic names; light-mode hex
   // preserved exactly.

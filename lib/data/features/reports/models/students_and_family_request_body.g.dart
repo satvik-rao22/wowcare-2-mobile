@@ -7,8 +7,7 @@ part of 'students_and_family_request_body.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$StudentsAndFamilyRequestBodyToJson(
-  StudentsAndFamilyRequestBody instance,
-) {
+    StudentsAndFamilyRequestBody instance) {
   final val = <String, dynamic>{
     'reportType': instance.reportType,
     'startDate': instance.startDate,

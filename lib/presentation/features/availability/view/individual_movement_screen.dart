@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,6 +14,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -20,7 +22,11 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class IndividualMovementScreen extends StatefulWidget {
-  const IndividualMovementScreen({super.key, this.highlightCode, this.studentCode});
+  const IndividualMovementScreen({
+    super.key,
+    this.highlightCode,
+    this.studentCode,
+  });
 
   /// Movement id (as string) from a notification deep-link; the matching
   /// movement card scrolls into view and flashes.
@@ -29,10 +35,11 @@ class IndividualMovementScreen extends StatefulWidget {
   /// When set, pre-filters the board to this student code.
   final String? studentCode;
 
-  static const String routeName = '/dashboard/individual-movement';
+  static const String routeName = DashboardRoutes.individualMovement;
 
   @override
-  State<IndividualMovementScreen> createState() => _IndividualMovementScreenState();
+  State<IndividualMovementScreen> createState() =>
+      _IndividualMovementScreenState();
 }
 
 class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
@@ -149,9 +156,15 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         _classroomNamesByCode = options.classroomNamesByCode;
         _filterStudentCodes = options.studentCodes;
         _filterClassroomCodes = options.classroomCodes;
-        _selectedStudents = _selectedStudents.where(options.studentNamesByCode.containsKey).toList();
-        _fromClassrooms = _fromClassrooms.where(options.classroomNamesByCode.containsKey).toList();
-        _toClassrooms = _toClassrooms.where(options.classroomNamesByCode.containsKey).toList();
+        _selectedStudents = _selectedStudents
+            .where(options.studentNamesByCode.containsKey)
+            .toList();
+        _fromClassrooms = _fromClassrooms
+            .where(options.classroomNamesByCode.containsKey)
+            .toList();
+        _toClassrooms = _toClassrooms
+            .where(options.classroomNamesByCode.containsKey)
+            .toList();
       });
       await _persistFilters();
     } catch (_) {
@@ -160,7 +173,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   List<MovementSection> _buildSections(IndividualMovementBoard? board) {
-    MovementSection sectionFor(MovementBucket bucket, List<IndividualMovement> items) {
+    MovementSection sectionFor(
+      MovementBucket bucket,
+      List<IndividualMovement> items,
+    ) {
       return MovementSection(
         title: bucket.label,
         backgroundColor: bucket.sectionBackgroundColor,
@@ -235,7 +251,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       case IndividualMovementAction.confirm:
         MovementItem? fresh;
         try {
-          final movement = await _individualMovementsCubit.getMovementById(item.id);
+          final movement = await _individualMovementsCubit.getMovementById(
+            item.id,
+          );
           fresh = MovementItem.fromEntity(movement);
         } catch (_) {
           fresh = null;
@@ -307,7 +325,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           onDelete: () async {
             Navigator.of(ctx).pop();
             try {
-              final message = await _individualMovementsCubit.deleteMovement(id: item.id);
+              final message = await _individualMovementsCubit.deleteMovement(
+                id: item.id,
+              );
               if (!mounted) return;
               CoreUtils.showTopSnackBar(
                 context: context,
@@ -349,7 +369,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
     IndividualMovement resolvedMovement;
     try {
-      resolvedMovement = await _individualMovementsCubit.getMovementById(item.id);
+      resolvedMovement = await _individualMovementsCubit.getMovementById(
+        item.id,
+      );
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceFirst('Exception: ', '').trim();
@@ -361,9 +383,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    final students = _filterStudentCodes.isNotEmpty ? _filterStudentCodes : _uniqueStudents(board);
-    final classrooms =
-        _filterClassroomCodes.isNotEmpty ? _filterClassroomCodes : _uniqueClassrooms(board);
+    final students = _filterStudentCodes.isNotEmpty
+        ? _filterStudentCodes
+        : _uniqueStudents(board);
+    final classrooms = _filterClassroomCodes.isNotEmpty
+        ? _filterClassroomCodes
+        : _uniqueClassrooms(board);
     final existing = board.all.map(MovementItem.fromEntity).toList();
     final studentNamesByCode = <String, String>{..._studentNamesByCode};
     final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
@@ -385,7 +410,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       }
     }
 
-    final editMovementType = movementTypeFromEntity(resolvedMovement.movementType);
+    final editMovementType = movementTypeFromEntity(
+      resolvedMovement.movementType,
+    );
     final MovementFormResult? result = await context.push<MovementFormResult>(
       '/dashboard/individual-movement/add-edit',
       extra: AddEditMovementArgs(
@@ -396,8 +423,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         editingMovementId: resolvedMovement.id,
         disablePastDates: true,
         lockClassroomSelection:
-            resolvedMovement.status == IndividualMovementWorkflowStatus.confirmed &&
-                resolvedMovement.movementType != IndividualMovementType.moveToNextClassroom,
+            resolvedMovement.status ==
+                IndividualMovementWorkflowStatus.confirmed &&
+            resolvedMovement.movementType !=
+                IndividualMovementType.moveToNextClassroom,
         movementType: editMovementType,
         studentNamesByCode: studentNamesByCode,
         classroomNamesByCode: classroomNamesByCode,
@@ -413,15 +442,16 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
     if (result == null || !mounted) return;
 
-    final String? error = IndividualMovementValidators.validateMoveToNextClassroomForm(
-      student: result.student,
-      fromClassroom: result.currentClassroom,
-      toClassroom: result.nextClassroom,
-      movementType: editMovementType,
-      movementDate: result.movementDate,
-      existing: existing,
-      excludeId: resolvedMovement.id,
-    );
+    final String? error =
+        IndividualMovementValidators.validateMoveToNextClassroomForm(
+          student: result.student,
+          fromClassroom: result.currentClassroom,
+          toClassroom: result.nextClassroom,
+          movementType: editMovementType,
+          movementDate: result.movementDate,
+          existing: existing,
+          excludeId: resolvedMovement.id,
+        );
     if (error != null) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -534,33 +564,29 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
   void _startEdgeAutoPaging() {
     if (_edgeAutoPageTimer != null) return;
-    _edgeAutoPageTimer = Timer.periodic(
-      const Duration(milliseconds: 460),
-      (_) {
-        if (!_isDraggingCard || _edgeDirection == 0) {
-          _stopEdgeAutoPaging();
-          return;
-        }
-        if (!_sectionPageController.hasClients) {
-          _stopEdgeAutoPaging();
-          return;
-        }
+    _edgeAutoPageTimer = Timer.periodic(const Duration(milliseconds: 460), (_) {
+      if (!_isDraggingCard || _edgeDirection == 0) {
+        _stopEdgeAutoPaging();
+        return;
+      }
+      if (!_sectionPageController.hasClients) {
+        _stopEdgeAutoPaging();
+        return;
+      }
 
-        final targetIndex = _currentSectionIndex + _edgeDirection;
-        if (targetIndex < 0 ||
-            targetIndex >= MovementBucket.values.length) {
-          // Hit a boundary; stop until user moves to other edge.
-          _stopEdgeAutoPaging();
-          return;
-        }
+      final targetIndex = _currentSectionIndex + _edgeDirection;
+      if (targetIndex < 0 || targetIndex >= MovementBucket.values.length) {
+        // Hit a boundary; stop until user moves to other edge.
+        _stopEdgeAutoPaging();
+        return;
+      }
 
-        _sectionPageController.animateToPage(
-          targetIndex,
-          duration: const Duration(milliseconds: 340),
-          curve: Curves.easeInOutCubic,
-        );
-      },
-    );
+      _sectionPageController.animateToPage(
+        targetIndex,
+        duration: const Duration(milliseconds: 340),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   void _onCardDragGlobalUpdate(Offset globalPosition) {
@@ -612,7 +638,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         'classroom': classroom,
         'tags': const <String>[],
         'schedule': const <String>[],
-        'sibling': const <String, dynamic>{},
+        'sibling': const StudentSiblingInfo(),
         'studentCode': studentCode,
       },
     );
@@ -646,7 +672,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       await _transitionMovementStatus(
         id: item.id,
         status: IndividualMovementWorkflowStatus.pending,
-        comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
+        comment: item.comment.isEmpty
+            ? 'Moved to pending via drag'
+            : item.comment,
       );
       return;
     }
@@ -689,7 +717,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         status: IndividualMovementWorkflowStatus.confirmed,
         comment: confirmDecision.comment.trim().isNotEmpty
             ? confirmDecision.comment.trim()
-            : (item.comment.isEmpty ? 'Moved to confirmed via drag' : item.comment),
+            : (item.comment.isEmpty
+                  ? 'Moved to confirmed via drag'
+                  : item.comment),
       );
       return;
     }
@@ -706,7 +736,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         status: IndividualMovementWorkflowStatus.rejected,
         comment: decision.comment.trim().isNotEmpty
             ? decision.comment.trim()
-            : (item.comment.isEmpty ? 'Moved to rejected via drag' : item.comment),
+            : (item.comment.isEmpty
+                  ? 'Moved to rejected via drag'
+                  : item.comment),
       );
       return;
     }
@@ -718,14 +750,17 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       message: 'Select a future date to move this movement to Upcoming.',
       mustBeFuture: true,
     );
-    if (dateDecision == null || dateDecision.confirmed != true || !mounted) return;
+    if (dateDecision == null || dateDecision.confirmed != true || !mounted)
+      return;
     final newDate = dateDecision.selectedDate;
     if (newDate == null) return;
 
     await _transitionMovementStatus(
       id: item.id,
       status: IndividualMovementWorkflowStatus.pending,
-      comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
+      comment: item.comment.isEmpty
+          ? 'Moved to pending via drag'
+          : item.comment,
       newMovementDate: newDate,
     );
   }
@@ -738,179 +773,179 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       bloc: _individualMovementsCubit,
       builder: (BuildContext context, IndividualMovementsState state) {
         final sections = _buildSections(state.board);
-          _maybeJumpToHighlightBucket(sections);
-          final students = _filterStudentCodes.isNotEmpty
-              ? _filterStudentCodes
-              : _uniqueStudents(state.board);
-          final classrooms = _filterClassroomCodes.isNotEmpty
-              ? _filterClassroomCodes
-              : _uniqueClassrooms(state.board);
-          final roles = context.watch<RoleCubit>();
-          final bool isViewOnly = !_canMutateMovements(roles);
-          final studentNamesByCode = <String, String>{..._studentNamesByCode};
-          final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
-          if (state.board != null) {
-            for (final m in state.board!.all) {
-              final sCode = m.studentCode.trim();
-              final sName = m.studentName.trim();
-              if (sCode.isNotEmpty && sName.isNotEmpty) {
-                studentNamesByCode[sCode] = sName;
-              }
-              final fromCode = m.fromClassroomCode.trim();
-              final fromName = m.fromClassroomName.trim();
-              if (fromCode.isNotEmpty && fromName.isNotEmpty) {
-                classroomNamesByCode[fromCode] = fromName;
-              }
-              final toCode = m.toClassroomCode.trim();
-              final toName = m.toClassroomName.trim();
-              if (toCode.isNotEmpty && toName.isNotEmpty) {
-                classroomNamesByCode[toCode] = toName;
-              }
+        _maybeJumpToHighlightBucket(sections);
+        final students = _filterStudentCodes.isNotEmpty
+            ? _filterStudentCodes
+            : _uniqueStudents(state.board);
+        final classrooms = _filterClassroomCodes.isNotEmpty
+            ? _filterClassroomCodes
+            : _uniqueClassrooms(state.board);
+        final roles = context.watch<RoleCubit>();
+        final bool isViewOnly = !_canMutateMovements(roles);
+        final studentNamesByCode = <String, String>{..._studentNamesByCode};
+        final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
+        if (state.board != null) {
+          for (final m in state.board!.all) {
+            final sCode = m.studentCode.trim();
+            final sName = m.studentName.trim();
+            if (sCode.isNotEmpty && sName.isNotEmpty) {
+              studentNamesByCode[sCode] = sName;
+            }
+            final fromCode = m.fromClassroomCode.trim();
+            final fromName = m.fromClassroomName.trim();
+            if (fromCode.isNotEmpty && fromName.isNotEmpty) {
+              classroomNamesByCode[fromCode] = fromName;
+            }
+            final toCode = m.toClassroomCode.trim();
+            final toName = m.toClassroomName.trim();
+            if (toCode.isNotEmpty && toName.isNotEmpty) {
+              classroomNamesByCode[toCode] = toName;
             }
           }
+        }
 
-          String studentNameForCode(String code) =>
-              (studentNamesByCode[code.trim()] ?? '').trim();
-          String classroomNameForCode(String code) =>
-              (classroomNamesByCode[code.trim()] ?? '').trim();
+        String studentNameForCode(String code) =>
+            (studentNamesByCode[code.trim()] ?? '').trim();
+        String classroomNameForCode(String code) =>
+            (classroomNamesByCode[code.trim()] ?? '').trim();
 
-          final studentOptions = buildDisplayOnlyOptions(
-            codes: students,
-            nameForCode: studentNameForCode,
-          );
-          final classroomOptions = buildDisplayOnlyOptions(
-            codes: classrooms,
-            nameForCode: classroomNameForCode,
-          );
+        final studentOptions = buildDisplayOnlyOptions(
+          codes: students,
+          nameForCode: studentNameForCode,
+        );
+        final classroomOptions = buildDisplayOnlyOptions(
+          codes: classrooms,
+          nameForCode: classroomNameForCode,
+        );
 
-          final selectedStudentDisplays = _selectedStudents
-              .map((c) => studentOptions.codeToDisplay[c.trim()])
-              .whereType<String>()
-              .toList();
-          final selectedFromDisplays = _fromClassrooms
-              .map((c) => classroomOptions.codeToDisplay[c.trim()])
-              .whereType<String>()
-              .toList();
-          final selectedToDisplays = _toClassrooms
-              .map((c) => classroomOptions.codeToDisplay[c.trim()])
-              .whereType<String>()
-              .toList();
+        final selectedStudentDisplays = _selectedStudents
+            .map((c) => studentOptions.codeToDisplay[c.trim()])
+            .whereType<String>()
+            .toList();
+        final selectedFromDisplays = _fromClassrooms
+            .map((c) => classroomOptions.codeToDisplay[c.trim()])
+            .whereType<String>()
+            .toList();
+        final selectedToDisplays = _toClassrooms
+            .map((c) => classroomOptions.codeToDisplay[c.trim()])
+            .whereType<String>()
+            .toList();
 
-          return GlobalScaffold(
-            hasBackButton: false,
-            showCustomNavigationBar: true,
-            body: CustomRefreshIndicator(
-              displacement: 28,
-              onRefresh: _onPullRefreshBuckets,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: <Widget>[
-                          const Expanded(
-                            child: Text(
-                              'Overview',
-                              style: AppTextStyles.movementSectionHeading,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IndividualMovementFilterCard(
-                      students: studentOptions.items,
-                      classrooms: classroomOptions.items,
-                      selectedStudents: selectedStudentDisplays,
-                      fromClassrooms: selectedFromDisplays,
-                      toClassrooms: selectedToDisplays,
-                      filterRangeStart: _filterRangeStart,
-                      filterRangeEnd: _filterRangeEnd,
-                      onStudentsChanged: (List<String> displays) {
-                        final codes = displays
-                            .map((d) => studentOptions.displayToCode[d.trim()])
-                            .whereType<String>()
-                            .toList();
-                        setState(() => _selectedStudents = codes);
-                        _persistFilters();
-                        _fetchMovements();
-                      },
-                      onFromClassroomsChanged: (List<String> displays) {
-                        final codes = displays
-                            .map((d) => classroomOptions.displayToCode[d.trim()])
-                            .whereType<String>()
-                            .toList();
-                        setState(() => _fromClassrooms = codes);
-                        _persistFilters();
-                        _fetchMovements();
-                      },
-                      onToClassroomsChanged: (List<String> displays) {
-                        final codes = displays
-                            .map((d) => classroomOptions.displayToCode[d.trim()])
-                            .whereType<String>()
-                            .toList();
-                        setState(() => _toClassrooms = codes);
-                        _persistFilters();
-                        _fetchMovements();
-                      },
-                      onDateRangeChanged: (DateTime? start, DateTime? end) {
-                        setState(() {
-                          _filterRangeStart = start;
-                          _filterRangeEnd = end;
-                        });
-                        _persistFilters();
-                        _fetchMovements();
-                      },
-                      onClearAll: _clearFilters,
-                    ),
-                    const SizedBox(height: 12),
-                    if (state.isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: PrimaryCircularLoader(),
-                        ),
-                      )
-                    else if (state.errorMessage != null && state.board == null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        child: Center(
+        return GlobalScaffold(
+          hasBackButton: false,
+          showCustomNavigationBar: true,
+          body: CustomRefreshIndicator(
+            displacement: 28,
+            onRefresh: _onPullRefreshBuckets,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: <Widget>[
+                        const Expanded(
                           child: Text(
-                            state.errorMessage!,
-                            style: AppTextStyles.movementErrorText,
-                            textAlign: TextAlign.center,
+                            'Overview',
+                            style: AppTextStyles.movementSectionHeading,
                           ),
                         ),
-                      )
-                    else
-                      IndividualMovementPager(
-                        sections: sections,
-                        currentSectionIndex: _currentSectionIndex,
-                        sectionPageController: _sectionPageController,
-                        onPageChanged: (int index) =>
-                            setState(() => _currentSectionIndex = index),
-                        onPrevious: _goToPreviousSection,
-                        onNext: _goToNextSection,
-                        onActionSelected: _onMovementAction,
-                        onDropToBucket: _handleDropToBucket,
-                        isViewOnly: isViewOnly,
-                        canDragItem: _canDragItem,
-                        onDragStarted: _onCardDragStarted,
-                        onDragEnded: _onCardDragEnded,
-                        onDragGlobalUpdate: _onCardDragGlobalUpdate,
-                        highlightCode: widget.highlightCode,
-                        onStudentNameTap: _onStudentNameTap,
+                      ],
+                    ),
+                  ),
+                  IndividualMovementFilterCard(
+                    students: studentOptions.items,
+                    classrooms: classroomOptions.items,
+                    selectedStudents: selectedStudentDisplays,
+                    fromClassrooms: selectedFromDisplays,
+                    toClassrooms: selectedToDisplays,
+                    filterRangeStart: _filterRangeStart,
+                    filterRangeEnd: _filterRangeEnd,
+                    onStudentsChanged: (List<String> displays) {
+                      final codes = displays
+                          .map((d) => studentOptions.displayToCode[d.trim()])
+                          .whereType<String>()
+                          .toList();
+                      setState(() => _selectedStudents = codes);
+                      _persistFilters();
+                      _fetchMovements();
+                    },
+                    onFromClassroomsChanged: (List<String> displays) {
+                      final codes = displays
+                          .map((d) => classroomOptions.displayToCode[d.trim()])
+                          .whereType<String>()
+                          .toList();
+                      setState(() => _fromClassrooms = codes);
+                      _persistFilters();
+                      _fetchMovements();
+                    },
+                    onToClassroomsChanged: (List<String> displays) {
+                      final codes = displays
+                          .map((d) => classroomOptions.displayToCode[d.trim()])
+                          .whereType<String>()
+                          .toList();
+                      setState(() => _toClassrooms = codes);
+                      _persistFilters();
+                      _fetchMovements();
+                    },
+                    onDateRangeChanged: (DateTime? start, DateTime? end) {
+                      setState(() {
+                        _filterRangeStart = start;
+                        _filterRangeEnd = end;
+                      });
+                      _persistFilters();
+                      _fetchMovements();
+                    },
+                    onClearAll: _clearFilters,
+                  ),
+                  const SizedBox(height: 12),
+                  if (state.isLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: PrimaryCircularLoader(),
                       ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                    )
+                  else if (state.errorMessage != null && state.board == null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Center(
+                        child: Text(
+                          state.errorMessage!,
+                          style: AppTextStyles.movementErrorText,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  else
+                    IndividualMovementPager(
+                      sections: sections,
+                      currentSectionIndex: _currentSectionIndex,
+                      sectionPageController: _sectionPageController,
+                      onPageChanged: (int index) =>
+                          setState(() => _currentSectionIndex = index),
+                      onPrevious: _goToPreviousSection,
+                      onNext: _goToNextSection,
+                      onActionSelected: _onMovementAction,
+                      onDropToBucket: _handleDropToBucket,
+                      isViewOnly: isViewOnly,
+                      canDragItem: _canDragItem,
+                      onDragStarted: _onCardDragStarted,
+                      onDragEnded: _onCardDragEnded,
+                      onDragGlobalUpdate: _onCardDragGlobalUpdate,
+                      highlightCode: widget.highlightCode,
+                      onStudentNameTap: _onStudentNameTap,
+                    ),
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-          );
-        },
-      );
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _fetchMovements({bool initialLoad = false}) async {
@@ -939,7 +974,13 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
   List<String> _uniqueStudents(IndividualMovementBoard? board) {
     if (board == null) return const <String>[];
-    final values = board.all.map((e) => e.studentCode.trim()).where((e) => e.isNotEmpty).toSet().toList()..sort();
+    final values =
+        board.all
+            .map((e) => e.studentCode.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return values;
   }
 
@@ -955,5 +996,4 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     final list = values.toList()..sort();
     return list;
   }
-
 }

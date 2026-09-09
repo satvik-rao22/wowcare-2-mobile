@@ -17,7 +17,14 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/activities/cubit/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/upload_activity_assets_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 
 class _LoudActivityRepo implements ActivityRepository {
   @override
@@ -32,6 +39,30 @@ class _LoudStudentRepo implements StudentRepository {
 }
 
 class _LoudAttendanceRepo implements AttendanceRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
+class _LoudStaffRepo implements StaffRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
+class _LoudMediaUploadRepo implements ActivityMediaUploadRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
+class _LoudApiClient implements ApiClient {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
+class _FakeStorage implements StorageService {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} was not expected');
@@ -84,6 +115,13 @@ ActivityEditorCubit _buildCubit(CreateActivityUseCase create) {
         GetGuardianNameCodeMapForSchoolUseCase(_LoudStudentRepo()),
     getStaffTodaySignInStatusUseCase:
         GetStaffTodaySignInStatusUseCase(_LoudAttendanceRepo()),
+    storageService: _FakeStorage(),
+    uploadActivityAssetsUseCase: UploadActivityAssetsUseCase(_LoudMediaUploadRepo()),
+    getActivityUploadAssetStatusesUseCase:
+        GetActivityUploadAssetStatusesUseCase(_LoudMediaUploadRepo()),
+    apiClient: _LoudApiClient(),
+    staffRepository: _LoudStaffRepo(),
+    getStaffPageUseCase: GetStaffPageUseCase(_LoudStaffRepo()),
   );
 }
 

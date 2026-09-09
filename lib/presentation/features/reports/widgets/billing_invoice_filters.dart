@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
@@ -20,16 +19,12 @@ class BillingInvoiceFilters extends StatelessWidget {
     required this.selectedInvoiceStatuses,
     required this.selectedClassrooms,
     required this.selectedStudents,
-    required this.classroomFilter,
-    required this.studentFilter,
   });
 
   final List<String> classrooms;
   final ValueNotifier<List<String>> selectedInvoiceStatuses;
   final ValueNotifier<List<String>> selectedClassrooms;
   final ValueNotifier<List<String>> selectedStudents;
-  final ReportFilterDefault classroomFilter;
-  final ReportFilterDefault studentFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +36,7 @@ class BillingInvoiceFilters extends StatelessWidget {
           valueListenable: selectedInvoiceStatuses,
           builder: (_, selected, __) => CustomMultiSelectDropdown(
             label: ReportsStrings.invoiceStatus,
-            hintText: "Select Status",
-            isRequired: true,
+            hintText: ReportsStrings.allInvoiceStatuses,
             items: const ["Paid", "Unpaid", "Partial"],
             selectedItems: selected,
             onChanged: (s) => selectedInvoiceStatuses.value = s,
@@ -54,12 +48,11 @@ class BillingInvoiceFilters extends StatelessWidget {
           valueListenable: selectedClassrooms,
           builder: (_, selected, __) => CustomMultiSelectDropdown(
             label: ReportsStrings.classroom,
-            hintText: ReportsStrings.selectClassroom,
+            hintText: ReportsStrings.allClassrooms,
             items: classrooms,
-            isRequired: true,
             selectedItems: selected,
             onChanged: (s) {
-              selectedClassrooms.value = classroomFilter.userSelected(s);
+              selectedClassrooms.value = s;
               context.read<ReportsCubit>().loadFormStudents(
                 classroomNames: s,
                 concurrent: true,
@@ -69,7 +62,7 @@ class BillingInvoiceFilters extends StatelessWidget {
           ),
         ),
         const ReportDefaultNote(
-          text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+          text: ReportsStrings.noteAllClassroomsIncludedByDefault,
         ),
         SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
         // The student list and its loading flag are cubit-owned
@@ -87,12 +80,10 @@ class BillingInvoiceFilters extends StatelessWidget {
               label: ReportsStrings.tabStudent,
               hintText: students.loading
                   ? ReportsStrings.loadingStudents
-                  : ReportsStrings.selectStudents,
+                  : ReportsStrings.allStudents,
               items: students.items,
-              isRequired: true,
               selectedItems: selected,
-              onChanged: (s) =>
-                  selectedStudents.value = studentFilter.userSelected(s),
+              onChanged: (s) => selectedStudents.value = s,
               itemToString: (item) => item,
               singularLabel: ReportsStrings.tabStudent,
               pluralLabel: ReportsStrings.students,

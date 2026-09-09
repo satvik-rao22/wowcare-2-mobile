@@ -22,8 +22,8 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classroom/views/widgets/classroom_dropdown.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
-// import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/movements_card.dart';
+// import 'package:wowcare/presentation/features/dashboard/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';

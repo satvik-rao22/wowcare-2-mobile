@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_important_dates_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/app/di/di.dart';
 
 class EditStudentImportantDatesScreen extends StatefulWidget {
@@ -21,6 +24,8 @@ class EditStudentImportantDatesScreen extends StatefulWidget {
     this.initialEnrollDate,
     this.initialSchoolStartDate,
   });
+
+  static const String routeName = '/edit-student-important-dates';
 
   final String studentCode;
   final DateTime? initialEnrollDate;
@@ -34,15 +39,15 @@ class EditStudentImportantDatesScreen extends StatefulWidget {
 class _EditStudentImportantDatesScreenState
     extends State<EditStudentImportantDatesScreen> {
   late final StudentImportantDatesCubit _cubit;
-  DateTime? _enrollDate;
-  DateTime? _schoolStartDate;
 
   @override
   void initState() {
     super.initState();
-    _cubit = serviceLocator<StudentImportantDatesCubit>();
-    _enrollDate = widget.initialEnrollDate;
-    _schoolStartDate = widget.initialSchoolStartDate;
+    _cubit = serviceLocator<StudentImportantDatesCubit>()
+      ..initialize(
+        enrollDate: widget.initialEnrollDate,
+        schoolStartDate: widget.initialSchoolStartDate,
+      );
   }
 
   @override
@@ -55,10 +60,10 @@ class _EditStudentImportantDatesScreenState
     DateTime? current;
     switch (field) {
       case 'enroll':
-        current = _enrollDate;
+        current = _cubit.state.enrollDate;
         break;
       case 'schoolStart':
-        current = _schoolStartDate;
+        current = _cubit.state.schoolStartDate;
         break;
     }
 
@@ -74,13 +79,11 @@ class _EditStudentImportantDatesScreenState
 
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
-        setState(() {
-          if (field == 'enroll') {
-            _enrollDate = selected;
-          } else if (field == 'schoolStart') {
-            _schoolStartDate = selected;
-          }
-        });
+        if (field == 'enroll') {
+          _cubit.setEnrollDate(selected);
+        } else if (field == 'schoolStart') {
+          _cubit.setSchoolStartDate(selected);
+        }
       }
     } catch (e) {
       CoreUtils.logApiError(e.toString());
@@ -88,12 +91,7 @@ class _EditStudentImportantDatesScreenState
   }
 
   void _save() {
-    final dates = StudentImportantDates(
-      enrollDate: _enrollDate,
-      schoolStartDate: _schoolStartDate,
-    );
-
-    _cubit.updateImportantDates(studentCode: widget.studentCode, dates: dates);
+    _cubit.save(studentCode: widget.studentCode);
   }
 
   @override
@@ -113,7 +111,7 @@ class _EditStudentImportantDatesScreenState
                   message: state.message!,
                   isSuccess: true,
                 );
-                Navigator.pop(context, true);
+                context.pop(true);
               } else if (state.isError && state.message != null) {
                 CoreUtils.showTopSnackBar(
                   context: context,
@@ -131,7 +129,7 @@ class _EditStudentImportantDatesScreenState
                     final isSubmitting = state.isLoading;
 
                     return StaffFormLayout(
-                      title: 'Edit Important Dates',
+                      title: StudentStrings.editImportantDates,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final isTablet = constraints.maxWidth > 600;
@@ -142,16 +140,16 @@ class _EditStudentImportantDatesScreenState
                               children: [
                                 Expanded(
                                   child: _buildDateField(
-                                    label: 'Enroll Date',
-                                    selectedDate: _enrollDate,
+                                    label: StudentStrings.enrollDate,
+                                    selectedDate: state.enrollDate,
                                     fieldName: 'enroll',
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                AppSpacing.gapHMd,
                                 Expanded(
                                   child: _buildDateField(
-                                    label: 'School Start Date',
-                                    selectedDate: _schoolStartDate,
+                                    label: StudentStrings.schoolStartDate,
+                                    selectedDate: state.schoolStartDate,
                                     fieldName: 'schoolStart',
                                   ),
                                 ),
@@ -163,14 +161,14 @@ class _EditStudentImportantDatesScreenState
                             padding: EdgeInsets.zero,
                             children: [
                               _buildDateField(
-                                label: 'Enroll Date',
-                                selectedDate: _enrollDate,
+                                label: StudentStrings.enrollDate,
+                                selectedDate: state.enrollDate,
                                 fieldName: 'enroll',
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                               _buildDateField(
-                                label: 'School Start Date',
-                                selectedDate: _schoolStartDate,
+                                label: StudentStrings.schoolStartDate,
+                                selectedDate: state.schoolStartDate,
                                 fieldName: 'schoolStart',
                               ),
                             ],
@@ -180,15 +178,15 @@ class _EditStudentImportantDatesScreenState
                       bottomBar: Container(
                         padding: EdgeInsets.only(
                           bottom: safeAreaBottom,
-                          left: 16,
-                          right: 16,
-                          top: 8,
+                          left: AppSpacing.md,
+                          right: AppSpacing.md,
+                          top: AppSpacing.xs,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: AppColors.blackColor.withValues(alpha: 0.05),
                               offset: const Offset(0, -4),
                               blurRadius: 16,
                             ),
@@ -203,7 +201,7 @@ class _EditStudentImportantDatesScreenState
                           ),
                         ),
                         child: CustomButtonLayout(
-                          confirmButtonLabel: 'Save',
+                          confirmButtonLabel: StudentStrings.save,
                           onPressedConfirm: isSubmitting ? null : _save,
                           showCancelButton: false,
                           isForm: false,
@@ -225,9 +223,9 @@ class _EditStudentImportantDatesScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -240,8 +238,8 @@ class _EditStudentImportantDatesScreenState
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -257,13 +255,13 @@ class _EditStudentImportantDatesScreenState
                     child: Text(
                       selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
-                          : 'Select Date',
+                          : StudentStrings.selectDate,
                       style: TextStyle(
                         color: selectedDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.attendanceMutedTextColor
+                            : AppColors.blackColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                       ),
                     ),
                   ),

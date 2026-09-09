@@ -20,6 +20,7 @@ class InputWidget extends StatelessWidget {
   final bool isRequired;
   final double? height;
   final bool readOnly;
+
   /// When set, enforces character limit and shows a counter (e.g. 500 for activities).
   final int? maxLength;
 
@@ -37,17 +38,25 @@ class InputWidget extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: AppTextStyles.activityRequiredMarker),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: AppTextStyles.activityRequiredMarker,
+                ),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(minHeight: height ?? responsive.inputFieldHeight),
+          constraints: BoxConstraints(
+            minHeight: height ?? responsive.inputFieldHeight,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardColor,
             border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -87,7 +96,9 @@ class InputWidget extends StatelessWidget {
                   },
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.activityMutedGreyColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.activityMutedGreyColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

@@ -17,8 +17,17 @@ class RoleState extends Equatable {
     this.modulesWithWrite = const <String>{},
     this.granularModuleAccess = false,
     this.activeSchoolRoleRaw = '',
+    this.personaResolved = false,
   });
 
+  /// The coarse persona bucket: `admin`, `staff`, `parent` or `kiosk`.
+  ///
+  /// **Defaults to `admin`, the most privileged value.** That default is load
+  /// bearing for existing callers (a transient `/users/details` failure must
+  /// not demote a signed-in admin), so it is deliberately unchanged — but it
+  /// means anything DISPATCHING on persona must check [personaResolved] first
+  /// or it silently renders the admin branch for an unresolved user. See
+  /// `DashboardScreen`.
   final String role;
   final Set<String> modulesWithRead;
   final Set<String> modulesWithWrite;
@@ -36,12 +45,26 @@ class RoleState extends Equatable {
   /// finer-grained getters like [RoleCubit.isOrganizationAdmin].
   final String activeSchoolRoleRaw;
 
+  /// True once a persona has actually been **emitted** — either from
+  /// [RoleCubit._bootstrap]'s storage-derived fallback or from a
+  /// `/users/details` resolution.
+  ///
+  /// Distinct from [RoleCubit.hasResolvedAccess], which flips as soon as the
+  /// server refresh *starts* and so cannot be used to decide whether [role] is
+  /// trustworthy yet. Reset to false by `const RoleState()`, which is what
+  /// [RoleCubit.clearRole] and [RoleCubit.resetSessionForLogout] emit — so a
+  /// logout correctly returns to "unresolved" rather than to "admin".
+  ///
+  /// Additive: no existing getter or caller changes behaviour because of it.
+  final bool personaResolved;
+
   RoleState copyWith({
     String? role,
     Set<String>? modulesWithRead,
     Set<String>? modulesWithWrite,
     bool? granularModuleAccess,
     String? activeSchoolRoleRaw,
+    bool? personaResolved,
   }) {
     return RoleState(
       role: role ?? this.role,
@@ -49,6 +72,7 @@ class RoleState extends Equatable {
       modulesWithWrite: modulesWithWrite ?? this.modulesWithWrite,
       granularModuleAccess: granularModuleAccess ?? this.granularModuleAccess,
       activeSchoolRoleRaw: activeSchoolRoleRaw ?? this.activeSchoolRoleRaw,
+      personaResolved: personaResolved ?? this.personaResolved,
     );
   }
 
@@ -59,6 +83,7 @@ class RoleState extends Equatable {
     modulesWithWrite,
     granularModuleAccess,
     activeSchoolRoleRaw,
+    personaResolved,
   ];
 }
 
@@ -99,6 +124,13 @@ class RoleCubit extends Cubit<RoleState> {
       state.activeSchoolRoleRaw.toUpperCase().contains('ORGANIZATION');
   bool get hasResolvedAccess => _initialized;
 
+  /// Whether [role] can be trusted to dispatch on yet.
+  ///
+  /// [hasResolvedAccess] flips when the server refresh *starts*; this one flips
+  /// only once a persona has actually been emitted. Screens that pick a widget
+  /// per persona must check this, because [RoleState.role] defaults to `admin`.
+  bool get isPersonaResolved => state.personaResolved;
+
   /// Whether the active school context uses API module rows for this user.
   bool get usesGranularModuleAccess => state.granularModuleAccess;
 
@@ -111,7 +143,7 @@ class RoleCubit extends Cubit<RoleState> {
   Future<void> _bootstrap() async {
     final storage = serviceLocator<StorageService>();
     final fallbackRole = await _computeFallbackRole(storage);
-    _safeEmit(state.copyWith(role: fallbackRole));
+    _safeEmit(state.copyWith(role: fallbackRole, personaResolved: true));
     await refreshAccessFromServer();
   }
 
@@ -119,7 +151,7 @@ class RoleCubit extends Cubit<RoleState> {
     if (role != 'admin' && role != 'parent' && role != 'staff') {
       return;
     }
-    _safeEmit(state.copyWith(role: role));
+    _safeEmit(state.copyWith(role: role, personaResolved: true));
   }
 
   Future<void> clearRole() async {
@@ -197,7 +229,10 @@ class RoleCubit extends Cubit<RoleState> {
           jsonEncode(data),
         );
       }
-      _safeEmit(await _resolveAccessState(data, storage));
+      _safeEmit(
+        (await _resolveAccessState(data, storage))
+            .copyWith(personaResolved: true),
+      );
       return;
     } catch (_) {}
 
@@ -208,7 +243,7 @@ class RoleCubit extends Cubit<RoleState> {
     if (state.granularModuleAccess) return;
 
     final fallbackRole = await _computeFallbackRole(storage);
-    _safeEmit(state.copyWith(role: fallbackRole));
+    _safeEmit(state.copyWith(role: fallbackRole, personaResolved: true));
   }
 
   Future<String> _computeFallbackRole(StorageService storage) async {

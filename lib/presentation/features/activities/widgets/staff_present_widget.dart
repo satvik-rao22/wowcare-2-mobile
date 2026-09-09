@@ -103,8 +103,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     // Admins are never gated on their OWN sign-in — only on who they're
     // attributing the activity to. Picking themselves must never show the
     // "not signed in" warning (or fire the status check at all).
-    final ownStaffCode =
-        await context.read<ActivityEditorCubit>().getOwnStaffCode();
+    final ownStaffCode = await context
+        .read<ActivityEditorCubit>()
+        .getOwnStaffCode();
     if (ownStaffCode.isNotEmpty &&
         code.toUpperCase() == ownStaffCode.toUpperCase()) {
       if (!mounted) return;
@@ -153,6 +154,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       });
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -269,8 +271,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     if (_loadingStaffs) return;
     _loadingStaffs = true;
     try {
-      final items =
-          await context.read<ActivityEditorCubit>().loadActiveStaffDirectory();
+      final items = await context
+          .read<ActivityEditorCubit>()
+          .loadActiveStaffDirectory();
       if (items == null) return;
       _applyStaffMemberItems(items);
       if (!mounted) return;
@@ -411,7 +414,9 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
             constraints: const BoxConstraints(minHeight: 60),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+              color: AppColors.activitySoftPurpleFieldColor.withValues(
+                alpha: 0.102,
+              ),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(

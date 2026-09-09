@@ -27,6 +27,8 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
     required List<ActivityUploadItem> items,
     void Function(int itemIndex, int totalItems, int percent)? onItemProgress,
     void Function(int completedItems, int totalItems)? onItemComplete,
+    void Function(String filePath, String assetCode, String sessionCode)?
+    onAssetUploaded,
     CancelToken? cancelToken,
   }) async {
     final session = await _uploadService.createActivityUploadSession(
@@ -78,6 +80,14 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
       );
       assetCodeByPath[item.file.path] = presign.assetCode;
       newAssetCodes.add(presign.assetCode);
+      // Surface this asset before starting the next item, so a throw later in
+      // the loop doesn't discard the ones already uploaded (see the callback's
+      // doc on the repository contract).
+      onAssetUploaded?.call(
+        item.file.path,
+        presign.assetCode,
+        session.sessionCode,
+      );
       onItemComplete?.call(itemIndex, totalItems);
     }
 

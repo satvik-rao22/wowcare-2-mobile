@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -11,7 +12,11 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/dimensions.dart';
+import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/radius.dart';
+import 'package:wowcare/app/theme/spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -27,6 +32,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -156,7 +162,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     if (doc.documentUuid == null || doc.documentUuid!.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Document ID not available',
+        message: StudentStrings.documentIdNotAvailable,
         isError: true,
       );
       return;
@@ -200,7 +206,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: doc.documentName,
@@ -212,7 +218,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                 if (!mounted) return;
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Document ID not available',
+                  message: StudentStrings.documentIdNotAvailable,
                   isError: true,
                 );
                 return;
@@ -235,7 +241,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               } else {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Document deleted successfully',
+                  message: StudentStrings.documentDeletedSuccessfully,
                   isSuccess: true,
                 );
               }
@@ -291,19 +297,18 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Document link not available',
+          message: StudentStrings.documentLinkNotAvailable,
           isError: true,
         );
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DocumentViewerScreen(
-            url: url,
-            documentName: doc.documentName,
-            mimeType: doc.mimeType,
-          ),
-        ),
+      context.push(
+        DocumentViewerScreen.routeName,
+        extra: <String, dynamic>{
+          'url': url,
+          'documentName': doc.documentName,
+          'mimeType': doc.mimeType,
+        },
       );
     } catch (e, st) {
       AppLogger.e('[StudentDocumentsTab] _handleView failed', e, st);
@@ -331,7 +336,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Document link not available',
+          message: StudentStrings.documentLinkNotAvailable,
           isError: true,
         );
         return;
@@ -351,7 +356,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           CoreUtils.showTopSnackBar(
             context: context,
             message:
-                'Photos permission is required to save the document to your gallery.',
+                StudentStrings.photosPermissionIsRequiredToSaveTheDocumentToY,
             isWarning: true,
           );
           return;
@@ -380,7 +385,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Saved to your gallery.',
+          message: StudentStrings.savedToYourGallery,
           isSuccess: true,
         );
         return;
@@ -393,7 +398,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       } else if (mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Could not open document',
+          message: StudentStrings.couldNotOpenDocument,
           isError: true,
         );
       }
@@ -424,7 +429,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     if (studentCode.isEmpty) {
       return const Center(
         child: Text(
-          'Student code is required to load documents',
+          StudentStrings.studentCodeIsRequiredToLoadDocuments,
           style: TextStyle(color: AppColors.primaryColor, fontSize: 16),
         ),
       );
@@ -490,26 +495,26 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
                       // Extra bottom padding so the floating add button doesn't overlap the last items.
-                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
+                      padding: const EdgeInsets.fromLTRB(6, AppSpacing.md, 6, 96),
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(AppSpacing.sm),
                             decoration: BoxDecoration(
                               border: Border.all(
                                 color: AppColors.primaryColor.withValues(
                                   alpha: 0.2,
                                 ),
                               ),
-                              borderRadius: BorderRadius.circular(14),
-                              color: Colors.white.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(AppRadius.r14),
+                              color: AppColors.whiteColor.withValues(alpha: 0.88),
                             ),
                             child: Column(
                               children: [
                                 TextField(
                                   controller: _searchController,
                                   decoration: InputDecoration(
-                                    hintText: 'Search documents...',
+                                    hintText: StudentStrings.searchDocuments,
                                     prefixIcon: const Icon(Icons.search),
                                     suffixIcon:
                                         _searchController.text.trim().isEmpty
@@ -521,17 +526,17 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                             icon: const Icon(Icons.close),
                                           ),
                                     filled: true,
-                                    fillColor: const Color(0xFFF8F7FA),
+                                    fillColor: AppColors.staffLightBackgroundColor,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: AppRadius.allMd,
                                       borderSide: BorderSide.none,
                                     ),
                                   ),
                                   onChanged: (_) => setState(() {}),
                                 ),
-                                const SizedBox(height: 12),
+                                AppSpacing.gapVSm,
                                 CustomToggle(
-                                  label: 'Show Expired Documents',
+                                  label: StudentStrings.showExpiredDocuments,
                                   isToggled: _showExpired,
                                   onToggle: (v) {
                                     setState(() => _showExpired = v);
@@ -544,16 +549,16 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          AppSpacing.gapVMd,
                           if (state.isLoading && documents.isEmpty)
                             const StudentDocumentsListShimmer()
                           else if (documents.isEmpty)
                             Text(
                               _showExpired
-                                  ? 'No expired documents found'
+                                  ? StudentStrings.noExpiredDocumentsFound
                                   : (query.isEmpty
-                                        ? 'No documents found'
-                                        : 'No documents match your search'),
+                                        ? StudentStrings.noDocumentsFound
+                                        : StudentStrings.noDocumentsMatchYourSearch),
                               style: const TextStyle(
                                 color: AppColors.primaryColor,
                                 fontSize: 16,
@@ -602,7 +607,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                   });
                                 }
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                                   child: HighlightableCard(
                                     key: isTarget ? _highlightRowKey : null,
                                     code: doc.documentUuid,
@@ -611,36 +616,36 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       clipBehavior: Clip.antiAlias,
                                       // Match the Family/Pickup cards: themeColor outline, square top-left.
                                       decoration: const BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.whiteColor,
                                         borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          bottomLeft: Radius.circular(8),
-                                          bottomRight: Radius.circular(8),
+                                          topRight: Radius.circular(AppRadius.sm),
+                                          bottomLeft: Radius.circular(AppRadius.sm),
+                                          bottomRight: Radius.circular(AppRadius.sm),
                                         ),
                                         border: Border.fromBorderSide(
                                           BorderSide(
                                             color: AppColors.themeColor,
-                                            width: 1,
+                                            width: AppDimensions.hairline,
                                           ),
                                         ),
                                       ),
                                       child: Theme(
                                         data: Theme.of(context).copyWith(
-                                          dividerColor: Colors.transparent,
+                                          dividerColor: AppColors.transparentColor,
                                         ),
                                         child: ExpansionTile(
                                           initiallyExpanded: isTarget,
                                           tilePadding:
                                               const EdgeInsets.symmetric(
-                                                horizontal: 16,
-                                                vertical: 4,
+                                                horizontal: AppSpacing.md,
+                                                vertical: AppSpacing.xxs,
                                               ),
                                           childrenPadding:
                                               const EdgeInsets.fromLTRB(
-                                                16,
-                                                0,
-                                                16,
-                                                16,
+                                                AppSpacing.md,
+                                                AppSpacing.none,
+                                                AppSpacing.md,
+                                                AppSpacing.md,
                                               ),
                                           title: Row(
                                             mainAxisAlignment:
@@ -653,7 +658,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontFamily: 'Manrope',
+                                                    fontFamily: Fonts.manrope,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w600,
                                                     color:
@@ -661,11 +666,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
+                                              AppSpacing.gapHXs,
                                               Text(
                                                 docTypeDisplay,
                                                 style: TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: Fonts.manrope,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.primaryColor
@@ -677,29 +682,29 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                           children: [
                                             const Divider(
                                               height: 1,
-                                              color: Color(0xFFE9ECEF),
+                                              color: AppColors.attendanceCardDividerColor,
                                             ),
-                                            const SizedBox(height: 12),
+                                            AppSpacing.gapVSm,
                                             _DocumentDetailRow(
-                                              label: 'Document Type',
+                                              label: StudentStrings.documentType,
                                               value: docTypeDisplay,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
-                                              label: 'Uploaded By',
+                                              label: StudentStrings.uploadedBy,
                                               value: uploadedBy,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
-                                              label: 'Uploaded On',
+                                              label: StudentStrings.uploadedOn,
                                               value: uploadedOn,
                                             ),
-                                            const SizedBox(height: 8),
+                                            AppSpacing.gapVXs,
                                             _DocumentDetailRow(
-                                              label: 'Expiry Date',
+                                              label: StudentStrings.expiryDate,
                                               value: expiryDisplay,
                                             ),
-                                            const SizedBox(height: 16),
+                                            AppSpacing.gapVMd,
                                             if (canStudentWrite) ...[
                                               Row(
                                                 children: [
@@ -707,10 +712,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                     child: Container(
                                                       height: 40,
                                                       decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
+                                                        borderRadius: AppRadius.allSm,
                                                         gradient:
                                                             AppColors.buildPrimaryGradient(),
                                                       ),
@@ -727,20 +729,20 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                       .zero,
                                                             ),
                                                         child: const Text(
-                                                          'Edit',
+                                                          StudentStrings.edit,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                'Manrope',
+                                                                Fonts.manrope,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: Colors.white,
+                                                            color: AppColors.whiteColor,
                                                           ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 12),
+                                                  AppSpacing.gapHSm,
                                                   Expanded(
                                                     child: SizedBox(
                                                       height: 40,
@@ -753,30 +755,23 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                         style: OutlinedButton.styleFrom(
                                                           side:
                                                               const BorderSide(
-                                                                color: Color(
-                                                                  0xFF6C7FD8,
-                                                                ),
+                                                                color: AppColors.attendanceActionAccentColor,
                                                               ),
                                                           shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  8,
-                                                                ),
+                                                            borderRadius: AppRadius.allSm,
                                                           ),
                                                           padding:
                                                               EdgeInsets.zero,
                                                         ),
                                                         child: const Text(
-                                                          'Delete',
+                                                          StudentStrings.delete,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                'Manrope',
+                                                                Fonts.manrope,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: Color(
-                                                              0xFF6C7FD8,
-                                                            ),
+                                                            color: AppColors.attendanceActionAccentColor,
                                                           ),
                                                         ),
                                                       ),
@@ -784,7 +779,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 12),
+                                              AppSpacing.gapVSm,
                                             ],
                                             Row(
                                               children: [
@@ -801,15 +796,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             ),
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
-                                                          color: Color(
-                                                            0xFF6C7FD8,
-                                                          ),
+                                                          color: AppColors.attendanceActionAccentColor,
                                                         ),
                                                         shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
+                                                          borderRadius: AppRadius.allSm,
                                                         ),
                                                         padding:
                                                             EdgeInsets.zero,
@@ -820,35 +810,30 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               height: 18,
                                                               child: PrimaryCircularLoader(
                                                                 size: 18,
-                                                                strokeWidth: 2,
+                                                                strokeWidth: AppDimensions.borderThick,
                                                               ),
                                                             )
                                                           : const Text(
                                                               'View',
                                                               style: TextStyle(
                                                                 fontFamily:
-                                                                    'Manrope',
+                                                                    Fonts.manrope,
                                                                 fontSize: 16,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w700,
-                                                                color: Color(
-                                                                  0xFF6C7FD8,
-                                                                ),
+                                                                color: AppColors.attendanceActionAccentColor,
                                                               ),
                                                             ),
                                                     ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 12),
+                                                AppSpacing.gapHSm,
                                                 Expanded(
                                                   child: Container(
                                                     height: 40,
                                                     decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
+                                                      borderRadius: AppRadius.allSm,
                                                       gradient:
                                                           AppColors.buildPrimaryGradient(),
                                                     ),
@@ -866,11 +851,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                       child: const Text(
                                                         'Download',
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: Fonts.manrope,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
-                                                          color: Colors.white,
+                                                          color: AppColors.whiteColor,
                                                         ),
                                                       ),
                                                     ),
@@ -888,7 +873,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             ),
                           if (state.isLoadingMore)
                             const Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(AppSpacing.md),
                               child: PrimaryCircularLoader(),
                             ),
                         ],
@@ -905,13 +890,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
               bottom: 16,
               child: GradientAddButton(
                 onTap: () {
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (context) => AddStudentDocumentScreen(
-                            studentCode: widget.studentCode ?? '',
-                          ),
-                        ),
+                  context
+                      .push<bool>(
+                        AddStudentDocumentScreen.routeName,
+                        extra: <String, dynamic>{
+                          'studentCode': widget.studentCode ?? '',
+                        },
                       )
                       .then((result) {
                         if (result == true && mounted) {
@@ -924,7 +908,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                 },
                 size: 50.0,
                 iconSize: 28.0,
-                borderRadius: 12.0,
+                borderRadius: AppRadius.md,
               ),
             ),
         ],
@@ -948,13 +932,13 @@ class _DocumentDetailRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
-        const SizedBox(width: 12),
+        AppSpacing.gapHSm,
         Expanded(
           child: Text(
             value.isEmpty ? '-' : value,
@@ -962,10 +946,10 @@ class _DocumentDetailRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: AppColors.primaryColor,
             ),
           ),
         ),

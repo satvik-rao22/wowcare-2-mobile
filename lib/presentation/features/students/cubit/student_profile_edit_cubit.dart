@@ -1,15 +1,18 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
-import '../../../../domain/features/student/entities/student.dart';
-import '../../../../domain/features/student/entities/student_guardian.dart';
-import '../../../../domain/features/student/usecases/get_student_guardians_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/update_guardian_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_address_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_profile_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_siblings_usecase.dart';
-import '../../../../domain/features/student/usecases/update_student_tags_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_address_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_profile_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_siblings_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/update_student_tags_usecase.dart';
 
 part 'student_profile_edit_state.dart';
 
@@ -45,6 +48,105 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
   final UpdateStudentTagsUseCase _updateStudentTagsUseCase;
   final UpdateStudentSiblingsUseCase _updateStudentSiblingsUseCase;
   final UpdateGuardianUseCase _updateGuardianUseCase;
+
+  // --- Form model (owned here; the view fetches + maps, then applies via these) ---
+
+  /// Seed the simple form fields from the caller's initial values.
+  void initialize({
+    String? status,
+    String? stateSubsidyOption,
+    String? classroom,
+    DateTime? birthDate,
+    String? stateName,
+    String? country,
+    String? gender,
+    List<String>? selectedTags,
+    List<String>? selectedSiblings,
+    List<String>? selectedChildCustody,
+  }) {
+    emit(state.copyWith(
+      status: status,
+      stateSubsidyOption: stateSubsidyOption,
+      classroom: classroom,
+      birthDate: birthDate,
+      stateName: stateName,
+      country: country,
+      gender: gender,
+      selectedTags: selectedTags,
+      selectedSiblings: selectedSiblings,
+      selectedChildCustody: selectedChildCustody,
+    ));
+  }
+
+  void setStatus(String? value) => emit(state.copyWith(status: value));
+  void setStateSubsidyOption(String? value) =>
+      emit(state.copyWith(stateSubsidyOption: value));
+  void setBirthDate(DateTime? value) => emit(state.copyWith(birthDate: value));
+  void setStateName(String? value) => emit(state.copyWith(stateName: value));
+  void setCountry(String? value) => emit(state.copyWith(country: value));
+  void setGender(String? value) => emit(state.copyWith(gender: value));
+  void setSelectedTags(List<String> value) =>
+      emit(state.copyWith(selectedTags: value));
+  void setSelectedSiblings(List<String> value) =>
+      emit(state.copyWith(selectedSiblings: value));
+  void setSelectedChildCustody(List<String> value) =>
+      emit(state.copyWith(selectedChildCustody: value));
+  void setSubmitting(bool value) => emit(state.copyWith(submitting: value));
+
+  /// A user-driven classroom change (records the "changed by user" flag).
+  void setClassroom(String? value) => emit(state.copyWith(
+        classroom: value,
+        classroomChangedByUser: true,
+      ));
+
+  /// Result of the today's-sign-in lookup (loading flips to false).
+  void setTodayStatus({required bool isSignedInToday}) => emit(state.copyWith(
+        isSignedInToday: isSignedInToday,
+        isTodayStatusLoading: false,
+      ));
+
+  /// Apply the loaded tag options + name→code map (+ pruned selection).
+  void applyTagsLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required List<String> selectedTags,
+  }) {
+    emit(state.copyWith(
+      availableTagNames: names,
+      tagNameToCode: nameToCode,
+      selectedTags: selectedTags,
+    ));
+  }
+
+  /// Apply the loaded sibling options + name→code map (+ mapped/pruned selection).
+  void applyStudentsLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required List<String> selectedSiblings,
+  }) {
+    emit(state.copyWith(
+      availableStudentNames: names,
+      studentNameToCode: nameToCode,
+      selectedSiblings: selectedSiblings,
+    ));
+  }
+
+  /// Apply the loaded guardian options + custody lookups (+ pruned selection).
+  void applyGuardiansLoaded({
+    required List<String> names,
+    required Map<String, String> nameToCode,
+    required Map<String, bool> initialCustody,
+    required Map<String, StudentGuardian> rawByCode,
+    required List<String> selectedChildCustody,
+  }) {
+    emit(state.copyWith(
+      availableGuardianNames: names,
+      guardianNameToCode: nameToCode,
+      guardianInitialCustody: initialCustody,
+      guardianRawByCode: rawByCode,
+      selectedChildCustody: selectedChildCustody,
+    ));
+  }
 
   // --- Reads (thin; return the future so the view keeps its control flow) ---
 
@@ -118,12 +220,12 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
 
   Future<String> updateProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   }) {
     return _singleFlight<String>('updateProfile:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
       try {
-        return await _updateStudentProfileUseCase(code: code, fields: fields);
+        return await _updateStudentProfileUseCase(code: code, request: request);
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));
       }
@@ -132,14 +234,14 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
 
   Future<String> updateAddress({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   }) {
     return _singleFlight<String>('updateAddress:$studentCode', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
       try {
         return await _updateStudentAddressUseCase(
           studentCode: studentCode,
-          fields: fields,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));
@@ -186,7 +288,7 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   }) {
     return _singleFlight<String>('updateGuardian:$code', () async {
       if (!isClosed) emit(state.copyWith(mutationInProgress: true));
@@ -194,7 +296,7 @@ class StudentProfileEditCubit extends Cubit<StudentProfileEditState> {
         return await _updateGuardianUseCase(
           code: code,
           studentCode: studentCode,
-          fields: fields,
+          request: request,
         );
       } finally {
         if (!isClosed) emit(state.copyWith(mutationInProgress: false));

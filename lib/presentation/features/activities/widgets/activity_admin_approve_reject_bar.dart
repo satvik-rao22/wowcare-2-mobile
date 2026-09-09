@@ -34,4 +34,3 @@ class ActivityAdminApproveRejectBar extends StatelessWidget {
     );
   }
 }
-

@@ -38,38 +38,20 @@ class _StudentEmergencyContactReportScreenState
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
-  void initState() {
-    super.initState();
-    // All Classrooms are selected by default until the user changes it.
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
-  }
-
-  @override
   void dispose() {
     _selectedClassrooms.dispose();
     _format.dispose();
     super.dispose();
   }
 
-  bool get _isFormValid => _selectedClassrooms.value.isNotEmpty;
-
   Future<void> _onGenerate() async {
-    if (!_isFormValid) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ReportsStrings.pleaseSelectAtLeastOneClassroom,
-        isError: true,
-      );
-      return;
-    }
-
     final cubit = context.read<ReportsCubit>();
     final classroomNameToCode = cubit.state.classroomNameToCode;
+    // Empty selection → no codes → `roomCodes: null` below omits the key,
+    // which is how this endpoint expresses "all classrooms".
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty
-          ? widget.classrooms
-          : _selectedClassrooms.value,
+      names: _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -82,7 +64,7 @@ class _StudentEmergencyContactReportScreenState
       startDate: AppTime.now(),
       endDate: AppTime.now(),
       format: _format.value, // PDF or XLSX
-      roomCodes: classroomCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       schoolName: schoolName,
     );
     cubit.generateReport(params);
@@ -169,16 +151,15 @@ class _StudentEmergencyContactReportScreenState
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: ReportsStrings.classroom,
-                    hintText: ReportsStrings.selectClassroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
-                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
                 SizedBox(
                   height: context.responsive(compact: 16.0, medium: 24.0),

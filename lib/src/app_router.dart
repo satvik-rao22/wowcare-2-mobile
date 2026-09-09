@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/students/models/student_sibling_info.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/tab_visibility_events.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
@@ -99,6 +101,9 @@ import 'package:wowcare/presentation/features/billing/view/general_ledger/create
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add_transaction_dialog.dart';
 import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
+import 'package:wowcare/presentation/features/dashboard/view/qr_code_scanner.dart';
+import 'package:wowcare/core/router/route_not_found_screen.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/model/report_route_args.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
@@ -122,9 +127,25 @@ import 'package:wowcare/presentation/features/classroom/views/screens/classroom_
 import 'package:wowcare/presentation/features/classroom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_list_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
@@ -166,6 +187,21 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_
 import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
+import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
+import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
+import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_wizard_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
+import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
+import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/edit_user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
@@ -390,9 +426,29 @@ Map<String, String>? consumePendingNotificationOrgSchool() {
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+
+  // An unmatched location previously fell through to go_router's default
+  // ErrorScreen — a red page showing the raw exception and attempted URI, in
+  // RELEASE builds. For an app whose main entry point is a notification- or
+  // email-carried URL, that is a user-visible crash surface: a malformed deep
+  // link, a stale notification payload, or a renamed route segment all land
+  // there. Render something recoverable instead, and report it.
+  //
+  // `errorBuilder` rather than `onException`: go_router ignores errorBuilder
+  // entirely when onException is supplied, and a silent auto-redirect would
+  // hide the failure from both the user and whoever has to debug the bad link.
+  // This shows a recoverable page AND logs the attempted location.
+  errorBuilder: (context, state) {
+    AppLogger.e(
+      '[GoRouter] No route matched "${state.uri}": ${state.error}',
+      state.error,
+    );
+    return RouteNotFoundScreen(attemptedLocation: state.uri.toString());
+  },
   redirect: (context, state) async {
-    // Log navigation events for debugging
-    debugPrint(
+    // AppLogger, not debugPrint: `debugPrint` is NOT stripped from release
+    // builds, so this used to log every navigation path in production.
+    AppLogger.d(
       '[GoRouter] Navigating to: ${state.uri.path} (name: ${state.name})',
     );
 
@@ -400,8 +456,11 @@ final GoRouter appRouter = GoRouter(
     // Use synchronous cache check to avoid race conditions from multiple redirect() calls
     bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
 
-    // Fallback: If cache is empty, try async storage check (app startup cold load)
-    if (!isKioskMode) {
+    // Storage fallback, but only until the flag has been read once this
+    // process. Previously the negative result was never remembered, so every
+    // navigation by every non-kiosk user awaited a storage read on the critical
+    // path for the whole session; `isKioskModeResolved` makes it once.
+    if (!isKioskMode && !KioskAccessControl.isKioskModeResolved) {
       try {
         isKioskMode = await serviceLocator<KioskAccessControl>()
             .isKioskModeActive();
@@ -416,7 +475,15 @@ final GoRouter appRouter = GoRouter(
           );
           isKioskMode = await kioskAccess.isKioskModeActive();
         } catch (e2) {
-          AppLogger.e('[KioskAccess] Error checking kiosk mode: $e2');
+          // FAIL CLOSED. This is a containment control on a shared device: if
+          // we cannot establish whether this is a kiosk, the safe answer is
+          // "assume it is" and confine the session to /kiosk, not "assume it
+          // isn't" and open the whole app. Previously both catches swallowed
+          // and left `isKioskMode` false, i.e. the guard failed open.
+          AppLogger.e(
+            '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e2',
+          );
+          isKioskMode = true;
         }
       }
     }
@@ -434,9 +501,32 @@ final GoRouter appRouter = GoRouter(
         AppLogger.d(
           '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
         );
-        return '/kiosk';
+        return KioskRoutes.root;
       }
     }
+
+    // ── Authorization for the dashboard branch ────────────────────────────
+    //
+    // Mandate 1 puts route guards in the router. Until now the ONLY
+    // router-level authorization was the kiosk check above and the billing
+    // persona rewrite below: nothing stopped a guardian reaching
+    // /dashboard/staff, /dashboard/students, /dashboard/reports or any of the
+    // other 40-odd admin surfaces nested under /dashboard. What actually
+    // gated them was the drawer and bottom nav declining to render a tap
+    // target — which a notification deep-link, a `context.go` from code, or
+    // the killed-state `pendingNotificationDeepLink` path all walk straight
+    // past. The billing rewrite below exists precisely because that happened
+    // once already; this generalises it instead of fixing route number 50.
+    final personaRedirect = _dashboardPersonaRedirect(context, state);
+    if (personaRedirect != null) return personaRedirect;
+
+    // ── Guardian scoping for student deep-links ───────────────────────────
+    // The persona guard above answers "may this ROLE open this screen"; this
+    // one answers "may this GUARDIAN open it for THIS student". Both are
+    // needed: `/dashboard/student-profile-by-code` is a legitimate parent
+    // route, it is just not legitimate for every student code.
+    final studentScopeRedirect = _guardianStudentScopeRedirect(context, state);
+    if (studentScopeRedirect != null) return studentScopeRedirect;
 
     // Billing is persona-split: the admin billing screen has no data for a
     // guardian. Anything that lands a guardian on /dashboard/billing — most
@@ -1032,11 +1122,12 @@ final GoRouter appRouter = GoRouter(
                                 serviceLocator<StudentCubit>()..loadInitial(),
                           ),
                           BlocProvider<ClassroomCubit>(
-                            create: (_) => serviceLocator<ClassroomCubit>()
-                              ..loadActiveClassrooms(
-                                applyAttendanceStaffScope:
-                                    applyAttendanceStaffScope,
-                              ),
+                            create: (_) =>
+                                serviceLocator<ClassroomCubit>()
+                                  ..loadActiveClassrooms(
+                                    applyAttendanceStaffScope:
+                                        applyAttendanceStaffScope,
+                                  ),
                           ),
                         ],
                         child: StudentScreen(
@@ -1049,17 +1140,47 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'billing',
+                  path: DashboardRoutes.billingSegment,
                   pageBuilder: (context, state) =>
                       _fastPage(state, const BillingScreen()),
                 ),
                 GoRoute(
-                  path: 'parent-newsletter',
+                  path: DashboardRoutes.parentNewsletterSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    BlocProvider<StudentNewslettersCubit>(
-                      create: (_) => serviceLocator<StudentNewslettersCubit>(),
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<StudentNewslettersCubit>(
+                          create: (_) =>
+                              serviceLocator<StudentNewslettersCubit>(),
+                        ),
+                        // Card thumbnails in the parent list resolve media
+                        // codes to URLs (§5.3).
+                        BlocProvider<NewsletterAssetUrlCubit>(
+                          create: (_) =>
+                              serviceLocator<NewsletterAssetUrlCubit>(),
+                        ),
+                      ],
                       child: const ParentNewsletterScreen(),
+                    ),
+                  ),
+                ),
+                // Newsletter preview, dashboard branch. A SIBLING of
+                // `parent-newsletter`, not a child: both the parent
+                // newsletter list and the parent dashboard's newsletter card
+                // push it, and neither is the other's parent. Registered
+                // inside the shell branch so it is pushed on the branch
+                // navigator and the nav shell stays visible — which is what
+                // the `Navigator.of(context).push` it replaced did.
+                GoRoute(
+                  path: NewsletterRoutes.previewSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    _newsletterPreview(
+                      newsletterCode:
+                          state.pathParameters[NewsletterRoutes.codeParam] ??
+                          '',
+                      args: NewsletterPreviewArgs.fromExtra(state.extra),
                     ),
                   ),
                 ),
@@ -1264,8 +1385,8 @@ final GoRouter appRouter = GoRouter(
 
                     // ── Compliance ───────────────────────────────────────
                     GoRoute(
-                      path: ReportRoutes
-                          .complianceAnnualStateImmunizationSegment,
+                      path:
+                          ReportRoutes.complianceAnnualStateImmunizationSegment,
                       builder: (context, state) {
                         final args = state.extra! as ReportFormArgs;
                         return BlocProvider<ReportsCubit>.value(
@@ -1323,7 +1444,7 @@ final GoRouter appRouter = GoRouter(
                   ],
                 ),
                 GoRoute(
-                  path: 'scheduling',
+                  path: DashboardRoutes.schedulingSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     MultiBlocProvider(
@@ -1359,7 +1480,7 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'staff-scheduling',
+                  path: DashboardRoutes.staffSchedulingSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     MultiBlocProvider(
@@ -1515,7 +1636,7 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'future-availability',
+                  path: DashboardRoutes.futureAvailabilitySegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     BlocProvider<FutureAvailabilityCubit>(
@@ -1525,7 +1646,7 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
-                  path: 'individual-movement',
+                  path: DashboardRoutes.individualMovementSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     // The board's own cubit — created here (not inside the
@@ -1534,7 +1655,8 @@ final GoRouter appRouter = GoRouter(
                     BlocProvider<IndividualMovementsCubit>(
                       create: (_) => serviceLocator<IndividualMovementsCubit>(),
                       child: IndividualMovementScreen(
-                        highlightCode: state.uri.queryParameters['highlightCode'],
+                        highlightCode:
+                            state.uri.queryParameters['highlightCode'],
                         studentCode: state.uri.queryParameters['studentCode'],
                       ),
                     ),
@@ -1619,24 +1741,44 @@ final GoRouter appRouter = GoRouter(
                         child: EditScheduleScreen(
                           staffCode: args?.staffCode ?? '',
                           initialSchedules:
-                              args?.initialSchedules ??
-                              const <ScheduleEntry>[],
+                              args?.initialSchedules ?? const <ScheduleEntry>[],
                         ),
                       ),
                     );
                   },
                 ),
                 GoRoute(
-                  path: 'student-attendance-tabbed-view',
+                  path: DashboardRoutes.studentAttendanceTabbedViewSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final filter = args?['filter'] as String?;
+                    // Typed args (Mandate 1) are accepted ALONGSIDE the legacy
+                    // map, not instead of it: this route has ten callers across
+                    // attendance, students, the drawer and the dashboard, and
+                    // only the dashboard's have been migrated. Every other
+                    // caller keeps working untouched; they can move over one at
+                    // a time and the map branch retires when the last one does.
+                    final typedTab = state.extra is AttendanceTabbedViewArgs
+                        ? state.extra! as AttendanceTabbedViewArgs
+                        : null;
+                    final typedStatus =
+                        state.extra is AttendanceStatusFilterArgs
+                        ? state.extra! as AttendanceStatusFilterArgs
+                        : null;
+                    final args = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
+                    final filter =
+                        typedStatus?.filter ?? args?['filter'] as String?;
                     final classroomFilter =
+                        typedTab?.classroomFilter ??
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
-                        (args?['initialTabIndex'] as int?) ?? 0;
+                        typedTab?.initialTabIndex ??
+                        (args?['initialTabIndex'] as int?) ??
+                        0;
                     final hasBackButton =
-                        args?['hasBackButton'] as bool? ?? false;
+                        typedStatus?.hasBackButton ??
+                        args?['hasBackButton'] as bool? ??
+                        false;
                     return _fastPage(
                       state,
                       StudentAttendanceTabbedView(
@@ -1651,16 +1793,37 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'staff-attendance-tabbed-view',
+                  path: DashboardRoutes.staffAttendanceTabbedViewSegment,
                   pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    final filter = args?['filter'] as String?;
+                    // Typed args (Mandate 1) are accepted ALONGSIDE the legacy
+                    // map, not instead of it: this route has ten callers across
+                    // attendance, students, the drawer and the dashboard, and
+                    // only the dashboard's have been migrated. Every other
+                    // caller keeps working untouched; they can move over one at
+                    // a time and the map branch retires when the last one does.
+                    final typedTab = state.extra is AttendanceTabbedViewArgs
+                        ? state.extra! as AttendanceTabbedViewArgs
+                        : null;
+                    final typedStatus =
+                        state.extra is AttendanceStatusFilterArgs
+                        ? state.extra! as AttendanceStatusFilterArgs
+                        : null;
+                    final args = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
+                    final filter =
+                        typedStatus?.filter ?? args?['filter'] as String?;
                     final classroomFilter =
+                        typedTab?.classroomFilter ??
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
-                        (args?['initialTabIndex'] as int?) ?? 0;
+                        typedTab?.initialTabIndex ??
+                        (args?['initialTabIndex'] as int?) ??
+                        0;
                     final hasBackButton =
-                        args?['hasBackButton'] as bool? ?? false;
+                        typedStatus?.hasBackButton ??
+                        args?['hasBackButton'] as bool? ??
+                        false;
                     return _fastPage(
                       state,
                       StaffAttendanceTabbedView(
@@ -1684,8 +1847,9 @@ final GoRouter appRouter = GoRouter(
                     ClassroomInfoScreen(
                       initialClassroomCode:
                           state.uri.queryParameters['classroomCode'],
-                      initialClassroom:
-                          state.extra is Classroom ? state.extra as Classroom : null,
+                      initialClassroom: state.extra is Classroom
+                          ? state.extra as Classroom
+                          : null,
                     ),
                   ),
                 ),
@@ -1744,11 +1908,7 @@ final GoRouter appRouter = GoRouter(
                           classroom: '',
                           tags: const <String>[],
                           schedule: const <String>[],
-                          sibling: const <String, dynamic>{
-                            'name': <dynamic>[],
-                            'relation': <dynamic>[],
-                            'status': <dynamic>[],
-                          },
+                          sibling: const StudentSiblingInfo(),
                           initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
                           initialProfileSubTabIndex:
                               int.tryParse(q['profileTab'] ?? '') ?? 0,
@@ -1789,14 +1949,14 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'student-attendance-profile',
+                  path: DashboardRoutes.studentAttendanceProfileSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     _studentAttendanceProfileScreen(state.extra),
                   ),
                 ),
                 GoRoute(
-                  path: 'staff-attendance-profile',
+                  path: DashboardRoutes.staffAttendanceProfileSegment,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     _staffAttendanceProfileScreen(state.extra),
@@ -1890,17 +2050,31 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
-                  path: 'student-sign-in-out-selection',
+                  path: DashboardRoutes.childSignInOutSelectionSegment,
                   pageBuilder: (context, state) {
-                    final extra = state.extra as Map<String, dynamic>?;
+                    // Typed args from the dashboard (Mandate 1); the map
+                    // branch remains for the kiosk flow, which supplies
+                    // guardianCode/pin that the dashboard never sends.
+                    final typed = state.extra is ChildSignInOutSelectionArgs
+                        ? state.extra! as ChildSignInOutSelectionArgs
+                        : null;
+                    final extra = state.extra is Map<String, dynamic>
+                        ? state.extra! as Map<String, dynamic>
+                        : null;
                     final signedInCodes =
-                        extra?['signedInCodes'] as List<String>? ?? [];
+                        typed?.signedInCodes ??
+                        extra?['signedInCodes'] as List<String>? ??
+                        [];
                     final signedOutCodes =
-                        extra?['signedOutCodes'] as List<String>? ?? [];
+                        typed?.signedOutCodes ??
+                        extra?['signedOutCodes'] as List<String>? ??
+                        [];
                     final guardianCode = extra?['guardianCode'] as String?;
                     final pin = extra?['pin'] as String?;
-                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
-                    final qrToken = extra?['qrToken'] as String? ?? '';
+                    final isQrScan =
+                        typed?.isQrScan ?? extra?['isQrScan'] as bool? ?? false;
+                    final qrToken =
+                        typed?.qrToken ?? extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSignInOutSelectionScreen(
@@ -1946,6 +2120,35 @@ final GoRouter appRouter = GoRouter(
                     );
                   },
                 ),
+
+                // ── Dashboard-owned destination ────────────────────────────
+                //
+                // Mandate 1, dashboard scope. QrScanScreen is the ONLY screen
+                // the dashboard's raw pushes targeted that the dashboard owns,
+                // so it is the only one routed here. The other twelve push
+                // sites target screens owned by attendance, billing,
+                // scheduling, communication and newsletter; routing those from
+                // this module would put five features' routes under
+                // /dashboard, and six of them would duplicate a route that
+                // already exists at the router root. They are deferred to the
+                // owning feature's own Mandate 1 pass — see the deferred list
+                // in dashboard-baseline.md.
+                //
+                // Registered as a CHILD of /dashboard, not at the root: the
+                // `Navigator.push` it replaces resolved to the shell branch
+                // navigator, so the bottom bar stayed visible over the scanner.
+                GoRoute(
+                  path: DashboardRoutes.qrScannerSegment,
+                  // pageBuilder, not builder: the `MaterialPageRoute` this
+                  // replaces set `fullscreenDialog: true`, which changes both
+                  // the transition (bottom-up) and the leading icon (× rather
+                  // than ←). `MaterialPage` carries that flag through.
+                  pageBuilder: (context, state) => MaterialPage<void>(
+                    key: state.pageKey,
+                    fullscreenDialog: true,
+                    child: const QrScanScreen(),
+                  ),
+                ),
               ],
             ),
           ],
@@ -1982,34 +2185,57 @@ final GoRouter appRouter = GoRouter(
                 final highlight = (q['highlightCode'] ?? '').trim();
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
+                final student = q['studentCode'] ?? '';
                 final extra = state.extra as Map<String, dynamic>?;
                 return BlocProvider<ActivityFeedScreenCubit>(
                   create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
                   child: ActivityFeedScreen(
-                  // The Activities tab lives in an indexed-stack branch and its
-                  // Daily tab is keep-alive, so a notification tap into an
-                  // already-visited tab reuses the old State — leaving the feed
-                  // on the previously selected DAY/room. Keying a deep-link by
-                  // its target forces a remount, so initState re-runs and
-                  // applies the notification's date, classroom and highlight.
-                  // Normal tab navigation carries no highlightCode and keeps a
-                  // null key, so ordinary browsing state is preserved.
-                  key: highlight.isNotEmpty
-                      ? ValueKey('activityFeed-$highlight-$date-$room')
-                      : null,
-                  highlightCode: q['highlightCode'],
-                  highlightDate: DateTime.tryParse(date),
-                  // The deep-linked activity's classroom, so the feed opens on
-                  // the room that actually contains the card to highlight.
-                  highlightClassroomCode: q['classroomCode'],
-                  initialTab: q['tab'] == 'custom' ? 1 : 0,
-                  initialActivityTypes: q['activityType'] != null
-                      ? [q['activityType']!]
-                      : null,
-                  initialClassrooms: q['classroom'] != null
-                      ? [q['classroom']!]
-                      : null,
-                  resetKey: extra?['timestamp']?.toString(),
+                    // The Activities tab lives in an indexed-stack branch and its
+                    // Daily tab is keep-alive, so a notification tap into an
+                    // already-visited tab reuses the old State — leaving the feed
+                    // on the previously selected DAY/room/CHILD. Keying a
+                    // deep-link by its target forces a remount, so initState
+                    // re-runs and applies the notification's date, classroom,
+                    // highlight and — for a guardian — the newly selected child.
+                    //
+                    // The student is part of the key because for a GUARDIAN the
+                    // feed's subject is the selected child, not the room: two
+                    // siblings in the same classroom on the same day produce the
+                    // same date+room, so without it a notification about child B
+                    // reused child A's already-built State and the parent kept
+                    // seeing child A's day.
+                    //
+                    // Normal tab navigation carries no highlightCode and keeps a
+                    // null key, so ordinary browsing state is preserved.
+                    key: activityFeedDeepLinkKey(
+                      highlightCode: highlight,
+                      date: date,
+                      classroomCode: room,
+                      studentCode: student,
+                    ),
+                    highlightCode: q['highlightCode'],
+                    highlightDate: DateTime.tryParse(date),
+                    // The deep-linked activity's classroom, so the feed opens on
+                    // the room that actually contains the card to highlight.
+                    highlightClassroomCode: q['classroomCode'],
+                    // GUARDIAN persona: the child the notification is about.
+                    // Previously this only keyed the remount below, so the feed
+                    // itself still had to learn the subject from ParentChildCubit
+                    // — which has not caught up on a killed-state launch (the
+                    // splash routes here directly) or right after a school switch
+                    // (which resets the cubit), leaving a parent of two children
+                    // on the wrong child's day. Passing it in makes the FIRST
+                    // fetch the right one; ownership is still enforced against
+                    // the guardian's own student list before it is used.
+                    deepLinkStudentCode: student.isEmpty ? null : student,
+                    initialTab: q['tab'] == 'custom' ? 1 : 0,
+                    initialActivityTypes: q['activityType'] != null
+                        ? [q['activityType']!]
+                        : null,
+                    initialClassrooms: q['classroom'] != null
+                        ? [q['classroom']!]
+                        : null,
+                    resetKey: extra?['timestamp']?.toString(),
                   ),
                 );
               },
@@ -2031,13 +2257,57 @@ final GoRouter appRouter = GoRouter(
                     ?.trim()
                     .toLowerCase();
                 final initialTabIndex = tab == 'newsletter' ? 1 : 0;
-                return MessagingScreen(
-                  userPersona: isParent
-                      ? UserPersona.parent
-                      : UserPersona.admin,
-                  initialTabIndex: initialTabIndex,
+                // The Sent newsletter tab is a TabBarView child of
+                // MessagingScreen, not a route of its own, so this is the
+                // GoRoute builder that owns its cubits (§5: the only place
+                // serviceLocator may appear on the presentation side).
+                // `create:` constructs only — SentNewsLetterTab still fires
+                // its own loads from initState, so the request count and the
+                // moment they fire are unchanged (§5.4).
+                return MultiBlocProvider(
+                  providers: [
+                    BlocProvider<NewsletterListCubit>(
+                      create: (_) => serviceLocator<NewsletterListCubit>(),
+                    ),
+                    BlocProvider<ClassroomCubit>(
+                      create: (_) => serviceLocator<ClassroomCubit>(),
+                    ),
+                    BlocProvider<NewsletterAssetUrlCubit>(
+                      create: (_) => serviceLocator<NewsletterAssetUrlCubit>(),
+                    ),
+                  ],
+                  child: MessagingScreen(
+                    userPersona: isParent
+                        ? UserPersona.parent
+                        : UserPersona.admin,
+                    initialTabIndex: initialTabIndex,
+                  ),
                 );
               },
+              routes: [
+                // Newsletter preview, messaging branch. The staff/admin Sent
+                // newsletter tab is a `TabBarView` child of MessagingScreen,
+                // not a route of its own, so its preview is registered as a
+                // child of the messaging route — pushed on the messaging
+                // branch navigator, nav shell still visible, exactly as the
+                // `Navigator.of(context).push` it replaced.
+                //
+                // Same screen as the dashboard-branch registration above; see
+                // NewsletterRoutes for why one root-level route could not
+                // serve both without covering the nav shell.
+                GoRoute(
+                  path: NewsletterRoutes.previewSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    _newsletterPreview(
+                      newsletterCode:
+                          state.pathParameters[NewsletterRoutes.codeParam] ??
+                          '',
+                      args: NewsletterPreviewArgs.fromExtra(state.extra),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2085,7 +2355,10 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.newsletterPreviewByCode,
       pageBuilder: (context, state) => _fastPage(
         state,
-        PreviewNewsletterScreen(
+        // Query parameter, not a path parameter: the shape is the contract
+        // with `notification_route_resolver.dart` and is unchanged. Root-level
+        // by design — a notification tap opens the newsletter over the shell.
+        _newsletterPreview(
           newsletterCode: state.uri.queryParameters['code'] ?? '',
         ),
       ),
@@ -2137,8 +2410,9 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra! as ActivityFilterArgs;
         return BlocProvider<ActivityFilterCubit>(
-          create: (_) => serviceLocator<ActivityFilterCubit>()
-            ..loadMetadata(schoolCode: args.schoolCode),
+          create: (_) =>
+              serviceLocator<ActivityFilterCubit>()
+                ..loadMetadata(schoolCode: args.schoolCode),
           child: ActivityFilterScreen(
             schoolCode: args.schoolCode,
             classroomCode: args.classroomCode,
@@ -2184,12 +2458,12 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra! as ChooseActivityArgs;
         return BlocProvider<ChooseActivityCubit>(
-          create: (_) => serviceLocator<ChooseActivityCubit>()
-            ..loadActivitySettings(
-              classroomCode: classroomCodeFromSelectedStudents(
-                args.selectedStudents,
+          create: (_) =>
+              serviceLocator<ChooseActivityCubit>()..loadActivitySettings(
+                classroomCode: classroomCodeFromSelectedStudents(
+                  args.selectedStudents,
+                ),
               ),
-            ),
           child: ChooseActivity(selectedStudents: args.selectedStudents),
         );
       },
@@ -2428,6 +2702,257 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    // ---- Student modal editors (migrated from imperative Navigator.push) ----
+    // Full-screen editors pushed over the shell; args travel via state.extra and
+    // the screen returns its result through context.pop(result).
+    GoRoute(
+      path: EditStudentImportantDatesScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentImportantDatesScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialEnrollDate: args['initialEnrollDate'] as DateTime?,
+            initialSchoolStartDate: args['initialSchoolStartDate'] as DateTime?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: EditStudentHealthScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentHealthScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialHealth: args['initialHealth'] as StudentHealth?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddPhysicianScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddPhysicianScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            physicianCode: args['physicianCode'] as String?,
+            isEdit: args['isEdit'] as bool? ?? false,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialAddress: args['initialAddress'] as String?,
+            initialNotes: args['initialNotes'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddPickupScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddPickupScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            pickupCode: args['pickupCode'] as String?,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialRelation: args['initialRelation'] as String?,
+            initialClockPin: args['initialClockPin'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddStudentDocumentScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentDocumentScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            isEdit: args['isEdit'] as bool? ?? false,
+            initialDocumentName: args['initialDocumentName'] as String?,
+            initialDocumentType: args['initialDocumentType'] as String?,
+            initialExpiryDate: args['initialExpiryDate'] as DateTime?,
+            initialFilePath: args['initialFilePath'] as String?,
+            initialMimeType: args['initialMimeType'] as String?,
+            initialFileSizeKb: args['initialFileSizeKb'] as int?,
+            initialDocumentNotes: args['initialDocumentNotes'] as String?,
+            initialAssetCode: args['initialAssetCode'] as String?,
+            documentUuid: args['documentUuid'] as String?,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: EditStudentPhysicalExamScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          EditStudentPhysicalExamScreen(
+            studentCode: args['studentCode'] as String? ?? '',
+            initialDate: args['initialDate'] as DateTime?,
+            initialStatus: args['initialStatus'] as String?,
+          ),
+        );
+      },
+    ),
+    // ---- Add-Student wizard (entry + steps as routes; option-2 route-per-step) ----
+    GoRoute(
+      path: AddStudentWizardScreen.routeName,
+      pageBuilder: (context, state) =>
+          _fastPage(state, const AddStudentWizardScreen()),
+    ),
+    GoRoute(
+      path: AddStudentStep2Screen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentStep2Screen(
+            studentCode: args['studentCode'] as String?,
+            schoolCode: args['schoolCode'] as String?,
+            createGuardianDirectly:
+                args['createGuardianDirectly'] as bool? ?? false,
+            isOptionalStep: args['isOptionalStep'] as bool? ?? false,
+            editGuardianCode: args['editGuardianCode'] as String?,
+            initialUserCode: args['initialUserCode'] as String?,
+            initialFirstName: args['initialFirstName'] as String?,
+            initialLastName: args['initialLastName'] as String?,
+            initialEmail: args['initialEmail'] as String?,
+            initialPhoneNumber: args['initialPhoneNumber'] as String?,
+            initialRelation: args['initialRelation'] as String?,
+            initialRelationOther: args['initialRelationOther'] as String?,
+            initialIsEmergencyContact:
+                args['initialIsEmergencyContact'] as bool? ?? true,
+            initialIsChildCustody:
+                args['initialIsChildCustody'] as bool? ?? true,
+            initialSelectFromExisting:
+                args['initialSelectFromExisting'] as bool? ?? false,
+            initialSelectedExistingParents:
+                (args['initialSelectedExistingParents'] as List?)
+                    ?.cast<String>() ??
+                const [],
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: AddStudentStep3Screen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          AddStudentStep3Screen(
+            initialSchedule:
+                args['initialSchedule'] as Map<String, Map<String, TimeOfDay>>?,
+            title: args['title'] as String?,
+            primaryButtonLabel: args['primaryButtonLabel'] as String?,
+            showSkip: args['showSkip'] as bool? ?? true,
+          ),
+        );
+      },
+    ),
+    // Student-scoped activity feed (opened from a student profile). Distinct from
+    // the Activities bottom-nav tab so it doesn't disturb tab state.
+    GoRoute(
+      path: '/student-activity-feed',
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          ActivityFeedScreen(
+            fromStudentProfile: args['fromStudentProfile'] as bool? ?? true,
+            allowActivityWrite: args['allowActivityWrite'] as bool? ?? true,
+            studentName: args['studentName'] as Map<String, dynamic>?,
+          ),
+        );
+      },
+    ),
+    // Shared document viewer (also used from student documents).
+    GoRoute(
+      path: DocumentViewerScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          DocumentViewerScreen(
+            url: args['url'] as String? ?? '',
+            documentName: args['documentName'] as String? ?? '',
+            mimeType: args['mimeType'] as String? ?? '',
+          ),
+        );
+      },
+    ),
+    // Edit student profile: needs a ClassroomCubit for the classroom picker.
+    // Loads fresh with the attendance-staff scope (mirrors the old inline wrap).
+    GoRoute(
+      path: EditStudentProfileDetailsScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        List<String> strList(Object? v) =>
+            (v as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+        return _fastPage(
+          state,
+          BlocProvider<ClassroomCubit>(
+            create: (_) =>
+                serviceLocator<ClassroomCubit>()..loadActiveClassrooms(
+                  applyAttendanceStaffScope:
+                      args['applyAttendanceStaffScope'] as bool? ?? false,
+                ),
+            child: EditStudentProfileDetailsScreen(
+              studentCode: args['studentCode'] as String? ?? '',
+              initialFirstName: args['initialFirstName'] as String?,
+              initialLastName: args['initialLastName'] as String?,
+              initialStatus: args['initialStatus'] as String?,
+              initialGender: args['initialGender'] as String?,
+              initialClassroom: args['initialClassroom'] as String?,
+              initialBirthDate: args['initialBirthDate'] as DateTime?,
+              initialNotes: args['initialNotes'] as String?,
+              initialStreet: args['initialStreet'] as String?,
+              initialCity: args['initialCity'] as String?,
+              initialState: args['initialState'] as String?,
+              initialCountry: args['initialCountry'] as String?,
+              initialZipCode: args['initialZipCode'] as String?,
+              initialTags: strList(args['initialTags']),
+              initialSiblings: strList(args['initialSiblings']),
+              initialLegalCustodians: strList(args['initialLegalCustodians']),
+              initialSubsidy: args['initialSubsidy'] as bool? ?? false,
+            ),
+          ),
+        );
+      },
+    ),
+    // Student filter sheet: needs a ClassroomCubit ancestor for the classroom
+    // facet, so the route provides its own (the imperative caller used to share
+    // the list screen's cubit — a load-reuse optimisation, not a dependency).
+    GoRoute(
+      path: StudentFilterScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as Map<String, dynamic>? ?? const {};
+        return _fastPage(
+          state,
+          BlocProvider<ClassroomCubit>(
+            create: (_) =>
+                serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+            child: StudentFilterScreen(
+              initialFilters:
+                  args['initialFilters'] as Map<String, List<String>>?,
+            ),
+          ),
+        );
+      },
+    ),
     GoRoute(
       path: TransactionDetailsScreen.routeName,
       builder: (context, state) {
@@ -2598,6 +3123,122 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    // ── Communication / messaging (Mandate 1) ────────────────────────────
+    // All registered at the router root so they cover the bottom nav bar,
+    // exactly as the full-screen `MaterialPageRoute`s they replaced did.
+    GoRoute(
+      path: CommunicationRoutes.conversationThread,
+      builder: (context, state) {
+        final args = state.extra! as ConversationThreadArgs;
+        // The screen creates its own ConversationThreadCubit in initState —
+        // §5.4: no `..load()` here, so nothing re-fires on back navigation.
+        return ConversationThreadScreen(conversation: args.conversation);
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.seededThread,
+      builder: (context, state) {
+        final args = state.extra! as SeededThreadArgs;
+        return BlocProvider<CommunicationCubit>(
+          // The per-thread cubit is seeded with the recipient count so its
+          // read/delivered-by-all tick aggregation has something to work with
+          // — see CommunicationCubit.seedRecipientCount's own doc.
+          create: (_) => serviceLocator<CommunicationCubit>()
+            ..seedRecipientCount(args.conversationCode, args.recipientCount),
+          child: args.isStaffMessaging
+              ? StaffMessagingThread(staffInfo: args.staffInfo!)
+              : ParentMessagingThread(
+                  parentInfo: args.parentInfo!,
+                  isGuardian: false,
+                  conversationType:
+                      (args.conversationType as ConversationType?) ??
+                      ConversationType.roomChat,
+                ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.bulkCompose,
+      builder: (context, state) {
+        final args = state.extra! as MessageCompositionArgs;
+        // Cubit construction (Mandate 5: views don't touch serviceLocator) —
+        // the view reads this instance via context.read; BlocProvider owns its
+        // lifecycle. Same construction args and creation timing as the previous
+        // in-initState build.
+        return BlocProvider<BulkMessagingCompositionCubit>(
+          create: (_) => BulkMessagingCompositionCubit(
+            initialRecipients: args.selectedRecipients,
+            isStaff: args.isStaff,
+            conversationType: args.conversationType,
+            createOrOpenConversationUseCase: serviceLocator(),
+            sendMessageUseCase: serviceLocator(),
+            attachmentUploader: serviceLocator(),
+            storageService: serviceLocator(),
+            cacheMessageUseCase: serviceLocator(),
+            discardCachedMessageUseCase: serviceLocator(),
+            cacheDraftMessageUseCase: serviceLocator(),
+          ),
+          child: MessageCompositionBulkMessaging(
+            selectedRecipients: args.selectedRecipients,
+            isStaff: args.isStaff,
+            conversationType: args.conversationType,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.recipientSelection,
+      builder: (context, state) {
+        final args = state.extra! as RecipientSelectionArgs;
+        // The picker reads Staff/Classroom/Student cubits from ancestors, so
+        // the same MultiBlocProvider the push used is kept.
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+            BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+            BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+          ],
+          child: StaffOrStudentSelectionBulkMessaging(
+            isStaffSelection: args.isStaffSelection,
+            conversationType: args.conversationType,
+            restrictToDesignationCodes: args.restrictToDesignationCodes,
+            hideFilters: args.hideFilters,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.mediaViewer,
+      builder: (context, state) {
+        final args = state.extra! as MediaViewerArgs;
+        return ShowFullScreenMediaView(
+          imageUrl: args.imageUrl,
+          imageFile: args.imageFile,
+          videoUrl: args.videoUrl,
+          videoFile: args.videoFile,
+          title: args.title,
+          heroTag: args.heroTag,
+        );
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.attachmentGallery,
+      builder: (context, state) {
+        final args = state.extra! as AttachmentGalleryArgs;
+        return FullAttachmentViewer(attachments: args.attachments);
+      },
+    ),
+    GoRoute(
+      path: CommunicationRoutes.filter,
+      builder: (context, state) {
+        final args = state.extra! as MessagingFilterArgs;
+        return FilterScreen(
+          title: args.title,
+          sections: args.sections,
+          onApply: args.onApply,
+        );
+      },
+    ),
   ],
 );
 
@@ -2728,13 +3369,9 @@ Widget _studentProfileScreen(Object? extra) {
     tags: args['tags'] ?? const <String, dynamic>{},
     schedule: args['schedule'] ?? const <String, dynamic>{},
     sibling:
-        args['sibling'] ??
-        const <String, dynamic>{
-          'name': <dynamic>[],
-          'relation': <dynamic>[],
-          'status': <dynamic>[],
-        },
+        args['sibling'] as StudentSiblingInfo? ?? const StudentSiblingInfo(),
     studentCode: args['studentCode'] as String?,
+    initialEnrollmentStatus: args['initialEnrollmentStatus'] as String?,
     syncWithParentChildSelection:
         args['syncWithParentChildSelection'] as bool? ?? false,
   );
@@ -2755,8 +3392,8 @@ Widget _staffProfileScope({required String staffCode, required Widget child}) {
   return MultiBlocProvider(
     providers: [
       BlocProvider<StaffProfileCubit>(
-        create: (_) => serviceLocator<StaffProfileCubit>()
-          ..loadInitial(staffCode),
+        create: (_) =>
+            serviceLocator<StaffProfileCubit>()..loadInitial(staffCode),
       ),
       BlocProvider<StaffProfilePhotoUploadCubit>(
         create: (_) => serviceLocator<StaffProfilePhotoUploadCubit>(),
@@ -2768,8 +3405,8 @@ Widget _staffProfileScope({required String staffCode, required Widget child}) {
         create: (_) => serviceLocator<ImportantDatesCubit>(),
       ),
       BlocProvider<StaffDocumentsListCubit>(
-        create: (_) => serviceLocator<StaffDocumentsListCubit>()
-          ..loadInitial(staffCode),
+        create: (_) =>
+            serviceLocator<StaffDocumentsListCubit>()..loadInitial(staffCode),
       ),
       BlocProvider<StaffClassroomNameCubit>(
         create: (_) => serviceLocator<StaffClassroomNameCubit>(),
@@ -2799,6 +3436,18 @@ Widget _staffProfileScreen(Object? extra) {
 }
 
 Widget _studentAttendanceProfileScreen(Object? extra) {
+  // Typed args (Mandate 1) accepted alongside the legacy map — this route has
+  // nine callers and only the dashboard's has been migrated.
+  if (extra is StudentAttendanceProfileArgs) {
+    return StudentAttendanceProfile(
+      studentCode: extra.studentCode,
+      studentId: extra.studentId,
+      studentName: extra.studentName,
+      studentPhotoUuid: extra.studentPhotoUuid,
+      roomName: extra.roomName,
+      syncWithParentChildSelection: extra.syncWithParentChildSelection,
+    );
+  }
   final args = extra as Map<String, dynamic>? ?? const {};
   return StudentAttendanceProfile(
     studentCode: args['studentCode'] as String? ?? '',
@@ -2818,6 +3467,17 @@ Widget _studentAttendanceProfileScreen(Object? extra) {
 }
 
 Widget _staffAttendanceProfileScreen(Object? extra) {
+  // Typed args (Mandate 1) accepted alongside the legacy map — this route has
+  // several callers and only the dashboard's has been migrated.
+  if (extra is StaffAttendanceProfileArgs) {
+    return StaffAttendanceProfile(
+      staffCode: extra.staffCode,
+      staffId: extra.staffId,
+      staffName: extra.staffName,
+      designationName: extra.designationName,
+      roomName: extra.roomName,
+    );
+  }
   final args = extra as Map<String, dynamic>? ?? const {};
   return StaffAttendanceProfile(
     staffCode: args['staffCode'] as String? ?? '',
@@ -2835,9 +3495,277 @@ Widget _staffAttendanceProfileScreen(Object? extra) {
   );
 }
 
+/// Module required to open each guarded child of `/dashboard`.
+///
+/// Keyed by the FIRST path segment under `/dashboard`, so a deeper location
+/// (`/dashboard/reports/staff/absent`, `/dashboard/staff/edit-schedule-screen`)
+/// inherits its parent's requirement without needing its own entry.
+///
+/// Deliberately mirrors the predicates `CustomDrawer.build` already uses, one
+/// for one — the router must not invent an authorization rule the UI does not
+/// also apply, or a user who can see a menu item would be bounced when they tap
+/// it. Anything absent from this map is unguarded, exactly as before.
+const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
+  StaffRoutes.listSegment: <String>[AppAccessModules.staff],
+  'students': <String>[AppAccessModules.student],
+  'classroom-info-screen': <String>[AppAccessModules.classroom],
+  'billing': <String>[
+    AppAccessModules.transaction,
+    AppAccessModules.invoices,
+    AppAccessModules.recurringPlans,
+    AppAccessModules.billingSettings,
+  ],
+  'parent-newsletter': <String>[AppAccessModules.newsletter],
+  'reports': <String>[AppAccessModules.reports],
+  'scheduling': <String>[AppAccessModules.classroomSchedule],
+  'staff-scheduling': <String>[AppAccessModules.staffScheduling],
+  'future-availability': <String>[AppAccessModules.futureAvailability],
+  'individual-movement': <String>[AppAccessModules.individualMovements],
+  'student-attendance-tabbed-view': <String>[
+    AppAccessModules.studentAttendance,
+  ],
+  'staff-attendance-tabbed-view': <String>[AppAccessModules.staffAttendance],
+};
+
+/// Segments under `/dashboard` that a guardian persona must never open,
+/// regardless of module grants — the staff/admin management surfaces. Mirrors
+/// the drawer, which renders these only inside its `if (!isParent)` branches.
+const Set<String> _dashboardAdminOnlySegments = <String>{
+  StaffRoutes.listSegment,
+  // The whole-school student LIST. Also module-guarded below, but that guard
+  // only holds while a guardian lacks a `student` read grant: a parent who
+  // HAS one — a plausible grant, since it is what lets them see their own
+  // child — passes `canAccessAny` and lands on every student in the school.
+  // Persona, not permission, is the right axis for this screen, exactly as it
+  // already is for staff/scheduling/reports. The parent-facing surfaces are
+  // `student-profile` / `student-attendance-profile`, which stay open;
+  // nothing in the parent UI routes to this list (the drawer renders it only
+  // inside its `if (!isParent)` branch).
+  'students',
+  'staff-scheduling',
+  'scheduling',
+  'future-availability',
+  'individual-movement',
+  'staff-attendance-tabbed-view',
+  'reports',
+};
+
+/// Remount key for a deep-linked Activity Feed, or null for ordinary browsing.
+///
+/// Returns null when there is no `highlightCode`, which is what keeps a plain
+/// bottom-nav tap on Activities from throwing away the tab's scroll/filter
+/// state. When there IS one, the key covers every input that changes WHICH
+/// rows the feed should be showing — the card, the day, the room and (for a
+/// guardian) the child — so a second notification that differs in any of them
+/// rebuilds the tab instead of reusing the previous target's State.
+///
+/// Extracted from the route builder so the keying rule is directly testable;
+/// see `test/src/activity_feed_deep_link_key_test.dart`.
+@visibleForTesting
+ValueKey<String>? activityFeedDeepLinkKey({
+  required String highlightCode,
+  required String date,
+  required String classroomCode,
+  required String studentCode,
+}) {
+  if (highlightCode.trim().isEmpty) return null;
+  return ValueKey<String>(
+    'activityFeed-${highlightCode.trim()}-$date-$classroomCode-$studentCode',
+  );
+}
+
+/// Dashboard routes that take a student code straight off the URL, mapped to
+/// the query parameter carrying it.
+///
+/// These are the notification/deep-link entry points: unlike every other
+/// student screen (which is handed its subject through `extra` from a trusted
+/// in-app call site), their subject is attacker-controllable — a hand-edited
+/// link, a stale payload, a replayed notification. [_guardianStudentScopeRedirect]
+/// is what stops a guardian opening one for a child that is not theirs.
+///
+/// The sign-in/sign-out selection forms also read a `studentCode` from the
+/// query string but are deliberately NOT listed here: they already narrow
+/// their own list through `loadGuardianStudentAllowlistForSelection`, which is
+/// the same ownership set expressed at the screen level.
+const Map<String, String> _studentScopedDashboardSegments = <String, String>{
+  'student-profile-by-code': 'code',
+  'student-attendance-profile-by-code': 'code',
+};
+
+/// Router-level guardian scoping for student deep-links.
+///
+/// Navigation correctness is not authorization, and this guard does not
+/// pretend to be the authorization boundary — the backend remains that. It
+/// closes the *client* half: a guardian who follows a link carrying another
+/// family's student code is returned to their dashboard instead of being shown
+/// a screen that then issues requests for that child.
+///
+/// Deterministic, synchronous and side-effect free (§6): it reads two already-
+/// resolved cubits, performs no I/O, mutates nothing — in particular it does
+/// NOT "helpfully" switch the selected child — and its target
+/// ([DashboardRoutes.root]) carries no student code, so it cannot re-enter
+/// itself and loop.
+///
+/// Fails OPEN in three cases, each because failing closed would break a
+/// legitimate flow without closing a real hole:
+///   * the cubits are not reachable / the persona has not resolved yet — the
+///     splash resolves both before `/dashboard` is reached, and bouncing here
+///     would break cold-start deep links (same rule as
+///     [_dashboardPersonaRedirect]);
+///   * the child list has not loaded yet — the answer is genuinely unknown,
+///     and the screens themselves re-check once it arrives;
+///   * the list loaded EMPTY — which a transient fetch failure is
+///     indistinguishable from, and where there is no wrong child to leak to.
+String? _guardianStudentScopeRedirect(
+  BuildContext context,
+  GoRouterState state,
+) {
+  final path = state.uri.path;
+  if (!path.startsWith('${DashboardRoutes.root}/')) return null;
+
+  final segment = path
+      .substring(DashboardRoutes.root.length + 1)
+      .split('/')
+      .first;
+  final param = _studentScopedDashboardSegments[segment];
+  if (param == null) return null;
+
+  final String code = state.uri.queryParameters[param]?.trim() ?? '';
+  if (code.isEmpty) return null;
+
+  final RoleCubit role;
+  final ParentChildCubit parentChild;
+  try {
+    role = context.read<RoleCubit>();
+    parentChild = context.read<ParentChildCubit>();
+  } catch (_) {
+    return null;
+  }
+
+  return guardianStudentScopeDecision(
+    path: path,
+    studentCode: code,
+    isPersonaResolved: role.isPersonaResolved,
+    isParent: role.isParent,
+    childrenLoaded: parentChild.isLoaded,
+    ownedStudentCodes: parentChild.ownedStudentCodes,
+  );
+}
+
+/// The [_guardianStudentScopeRedirect] decision, with the cubit plumbing
+/// factored out — a pure function of the inputs, so the policy is directly
+/// testable without building a router, a widget tree or a DI graph.
+///
+/// Returns the location to redirect to, or null to allow the navigation.
+@visibleForTesting
+String? guardianStudentScopeDecision({
+  required String path,
+  required String studentCode,
+  required bool isPersonaResolved,
+  required bool isParent,
+  required bool childrenLoaded,
+  required Set<String> ownedStudentCodes,
+}) {
+  final code = studentCode.trim();
+  if (code.isEmpty) return null;
+  if (!isPersonaResolved || !isParent) return null;
+  if (!childrenLoaded || ownedStudentCodes.isEmpty) return null;
+  if (ownedStudentCodes.contains(code.toUpperCase())) return null;
+
+  AppLogger.w(
+    '[RouteGuard] Guardian blocked from $path — student "$code" is not linked '
+    'to this account; redirecting to ${DashboardRoutes.root}',
+  );
+  return DashboardRoutes.root;
+}
+
+/// Router-level authorization for the dashboard branch. Returns a redirect
+/// location when the current persona must not open [state]'s location, or null
+/// to allow it.
+///
+/// Fails OPEN in exactly two cases, both deliberate and both matching what the
+/// UI already does:
+///   * `RoleCubit` is not reachable or has not resolved a persona yet — the
+///     splash resolves it before `/dashboard` is reached, and bouncing on an
+///     unresolved role would break cold-start deep links.
+///   * The user has no granular permission payload (legacy accounts) —
+///     `canOpenModule` returns true there, which is what the drawer relies on
+///     to avoid hiding every menu item from those users.
+String? _dashboardPersonaRedirect(BuildContext context, GoRouterState state) {
+  final path = state.uri.path;
+  if (!path.startsWith('${DashboardRoutes.root}/')) return null;
+
+  final RoleCubit role;
+  try {
+    role = context.read<RoleCubit>();
+  } catch (_) {
+    // Providers not mounted yet — leave routing untouched, as the billing
+    // rewrite below already does for the same reason.
+    return null;
+  }
+  if (!role.isPersonaResolved) return null;
+
+  final segment = path
+      .substring(DashboardRoutes.root.length + 1)
+      .split('/')
+      .first;
+
+  if (role.isParent && _dashboardAdminOnlySegments.contains(segment)) {
+    AppLogger.w(
+      '[RouteGuard] Guardian blocked from $path — admin-only segment '
+      '"$segment"; redirecting to ${DashboardRoutes.root}',
+    );
+    return DashboardRoutes.root;
+  }
+
+  final required = _dashboardModuleGuards[segment];
+  if (required != null && !role.canAccessAny(required)) {
+    // canAccessAny mirrors the drawer's own `canAccessAny`/`canOpenModule`
+    // checks, so anyone who can SEE the entry can still open it.
+    AppLogger.w(
+      '[RouteGuard] Blocked $path — persona "${role.role}" lacks any of '
+      '$required; redirecting to ${DashboardRoutes.root}',
+    );
+    return DashboardRoutes.root;
+  }
+
+  return null;
+}
+
 /// Snappier page builder for drill-down routes — the default Material
 /// transition is ~300 ms which feels sluggish on back; we use a 180 ms slide
 /// so push *and* pop animations stay smooth and tight.
+/// The newsletter preview screen, with the `PreviewNewsletterCubit` its route
+/// owns.
+///
+/// Three routes build this screen — the dashboard branch, the messaging
+/// branch and the notification deep-link — so the `BlocProvider` lives here
+/// once rather than being retyped in each builder. `create:` constructs only;
+/// the screen fires `load()` from `initState` so the fetch happens once per
+/// screen instance rather than on every `pageBuilder` re-run (§5.4).
+Widget _newsletterPreview({
+  required String newsletterCode,
+  NewsletterPreviewArgs? args,
+}) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<PreviewNewsletterCubit>(
+        create: (_) => serviceLocator<PreviewNewsletterCubit>(),
+      ),
+      // The attachment grid and the inline component images resolve media
+      // codes to URLs. Both used to call serviceLocator<ImageUploadService>()
+      // from inside a FutureBuilder (§5.3); the cubit owns that now.
+      BlocProvider<NewsletterAssetUrlCubit>(
+        create: (_) => serviceLocator<NewsletterAssetUrlCubit>(),
+      ),
+    ],
+    child: PreviewNewsletterScreen(
+      newsletterCode: newsletterCode,
+      initialNewsletter: args?.initialNewsletter,
+    ),
+  );
+}
+
 Page<dynamic> _fastPage(GoRouterState state, Widget child) {
   // Notification deep-links carry their target in the query string
   // (e.g. `?code=…&highlightCode=…`). go_router's default `state.pageKey` is

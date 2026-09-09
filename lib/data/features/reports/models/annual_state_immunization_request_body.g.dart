@@ -7,8 +7,7 @@ part of 'annual_state_immunization_request_body.dart';
 // **************************************************************************
 
 Map<String, dynamic> _$AnnualStateImmunizationRequestBodyToJson(
-  AnnualStateImmunizationRequestBody instance,
-) {
+    AnnualStateImmunizationRequestBody instance) {
   final val = <String, dynamic>{
     'reportType': instance.reportType,
     'startDate': instance.startDate,

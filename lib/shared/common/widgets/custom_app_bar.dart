@@ -19,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import '../../../presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/src/app_router.dart'
@@ -111,7 +112,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
               builder: (context, state) {
                 final cubit = context.read<ParentChildCubit>();
-                final names = cubit.childNames;
+                // Labels, not bare names: `CustomDropdown` is a label-keyed
+                // widget, so two siblings whose names render identically used
+                // to collapse into one entry that always resolved to the first
+                // of them — leaving a multi-child parent unable to switch to
+                // the second. `displayLabels`/`selectByLabel` keep the switcher
+                // one-to-one with `children` (see ParentChildCubit).
+                final names = cubit.displayLabels;
                 final canPickChild = !state.isLoading && names.isNotEmpty;
                 // Only offer the switcher when there's actually something to
                 // switch to. A single-child (or still-loading, where the
@@ -152,8 +159,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ? 'Loading children...'
                           : 'No children linked',
                       items: names,
-                      selectedItem: state.selectedChild?.name,
-                      onSelect: cubit.selectByName,
+                      selectedItem: cubit.labelForCode(
+                        state.selectedChild?.code,
+                      ),
+                      onSelect: cubit.selectByLabel,
                       isEnabled: canPickChild,
                     ),
                   ),
@@ -169,7 +178,11 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // In StatefulShellRoute, context.canPop() may not work as expected because
                 // the route hierarchy differs from traditional Navigator stacks.
                 // Always try to pop from the shell context first, preserving route history.
-                debugPrint(
+                // AppLogger, not debugPrint: `debugPrint` is NOT stripped from
+                // release builds, so this printed the user's current route on
+                // every back press in production. Same rule the router states
+                // at its own top-level redirect.
+                AppLogger.d(
                   '[CustomAppBar] Back button pressed. '
                   'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
                 );

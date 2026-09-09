@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
-import 'package:wowcare/presentation/features/reports/model/report_filter_defaults.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -21,7 +20,6 @@ class BillingStudentMappingFilters extends StatelessWidget {
     required this.endDate,
     required this.format,
     required this.selectedClassrooms,
-    required this.classroomFilter,
   });
 
   final List<String> classrooms;
@@ -31,7 +29,6 @@ class BillingStudentMappingFilters extends StatelessWidget {
   final ValueNotifier<DateTime> endDate;
   final ValueNotifier<String> format;
   final ValueNotifier<List<String>> selectedClassrooms;
-  final ReportFilterDefault classroomFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -109,17 +106,15 @@ class BillingStudentMappingFilters extends StatelessWidget {
           valueListenable: selectedClassrooms,
           builder: (_, selected, __) => CustomMultiSelectDropdown(
             label: ReportsStrings.classroom,
-            hintText: ReportsStrings.selectClassrooms,
+            hintText: ReportsStrings.allClassrooms,
             items: classrooms,
-            isRequired: true,
             selectedItems: selected,
-            onChanged: (s) =>
-                selectedClassrooms.value = classroomFilter.userSelected(s),
+            onChanged: (s) => selectedClassrooms.value = s,
             showSelectAll: true,
           ),
         ),
         const ReportDefaultNote(
-          text: ReportsStrings.noteAllClassroomsWillBeSelectedByDefault,
+          text: ReportsStrings.noteAllClassroomsIncludedByDefault,
         ),
         SizedBox(height: context.responsive(compact: 16.0, medium: 24.0)),
       ],

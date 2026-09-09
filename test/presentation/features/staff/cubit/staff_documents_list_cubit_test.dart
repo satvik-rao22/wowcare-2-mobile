@@ -6,7 +6,9 @@ import 'package:wowcare/domain/features/staff/entities/staff_documents_page.dart
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_documents_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_documents_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_cubit.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 // Covers the paths of StaffDocumentsListCubit the existing download-only test
 // leaves untested: cache-first loadInitial + revalidate, loadNextPage
@@ -55,8 +57,9 @@ class _UnusedRepo implements StaffRepository {
 class _CachingRepo implements StaffRepository, StaffRepositoryWithCache {
   StaffDocumentsPage? cached;
   @override
-  Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode) async =>
-      cached;
+  Future<StaffDocumentsPage?> loadCachedStaffDocuments(
+    String staffCode,
+  ) async => cached;
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName} was not expected');
@@ -102,60 +105,84 @@ class _StubDelete extends DeleteStaffDocumentUseCase {
   }
 }
 
+/// The cubit no longer holds a repository — the cache read moved behind
+/// [LoadCachedStaffDocumentsUseCase] so it stops type-testing the repository
+/// itself. The fake repo is now handed to that use case instead.
+class _UnusedImageUpload implements ImageUploadService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
 StaffDocumentsListCubit _cubit({
   required _QueueGet get,
   required _StubDelete del,
   StaffRepository? repo,
-}) => StaffDocumentsListCubit(
-  getStaffDocumentsUseCase: get,
-  deleteStaffDocumentUseCase: del,
-  repository: repo ?? _UnusedRepo(),
-);
+}) {
+  final repository = repo ?? _UnusedRepo();
+  return StaffDocumentsListCubit(
+    getStaffDocumentsUseCase: get,
+    deleteStaffDocumentUseCase: del,
+    loadCachedStaffDocumentsUseCase: LoadCachedStaffDocumentsUseCase(
+      repository,
+    ),
+    imageUploadService: _UnusedImageUpload(),
+  );
+}
 
 void main() {
   group('loadInitial', () {
-    test('cache-first: emits cached (isFromCache) then revalidates from API',
-        () async {
-      final get = _QueueGet()..enqueue(_page(['api-1', 'api-2']));
-      final repo = _CachingRepo()..cached = _page(['cache-1']);
-      final cubit = _cubit(get: get, del: _StubDelete(), repo: repo);
+    test(
+      'cache-first: emits cached (isFromCache) then revalidates from API',
+      () async {
+        final get = _QueueGet()..enqueue(_page(['api-1', 'api-2']));
+        final repo = _CachingRepo()..cached = _page(['cache-1']);
+        final cubit = _cubit(get: get, del: _StubDelete(), repo: repo);
 
-      final seen = <StaffDocumentsListState>[];
-      final sub = cubit.stream.listen(seen.add);
+        final seen = <StaffDocumentsListState>[];
+        final sub = cubit.stream.listen(seen.add);
 
-      await cubit.loadInitial('STF-1');
-      // let the unawaited revalidation settle
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
+        await cubit.loadInitial('STF-1');
+        // let the unawaited revalidation settle
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
 
-      // First emit is the cached snapshot…
-      expect(seen.first.isFromCache, isTrue);
-      expect(seen.first.documents.map((d) => d.documentUuid), ['cache-1']);
-      expect(seen.first.currentPage, 0);
-      // …and the terminal state is the revalidated API page.
-      expect(cubit.state.isFromCache, isFalse);
-      expect(cubit.state.documents.map((d) => d.documentUuid),
-          ['api-1', 'api-2']);
-      expect(get.calls, 1); // exactly one revalidation
+        // First emit is the cached snapshot…
+        expect(seen.first.isFromCache, isTrue);
+        expect(seen.first.documents.map((d) => d.documentUuid), ['cache-1']);
+        expect(seen.first.currentPage, 0);
+        // …and the terminal state is the revalidated API page.
+        expect(cubit.state.isFromCache, isFalse);
+        expect(cubit.state.documents.map((d) => d.documentUuid), [
+          'api-1',
+          'api-2',
+        ]);
+        expect(get.calls, 1); // exactly one revalidation
 
-      await sub.cancel();
-      await cubit.close();
-    });
+        await sub.cancel();
+        await cubit.close();
+      },
+    );
 
-    test('no cache: loads straight from the API (single page 0 fetch)',
-        () async {
-      final get = _QueueGet()..enqueue(_page(['a', 'b'], hasMore: true));
-      final cubit = _cubit(get: get, del: _StubDelete()); // _UnusedRepo, no cache
+    test(
+      'no cache: loads straight from the API (single page 0 fetch)',
+      () async {
+        final get = _QueueGet()..enqueue(_page(['a', 'b'], hasMore: true));
+        final cubit = _cubit(
+          get: get,
+          del: _StubDelete(),
+        ); // _UnusedRepo, no cache
 
-      await cubit.loadInitial('STF-1');
+        await cubit.loadInitial('STF-1');
 
-      expect(get.requestedPages, [0]);
-      expect(cubit.state.isFromCache, isFalse);
-      expect(cubit.state.documents.map((d) => d.documentUuid), ['a', 'b']);
-      expect(cubit.state.hasMore, isTrue);
+        expect(get.requestedPages, [0]);
+        expect(cubit.state.isFromCache, isFalse);
+        expect(cubit.state.documents.map((d) => d.documentUuid), ['a', 'b']);
+        expect(cubit.state.hasMore, isTrue);
 
-      await cubit.close();
-    });
+        await cubit.close();
+      },
+    );
   });
 
   group('loadNextPage', () {
@@ -168,8 +195,12 @@ void main() {
       await cubit.loadInitial('STF-1');
       await cubit.loadNextPage('STF-1');
 
-      expect(cubit.state.documents.map((d) => d.documentUuid),
-          ['a', 'b', 'c', 'd']);
+      expect(cubit.state.documents.map((d) => d.documentUuid), [
+        'a',
+        'b',
+        'c',
+        'd',
+      ]);
       expect(cubit.state.currentPage, 1);
       expect(cubit.state.hasMore, isFalse);
       expect(get.requestedPages, [0, 1]);
@@ -177,22 +208,28 @@ void main() {
       await cubit.close();
     });
 
-    test('does NOT dedup — an overlapping uuid is retained twice (no guard)',
-        () async {
-      final get = _QueueGet()
-        ..enqueue(_page(['a', 'b'], page: 0, hasMore: true))
-        ..enqueue(_page(['b', 'c'], page: 1, hasMore: false)); // b overlaps
-      final cubit = _cubit(get: get, del: _StubDelete());
+    test(
+      'does NOT dedup — an overlapping uuid is retained twice (no guard)',
+      () async {
+        final get = _QueueGet()
+          ..enqueue(_page(['a', 'b'], page: 0, hasMore: true))
+          ..enqueue(_page(['b', 'c'], page: 1, hasMore: false)); // b overlaps
+        final cubit = _cubit(get: get, del: _StubDelete());
 
-      await cubit.loadInitial('STF-1');
-      await cubit.loadNextPage('STF-1');
+        await cubit.loadInitial('STF-1');
+        await cubit.loadNextPage('STF-1');
 
-      // The cubit blindly concatenates, so 'b' appears twice.
-      expect(cubit.state.documents.map((d) => d.documentUuid),
-          ['a', 'b', 'b', 'c']);
+        // The cubit blindly concatenates, so 'b' appears twice.
+        expect(cubit.state.documents.map((d) => d.documentUuid), [
+          'a',
+          'b',
+          'b',
+          'c',
+        ]);
 
-      await cubit.close();
-    });
+        await cubit.close();
+      },
+    );
 
     test('is a no-op when there is no more data', () async {
       final get = _QueueGet()..enqueue(_page(['a'], page: 0, hasMore: false));
@@ -209,26 +246,30 @@ void main() {
   });
 
   group('deleteDocument', () {
-    test('success: returns null and triggers a guarded refresh (page 0)',
-        () async {
-      final get = _QueueGet()
-        ..enqueue(_page(['a', 'b'], page: 0, hasMore: false)) // initial
-        ..enqueue(_page(['a'], page: 0, hasMore: false)); // post-delete refresh
-      final del = _StubDelete()..result = const Right('ok');
-      final cubit = _cubit(get: get, del: del, repo: _UnusedRepo());
+    test(
+      'success: returns null and triggers a guarded refresh (page 0)',
+      () async {
+        final get = _QueueGet()
+          ..enqueue(_page(['a', 'b'], page: 0, hasMore: false)) // initial
+          ..enqueue(
+            _page(['a'], page: 0, hasMore: false),
+          ); // post-delete refresh
+        final del = _StubDelete()..result = const Right('ok');
+        final cubit = _cubit(get: get, del: del, repo: _UnusedRepo());
 
-      await cubit.loadInitial('STF-1');
-      final err = await cubit.deleteDocument('STF-1', 'b');
-      await Future<void>.delayed(Duration.zero); // let refresh settle
+        await cubit.loadInitial('STF-1');
+        final err = await cubit.deleteDocument('STF-1', 'b');
+        await Future<void>.delayed(Duration.zero); // let refresh settle
 
-      expect(err, isNull);
-      expect(del.calls, 1);
-      // Refresh re-fetched page 0 after the delete.
-      expect(get.requestedPages, [0, 0]);
-      expect(cubit.state.documents.map((d) => d.documentUuid), ['a']);
+        expect(err, isNull);
+        expect(del.calls, 1);
+        // Refresh re-fetched page 0 after the delete.
+        expect(get.requestedPages, [0, 0]);
+        expect(cubit.state.documents.map((d) => d.documentUuid), ['a']);
 
-      await cubit.close();
-    });
+        await cubit.close();
+      },
+    );
 
     test('failure: returns the error message and does NOT refresh', () async {
       final get = _QueueGet()..enqueue(_page(['a'], page: 0, hasMore: false));
@@ -244,22 +285,24 @@ void main() {
       await cubit.close();
     });
 
-    test('single-flight: a second delete of the same uuid in flight is ignored',
-        () async {
-      final get = _QueueGet()..enqueue(_page(['a'], page: 0, hasMore: false));
-      final del = _StubDelete();
-      final cubit = _cubit(get: get, del: del);
-      await cubit.loadInitial('STF-1');
+    test(
+      'single-flight: a second delete of the same uuid in flight is ignored',
+      () async {
+        final get = _QueueGet()..enqueue(_page(['a'], page: 0, hasMore: false));
+        final del = _StubDelete();
+        final cubit = _cubit(get: get, del: del);
+        await cubit.loadInitial('STF-1');
 
-      // Fire two concurrent deletes of the same uuid; the second must be a no-op.
-      final f1 = cubit.deleteDocument('STF-1', 'a');
-      final f2 = cubit.deleteDocument('STF-1', 'a');
-      await Future.wait([f1, f2]);
+        // Fire two concurrent deletes of the same uuid; the second must be a no-op.
+        final f1 = cubit.deleteDocument('STF-1', 'a');
+        final f2 = cubit.deleteDocument('STF-1', 'a');
+        await Future.wait([f1, f2]);
 
-      expect(await f2, isNull); // ignored duplicate returns null
-      expect(del.calls, 1); // only one delete actually ran
+        expect(await f2, isNull); // ignored duplicate returns null
+        expect(del.calls, 1); // only one delete actually ran
 
-      await cubit.close();
-    });
+        await cubit.close();
+      },
+    );
   });
 }

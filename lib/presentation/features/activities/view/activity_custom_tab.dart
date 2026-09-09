@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -41,6 +41,7 @@ import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import '../widgets/avtivity_media_preview.dart';
 import '../widgets/activity_tab_shared_helpers.dart';
+import '../utils/activity_feed_display_rules.dart';
 
 /// Feed card model + permissions (`activity_feed_card_permissions.dart`) come through this barrel export.
 import 'activity_daily_tab.dart';
@@ -190,7 +191,20 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   Map<String, String> _tagNameToCode = {};
   final Set<String> _studentCodesForTagFilter = {};
   final Set<String> _parentAllowedStudentCodes = {};
+
+  /// The child the feed is CURRENTLY scoped to, `{studentCode: classroomCode}`.
+  /// Its keys are the guardian fan-out set, so for a guardian it normally holds
+  /// exactly one entry.
   final Map<String, String> _parentStudentClassroomByCode = {};
+
+  /// EVERY linked child's classroom, from the last successful bootstrap — see
+  /// the daily tab's field of the same name for why the narrowed map above
+  /// cannot answer for a sibling.
+  final Map<String, String> _parentClassroomByStudentCodeAll = {};
+
+  /// Guards [_bootstrapParentHome] against re-entry from the per-frame
+  /// [_syncWithGlobalChildSelection] scheduled in `build`.
+  bool _parentBootstrapInFlight = false;
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
   bool _forceAllClassroomsOnLoad = false;
@@ -287,9 +301,41 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   List<ActivityItem> get _displayActivities =>
       _sortItemsByLatestFirst(_withClientFilters(_effectiveFeedState.items));
 
+  bool get _displayedLoadingFeed => _effectiveFeedState.isLoading;
+
   bool get _displayedLoadingMoreFeed => _effectiveFeedState.isLoadingMore;
 
   bool get _displayedFeedHasMore => _effectiveFeedState.hasMore;
+
+  /// Whether the rows on screen answer the currently selected scope. Mirrors
+  /// `activity_daily_tab.dart`'s latch of the same name — see it for the two
+  /// windows that used to render "No Activities found" wrongly.
+  bool _feedResultIsCurrent = false;
+
+  /// The feed is busy, or has no result for the current scope: show the loader,
+  /// not "No Activities found". See [shouldShowActivityFeedLoadingPlaceholder].
+  bool get _showFeedLoadingPlaceholder =>
+      shouldShowActivityFeedLoadingPlaceholder(
+        isLoading: _displayedLoadingFeed,
+        isLoadingParentContext: _loadingParentContext,
+        hasCurrentResult: _feedResultIsCurrent,
+        hasBootstrapError: _feedError != null,
+      );
+
+  /// Marks the on-screen rows stale because a (re)load has just been decided.
+  /// Must run synchronously, before the load's first `await`.
+  void _beginFeedLoad() {
+    if (!_feedResultIsCurrent) return;
+    _feedResultIsCurrent = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Marks the on-screen rows as the answer to the current scope.
+  void _endFeedLoad() {
+    if (_feedResultIsCurrent) return;
+    _feedResultIsCurrent = true;
+    if (mounted) setState(() {});
+  }
 
   /// `_feedError` is still written directly by bootstrap
   /// (`_bootstrapRangeFeed`/`_loadStaffClassroomScope`/`_bootstrapParentHome`)
@@ -298,8 +344,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   /// query can even be built, so they can't flow through the cubit. A
   /// bootstrap error takes priority; otherwise fall back to the cubit's own
   /// load error. Mirrors `activity_daily_tab.dart`'s `_displayedFeedError`.
-  String? get _displayedFeedError =>
-      _feedError ?? _effectiveFeedState.error;
+  String? get _displayedFeedError => _feedError ?? _effectiveFeedState.error;
 
   final List<String> activityType = [
     'Sign-in',
@@ -860,7 +905,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     return sorted;
   }
 
-
   Future<void> _loadNextRangeFeedPage() async {
     if (_parentHome) {
       return _loadNextParentHomeRangeFeedPage();
@@ -889,6 +933,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   /// State instance (see the Mandate 2 note above `_feedCubitInstance`).
   /// Mirrors `activity_daily_tab.dart`'s `_loadParentHomeDailyFeed`.
   Future<void> _loadParentHomeRangeFeed({bool refresh = false}) async {
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final school = _schoolCode;
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
@@ -910,6 +956,11 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       }
       return;
     }
+
+    // The not-ready return above deliberately does NOT end the load: "not
+    // ready" means the school, range or child map is still resolving, which is
+    // exactly when the loader must hold. Every genuine dead end sets
+    // `_feedError` instead, which the display rule treats as terminal.
     await _rebuildStudentCodesForTagFilter();
     if (!mounted) return;
 
@@ -940,8 +991,14 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // In-flight: leave the result stale, the running request will end it.
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      // Same scope as the completed request, so the rows on screen already ARE
+      // the answer — re-affirm them rather than holding the placeholder.
+      if (!_lastFeedCompletedWithError) {
+        _endFeedLoad();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
           AppTime.nowUtc().difference(completedAt) <
@@ -991,6 +1048,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // Fetch done: the rows on screen now answer the current scope. Set on the
+    // error path too — an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -1744,6 +1805,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   Future<void> _bootstrapParentHome() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
+    if (_parentBootstrapInFlight) return;
+    _parentBootstrapInFlight = true;
 
     if (mounted) {
       setState(() {
@@ -1780,6 +1843,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
       _parentAllowedStudentCodes.clear();
       _parentStudentClassroomByCode.clear();
+      _parentClassroomByStudentCodeAll.clear();
       for (final s in page.items) {
         final code = s.code.trim();
         if (code.isEmpty) continue;
@@ -1787,11 +1851,27 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         if (cc.isEmpty) continue;
         _parentAllowedStudentCodes.add(code);
         _parentStudentClassroomByCode[code] = cc;
+        _parentClassroomByStudentCodeAll[code] = cc;
       }
 
-      // Parent UX: use the child currently selected in the global dropdown.
+      // Which child this feed is for. The Custom tab is never an activity
+      // notification's own destination (the resolver emits no `tab` param, so
+      // those always land on Daily), hence no deep-link student here — but the
+      // dropdown selection can still be unresolved when a parent switches to
+      // this tab right after a cold launch. Falling back to the first linked
+      // child keeps the range feed scoped to ONE child instead of fanning out
+      // over all of them and rendering a merged list that then shrinks.
       final globalSelectedCode =
-          (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
+          resolveGuardianFeedStudentCode(
+            deepLinkStudentCode: null,
+            deepLinkAlreadyApplied: true,
+            selectedChildCode: context
+                .read<ParentChildCubit>()
+                .selectedChild
+                ?.code,
+            ownedStudentCodes: _parentClassroomByStudentCodeAll.keys,
+          ) ??
+          '';
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
             _parentStudentClassroomByCode[globalSelectedCode];
@@ -1843,6 +1923,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _parentStudentClassroomByCode.clear();
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    } finally {
+      // Released on every exit path (including the early `return`s above) so a
+      // failed bootstrap stays retryable.
+      _parentBootstrapInFlight = false;
     }
   }
 
@@ -1926,6 +2010,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       return _loadParentHomeRangeFeed(refresh: refresh);
     }
 
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final classroomCodes = _selectedClassroomCodesForFeed();
     final classroomCode = classroomCodes.isNotEmpty
         ? classroomCodes.first
@@ -1954,6 +2040,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       return;
     }
 
+    // As in the guardian branch, the not-ready returns here and just below
+    // deliberately do NOT end the load: every genuine dead end sets
+    // `_feedError` instead.
     final start = _selectedStartDate;
     final end = _selectedEndDate ?? _selectedStartDate;
     if (start == null || end == null) return;
@@ -1980,8 +2069,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // In-flight: leave the result stale, the running request will end it.
       if (_isFeedRequestInFlight) return;
+      // Same scope as the completed request — the rows on screen are already
+      // the answer.
       if (!_lastFeedCompletedWithError) {
+        _endFeedLoad();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
@@ -2050,6 +2143,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     _lastFeedCompletedAt = AppTime.nowUtc();
     final feedError = _feedCubit.state.error;
     _lastFeedCompletedWithError = feedError != null;
+    // Fetch done: the rows on screen now answer the current scope. Set on the
+    // error path too — an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
     if (feedError != null) {
       if (mounted) {
         CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
@@ -2241,6 +2338,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     );
   }
 
+  /// Re-scopes the range feed when the global child dropdown changes.
+  ///
+  /// Mirrors the daily tab's method of the same name — see its doc for why the
+  /// latch must not be set before the async bootstrap (a failed bootstrap
+  /// otherwise strands a multi-child parent on the previous child) and why the
+  /// unnarrowed classroom map exists.
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
@@ -2248,17 +2351,23 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
-    _lastGlobalSelectedStudentCode = globalSelectedCode;
+    final classroom =
+        _parentStudentClassroomByCode[globalSelectedCode] ??
+        _parentClassroomByStudentCodeAll[globalSelectedCode];
 
-    // If we don't yet have classroom mapping for this child, bootstrap first.
-    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
-      _bootstrapParentHome();
+    if (classroom == null || classroom.trim().isEmpty) {
+      unawaited(_bootstrapParentHome());
       return;
     }
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
 
     _parentAllowedStudentCodes
       ..clear()
       ..add(globalSelectedCode);
+    _parentStudentClassroomByCode
+      ..clear()
+      ..[globalSelectedCode] = classroom.trim();
 
     _loadRangeFeed(refresh: true);
   }
@@ -2449,9 +2558,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                               badgeCount > 99
                                                   ? '99+'
                                                   : '$badgeCount',
-                                              style:
-                                                  AppTextStyles
-                                                      .activitySmallBadgeText,
+                                              style: AppTextStyles
+                                                  .activitySmallBadgeText,
                                             ),
                                           ),
                                         );
@@ -2507,7 +2615,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
           const SizedBox(height: 12),
 
-          if (_loadingParentContext && _displayActivities.isEmpty)
+          if (_showFeedLoadingPlaceholder && _displayActivities.isEmpty)
             Expanded(
               child: _portraitOverscrollFeedWrapper(
                 child: Padding(
@@ -2532,7 +2640,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 ),
               ),
             ),
-          if (!_loadingParentContext && _displayActivities.isEmpty)
+          if (!_showFeedLoadingPlaceholder && _displayActivities.isEmpty)
             Expanded(
               child: _portraitOverscrollFeedWrapper(
                 child: Padding(
@@ -2722,7 +2830,8 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                         : Container(
                                                             width: 122,
                                                             height: 76,
-                                                            color: AppColors.cardColor,
+                                                            color: AppColors
+                                                                .cardColor,
                                                             child: Center(
                                                               child: Builder(
                                                                 builder: (_) {
@@ -3180,7 +3289,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       child: Container(
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: AppColors.activitySoftPurpleFieldColor.withValues(alpha: 0.102),
+          color: AppColors.activitySoftPurpleFieldColor.withValues(
+            alpha: 0.102,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
@@ -3215,7 +3326,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ),
     );
   }
-
 }
 
 // PopupItem is defined in activity_daily_tab.dart (imported above) — both

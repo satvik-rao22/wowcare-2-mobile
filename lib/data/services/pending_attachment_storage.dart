@@ -6,6 +6,30 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
+/// Injectable seam over [PendingAttachmentStorage] so a cubit's send path can
+/// depend on an abstraction rather than reaching `path_provider` (and the
+/// `ServicesBinding`) directly — making that path unit-testable (Mandate 5:
+/// no direct platform access; put it behind an injected service).
+abstract class PendingAttachmentStore {
+  Future<List<ChatAttachment>> persistLocally(List<ChatAttachment> attachments);
+  Future<void> delete(String? localPath);
+}
+
+/// Default implementation — delegates to the existing [PendingAttachmentStorage]
+/// static helpers, whose behaviour is kept exactly as-is.
+class PendingAttachmentStoreImpl implements PendingAttachmentStore {
+  const PendingAttachmentStoreImpl();
+
+  @override
+  Future<List<ChatAttachment>> persistLocally(
+    List<ChatAttachment> attachments,
+  ) => PendingAttachmentStorage.persistLocally(attachments);
+
+  @override
+  Future<void> delete(String? localPath) =>
+      PendingAttachmentStorage.delete(localPath);
+}
+
 /// Copies picked attachments out of the OS's ephemeral temp directory into
 /// the app's own permanent storage, so the local preview survives navigating
 /// away mid-upload, the app being backgrounded, or an app restart.

@@ -93,7 +93,7 @@ import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/view_model/parent_billing_cubit.dart';
 import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
-import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../presentation/features/reports/view_model/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
 import '../../data/features/reports/repositories/reports_repository_impl.dart';
@@ -125,6 +125,7 @@ import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart'
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
+import '../../presentation/features/dashboard/cubit/chat_preview_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
@@ -411,6 +412,7 @@ import '../../presentation/features/students/cubit/student_profile_cubit.dart';
 import '../../presentation/features/students/cubit/student_physical_exam_cubit.dart';
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
+import '../../presentation/features/students/cubit/student_schedule_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
 import '../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_usecase.dart';
@@ -489,8 +491,9 @@ import '../../data/features/newsletter/repositories/newsletter_repository_impl.d
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
 import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
-import '../../presentation/features/newsletter/cubit/newsletter_list_cubit.dart';
-import '../../presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
+import '../../presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
+import '../../presentation/features/newsletter/view_model/newsletter_list_cubit.dart';
+import '../../presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
@@ -2217,6 +2220,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+      getStaffTodaySignInStatus: serviceLocator(),
+    ),
+  );
+  // Dashboard-owned projection of the conversation inbox for the My Day
+  // card's recent-chat rows (Mandate 2 §2.4 — this state used to live in
+  // _CommunicationRowWidgetState). Factory, like every other dashboard cubit;
+  // it is owned by a BlocProvider in the card and closed with it.
+  serviceLocator.registerFactory<ChatPreviewCubit>(
+    () => ChatPreviewCubit(
+      storageService: serviceLocator(),
+      getCachedConversations: serviceLocator(),
+      getConversations: serviceLocator(),
+      watchConversations: serviceLocator(),
+      getActiveClassrooms: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<WorkBreakReminderCubit>(
@@ -2427,6 +2444,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentPageUseCase: serviceLocator(),
       repository: serviceLocator(),
       storageService: serviceLocator(),
+      countsUseCase: serviceLocator(),
+      expectedSummaryUseCase: serviceLocator(),
+      tagNameCodeMapUseCase: serviceLocator(),
+      guardianNameCodeMapUseCase: serviceLocator(),
+      attendanceStatusUseCase: serviceLocator(),
+      classroomByCodeUseCase: serviceLocator(),
     ),
   );
 
@@ -2628,11 +2651,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
+      imageUploadService: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentImportantDatesCubit>(
     () => StudentImportantDatesCubit(
       updateStudentImportantDatesUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentScheduleCubit>(
+    () => StudentScheduleCubit(
+      getSchoolRegularSchedulesUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<CommunicationCubit>(
@@ -2665,6 +2695,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       discardCachedMessageUseCase:
           serviceLocator<DiscardCachedMessageUseCase>(),
       getMessageReceiptsUseCase: serviceLocator<GetMessageReceiptsUseCase>(),
+      createOrOpenConversationUseCase:
+          serviceLocator<CreateOrOpenConversationUseCase>(),
+      communicationRepository: serviceLocator<CommunicationRepository>(),
+      getTagNameCodeMapUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getConversationEntityUseCase:
+          serviceLocator<GetConversationEntityUseCase>(),
     ),
   );
 
@@ -2764,6 +2801,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PreviewNewsletterCubit>(
     () => PreviewNewsletterCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NewsletterAssetUrlCubit>(
+    () => NewsletterAssetUrlCubit(
+      imageUploadService: serviceLocator<ImageUploadService>(),
+    ),
   );
 
   // Geofencing Feature
