@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import '../entities/message.dart';
-import '../repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 
 /// Persists an optimistic (sending/failed) [Message] into the local cache —
 /// see [CommunicationRepository.cacheMessage].

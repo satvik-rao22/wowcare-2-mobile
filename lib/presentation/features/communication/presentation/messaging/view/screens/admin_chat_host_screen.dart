@@ -31,9 +31,9 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import '../../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../../../../../../shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
 ///

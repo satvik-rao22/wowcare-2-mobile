@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../core/theme/app_colors.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';

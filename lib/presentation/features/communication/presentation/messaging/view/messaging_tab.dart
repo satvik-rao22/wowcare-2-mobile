@@ -10,8 +10,8 @@ import 'package:wowcare/presentation/features/communication/model/communication_
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
-import '../../../../../../core/theme/app_colors.dart';
-import '../../../../../../shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 
 class MessagingTab extends StatefulWidget {
   const MessagingTab({super.key, this.initialTabIndex = 0});

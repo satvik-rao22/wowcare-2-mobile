@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
-import '../../../../../../shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class MessagingHeader extends StatelessWidget {
   final StaffThreadInfo staffInfo;

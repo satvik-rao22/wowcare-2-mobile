@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
-import '../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 abstract class CommunicationState extends Equatable {
   const CommunicationState();

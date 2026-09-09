@@ -5,7 +5,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import '../../../../../../shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 /// Normalized participant data — works for both ConversationParticipant
 /// (used in ParentMessagingThread) and ParticipantEntity (ConversationThreadScreen).

@@ -28,7 +28,7 @@ import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import '../../../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
 ///
