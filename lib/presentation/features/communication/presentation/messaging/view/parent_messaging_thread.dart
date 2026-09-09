@@ -409,7 +409,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -1042,7 +1042,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {

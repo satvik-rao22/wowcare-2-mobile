@@ -137,7 +137,7 @@ class _MessagingScreenState extends State<MessagingScreen>
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     // Always derived live from RoleCubit — widget.userPersona is only the
     // value resolved when this branch's route was first built (go_router's
     // StatefulShellRoute.indexedStack keeps this screen alive across persona

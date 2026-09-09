@@ -604,7 +604,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -2014,7 +2014,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   @override
   Widget build(BuildContext context) {
     final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     final body = BlocListener<PushNotificationCubit, PushNotificationState>(
       listenWhen: (prev, curr) =>

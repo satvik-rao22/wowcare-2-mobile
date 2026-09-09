@@ -455,7 +455,7 @@ class _MessageCompositionBulkMessagingState
     ResponsiveHelper responsive,
     BulkMessagingCompositionState compositionState,
   ) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(

@@ -330,7 +330,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -461,7 +461,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       builder: (context) {
         final sheetHeight =
             (MediaQuery.sizeOf(context).height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
+            MediaQuery.paddingOf(context).bottom;
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
@@ -674,7 +674,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ]),
           builder: (context, _) {
             final bool isLandscape =
-                MediaQuery.of(context).orientation == Orientation.landscape;
+                MediaQuery.orientationOf(context) == Orientation.landscape;
 
             if (state is CommunicationError && _messages.isEmpty) {
               return Scaffold(
