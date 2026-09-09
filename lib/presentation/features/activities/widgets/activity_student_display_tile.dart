@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
-import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 
 /// Same chrome as student tiles on the activity student picker, without checkbox.
 /// Use for view/edit activity flows where the student is display-only.

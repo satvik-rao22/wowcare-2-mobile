@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 /// Resolves which student rows to PATCH when saving an edit.
 ///

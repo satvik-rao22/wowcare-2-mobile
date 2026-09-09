@@ -1801,9 +1801,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
       uploadActivityAssetsUseCase: serviceLocator<UploadActivityAssetsUseCase>(),
       getActivityUploadAssetStatusesUseCase:
           serviceLocator<GetActivityUploadAssetStatusesUseCase>(),
+      waitActivityAssetsReadyUseCase:
+          serviceLocator<WaitActivityAssetsReadyUseCase>(),
       apiClient: serviceLocator<ApiClient>(),
       staffRepository: serviceLocator<StaffRepository>(),
       getStaffPageUseCase: serviceLocator<GetStaffPageUseCase>(),
+      getStaffSignInStatusAtTimeUseCase:
+          serviceLocator<GetStaffSignInStatusAtTimeUseCase>(),
+      getStudentSignInStatusAtTimeUseCase:
+          serviceLocator<GetStudentSignInStatusAtTimeUseCase>(),
+      getStudentTodaySignInStatusMapUseCase:
+          serviceLocator<GetStudentTodaySignInStatusMapUseCase>(),
     ),
   );
   serviceLocator.registerFactory<SchoolCloudImageUploaderCubit>(

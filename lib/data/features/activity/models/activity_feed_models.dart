@@ -1,4 +1,4 @@
-import '../../../../domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 import 'activity_json_aliases.dart';
 
 class ActivityFeedPageModel {

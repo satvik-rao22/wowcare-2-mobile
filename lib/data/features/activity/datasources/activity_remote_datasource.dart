@@ -1,16 +1,16 @@
 import 'package:dio/dio.dart';
 import 'dart:async';
 
-import '../../../../core/network/session_expired_interceptor.dart'
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
-import '../../../../core/utils/api_constants.dart';
-import '../../../../core/utils/api_paths.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../models/activity_asset_presign_model.dart';
-import '../models/activity_feed_models.dart';
-import '../models/activity_settings_models.dart';
-import '../models/activity_type_details_model.dart';
-import '../models/activity_upload_session_models.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/data/features/activity/models/activity_asset_presign_model.dart';
+import 'package:wowcare/data/features/activity/models/activity_feed_models.dart';
+import 'package:wowcare/data/features/activity/models/activity_settings_models.dart';
+import 'package:wowcare/data/features/activity/models/activity_type_details_model.dart';
+import 'package:wowcare/data/features/activity/models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
   /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.

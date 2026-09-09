@@ -13,35 +13,36 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/utils/core_utils.dart';
-import '../../../../app/di/di.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../core/utils/guardian_code_resolver.dart';
-import '../../../../core/utils/activity_feed_invalidation.dart';
-import '../../../../core/utils/cache_manager.dart';
-import '../../../../core/utils/storage_keys.dart';
-import '../../../../core/utils/staff_code_resolver.dart';
-import '../../../../core/utils/school_timezone_resolver.dart';
-import '../../../../core/utils/school_zone_datetime.dart';
-import '../../../../domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/guardian_code_resolver.dart';
+import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_scope_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_state.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_moderation_cubit.dart';
-import '../../../../shared/common/app/cubits/role_cubit.dart';
-import '../widgets/activity_feed_student_avatar.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_feed_student_avatar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'activity_filter_screen.dart';
-import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import '../widgets/avtivity_media_preview.dart';
-import '../widgets/activity_tab_shared_helpers.dart';
-import '../utils/activity_feed_display_rules.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_tab_shared_helpers.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_feed_display_rules.dart';
 
 /// Feed card model + permissions (`activity_feed_card_permissions.dart`) come through this barrel export.
 import 'activity_daily_tab.dart';
@@ -253,8 +254,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   // widget lifetime. By construction time, every call site only ever runs
   // after those are resolved.
   ActivityFeedCubit? _feedCubitInstance;
-  StreamSubscription<ActivityFeedState>? _feedCubitSub;
 
+  // BlocBuilder (wrapping `_buildTabBody` in `build()`) subscribes to this
+  // cubit's stream itself now — no manual StreamSubscription to hold/cancel.
   ActivityFeedCubit get _feedCubit {
     final existing = _feedCubitInstance;
     if (existing != null) return existing;
@@ -273,9 +275,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       ),
     );
     _feedCubitInstance = cubit;
-    _feedCubitSub = cubit.stream.listen((_) {
-      if (mounted) setState(() {});
-    });
     return cubit;
   }
 
@@ -661,7 +660,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _selectedStartDate = DateTime(today.year, today.month, 1);
         _selectedEndDate = DateTime(today.year, today.month + 1, 0);
       });
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('_bootstrapSchoolZone failed: $e');
+    }
   }
 
   @override
@@ -670,7 +671,6 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
-    _feedCubitSub?.cancel();
     _feedCubitInstance?.close();
     super.dispose();
   }
@@ -855,6 +855,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     // [_compareActivityItemsByTimeDesc] instead of true chronological order.
     final iso = (item.activityDateIso ?? '').trim();
     if (iso.isNotEmpty) {
+      // Silent by design: this runs on every pairwise sort comparison, so
+      // logging a parse miss here would spam the log per malformed row
+      // instead of once. Falls through to the display-string parse below.
       try {
         return SchoolZoneDateTime.dateTimeFromInstantInSchool(
           DateTime.parse(iso),
@@ -881,7 +884,11 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
           parsedTime.minute,
           parsedTime.second,
         );
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d(
+          'unparsable date/time "$cardDate $normalizedTime", sorting as epoch: $e',
+        );
+      }
     }
 
     return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
@@ -1216,7 +1223,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -1265,7 +1274,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -1635,7 +1646,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('classroom cache read failed, falling back to network: $e');
+    }
 
     // For unrestricted personas (admin), continue to API refresh so stale
     // staff-scoped cache cannot lock the dropdown.
@@ -1761,7 +1774,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
               .where((e) => e.isNotEmpty)
               .toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('decodeCodes: malformed cached classroom-codes JSON: $e');
+      }
       return <String>[];
     }
 
@@ -2218,7 +2233,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                   }
                 }
               }
-            } catch (_) {}
+            } catch (e) {
+              AppLogger.d('student-classroom cache read failed for $classroomNameKey: $e');
+            }
           }
 
           final students = await _feedScope.getStudentClassroomList(
@@ -2298,7 +2315,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         );
         await _cacheManager.invalidateCache(staffKey);
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('staff cache invalidation on refresh failed: $e');
+    }
     if (_parentHome) {
       await _bootstrapParentHome();
       // Parent bootstrap already calls _loadRangeFeed(refresh: true).
@@ -2386,12 +2405,26 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _syncWithGlobalChildSelection();
       });
     }
-    // Renders the same layout regardless of orientation — landscape used to
-    // early-return an empty SizedBox here, which is why the Custom tab went
-    // blank (feed never rendered, filters/date range never restored) whenever
-    // the device was rotated. Responsive sizing (ResponsiveSizing.contentPadding
-    // etc.) already adapts this layout across widths, so no separate landscape
-    // tree is needed.
+    // BlocBuilder (not the old manual `cubit.stream.listen((_) { setState() })`
+    // + StreamSubscription pair) is what actually subscribes to feed-cubit
+    // emissions now — Mandate 2's named anti-pattern. `_feedCubit` still
+    // lazily constructs the cubit on first access (deliberately deferred past
+    // `viewerStaffDisplayName`/`schoolIana` bootstrap, per the doc on that
+    // getter), so touching it here to supply `bloc:` is exactly the same
+    // trigger point the old getter-based read already was.
+    return BlocBuilder<ActivityFeedCubit, ActivityFeedState>(
+      bloc: _feedCubit,
+      builder: (context, _) => _buildTabBody(context),
+    );
+  }
+
+  // Renders the same layout regardless of orientation — landscape used to
+  // early-return an empty SizedBox here, which is why the Custom tab went
+  // blank (feed never rendered, filters/date range never restored) whenever
+  // the device was rotated. Responsive sizing (ResponsiveSizing.contentPadding
+  // etc.) already adapts this layout across widths, so no separate landscape
+  // tree is needed.
+  Widget _buildTabBody(BuildContext context) {
     return CustomRefreshIndicator(
       onRefresh: _onRefresh,
       child: Column(

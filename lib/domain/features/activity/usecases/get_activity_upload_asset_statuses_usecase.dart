@@ -1,4 +1,4 @@
-import '../repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
 
 /// One-shot status read — the photo screen's background-poll strategy.
 class GetActivityUploadAssetStatusesUseCase {

@@ -1,14 +1,14 @@
-import '../entities/activity_asset_presign.dart';
-import '../entities/activity_attachment.dart';
-import '../entities/activity_detail.dart';
-import '../entities/activity_feed_row.dart';
-import '../entities/activity_parameter_value.dart';
-import '../entities/activity_setting.dart';
-import '../entities/activity_shared_card_result.dart';
-import '../entities/activity_type_details.dart';
-import '../entities/activity_type_summary.dart';
-import '../entities/activity_upload_session.dart';
-import '../../attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_asset_presign.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_shared_card_result.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_upload_session.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 
 abstract class ActivityRepository {
   /// Returns enabled activity settings for a classroom via

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_text_styles.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 /// Shared pure UI-builder helpers extracted from `activity_daily_tab.dart`
 /// and `activity_custom_tab.dart` (Mandate 6, "Reuse what exists").

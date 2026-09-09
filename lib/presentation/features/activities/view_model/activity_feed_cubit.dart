@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
@@ -1321,6 +1322,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   DateTime _activityItemSortDateTime(ActivityItem item) {
     final iso = (item.activityDateIso ?? '').trim();
     if (iso.isNotEmpty) {
+      // Silent by design, not an oversight: this comparator runs on every
+      // pairwise sort comparison, so logging a parse miss here would spam
+      // the log on every malformed row instead of once. Falls through to
+      // the display-string parse below, then the epoch fallback.
       try {
         return DateTime.parse(iso);
       } catch (_) {}
@@ -1330,6 +1335,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
 
     final date = item.date.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (date.isNotEmpty) {
+      // Same hot-path rationale as above — silent on purpose.
       try {
         return DateFormat('MMMM d, yyyy').parseStrict(date);
       } catch (_) {}
@@ -1383,7 +1389,9 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
     try {
       final s = query.dateStr.trim();
       if (s.isNotEmpty) return DateTime.parse(s);
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('_dayForQuery: unparsable dateStr "${query.dateStr}", defaulting to now: $e');
+    }
     return AppTime.now();
   }
 

@@ -1,4 +1,4 @@
-import '../repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
 
 /// Blocking readiness poll — the shared util's strategy.
 class WaitActivityAssetsReadyUseCase {

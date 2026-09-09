@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 
@@ -25,7 +26,9 @@ DateTime? resolveSelectedAttendanceDate(List<Map<String, dynamic>> students) {
       try {
         final parsed = DateFormat('yyyy-MM-dd').parseStrict(raw);
         return DateTime(parsed.year, parsed.month, parsed.day);
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('resolveSelectedAttendanceDate: unparsable date "$raw": $e');
+      }
     }
   }
   return null;

@@ -97,7 +97,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     ResponsiveHelper responsive,
     ActivityFilterState state,
   ) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(

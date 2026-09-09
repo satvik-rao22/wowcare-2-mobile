@@ -140,13 +140,17 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         await Gal.putVideo(filePath);
         try {
           await File(filePath).delete();
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('temp video file cleanup failed: $e');
+        }
       } else {
         final filePath = await _materializePhotoToTempFile(raw, baseName);
         await Gal.putImage(filePath);
         try {
           await File(filePath).delete();
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('temp photo file cleanup failed: $e');
+        }
       }
 
       if (!mounted) return;

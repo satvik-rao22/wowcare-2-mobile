@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'activity_item.dart';
 
 /// True when the viewer's ACTIVE persona is an admin persona (not the staff

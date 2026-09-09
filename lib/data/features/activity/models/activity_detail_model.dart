@@ -1,4 +1,4 @@
-import '../../../../domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
 import 'activity_json_aliases.dart';
 
 /// Parses one grouped activity card from `GET /api/v2/activities/{cardGroupCode}`.

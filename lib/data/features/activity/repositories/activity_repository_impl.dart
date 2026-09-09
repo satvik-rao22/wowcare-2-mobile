@@ -1,22 +1,22 @@
 import 'package:wowcare/core/storage/storage_service.dart';
 
-import '../../../../core/utils/activity_feed_invalidation.dart';
-import '../../../../core/utils/cache_manager.dart';
-import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
-import '../../../../domain/features/activity/entities/activity_attachment.dart';
-import '../../../../domain/features/activity/entities/activity_detail.dart';
-import '../../../../domain/features/activity/entities/activity_feed_row.dart';
-import '../../../../domain/features/activity/entities/activity_parameter_value.dart';
-import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../domain/features/activity/entities/activity_shared_card_result.dart';
-import '../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../domain/features/activity/entities/activity_type_summary.dart';
-import '../../../../domain/features/activity/entities/activity_upload_session.dart';
-import '../../../../domain/features/activity/repositories/activity_repository.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../datasources/activity_remote_datasource.dart';
-import '../models/activity_detail_model.dart';
-import '../models/activity_settings_models.dart';
+import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_asset_presign.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_shared_card_result.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_upload_session.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/data/features/activity/datasources/activity_remote_datasource.dart';
+import 'package:wowcare/data/features/activity/models/activity_detail_model.dart';
+import 'package:wowcare/data/features/activity/models/activity_settings_models.dart';
 
 class ActivityRepositoryImpl implements ActivityRepository {
   ActivityRepositoryImpl(

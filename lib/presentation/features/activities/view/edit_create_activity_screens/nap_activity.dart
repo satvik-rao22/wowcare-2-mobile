@@ -10,23 +10,23 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../core/utils/api_error_handler.dart';
-import '../../../../../core/utils/core_utils.dart';
-import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/nap_activity_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class NapActivityScreen extends StatelessWidget {
@@ -137,7 +137,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
@@ -154,7 +154,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -187,7 +189,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   Future<void> _syncSchoolAttendanceDateForCreate() async {
     if (!mounted || _layoutAsEdit) return;
     if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+    await _editor.ensureAttendanceDateOnStudentMapsForSchoolToday(
       _selectedStudentsData,
     );
     if (!mounted) return;
@@ -278,7 +280,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
       if (tc.isNotEmpty) {
         try {
           typeDetailsForRemind = await _editor.getActivityTypeDetails(code: tc);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('getActivityTypeDetails failed for $tc: $e');
+        }
       }
       final item = activityItemFromActivityDetail(
         detail,
@@ -300,7 +304,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
         if (typeDetailsForRemind != null &&
             !_napEventIsEnd(detail.activityTypeName)) {
@@ -602,6 +608,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -659,7 +666,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -718,7 +725,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -830,6 +837,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -855,7 +863,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -876,7 +884,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );

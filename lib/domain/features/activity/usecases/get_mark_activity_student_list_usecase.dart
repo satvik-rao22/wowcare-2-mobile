@@ -1,5 +1,5 @@
-import '../../attendance/entities/student_attendance_custom.dart';
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class GetMarkActivityStudentListUseCase {
   GetMarkActivityStudentListUseCase(this._repository);

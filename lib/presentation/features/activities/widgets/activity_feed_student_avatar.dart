@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Bottom sheet listing students on an activity card (tap initials stack).
 ///

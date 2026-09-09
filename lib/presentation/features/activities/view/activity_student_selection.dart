@@ -9,18 +9,18 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../core/theme/app_media_res.dart';
-import '../../../../core/utils/core_utils.dart';
-import '../../../../core/utils/school_zone_datetime.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
-import '../../../../shared/common/widgets/custom_checkbox.dart';
-import '../../../../shared/common/widgets/custom_date_time_field.dart';
-import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
-import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_student_selection_cubit.dart';
 
@@ -217,7 +217,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     ActivityStudentSelectionState state,
   ) {
     final responsive = ResponsiveHelper(context);
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
     final students = state.students;
     final filtered = _filteredStudents(students);
 

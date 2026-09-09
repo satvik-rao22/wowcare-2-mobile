@@ -14,27 +14,27 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import '../../../../../core/utils/api_error_handler.dart';
-import '../../../../../core/utils/core_utils.dart';
-import '../../../../../domain/features/activity/entities/activity_attachment.dart';
-import '../../../../../domain/features/activity/entities/activity_parameter_value.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../widgets/activity_dropdown_widget.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_dropdown_widget.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
 import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_photo_attachment_upload.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class LearningActivityScreen extends StatelessWidget {
@@ -160,7 +160,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -199,7 +199,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -323,7 +325,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
       await _loadLearningParameterOptions();
@@ -532,6 +536,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
+      editor: _editor,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,
@@ -677,6 +682,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -751,7 +757,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -788,7 +794,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -944,6 +950,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1022,7 +1029,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1052,7 +1059,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1214,7 +1221,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         );
         try {
           await _editor.getActivity(code: code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
 
       if (!mounted) return;

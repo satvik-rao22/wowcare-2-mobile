@@ -5,10 +5,10 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 
-import '../../../../core/theme/app_media_res.dart';
-import '../../../../core/utils/core_utils.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
-import '../../../../shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/activities/view_model/choose_activity_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
