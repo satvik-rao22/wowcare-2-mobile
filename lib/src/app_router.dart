@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
@@ -351,6 +352,8 @@ final GoRouter appRouter = GoRouter(
     return null;
   },
   routes: [
+    // Attendance Regularization — staff list + admin inbox.
+    ...Regularization.routes(),
     GoRoute(
       path: AppRoutes.splash,
       // RoleCubit/ParentChildCubit/AuthCubit are read from the ANCESTOR

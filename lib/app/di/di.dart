@@ -172,6 +172,7 @@ import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../modules/attendance_regularization/regularization.dart';
 import '../../modules/attendance_v2/di/attendance_v2_di.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -650,6 +651,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   // Attendance V2 module (staff overtime detail) — reuses AttendanceRepository.
   registerAttendanceV2(serviceLocator);
+  // Attendance Regularization module. Also installs the sign-in gate as a Dio
+  // interceptor, which is why no sign-in call site needs editing.
+  Regularization.register(serviceLocator);
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
     () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );

@@ -96,26 +96,27 @@ class RegAdminNotificationTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        if (_changeLine(r) != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            _changeLine(r)!,
-            style: Av2Text.caption.copyWith(color: Av2Colors.textPrimary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+        const SizedBox(height: 2),
+        Text(
+          _changeLine(r),
+          style: Av2Text.caption.copyWith(color: Av2Colors.textPrimary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
 
-  String? _changeLine(RegularizationRequest r) {
-    final out = r.requestedSignOutAt;
-    final soft = r.softSignOutAt;
-    if (out != null && soft != null) {
-      return 'wants ${Av2DateFormatter.compactTime(out)} · was ${Av2DateFormatter.compactTime(soft)}';
+  /// The suggested time is no longer stored on the request (spec §7.5), so a
+  /// pending row shows what was asked for, and a decided row shows asked vs
+  /// approved whenever the admin committed a different time (§7.4).
+  String _changeLine(RegularizationRequest r) {
+    final asked = Av2DateFormatter.compactTime(r.requestedSignOutTime);
+    if (r.wasModified) {
+      final approved =
+          Av2DateFormatter.compactTime(r.approvedSignOutTime!);
+      return 'asked $asked · approved $approved';
     }
-    if (out != null) return 'wants out ${Av2DateFormatter.compactTime(out)}';
-    return null;
+    return 'wants out $asked';
   }
 }

@@ -41,16 +41,20 @@ class _RegDecisionSheet extends StatefulWidget {
 }
 
 class _RegDecisionSheetState extends State<_RegDecisionSheet> {
-  TimeOfDay? _outTime;
+  late TimeOfDay _outTime;
+
+  /// Whether the admin actually touched the time. Spec §9.6: omit `signOutTime`
+  /// to approve **as submitted**. Sending the pre-filled value back would
+  /// record a modification that never happened and make
+  /// `RegularizationRequest.wasModified` lie.
+  bool _timeChanged = false;
+
   final _note = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    final r = widget.request;
-    if (r.requestedSignOutAt != null) {
-      _outTime = TimeOfDay.fromDateTime(r.requestedSignOutAt!);
-    }
+    _outTime = TimeOfDay.fromDateTime(widget.request.requestedSignOutTime);
   }
 
   @override
@@ -62,13 +66,16 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   Future<void> _pickOutTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _outTime ?? TimeOfDay.now(),
+      initialTime: _outTime,
     );
-    if (picked != null) setState(() => _outTime = picked);
+    if (picked == null) return;
+    setState(() {
+      _outTime = picked;
+      _timeChanged = true;
+    });
   }
 
-  DateTime? _combine(TimeOfDay? t) {
-    if (t == null) return null;
+  DateTime _combine(TimeOfDay t) {
     final d = widget.request.attendanceDate;
     return DateTime(d.year, d.month, d.day, t.hour, t.minute);
   }
@@ -76,7 +83,7 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   void _approve() => Navigator.pop(
         context,
         RegDecision(
-          signOutLocal: _combine(_outTime),
+          signOutLocal: _timeChanged ? _combine(_outTime) : null,
           note: _note.text.trim(),
         ),
       );
@@ -112,12 +119,10 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
               const SizedBox(height: Av2Spacing.sm),
               _reasonBox(r.reason),
               const SizedBox(height: Av2Spacing.md),
-              if (_outTime != null) ...[
-                Text('Sign-out time', style: Av2Text.bodyMedium),
-                const SizedBox(height: Av2Spacing.xs),
-                _timeField(_outTime!, _pickOutTime),
-                const SizedBox(height: Av2Spacing.md),
-              ],
+              Text('Sign-out time', style: Av2Text.bodyMedium),
+              const SizedBox(height: Av2Spacing.xs),
+              _timeField(_outTime, _pickOutTime),
+              const SizedBox(height: Av2Spacing.md),
               Text('Reason for change', style: Av2Text.bodyMedium),
               const SizedBox(height: Av2Spacing.xs),
               _noteField(),

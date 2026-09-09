@@ -108,7 +108,7 @@ class RegStaffTimeRow extends StatelessWidget {
 
   String _subtitle() {
     final date = Av2DateFormatter.monthDay(item.attendanceDate);
-    final inAt = item.signInAt;
+    final inAt = item.signedInAt;
     if (inAt == null) return date;
     return '$date · in ${Av2DateFormatter.compactTime(inAt)}';
   }

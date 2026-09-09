@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -259,6 +260,9 @@ class _DashboardCardList extends StatelessWidget {
                   // resolvable regardless of initial scroll position.
                   cacheExtent: 5000,
                   slivers: [
+                    // "Needs your approval" card + pending count badge.
+                    // Renders nothing at zero.
+                    SliverToBoxAdapter(child: Regularization.dashboardEntry()),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
                       sliver: SliverToBoxAdapter(child: buildHeader(userName)),

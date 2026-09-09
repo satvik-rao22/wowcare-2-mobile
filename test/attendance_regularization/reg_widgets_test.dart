@@ -47,10 +47,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Missed sign-out on'), findsWidgets);
-    expect(find.text('Approved'), findsOneWidget);
-    // No 'Rejected' status exists — admins approve or leave pending; staff cancel.
+    expect(find.text('Approved'), findsNWidgets(2));
+    // `status` has exactly two values (§6). Neither of the removed states may
+    // reappear: there is no reject, and cancel was replaced by edit (§8.4).
     expect(find.text('Rejected'), findsNothing);
-    expect(find.text('Cancelled'), findsOneWidget);
+    expect(find.text('Cancelled'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -133,7 +134,56 @@ void main() {
     // Consequence + time + reason + submit all in one sheet.
     expect(find.textContaining("won't be counted"), findsOneWidget);
     expect(find.text('Actual sign-out time'), findsOneWidget);
+    // §8.2 — no "confirm" shortcut: a reason is required whether or not the
+    // pre-filled time was changed.
+    expect(find.text('(required)'), findsOneWidget);
+    expect(find.text('(optional)'), findsNothing);
     expect(find.text('Confirm & submit'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('resolve sheet blocks submit until a reason is given',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    RegResolveResult? result;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () async => result = await showRegResolveSheet(
+                context,
+                item: RegularizationFixtures.pendingGate,
+                mandatory: true,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // Submitting with a blank reason is refused, and the sheet stays open.
+    await tester.tap(find.text('Confirm & submit'));
+    await tester.pumpAndSettle();
+    expect(result, isNull);
+    expect(find.text('Add a reason.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'parent meeting');
+    await tester.tap(find.text('Confirm & submit'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.reason, 'parent meeting');
+    // Defaults to the suggested school end time (17:30).
+    expect(result!.signOutLocal.hour, 17);
+    expect(result!.signOutLocal.minute, 30);
     expect(tester.takeException(), isNull);
   });
 
@@ -215,15 +265,24 @@ void main() {
       expect(find.text('40 others will sign in normally'), findsOneWidget);
       // Staff are listed by name (sorted), each with its own row.
       expect(find.text('Aisha Rahman'), findsOneWidget);
-      // Nothing corrected yet, so the reason is optional.
-      expect(find.text('(optional)'), findsOneWidget);
+      // §8.2 — the shared reason is required even when no row was corrected.
+      expect(find.text('(required)'), findsOneWidget);
+      expect(find.text('(optional)'), findsNothing);
 
+      // So submitting without one is refused.
+      await tester.tap(find.text('Close all 10 & sign them in'));
+      await tester.pumpAndSettle();
+      expect(result, isNull);
+      expect(find.text('Add a reason.'), findsOneWidget);
+
+      await tester.enterText(
+          find.byType(TextField).first, 'forgot to sign out');
       await tester.tap(find.text('Close all 10 & sign them in'));
       await tester.pumpAndSettle();
 
       expect(result, isNotNull);
       expect(result!.length, 10);
-      expect(result!.every((i) => i.confirmedSuggestedTime), isTrue);
+      expect(result!.every((i) => i.reason == 'forgot to sign out'), isTrue);
       // Defaults to the suggested school end time (17:30).
       expect(result!.first.signOutLocal.hour, 17);
       expect(result!.first.signOutLocal.minute, 30);

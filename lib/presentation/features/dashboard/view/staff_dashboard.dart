@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
@@ -166,6 +167,14 @@ class _DashboardCardList extends StatelessWidget {
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
+                    // Unresolved missed sign-out banner. Renders nothing when
+                    // there is none, so it is safe to place unconditionally.
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                        child: Regularization.dashboardEntry(),
+                      ),
+                    ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 28),
                       sliver: SliverReorderableList(

@@ -5,24 +5,42 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
 
 import '../../domain/entities/missed_signout.dart';
+import '../../domain/policy/reg_time_policy.dart';
 
-/// Outcome of resolving a missed sign-out. [confirmedSoftTime] is true when the
-/// staff left the system time unchanged (a simple confirmation rather than a
-/// correction).
+/// Outcome of resolving a missed sign-out: the actual sign-out time plus a
+/// reason.
+///
+/// There is no "was the suggestion kept?" flag. Spec §7.5 dropped both the
+/// stored suggestion and `confirmed_suggested_time`, so the server cannot
+/// distinguish "kept the pre-filled time" from "typed the same time
+/// deliberately" — which is why §8.2 makes [reason] mandatory either way.
 class RegResolveResult {
   const RegResolveResult({
     required this.signOutLocal,
     required this.reason,
-    required this.confirmedSoftTime,
   });
   final DateTime signOutLocal;
   final String reason;
-  final bool confirmedSoftTime;
+}
+
+/// Whether the sheet is creating a request or revising an existing one.
+enum RegResolveMode {
+  /// §9.2 — no request exists yet for this day.
+  create,
+
+  /// §9.4 — a `PENDING` request exists and is being corrected. This is the
+  /// module's only fix-it path; there is no cancel (§8.4).
+  edit,
 }
 
 /// Single bottom sheet that handles a missed sign-out end-to-end: it explains
-/// what's missing and the consequence, lets the raiser confirm the suggested
-/// time or set the actual time + reason, and submits — all in one place.
+/// what's missing and the consequence, lets the raiser set the actual sign-out
+/// time + reason, and submits — all in one place.
+///
+/// The **same sheet serves create and edit** ([mode]). §9.4 accepts exactly
+/// the two fields this sheet already collects, so a second sheet would be
+/// duplicated layout plus a second copy of the §8.5 validation that could
+/// drift from this one. [mode] only changes the copy and the pre-fill.
 ///
 /// When [mandatory] (the gate before signing in), it can't be dismissed
 /// without submitting.
@@ -32,12 +50,19 @@ class RegResolveResult {
 /// corrections are **auto-approved by the backend**, so the copy promises an
 /// immediate apply rather than "sent for approval". Pass [staffName] for
 /// admin mode so the sheet can name whose day it is.
+///
+/// In [RegResolveMode.edit], pass [initialSignOutLocal] and [initialReason]
+/// from the existing request so the fields open on what was actually asked for
+/// rather than back on the suggestion.
 Future<RegResolveResult?> showRegResolveSheet(
   BuildContext context, {
   required MissedSignout item,
   bool mandatory = false,
   bool byAdmin = false,
   String staffName = '',
+  RegResolveMode mode = RegResolveMode.create,
+  DateTime? initialSignOutLocal,
+  String initialReason = '',
 }) {
   return showModalBottomSheet<RegResolveResult>(
     context: context,
@@ -54,6 +79,9 @@ Future<RegResolveResult?> showRegResolveSheet(
       mandatory: mandatory,
       byAdmin: byAdmin,
       staffName: staffName,
+      mode: mode,
+      initialSignOutLocal: initialSignOutLocal,
+      initialReason: initialReason,
     ),
   );
 }
@@ -64,31 +92,38 @@ class _RegResolveSheet extends StatefulWidget {
     required this.mandatory,
     required this.byAdmin,
     required this.staffName,
+    required this.mode,
+    required this.initialSignOutLocal,
+    required this.initialReason,
   });
   final MissedSignout item;
   final bool mandatory;
   final bool byAdmin;
   final String staffName;
+  final RegResolveMode mode;
+  final DateTime? initialSignOutLocal;
+  final String initialReason;
 
   @override
   State<_RegResolveSheet> createState() => _RegResolveSheetState();
 }
 
 class _RegResolveSheetState extends State<_RegResolveSheet> {
+  /// Editing opens on what was actually requested; creating opens on the
+  /// server's suggestion (§9.1).
   late TimeOfDay _time = TimeOfDay(
-    hour: widget.item.softSignOutAt.hour,
-    minute: widget.item.softSignOutAt.minute,
+    hour: (widget.initialSignOutLocal ?? widget.item.suggestedOrCap).hour,
+    minute: (widget.initialSignOutLocal ?? widget.item.suggestedOrCap).minute,
   );
-  final _reason = TextEditingController();
+  late final TextEditingController _reason =
+      TextEditingController(text: widget.initialReason);
   String? _error;
+
+  bool get _isEdit => widget.mode == RegResolveMode.edit;
 
   /// Whose day it is, for admin-mode copy.
   String get _who =>
       widget.staffName.trim().isEmpty ? 'This staff member' : widget.staffName.trim();
-
-  bool get _isSoftTime =>
-      _time.hour == widget.item.softSignOutAt.hour &&
-      _time.minute == widget.item.softSignOutAt.minute;
 
   @override
   void dispose() {
@@ -102,19 +137,28 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
   }
 
   void _submit() {
-    // A correction (different time) needs a reason; confirming the system time
-    // does not.
-    if (!_isSoftTime && _reason.text.trim().isEmpty) {
-      setState(() => _error = 'Add a reason for the corrected time.');
+    final d = widget.item.attendanceDate;
+    final signOutLocal =
+        DateTime(d.year, d.month, d.day, _time.hour, _time.minute);
+
+    // §8.2 reason + §8.5 day window, both from the shared policy so the
+    // message here matches what the server would reject for.
+    final error = RegTimePolicy.validateReason(_reason.text) ??
+        RegTimePolicy.validateSignOut(
+          signOutLocal: signOutLocal,
+          attendanceDate: d,
+          signedInAt: widget.item.signedInAt,
+        );
+    if (error != null) {
+      setState(() => _error = error);
       return;
     }
-    final d = widget.item.attendanceDate;
+
     Navigator.pop(
       context,
       RegResolveResult(
-        signOutLocal: DateTime(d.year, d.month, d.day, _time.hour, _time.minute),
+        signOutLocal: signOutLocal,
         reason: _reason.text.trim(),
-        confirmedSoftTime: _isSoftTime,
       ),
     );
   }
@@ -122,7 +166,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final soft = Av2DateFormatter.compactTime(item.softSignOutAt);
+    final suggested = Av2DateFormatter.compactTime(item.suggestedOrCap);
     final dateLabel = Av2DateFormatter.monthDay(item.attendanceDate);
     return PopScope(
       canPop: !widget.mandatory,
@@ -168,9 +212,11 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                              widget.byAdmin
-                                  ? 'Sign-out missing'
-                                  : 'Finish yesterday first',
+                              _isEdit
+                                  ? 'Update your request'
+                                  : (widget.byAdmin
+                                      ? 'Sign-out missing'
+                                      : 'Finish yesterday first'),
                               style: Av2Text.title),
                           Text('$dateLabel · missed sign-out',
                               style: Av2Text.label),
@@ -181,11 +227,14 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                 ),
                 const SizedBox(height: Av2Spacing.sm),
                 Text(
-                  widget.byAdmin
-                      ? '$_who never signed out on $dateLabel. Add the '
-                          'sign-out before signing them in again.'
-                      : "You didn't sign out on $dateLabel, so that day is "
-                          'still open.',
+                  _isEdit
+                      ? 'This request is still waiting for approval, so you '
+                          'can change the time or the reason.'
+                      : (widget.byAdmin
+                          ? '$_who never signed out on $dateLabel. Add the '
+                              'sign-out before signing them in again.'
+                          : "You didn't sign out on $dateLabel, so that day "
+                              'is still open.'),
                   style: Av2Text.body.copyWith(color: Av2Colors.textSecondary),
                 ),
                 const SizedBox(height: Av2Spacing.sm),
@@ -196,11 +245,14 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                 _timeField(),
                 const SizedBox(height: 6),
                 Text(
-                  _isSoftTime
-                      ? (widget.byAdmin
-                          ? 'If $soft is right, just save to apply it.'
-                          : "If $soft is right, just submit to confirm.")
-                      : 'Corrected to ${_time.format(context)} — add a reason below.',
+                  _isEdit
+                      ? 'Showing what you asked for. The school end time was '
+                          '$suggested.'
+                      : (widget.byAdmin
+                          ? 'Pre-filled with $suggested — change it if they '
+                              'left at a different time.'
+                          : 'Pre-filled with $suggested — change it if you '
+                              'left at a different time.'),
                   style: Av2Text.caption.copyWith(color: Av2Colors.textSecondary),
                 ),
                 const SizedBox(height: Av2Spacing.md),
@@ -208,7 +260,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                   children: [
                     Text('Reason', style: Av2Text.bodyMedium),
                     const SizedBox(width: 6),
-                    Text(_isSoftTime ? '(optional)' : '(required)',
+                    Text('(required)',
                         style: Av2Text.caption
                             .copyWith(color: Av2Colors.textTertiary)),
                   ],
@@ -221,9 +273,9 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                       style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
                 ],
                 const SizedBox(height: Av2Spacing.lg),
-                _primary(widget.byAdmin
-                    ? 'Save sign-out'
-                    : (_isSoftTime ? 'Confirm & submit' : 'Submit request')),
+                _primary(_isEdit
+                    ? 'Save changes'
+                    : (widget.byAdmin ? 'Save sign-out' : 'Confirm & submit')),
                 if (!widget.mandatory) ...[
                   const SizedBox(height: Av2Spacing.xs),
                   Center(
@@ -258,11 +310,17 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              widget.byAdmin
-                  ? 'As an admin your correction is approved automatically — '
-                      'the day is counted as soon as you save.'
-                  : "Until this is approved, that day's sign-out — and any "
-                      "hours after it — won't be counted in your attendance.",
+              _isEdit
+                  ? 'Editing keeps the request pending, so you stay unblocked '
+                      "— but the day still won't be counted until an admin "
+                      'approves it.'
+                  : (widget.byAdmin
+                      ? 'As an admin your correction is approved '
+                          'automatically — the day is counted as soon as you '
+                          'save.'
+                      : "Until this is approved, that day's sign-out — and "
+                          "any hours after it — won't be counted in your "
+                          'attendance.'),
               style: Av2Text.caption.copyWith(color: Av2Colors.overtime),
             ),
           ),

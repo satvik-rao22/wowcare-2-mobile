@@ -9,10 +9,21 @@ import 'reg_status_pill.dart';
 
 /// One regularization request row (staff "my requests" list).
 class RegRequestTile extends StatelessWidget {
-  const RegRequestTile({super.key, required this.request, this.onTap});
+  const RegRequestTile({
+    super.key,
+    required this.request,
+    this.onTap,
+    this.busy = false,
+  });
 
   final RegularizationRequest request;
+
+  /// Non-null only when the row can be acted on — i.e. a pending request the
+  /// staff may still edit (§9.4).
   final VoidCallback? onTap;
+
+  /// This row's edit is in flight.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +58,19 @@ class RegRequestTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              RegStatusPill(status: request.status),
+              if (busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                RegStatusPill(status: request.status),
+              if (onTap != null && !busy) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.edit_outlined,
+                    size: 15, color: Av2Colors.textTertiary),
+              ],
             ],
           ),
         ),
@@ -57,8 +80,9 @@ class RegRequestTile extends StatelessWidget {
 
   String _subtitle(RegularizationRequest r) {
     final date = Av2DateFormatter.monthDay(r.attendanceDate);
-    final out = r.requestedSignOutAt;
-    if (out != null) return '$date · out ${Av2DateFormatter.compactTime(out)}';
-    return date;
+    final out = Av2DateFormatter.compactTime(r.effectiveSignOutTime);
+    // An approved request that was modified shows what was actually committed,
+    // not what was asked for (spec §7.4 keeps both).
+    return r.wasModified ? '$date · out $out (adjusted)' : '$date · out $out';
   }
 }

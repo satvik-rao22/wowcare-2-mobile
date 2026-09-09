@@ -4,6 +4,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 
 import '../../domain/entities/missed_signout.dart';
+import '../../domain/policy/reg_time_policy.dart';
 import 'reg_staff_time_row.dart';
 
 /// One staff member's resolution inside a bulk sign-in gate.
@@ -14,17 +15,16 @@ class RegBulkGateItem {
     required this.attendanceDate,
     required this.signOutLocal,
     required this.reason,
-    required this.confirmedSuggestedTime,
   });
 
   final String attendanceCode;
   final String staffCode;
   final DateTime attendanceDate;
   final DateTime signOutLocal;
-  final String reason;
 
-  /// True when the suggested time was accepted unchanged.
-  final bool confirmedSuggestedTime;
+  /// Mandatory on every item (spec §8.2) — the shared reason, unless this row
+  /// was given its own.
+  final String reason;
 }
 
 /// Blocks a **bulk sign-in** when some of the selected staff still have an
@@ -91,7 +91,7 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
   }
 
   TimeOfDay _suggested(MissedSignout s) =>
-      TimeOfDay(hour: s.softSignOutAt.hour, minute: s.softSignOutAt.minute);
+      TimeOfDay(hour: s.suggestedOrCap.hour, minute: s.suggestedOrCap.minute);
 
   bool _isEdited(MissedSignout s) {
     final t = _times[s.attendanceCode]!;
@@ -119,10 +119,11 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
 
   void _submit() {
     final reason = _reason.text.trim();
-    if (_editedCount > 0 && reason.isEmpty) {
-      setState(() => _error = _editedCount == 1
-          ? 'Add a reason for the corrected time.'
-          : 'Add a reason for the $_editedCount corrected times.');
+    // §8.2: reason is mandatory for every item of a batch raise, shared or
+    // per-item — not only for the rows whose time was corrected.
+    final reasonError = RegTimePolicy.validateReason(reason);
+    if (reasonError != null) {
+      setState(() => _error = reasonError);
       return;
     }
     Navigator.pop(context, [
@@ -139,7 +140,6 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
             _times[s.attendanceCode]!.minute,
           ),
           reason: reason,
-          confirmedSuggestedTime: !_isEdited(s),
         ),
     ]);
   }
@@ -284,7 +284,7 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
           children: [
             Text('Reason', style: Av2Text.bodyMedium),
             const SizedBox(width: 6),
-            Text(edited > 0 ? '(required)' : '(optional)',
+            Text('(required)',
                 style: Av2Text.caption.copyWith(color: Av2Colors.textTertiary)),
             const Spacer(),
             if (edited > 0)
