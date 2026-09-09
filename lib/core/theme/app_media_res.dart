@@ -79,6 +79,11 @@ class MediaRes {
   static const userImageMale = '$_baseImages/WowCarePNG.png';
   static const userImageFemale = '$_baseImages/WowCarePNG.png';
   static const logo_wow = '$_baseImages/WowCarePNG.png';
+
+  /// Brand mark shown on the splash screen and in the drawer header, and the
+  /// source art for the launcher icon. Its canvas is 1000x1240, so any use
+  /// with a fixed square box needs `BoxFit.contain` to avoid squashing it.
+  static const appLogo = '$_baseBackgroundImage/WowCare_2.png';
   static const logout_image = '$_baseImages/logout_image.png';
   static const pageUnderConstructionImage = '$_baseVectors/cityscape.png';
 

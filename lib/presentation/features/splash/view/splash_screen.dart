@@ -36,9 +36,10 @@ class _SplashScreenState extends State<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image.asset(
-                'assets/images/WowCarePNG.png',
+                MediaRes.appLogo,
                 width: 150,
                 height: 150,
+                fit: BoxFit.contain,
               ),
             ],
           ),
