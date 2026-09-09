@@ -22,10 +22,17 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
   /// iOS does not distinguish "Allow Once" from "Allow While Using the App"
   /// at the API level — both report as `.whileInUse` and both map to
   /// [LocationPermissionLevel.whileInUse] here.
+  ///
+  /// [LocationPermissionLevel.always] is never returned on iOS. The background
+  /// location permission was removed for App Review guideline 2.5.4 — Info.plist
+  /// declares neither the "Always" usage descriptions nor the `location`
+  /// UIBackgroundMode, so the app cannot act on a background grant even where
+  /// one survives from an older install. Collapsing `.always` to [whileInUse]
+  /// keeps the rest of the app (lifecycle gating, the WorkManager health check)
+  /// on the foreground-only path it can actually honour on iOS.
   LocationPermissionLevel _mapIOSPermission(LocationPermission perm) {
     switch (perm) {
       case LocationPermission.always:
-        return LocationPermissionLevel.always;
       case LocationPermission.whileInUse:
         return LocationPermissionLevel.whileInUse;
       case LocationPermission.deniedForever:
@@ -115,24 +122,19 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
 
   @override
   Stream<Position> getPositionStream() async* {
-    // Background delivery on iOS is only valid — and only requested — when the
-    // user has actually granted "Always". For "Allow Once"/"While Using the
-    // App" the stream must behave as a plain foreground-only stream, or it
-    // bypasses the native gating in GeofencePlugin.swift entirely by asking
-    // Geolocator's own internal CLLocationManager to keep delivering updates
-    // in the background regardless of the granted permission level.
-    final permissionLevel =
-        Platform.isIOS ? await getPermissionLevel() : null;
-    final isAlways = permissionLevel == LocationPermissionLevel.always;
-
+    // iOS: background delivery is off unconditionally. The app holds no
+    // background location permission (guideline 2.5.4 — see Info.plist), so
+    // asking Geolocator's internal CLLocationManager for background updates
+    // would either throw or be silently dropped. Position updates arrive only
+    // while the app is in the foreground.
     final LocationSettings settings = Platform.isIOS
         ? AppleSettings(
             accuracy: LocationAccuracy.high,
             distanceFilter: 3,
-            allowBackgroundLocationUpdates: isAlways,
-            showBackgroundLocationIndicator: isAlways,
+            allowBackgroundLocationUpdates: false,
+            showBackgroundLocationIndicator: false,
             activityType: ActivityType.other,
-            pauseLocationUpdatesAutomatically: !isAlways,
+            pauseLocationUpdatesAutomatically: true,
           )
         : const LocationSettings(
             accuracy: LocationAccuracy.high,

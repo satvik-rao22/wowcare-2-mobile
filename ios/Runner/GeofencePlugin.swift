@@ -32,13 +32,10 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     // HundredMeters was too coarse — requestState could return .unknown for zones
     // smaller than the accuracy radius, so the initial state was never resolved.
     locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-    // allowsBackgroundLocationUpdates MUST only be set when the app actually has
-    // "Always" authorization. Setting it on a .notDetermined or .authorizedWhenInUse
-    // CLLocationManager raises an NSInternalInconsistencyException on some iOS
-    // versions and can silently prevent location updates from starting.
-    // We apply it in handleAuthorizationChange() once "Always" is confirmed.
-    // Background region-crossing events still work with "When In Use" in the
-    // foreground; "Always" is required only for background + killed-app delivery.
+    // allowsBackgroundLocationUpdates is never enabled. The bundle declares no
+    // `location` UIBackgroundMode and no "Always" usage descriptions (removed
+    // for App Review guideline 2.5.4), so setting it would either throw or be
+    // ignored. iOS location here is strictly foreground.
     locationManager.pausesLocationUpdatesAutomatically = false
 
     // Location permission is requested by the Dart side (GeofenceCubit) once
@@ -184,6 +181,17 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       return
     }
 
+    // CLLocationManager region monitoring requires "Always" authorization —
+    // with When In Use, startMonitoring(for:) only reports kCLErrorDenied to
+    // monitoringDidFailFor. Since the "Always" usage descriptions were removed
+    // from Info.plist for App Review guideline 2.5.4, this app can no longer be
+    // granted Always, so on any normal install we bail out here and geofencing
+    // runs foreground-only from Dart (GeofenceCubit's position stream).
+    guard currentAuthorizationStatus == .authorizedAlways else {
+      print("[iOS GEOFENCE] Skipping region monitoring — requires Always authorization, which this app no longer requests (foreground-only geofencing)")
+      return
+    }
+
     // Clamp radius: iOS minimum is 1 m, maximum is locationManager.maximumRegionMonitoringDistance.
     let clampedRadius = max(1.0, min(radiusMeters, locationManager.maximumRegionMonitoringDistance))
     if clampedRadius != radiusMeters {
@@ -209,6 +217,15 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   // MARK: - CLLocationManagerDelegate
 
+  /// Current authorization status, via the instance property on iOS 14+ and the
+  /// deprecated type method below it.
+  private var currentAuthorizationStatus: CLAuthorizationStatus {
+    if #available(iOS 14.0, *) {
+      return locationManager.authorizationStatus
+    }
+    return CLLocationManager.authorizationStatus()
+  }
+
   // iOS 14+ authorization change callback.
   @available(iOS 14.0, *)
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -223,26 +240,28 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   }
 
   private func handleAuthorizationChange(status: CLAuthorizationStatus) {
+    // allowsBackgroundLocationUpdates is deliberately left at its default of
+    // false in every branch. It is only legal to set when the bundle declares
+    // the `location` UIBackgroundMode, which was removed for App Review
+    // guideline 2.5.4 — setting it to true without that entry throws.
     switch status {
     case .authorizedWhenInUse:
-      // Respect the user's choice — do NOT auto-escalate to "Always". Background/
-      // terminated geofencing stays off until the user explicitly grants Always
-      // through a deliberate, separate flow (not implemented in this phase).
-      // Explicitly disable background updates — covers the downgrade case
-      // (Always → While In Use via Settings) where it was previously true.
-      print("[iOS LOCATION] Got When In Use — staying foreground-only, no auto-escalation")
-      locationManager.allowsBackgroundLocationUpdates = false
+      // The only level this app can now be granted: the "Always" usage
+      // descriptions were removed from Info.plist, so iOS never offers
+      // "Always Allow" and never escalates. Foreground-only tracking is
+      // handled on the Dart side (GeofenceCubit's position stream).
+      print("[iOS LOCATION] Got When In Use — foreground-only geofencing")
     case .authorizedAlways:
-      print("[iOS LOCATION] ✅ Got Always authorization — enabling background updates and restarting region monitoring")
-      // Safe to enable background updates now that "Always" is confirmed.
-      locationManager.allowsBackgroundLocationUpdates = true
+      // Only reachable on a device that was granted Always by an older build
+      // (before the usage descriptions were removed) and has not reinstalled.
+      // Region monitoring is still allowed in that case, so honour it, but
+      // nothing here requests or relies on it.
+      print("[iOS LOCATION] Always authorization carried over from a previous install — restarting region monitoring")
       restartMonitoringWithPersistedConfig()
     case .denied:
       print("[iOS LOCATION] ❌ Authorization denied — geofencing disabled")
-      locationManager.allowsBackgroundLocationUpdates = false
     case .restricted:
       print("[iOS LOCATION] ❌ Authorization restricted — geofencing disabled")
-      locationManager.allowsBackgroundLocationUpdates = false
     default:
       break
     }

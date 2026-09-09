@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 /// Student-oriented filter bottom sheet for the Admin Chats list (Classroom +
 /// Tag + Status), mirroring the web Admin Chats filter. Options are derived from
@@ -27,7 +30,7 @@ class AdminChatFilterSheet extends StatefulWidget {
   final Set<String> selectedTags;
   final String? selectedStatus;
   final void Function(Set<String> classrooms, Set<String> tags, String? status)
-      onApply;
+  onApply;
   final VoidCallback onClear;
 
   @override
@@ -35,26 +38,38 @@ class AdminChatFilterSheet extends StatefulWidget {
 }
 
 class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
-  late Set<String> _classrooms;
-  late Set<String> _tags;
-  late String? _status;
+  // UI-only draft selections local to this modal, handed back via onApply.
+  // ValueNotifiers rather than `setState` so each section rebuilds only when
+  // its own selection changes. Sets are reassigned (not mutated in place) so
+  // the notifier actually fires.
+  late final ValueNotifier<Set<String>> _classrooms;
+  late final ValueNotifier<Set<String>> _tags;
+  late final ValueNotifier<String?> _status;
 
   @override
   void initState() {
     super.initState();
-    _classrooms = {...widget.selectedClassrooms};
-    _tags = {...widget.selectedTags};
-    _status = widget.selectedStatus;
+    _classrooms = ValueNotifier<Set<String>>({...widget.selectedClassrooms});
+    _tags = ValueNotifier<Set<String>>({...widget.selectedTags});
+    _status = ValueNotifier<String?>(widget.selectedStatus);
+  }
+
+  @override
+  void dispose() {
+    _classrooms.dispose();
+    _tags.dispose();
+    _status.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+        left: AppSizes.lg,
+        right: AppSizes.lg,
+        top: AppSizes.md,
+        bottom: AppSizes.md + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -64,84 +79,105 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Filter',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(
+                  AppStrings.filter,
+                  style: AppTextStyles.heading18.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSizes.xxs),
 
             _Section(
-              label: 'Classroom',
-              child: _chips(
-                widget.classroomOptions,
-                selected: _classrooms,
-                onToggle: (v, on) => setState(() {
-                  on ? _classrooms.add(v) : _classrooms.remove(v);
-                }),
-                emptyText: 'No classrooms available',
+              label: AppStrings.classroom,
+              child: ValueListenableBuilder<Set<String>>(
+                valueListenable: _classrooms,
+                builder: (context, selected, _) => _chips(
+                  widget.classroomOptions,
+                  selected: selected,
+                  onToggle: (v, on) {
+                    final next = {..._classrooms.value};
+                    on ? next.add(v) : next.remove(v);
+                    _classrooms.value = next;
+                  },
+                  emptyText: AppStrings.noClassroomsAvailable,
+                ),
               ),
             ),
             _Section(
-              label: 'Tag',
-              child: _chips(
-                widget.tagOptions,
-                selected: _tags,
-                onToggle: (v, on) => setState(() {
-                  on ? _tags.add(v) : _tags.remove(v);
-                }),
-                emptyText: 'No tags available',
+              label: AppStrings.tag,
+              child: ValueListenableBuilder<Set<String>>(
+                valueListenable: _tags,
+                builder: (context, selected, _) => _chips(
+                  widget.tagOptions,
+                  selected: selected,
+                  onToggle: (v, on) {
+                    final next = {..._tags.value};
+                    on ? next.add(v) : next.remove(v);
+                    _tags.value = next;
+                  },
+                  emptyText: AppStrings.noTagsAvailable,
+                ),
               ),
             ),
             _Section(
-              label: 'Status',
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.statusOptions.map((s) {
-                  final on = _status == s;
-                  return ChoiceChip(
-                    label: Text(_titleCase(s)),
-                    selected: on,
-                    selectedColor: AppColors.primaryColor.withValues(alpha: 0.15),
-                    onSelected: (_) => setState(() => _status = on ? null : s),
-                  );
-                }).toList(),
+              label: AppStrings.status,
+              child: ValueListenableBuilder<String?>(
+                valueListenable: _status,
+                builder: (context, status, _) => Wrap(
+                  spacing: AppSizes.xs,
+                  runSpacing: AppSizes.xs,
+                  children: widget.statusOptions.map((s) {
+                    final on = status == s;
+                    return ChoiceChip(
+                      label: Text(_titleCase(s)),
+                      selected: on,
+                      selectedColor: AppColors.primaryColor.withValues(
+                        alpha: 0.15,
+                      ),
+                      onSelected: (_) => _status.value = on ? null : s,
+                    );
+                  }).toList(),
+                ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSizes.md),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      setState(() {
-                        _classrooms = {};
-                        _tags = {};
-                        _status = null;
-                      });
+                      _classrooms.value = {};
+                      _tags.value = {};
+                      _status.value = null;
                       widget.onClear();
                       Navigator.of(context).pop();
                     },
-                    child: const Text('Clear'),
+                    child: const Text(AppStrings.clear),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSizes.sm),
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.messagingOnAccent,
                     ),
                     onPressed: () {
-                      widget.onApply(_classrooms, _tags, _status);
+                      widget.onApply(
+                        _classrooms.value,
+                        _tags.value,
+                        _status.value,
+                      );
                       Navigator.of(context).pop();
                     },
-                    child: const Text('Apply'),
+                    child: const Text(AppStrings.apply),
                   ),
                 ),
               ],
@@ -159,12 +195,17 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
     required String emptyText,
   }) {
     if (options.isEmpty) {
-      return Text(emptyText,
-          style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13));
+      return Text(
+        emptyText,
+        style: AppTextStyles.size14.copyWith(
+          color: AppColors.messagingTextPlaceholder,
+          fontSize: 13,
+        ),
+      );
     }
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: AppSizes.xs,
+      runSpacing: AppSizes.xs,
       children: options.map((o) {
         final on = selected.contains(o);
         return FilterChip(
@@ -178,9 +219,8 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
     );
   }
 
-  static String _titleCase(String s) => s.isEmpty
-      ? s
-      : s[0].toUpperCase() + s.substring(1).toLowerCase();
+  static String _titleCase(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 }
 
 class _Section extends StatelessWidget {
@@ -191,17 +231,18 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: AppSizes.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primaryColor.withValues(alpha: 0.7),
-              )),
-          const SizedBox(height: 8),
+          Text(
+            label,
+            style: AppTextStyles.sectionHeader.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryColor.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: AppSizes.xs),
           child,
         ],
       ),

@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import '../repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
 /// User codes currently present on a classroom's staff roster — used to hide
 /// a Classroom Notes participant chip for anyone the conversation still

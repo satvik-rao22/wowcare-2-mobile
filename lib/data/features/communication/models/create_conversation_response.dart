@@ -1,10 +1,24 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'conversation_model.dart';
 
+part 'create_conversation_response.g.dart';
+
+/// Response envelope for `POST /conversations`. Inbound only — never
+/// serialised out, so `createToJson: false`. `@JsonKey` defaults reproduce
+/// the previous hand-written parser exactly.
+@JsonSerializable(createToJson: false)
 class CreateConversationResponse {
+  @JsonKey(defaultValue: false)
   final bool success;
+
+  @JsonKey(defaultValue: '')
   final String message;
+
   final ConversationModel? data;
+
+  @JsonKey(defaultValue: '')
   final String timestamp;
+
   final String? correlationId;
 
   CreateConversationResponse({
@@ -15,15 +29,6 @@ class CreateConversationResponse {
     this.correlationId,
   });
 
-  factory CreateConversationResponse.fromJson(Map<String, dynamic> json) {
-    return CreateConversationResponse(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
-      data: json['data'] != null
-          ? ConversationModel.fromJson(json['data'] as Map<String, dynamic>)
-          : null,
-      timestamp: json['timestamp'] as String? ?? '',
-      correlationId: json['correlationId'] as String?,
-    );
-  }
+  factory CreateConversationResponse.fromJson(Map<String, dynamic> json) =>
+      _$CreateConversationResponseFromJson(json);
 }

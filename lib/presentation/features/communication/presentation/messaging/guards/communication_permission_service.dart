@@ -1,6 +1,6 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/cubit/feature_flag_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/feature_flag_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 /// Pure, stateless permission checks for the communication module.
 ///

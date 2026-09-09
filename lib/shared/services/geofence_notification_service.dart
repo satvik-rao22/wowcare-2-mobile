@@ -1,7 +1,7 @@
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/core/utils/active_school_switcher.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/notification_payload.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -170,7 +170,7 @@ class GeofenceNotificationService {
           AppLogger.d('[FCM] Foreground tap school-switch failed: $e');
         }
         try {
-          appRouter.go(decoded.location);
+          appRouterGo(decoded.location);
         } catch (e) {
           AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
         }
@@ -178,7 +178,7 @@ class GeofenceNotificationService {
       return;
     }
     try {
-      appRouter.go(decoded.location);
+      appRouterGo(decoded.location);
     } catch (e) {
       AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
     }

@@ -1,26 +1,26 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
-import '../../../../core/cache/cache_service.dart';
-import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../core/util/isar_utils.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/school_timezone_resolver.dart';
-import '../../../../core/util/school_zone_datetime.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../datasources/communication_remote_data_source.dart';
-import '../models/message_collection.dart';
-import '../models/message_model.dart';
-import '../../../../domain/features/communication/entities/message.dart';
-import '../../../../domain/features/communication/entities/message_entity.dart';
-import '../../../../domain/features/communication/repositories/communication_repository.dart';
-import '../../../../domain/features/communication/entities/conversation.dart';
-import '../models/conversation_collection.dart';
-import '../models/create_conversation_request.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import '../realtime/conversation_realtime_data_source.dart';
-import '../realtime/message_realtime_data_source.dart';
+import 'package:wowcare/core/cache/cache_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/isar_utils.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/data/features/communication/datasources/communication_remote_data_source.dart';
+import 'package:wowcare/data/features/communication/models/message_collection.dart';
+import 'package:wowcare/data/features/communication/models/message_model.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
+import 'package:wowcare/data/features/communication/realtime/message_realtime_data_source.dart';
 
 class CommunicationRepositoryImpl implements CommunicationRepository {
   final CommunicationRemoteDataSource remoteDataSource;
@@ -249,7 +249,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     CreateConversationRequest request,
   ) async {
     try {
-      final conversation = await remoteDataSource.createConversation(request);
+      final model = await remoteDataSource.createConversation(request);
+      final conversation = model.toEntity();
 
       // Keep Isar in sync so returning to the list shows the new conversation
       // immediately (even before the next remote refresh).
@@ -308,7 +309,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         // populating it, but until then this stays a no-op and Firestore
         // (via the cubit's own reconciliation) remains the real source.
         final conversations = await _resolveUnreadCounts(
-          response.data!.content,
+          response.data!.content.map((m) => m.toEntity()).toList(),
         );
 
         // 3. Update cache (for first page)
@@ -409,7 +410,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
 
       if (response.success && response.data != null) {
-        return Right(response.data!.content);
+        return Right(
+          response.data!.content.map((m) => m.toEntity()).toList(),
+        );
       }
       return Left(ServerFailure(response.message));
     } catch (e) {
@@ -418,9 +421,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, List<Conversation>>> loadCachedConversations() async {
+  Future<Either<Failure, List<Conversation>>> loadCachedConversations({String? type}) async {
     try {
-      final cachedItems = await cacheService.getAll<ConversationCollection>();
+      final cachedItems = type != null 
+          ? await cacheService.getByField<ConversationCollection>('type', type)
+          : await cacheService.getAll<ConversationCollection>();
       return Right(cachedItems.map((e) => e.toEntity()).toList());
     } catch (e) {
       return Left(CacheFailure(e.toString()));

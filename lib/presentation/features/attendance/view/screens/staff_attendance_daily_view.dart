@@ -1,16 +1,21 @@
 import 'dart:async' show unawaited;
-import 'dart:convert' show jsonDecode;
+
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_persona_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -21,29 +26,24 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_daily_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_edit_attendance_form.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_delete_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_daily_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/attendance_attended_duration.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/attendance_attended_duration.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_daily.dart';
-import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
-import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -88,16 +88,6 @@ class _StaffAttendanceDailyViewScreenState
   // screen more than once (stacking duplicate pages on the Navigator).
   bool _isFilterScreenOpen = false;
 
-  // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
-  int totalStaff = 0;
-  int active = 0;
-  int upcoming = 0;
-  int expected = 0;
-  int present = 0;
-  int absent = 0;
-  int signedOut = 0;
-  int notMarked = 0;
-
   // Staff data lists
   final List<StaffAttendanceCardData> _staffMembers = [];
   int? _expandedStaffIndex;
@@ -106,9 +96,11 @@ class _StaffAttendanceDailyViewScreenState
   late final StaffAttendanceDailyCubit _cubit;
   late final StaffAttendanceAbsentToggleCubit _absentToggleCubit;
   late final ClassroomCubit _classroomCubit;
+
+  /// Owns the delete-attendance call (View -> Cubit -> UseCase -> Repository).
+  final StaffAttendanceDeleteCubit _deleteCubit =
+      serviceLocator<StaffAttendanceDeleteCubit>();
   String? _loggedInUserName;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
   // The backend only allows SCHOOL_ADMIN/ORGANIZATION_ADMIN to edit/backdate
@@ -192,30 +184,13 @@ class _StaffAttendanceDailyViewScreenState
     widget.onAttendanceMutated?.call();
   }
 
-  Future<void> _loadStaffCounts() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final organizationCode =
-          await storage.getString(StorageKeys.organizationCode) ?? '';
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
-      if (organizationCode.isEmpty || schoolCode.isEmpty) return;
-
-      final useCase = serviceLocator<GetStaffCountUseCase>();
-      final staffCount = await useCase(
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-      );
-      if (!mounted) return;
-
-      setState(() {
-        active = staffCount.active;
-        upcoming = staffCount.upcoming;
-        totalStaff = active + upcoming;
-      });
-    } catch (_) {
-      // Non-fatal; list still works (same as StaffCubit count failures).
-    }
-  }
+  /// Delegates to [StaffAttendanceDailyCubit.loadStaffCounts] (owns the
+  /// fetch), then mirrors the result into local state the header summary
+  /// reads directly.
+  // Counts live on StaffAttendanceDailyCubit's state; the BlocBuilder around
+  // StaffAttendanceSummary already rebuilds when they change, so this just
+  // needs to trigger the load.
+  Future<void> _loadStaffCounts() => _cubit.loadStaffCounts();
 
   Future<void> _loadClassroomData() async {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
@@ -243,19 +218,14 @@ class _StaffAttendanceDailyViewScreenState
 
   Future<void> _loadLoggedInUserName() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final displayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      final username = (await storage.getString(StorageKeys.username) ?? '')
-          .trim();
-      final fallback = displayName.isNotEmpty
-          ? displayName
-          : (username.isNotEmpty ? username : '');
+      final fallback = await _cubit.resolveLoggedInUserName();
       if (!mounted || fallback.isEmpty) return;
       setState(() {
         _loggedInUserName = fallback;
       });
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('StaffAttendanceDailyView: resolveLoggedInUserName failed: $e');
+    }
   }
 
   Future<void> _loadStaffAdminPersona() async {
@@ -268,42 +238,24 @@ class _StaffAttendanceDailyViewScreenState
 
   /// Mirrors the check in staff_sign_in_form.dart/staff_sign_out_form.dart:
   /// only SCHOOL_ADMIN/ORGANIZATION_ADMIN personas may edit attendance times.
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    // Fallback: parse roles JSON if staffType isn't cached yet.
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      for (final r in roles) {
-        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
-            .toString()
-            .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
-          return true;
-        }
-      }
-    } catch (_) {
-      // More restrictive default: treat unknown as non-admin.
-    }
-    return false;
-  }
+  ///
+  /// RoleCubit's active persona is the canonical, persona-switch-aware
+  /// signal — staffType/roles in storage can lag a beat after a persona
+  /// switch and misresolve a staff/teacher persona as admin (see
+  /// AttendancePopup._loadStaffPersonaFlags for the same fix). This method
+  /// previously skipped straight to the storage fallback, missing that fix.
+  Future<bool> _resolveIsStaffAdminPersona() =>
+      resolveIsStaffAdminPersonaForView(context, mounted: mounted);
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
+    _cubit.close();
     _absentToggleCubit.close();
+    _deleteCubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -323,7 +275,7 @@ class _StaffAttendanceDailyViewScreenState
     final search = _searchQuery.isEmpty ? null : _searchQuery;
 
     if (_showAbsentOnly) {
-      debugPrint(
+      AppLogger.d(
         '[StaffDaily] Loading ABSENT toggle list | date=$_selectedDate | '
         'classrooms=$classroomCodes | tags=$tagCodes | search=$search | reset=$reset',
       );
@@ -346,7 +298,7 @@ class _StaffAttendanceDailyViewScreenState
       return;
     }
 
-    debugPrint(
+    AppLogger.d(
       '[StaffDaily] Loading DAILY list (non-absent) | date=$_selectedDate | '
       'classrooms=$classroomCodes | tags=$tagCodes | signInAtFilter=$_signInAtFilter | '
       'signOutAtFilter=$_signOutAtFilter | search=$search | reset=$reset',
@@ -526,16 +478,13 @@ class _StaffAttendanceDailyViewScreenState
 
   Future<void> _fetchStaffAbsentToggleClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _absentToggleClassroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep showing classroom code when lookup fails.
     } finally {
       _absentToggleClassroomFetchInFlight.remove(code);
     }
@@ -559,44 +508,28 @@ class _StaffAttendanceDailyViewScreenState
   void _openStaffListWithIncomingFilter(String status) {
     final normalized = status.trim().toUpperCase();
     if (normalized != 'ACTIVE' && normalized != 'UPCOMING') return;
-    Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider<StaffCubit>(
-              create: (_) => serviceLocator<StaffCubit>()..loadInitial(),
-            ),
-            BlocProvider<ClassroomCubit>(
-              create: (_) =>
-                  serviceLocator<ClassroomCubit>()
-                    ..loadActiveClassrooms(onlyTypeClassroom: false),
-            ),
-          ],
-          child: StaffScreen(incomingStatusFilter: normalized),
-        ),
-      ),
+    // Pushes the shared /dashboard/staff route (go_router), which already
+    // builds the exact same StaffCubit/ClassroomCubit/StaffProfileCubit/
+    // StaffAttendanceSummaryCubit combination this needed and now also
+    // accepts a status filter via `extra` — see that route's doc comment in
+    // app_router.dart. This used to be an imperative Navigator.push of an
+    // ad-hoc copy of that same screen, which bypassed go_router entirely:
+    // go_router's own idea of "current location" never updated, so a
+    // subsequent context.go()/drawer navigation (e.g. tapping "Staff
+    // Attendance" in the side drawer) found itself already "at" that
+    // location and silently no-opped.
+    context.push<void>(
+      StaffRoutes.list,
+      extra: StaffListArgs(statusFilter: normalized),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
-    return MultiBlocProvider(
+    final Widget content = MultiBlocProvider(
       providers: [
         BlocProvider<StaffAttendanceDailyCubit>.value(value: _cubit),
         BlocProvider<StaffAttendanceAbsentToggleCubit>.value(
@@ -608,143 +541,711 @@ class _StaffAttendanceDailyViewScreenState
         listener: (context, state) {
           _prefetchStaffAbsentToggleClassroomNames(state.items);
         },
-        child:
-            BlocBuilder<
-              StaffAttendanceAbsentToggleCubit,
-              StaffAttendanceAbsentToggleState
+        child: BlocBuilder<StaffAttendanceAbsentToggleCubit, StaffAttendanceAbsentToggleState>(
+          builder: (context, absentState) {
+            return BlocBuilder<
+              StaffAttendanceDailyCubit,
+              StaffAttendanceDailyState
             >(
-              builder: (context, absentState) {
-                return BlocBuilder<
-                  StaffAttendanceDailyCubit,
-                  StaffAttendanceDailyState
-                >(
-                  builder: (context, state) {
-                    final isAbsentMode = _showAbsentOnly;
-                    final isLoading = isAbsentMode
-                        ? absentState.isLoading
-                        : (state.isLoading || state.isSummaryLoading);
-                    final isLoadingMore = isAbsentMode
-                        ? absentState.isLoadingMore
-                        : state.isLoadingMore;
-                    final hasMore = isAbsentMode
-                        ? absentState.hasMore
-                        : state.hasMore;
+              builder: (context, state) {
+                final isAbsentMode = _showAbsentOnly;
+                final isLoading = isAbsentMode
+                    ? absentState.isLoading
+                    : (state.isLoading || state.isSummaryLoading);
+                final isLoadingMore = isAbsentMode
+                    ? absentState.isLoadingMore
+                    : state.isLoadingMore;
+                final hasMore = isAbsentMode
+                    ? absentState.hasMore
+                    : state.hasMore;
 
-                    return CustomRefreshIndicator(
-                      onRefresh: () async {
-                        await _loadStaffCounts();
-                        _loadAttendanceData(context, reset: false);
-                      },
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: (notification) {
-                          if (notification is ScrollUpdateNotification &&
-                              notification.metrics.pixels >=
-                                  notification.metrics.maxScrollExtent - 200) {
-                            if (!isLoading && !isLoadingMore && hasMore) {
-                              if (isAbsentMode) {
-                                _absentToggleCubit.loadNextPage();
-                              } else {
-                                _cubit.loadNextPage();
-                              }
-                            }
-                          }
-                          return false;
-                        },
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          // Always scrollable so pull-to-refresh fires even when the
-                          // list is short and the content fits the viewport.
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: contentPadding.left,
-                            vertical: responsive.verticalSpacing / 4,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 8),
-                              // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
-                              StaffAttendanceSummary(
-                                totalStaff: totalStaff,
-                                active: active,
-                                upcoming: upcoming,
-                                expected: state.expectedCount ?? expected,
-                                present: state.presentCount ?? present,
-                                absent: state.absentCount ?? absent,
-                                signedOut: state.signedOutCount ?? signedOut,
-                                notMarked: state.notMarkedCount ?? notMarked,
-                                isLoading:
-                                    (state.isLoading ||
-                                        state.isSummaryLoading) &&
-                                    !_showAbsentOnly,
-                                onLegendTap: (status) {
-                                  final normalized = status
-                                      .trim()
-                                      .toUpperCase();
-                                  if (normalized == 'ACTIVE' ||
-                                      normalized == 'UPCOMING') {
-                                    _openStaffListWithIncomingFilter(
-                                      normalized,
-                                    );
-                                    return;
-                                  }
-                                  setState(() {
-                                    final normalized = status == 'Present'
-                                        ? 'Signed-In'
-                                        : status;
-                                    final currentLegend =
-                                        _statusLegendFilter == 'Present'
-                                        ? 'Signed-In'
-                                        : _statusLegendFilter;
-                                    if (currentLegend == normalized) {
-                                      _statusLegendFilter = null;
-                                      _applyLegendApiFilters(null);
-                                    } else {
-                                      _statusLegendFilter = normalized;
-                                      _applyLegendApiFilters(normalized);
-                                    }
-                                  });
-                                  _loadAttendanceData(context, reset: true);
-                                },
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Filters: keep the same date-field UI (CustomDateTimeField) but layout like StaffScreen
-                              _buildFilterCard(
-                                responsive,
-                                hasActiveFilters:
-                                    _hasActiveFilters() ||
-                                    _signInAtFilter != null ||
-                                    _signOutAtFilter != null ||
-                                    _isExpectedNotMarkedFilter == true ||
-                                    _showAbsentOnly ||
-                                    _statusLegendFilter != null ||
-                                    _searchController.text.trim().isNotEmpty,
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                              // Content area
-                              if (isLoading)
-                                Column(
-                                  children: List.generate(
-                                    6,
-                                    (index) => _showAbsentOnly
-                                        ? const StaffAbsentCardShimmer()
-                                        : const StaffAttendanceCardShimmer(),
-                                  ),
-                                )
-                              else if (_showAbsentOnly)
-                                _buildAbsentStaffList(absentState)
-                              else
-                                _buildStaffListFromState(state),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
+                return CustomRefreshIndicator(
+                  onRefresh: () async {
+                    await _loadStaffCounts();
+                    _loadAttendanceData(context, reset: false);
                   },
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification is ScrollUpdateNotification &&
+                          notification.metrics.pixels >=
+                              notification.metrics.maxScrollExtent - 200) {
+                        if (!isLoading && !isLoadingMore && hasMore) {
+                          if (isAbsentMode) {
+                            _absentToggleCubit.loadNextPage();
+                          } else {
+                            _cubit.loadNextPage();
+                          }
+                        }
+                      }
+                      return false;
+                    },
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      // Always scrollable so pull-to-refresh fires even when the
+                      // list is short and the content fits the viewport.
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: contentPadding.left,
+                        vertical: responsive.verticalSpacing / 4,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: AppSpacing.xs),
+                          // Summary Cards — expected stats from attendance API; staff totals from GetStaffCountUseCase
+                          StaffAttendanceSummary(
+                            totalStaff: state.totalStaffCount ?? 0,
+                            active: state.activeCount ?? 0,
+                            upcoming: state.upcomingCount ?? 0,
+                            expected: state.expectedCount ?? 0,
+                            present: state.presentCount ?? 0,
+                            absent: state.absentCount ?? 0,
+                            signedOut: state.signedOutCount ?? 0,
+                            notMarked: state.notMarkedCount ?? 0,
+                            isLoading:
+                                (state.isLoading || state.isSummaryLoading) &&
+                                !_showAbsentOnly,
+                            onLegendTap: (status) {
+                              final normalized = status.trim().toUpperCase();
+                              if (normalized == 'ACTIVE' ||
+                                  normalized == 'UPCOMING') {
+                                _openStaffListWithIncomingFilter(normalized);
+                                return;
+                              }
+                              setState(() {
+                                final normalized = status == 'Present'
+                                    ? 'Signed-In'
+                                    : status;
+                                final currentLegend =
+                                    _statusLegendFilter == 'Present'
+                                    ? 'Signed-In'
+                                    : _statusLegendFilter;
+                                if (currentLegend == normalized) {
+                                  _statusLegendFilter = null;
+                                  _applyLegendApiFilters(null);
+                                } else {
+                                  _statusLegendFilter = normalized;
+                                  _applyLegendApiFilters(normalized);
+                                }
+                              });
+                              _loadAttendanceData(context, reset: true);
+                            },
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                          // Filters: keep the same date-field UI (CustomDateTimeField) but layout like StaffScreen
+                          _StaffDailyFilterCard(
+                            responsive: responsive,
+                            hasActiveFilters:
+                                _hasActiveFilters() ||
+                                _signInAtFilter != null ||
+                                _signOutAtFilter != null ||
+                                _isExpectedNotMarkedFilter == true ||
+                                _showAbsentOnly ||
+                                _statusLegendFilter != null ||
+                                _searchController.text.trim().isNotEmpty,
+                            searchController: _searchController,
+                            selectedDate: _selectedDate,
+                            onFilterTap: _navigateToFilterScreen,
+                            onDateSelected: (date) {
+                              setState(() {
+                                _selectedDate = date;
+                              });
+                              _loadAttendanceData(context, reset: true);
+                            },
+                            onClearAll: _clearAllFiltersAndSearch,
+                            showAbsentOnly: _showAbsentOnly,
+                            onShowAbsentToggle: (value) {
+                              setState(() {
+                                _showAbsentOnly = value;
+                                if (value) {
+                                  // When toggling to Absent, clear legend filters so only absent view applies.
+                                  _statusLegendFilter = 'Absent';
+                                  _signInAtFilter = null;
+                                  _signOutAtFilter = null;
+                                  _isExpectedNotMarkedFilter = null;
+                                } else if (_statusLegendFilter == 'Absent') {
+                                  _statusLegendFilter = null;
+                                }
+                              });
+                              AppLogger.d(
+                                '[StaffDaily] Show Absent toggled: $_showAbsentOnly',
+                              );
+                              _loadAttendanceData(context, reset: true);
+                            },
+                          ),
+                          SizedBox(height: responsive.verticalSpacing),
+                          // Content area
+                          if (isLoading)
+                            Column(
+                              children: List.generate(
+                                6,
+                                (index) => _showAbsentOnly
+                                    ? const StaffAbsentCardShimmer()
+                                    : const StaffAttendanceCardShimmer(),
+                              ),
+                            )
+                          else if (_showAbsentOnly)
+                            Builder(
+                              builder: (context) {
+                                if (absentState.items.isEmpty) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.lg,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.person_off_outlined,
+                                            size: 48,
+                                            color: AppColors
+                                                .attendanceEmptyStateIconColor,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                          AppText.body(
+                                            'No absent staff found for the selected date',
+                                            style: AppTextStyles.body.copyWith(
+                                              color: AppColors
+                                                  .attendanceDialogHintTextColor,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final items = absentState.items;
+
+                                return Column(
+                                  children: items.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final it = entry.value;
+                                    final roomName =
+                                        _staffAbsentToggleClassroomDisplay(it);
+                                    final absenceDate = it.absenceDate;
+                                    final absentTime =
+                                        it.markedAbsentTime?.formatted12h ?? '';
+                                    final staff = StaffAbsentCardData(
+                                      id: it.staffCode,
+                                      staffCode: it.staffCode,
+                                      name: it.staffName,
+                                      photoUuid: null,
+                                      roomName: roomName,
+                                      absentTime: absentTime,
+                                      absentBy: it.markedAbsentByName,
+                                      note: it.absenceNote,
+                                      staffId: index,
+                                      roomId: 0,
+                                      schoolId: 0,
+                                      startDate: absenceDate,
+                                      endDate: absenceDate,
+                                      hasSignIn: false,
+                                      expectedToday: true,
+                                      signInTime: null,
+                                      signOutTime: null,
+                                      markAbsentMethod:
+                                          _mapAbsentMethodStringToEnum(
+                                            it.markAbsentMethod,
+                                          ),
+                                    );
+                                    return StaffAbsentCard(
+                                      staff: staff,
+                                      index: index,
+                                      isExpanded: _expandedAbsentIndex == index,
+                                      onTap: () {
+                                        setState(() {
+                                          _expandedAbsentIndex =
+                                              _expandedAbsentIndex == index
+                                              ? null
+                                              : index;
+                                        });
+                                      },
+                                      onView: () {
+                                        context
+                                            .push(
+                                              StaffAttendanceProfile.routeName,
+                                              extra: {
+                                                'staffCode': staff.id,
+                                                'staffId': staff.staffId,
+                                                'staffName': staff.name,
+                                                'staffPhotoUuid':
+                                                    staff.photoUuid,
+                                                'roomName': staff.roomName,
+                                                'isSignedIn': staff.hasSignIn,
+                                                'isAbsent': true,
+                                                'isExpectedToday':
+                                                    staff.expectedToday,
+                                                'isPresentToday': false,
+                                                'profileStatus': 'A',
+                                                'initialShowAbsentDays': true,
+                                              },
+                                            )
+                                            .then((_) {
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            });
+                                      },
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            )
+                          else
+                            Builder(
+                              builder: (context) {
+                                _staffMembers.clear();
+
+                                for (final item in state.items) {
+                                  // Compute effective sign-in/sign-out display for transfer sequences.
+                                  String? effectiveSignIn;
+                                  String? effectiveSignOut;
+                                  StaffAttendanceTime? effectiveSignInClock;
+                                  StaffAttendanceTime? effectiveSignOutClock;
+                                  bool transferSignIn = false;
+                                  bool transferSignOut = false;
+                                  final int seq = item.sequenceNumber ?? 1;
+                                  final int totalSeq =
+                                      item.totalSequenceCount ?? 1;
+
+                                  if (totalSeq <= 1) {
+                                    effectiveSignIn = item.formattedSignInTime;
+                                    effectiveSignOut =
+                                        item.formattedSignOutTime;
+                                    effectiveSignInClock = item.signedInTime;
+                                    effectiveSignOutClock = item.signedOutTime;
+                                  } else {
+                                    final isFirst = seq == 1;
+                                    final isLast = seq == totalSeq;
+
+                                    if (isFirst && !isLast) {
+                                      effectiveSignIn =
+                                          item.formattedSignInTime;
+                                      effectiveSignOut =
+                                          item.nextActionTime?.formattedTime;
+                                      effectiveSignInClock = item.signedInTime;
+                                      effectiveSignOutClock =
+                                          item.nextActionTime;
+                                      transferSignOut =
+                                          effectiveSignOut != null;
+                                    } else if (!isFirst && !isLast) {
+                                      effectiveSignIn =
+                                          item.transferTime?.formattedTime;
+                                      effectiveSignOut =
+                                          item.nextActionTime?.formattedTime;
+                                      effectiveSignInClock = item.transferTime;
+                                      effectiveSignOutClock =
+                                          item.nextActionTime;
+                                      transferSignIn = effectiveSignIn != null;
+                                      transferSignOut =
+                                          effectiveSignOut != null;
+                                    } else if (isLast) {
+                                      effectiveSignIn = isFirst
+                                          ? item.formattedSignInTime
+                                          : item.transferTime?.formattedTime;
+                                      effectiveSignOut =
+                                          item.formattedSignOutTime;
+                                      effectiveSignInClock = isFirst
+                                          ? item.signedInTime
+                                          : item.transferTime;
+                                      effectiveSignOutClock =
+                                          item.signedOutTime;
+                                      transferSignIn =
+                                          !isFirst && effectiveSignIn != null;
+                                    }
+                                  }
+
+                                  final day = DateTime(
+                                    _selectedDate.year,
+                                    _selectedDate.month,
+                                    _selectedDate.day,
+                                  );
+                                  final startMoment =
+                                      dateAtStaffAttendanceClock(
+                                        day,
+                                        effectiveSignInClock,
+                                      );
+                                  final endMoment = dateAtStaffAttendanceClock(
+                                    day,
+                                    effectiveSignOutClock,
+                                  );
+                                  final attendedTimeDisplay =
+                                      attendedLabelFromMoments(
+                                        startMoment,
+                                        endMoment,
+                                      );
+
+                                  final String? rawDesignation =
+                                      item.designation.isNotEmpty
+                                      ? item.designation.first
+                                      : null;
+                                  final String? formattedDesignation =
+                                      _formatDesignation(rawDesignation);
+
+                                  final String effectiveClassroomCode =
+                                      (item.isTransfer == true &&
+                                          (item.toClassroomCode ?? '')
+                                              .trim()
+                                              .isNotEmpty)
+                                      ? item.toClassroomCode!.trim()
+                                      : item.classroomCode.trim();
+
+                                  _staffMembers.add(
+                                    StaffAttendanceCardData(
+                                      attendanceRecordCode:
+                                          item.attendanceRecordCode,
+                                      id: item.staffCode,
+                                      staffName: item.staffName,
+                                      staffPhotoUuid: null,
+                                      designationName: formattedDesignation,
+                                      roomName: _classroomDisplay(
+                                        // Transfer rows may populate `toClassroom*` instead of `classroom*`.
+                                        classroomCode:
+                                            effectiveClassroomCode.isNotEmpty
+                                            ? effectiveClassroomCode
+                                            : item.classroomCode,
+                                        classroomName:
+                                            (item.isTransfer == true &&
+                                                (item.toClassroomName ?? '')
+                                                    .trim()
+                                                    .isNotEmpty)
+                                            ? item.toClassroomName!
+                                            : item.classroomName,
+                                      ),
+                                      classroomCode:
+                                          effectiveClassroomCode.isNotEmpty
+                                          ? effectiveClassroomCode
+                                          : null,
+                                      expectedToday: item.isExpectedToday,
+                                      hasSignIn: item.hasSignIn,
+                                      signInTime:
+                                          effectiveSignIn ??
+                                          item.formattedSignInTime,
+                                      signOutTime:
+                                          effectiveSignOut ??
+                                          item.formattedSignOutTime,
+                                      signInBy:
+                                          _normalizeByName(item.signedInBy) ??
+                                          (_isKioskOrPinMethod(
+                                                item.signedInMethod,
+                                              )
+                                              ? 'Kiosk'
+                                              : null),
+                                      signOutBy:
+                                          _normalizeByName(item.signedOutBy) ??
+                                          (transferSignOut
+                                              ? _loggedInUserName
+                                              : null) ??
+                                          (_isKioskOrPinMethod(
+                                                item.signedOutMethod,
+                                              )
+                                              ? 'Kiosk'
+                                              : null) ??
+                                          // Auto sign-out has no person: the API sends
+                                          // signedOutMethod=SYSTEM with an empty signedOutBy. Show
+                                          // "System" (web parity) instead of falling through to the
+                                          // card's own "Unknown" placeholder.
+                                          (_isSystemMethod(item.signedOutMethod)
+                                              ? 'System'
+                                              : null),
+                                      // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
+                                      signInMethod: _resolveSignMethodForDisplay(
+                                        method: item.signedInMethod,
+                                        hasRecordedTime:
+                                            (effectiveSignIn ??
+                                                    item.formattedSignInTime)
+                                                ?.trim()
+                                                .isNotEmpty ==
+                                            true,
+                                      ),
+                                      signOutMethod: _resolveSignMethodForDisplay(
+                                        method: item.signedOutMethod,
+                                        hasRecordedTime:
+                                            (effectiveSignOut ??
+                                                    item.formattedSignOutTime)
+                                                ?.trim()
+                                                .isNotEmpty ==
+                                            true,
+                                      ),
+                                      staffId: 0,
+                                      roomId: 0,
+                                      schoolId: 0,
+                                      sequenceNumber: item.sequenceNumber,
+                                      totalSequenceCount:
+                                          item.totalSequenceCount,
+                                      isTransferSignIn: transferSignIn,
+                                      isTransferSignOut: transferSignOut,
+                                      attendedTimeDisplay: attendedTimeDisplay,
+                                      notExpectedComment:
+                                          item.notExpectedComment,
+                                    ),
+                                  );
+                                }
+
+                                final filtered = _getFilteredStaff();
+
+                                if (filtered.isEmpty) {
+                                  return Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.lg,
+                                      ),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.people_outline,
+                                            size: 48,
+                                            color: AppColors
+                                                .attendanceEmptyStateIconColor,
+                                          ),
+                                          const SizedBox(height: AppSpacing.md),
+                                          AppText.body(
+                                            'No staff attendance records found for the selected date',
+                                            style: AppTextStyles.body.copyWith(
+                                              color: AppColors
+                                                  .attendanceDialogHintTextColor,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                // Editing/deleting attendance records requires a STAFF_ATTENDANCE write.
+                                // Editing specifically (as opposed to self sign-in/out) is further
+                                // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
+                                // hide the Edit action unless both checks pass (the card omits a null
+                                // callback); Delete keeps the original module-only gate.
+                                final canWriteStaffAttendance = context
+                                    .read<RoleCubit>()
+                                    .canWriteModule(
+                                      AppAccessModules.staffAttendance,
+                                    );
+                                final canEditAttendance =
+                                    canWriteStaffAttendance &&
+                                    _isStaffAdminPersona;
+                                return Column(
+                                  children: filtered.asMap().entries.map((
+                                    entry,
+                                  ) {
+                                    final index = entry.key;
+                                    final staff = entry.value;
+                                    return StaffAttendanceCard(
+                                      staff: staff,
+                                      index: index,
+                                      isExpanded: _expandedStaffIndex == index,
+                                      onTap: () {
+                                        setState(() {
+                                          _expandedStaffIndex =
+                                              _expandedStaffIndex == index
+                                              ? null
+                                              : index;
+                                        });
+                                      },
+                                      onEdit: !canEditAttendance
+                                          ? null
+                                          : () async {
+                                              await context.push(
+                                                '/dashboard/staff-edit-attendance-form',
+                                                extra: {
+                                                  'staffAttendance': staff,
+                                                  'attendanceDate':
+                                                      _selectedDate,
+                                                },
+                                              );
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            },
+                                      onDelete: !canWriteStaffAttendance
+                                          ? null
+                                          : () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                isScrollControlled: true,
+                                                backgroundColor:
+                                                    AppColors.transparentColor,
+                                                builder: (ctx) {
+                                                  return DeleteConfirmationBottomSheet(
+                                                    name: staff.staffName,
+                                                    type: 'attendance',
+                                                    onDelete: () async {
+                                                      Navigator.of(ctx).pop();
+                                                      if (staff.attendanceRecordCode ==
+                                                              null ||
+                                                          staff
+                                                              .attendanceRecordCode!
+                                                              .isEmpty) {
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: const SnackBar(
+                                                            content: Text(
+                                                              'Unable to delete: missing attendance record code.',
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .errorColor,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+
+                                                      try {
+                                                        final normalizedAttendanceCode =
+                                                            _resolveStaffDeleteAttendanceRecordCode(
+                                                              card: staff,
+                                                              allItems:
+                                                                  state.items,
+                                                            );
+                                                        if (normalizedAttendanceCode ==
+                                                                null ||
+                                                            normalizedAttendanceCode
+                                                                .isEmpty) {
+                                                          CoreUtils.showTopSnackBarFromSnackBar(
+                                                            context: context,
+                                                            snackBar: const SnackBar(
+                                                              content: Text(
+                                                                'Unable to delete: invalid attendance record code.',
+                                                              ),
+                                                              backgroundColor:
+                                                                  AppColors
+                                                                      .errorColor,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+
+                                                        final staffCode =
+                                                            await _deleteCubit
+                                                                .resolveStaffCode();
+                                                        if (staffCode.isEmpty) {
+                                                          if (!context.mounted)
+                                                            return;
+                                                          CoreUtils.showTopSnackBarFromSnackBar(
+                                                            context: context,
+                                                            snackBar: const SnackBar(
+                                                              content: Text(
+                                                                'Unable to resolve staffCode. Please re-login.',
+                                                              ),
+                                                              backgroundColor:
+                                                                  AppColors
+                                                                      .errorColor,
+                                                            ),
+                                                          );
+                                                          return;
+                                                        }
+
+                                                        await _deleteCubit.delete(
+                                                          attendanceRecordCode:
+                                                              normalizedAttendanceCode,
+                                                          staffCode: staffCode,
+                                                        );
+
+                                                        if (!context.mounted)
+                                                          return;
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: const SnackBar(
+                                                            content: Text(
+                                                              'Attendance deleted',
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .successColor,
+                                                          ),
+                                                        );
+                                                        _loadAttendanceData(
+                                                          context,
+                                                          reset: true,
+                                                        );
+                                                      } catch (e) {
+                                                        if (!context.mounted)
+                                                          return;
+                                                        final message =
+                                                            ApiErrorHandler.extractErrorMessage(
+                                                              e,
+                                                            );
+                                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                                          context: context,
+                                                          snackBar: SnackBar(
+                                                            content: Text(
+                                                              message,
+                                                            ),
+                                                            backgroundColor:
+                                                                AppColors
+                                                                    .errorColor,
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                                    onCancel: () {
+                                                      Navigator.of(ctx).pop();
+                                                    },
+                                                  );
+                                                },
+                                              );
+                                            },
+                                      onView: () {
+                                        context
+                                            .push(
+                                              StaffAttendanceProfile.routeName,
+                                              extra: {
+                                                'staffCode': staff.id,
+                                                'staffId': staff.staffId,
+                                                'staffName': staff.staffName,
+                                                'staffPhotoUuid':
+                                                    staff.staffPhotoUuid,
+                                                'designationName':
+                                                    staff.designationName,
+                                                'roomName': staff.roomName,
+                                                'isSignedIn': staff.hasSignIn,
+                                                'isAbsent': false,
+                                                'isExpectedToday':
+                                                    staff.expectedToday,
+                                                'isPresentToday':
+                                                    staff.hasSignIn,
+                                                'profileStatus': 'A',
+                                              },
+                                            )
+                                            .then((_) {
+                                              if (mounted) {
+                                                refreshAfterReturningFromAttendanceFlow();
+                                              }
+                                            });
+                                      },
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 );
               },
-            ),
+            );
+          },
+        ),
       ),
+    );
+
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
     );
   }
 
@@ -757,7 +1258,13 @@ class _StaffAttendanceDailyViewScreenState
     _isFilterScreenOpen = true;
 
     try {
-      final result = await Navigator.push<Map<String, dynamic>?>(
+      // GoRouter holdout (documented): StaffFilterScreen is a SHARED screen
+      // (staff feature, used by non-attendance callers) that returns a consumed
+      // Map via Navigator.pop(result). Converting this caller to context.push
+      // would force the shared screen's pop semantics to change, risking the
+      // other callers — so this stays Navigator. It also carries the live
+      // _classroomCubit via BlocProvider.value, which must not be recreated.
+      final result = await Navigator.push<StaffFilterResult?>(
         context,
         MaterialPageRoute(
           builder: (_) => BlocProvider.value(
@@ -776,11 +1283,10 @@ class _StaffAttendanceDailyViewScreenState
 
       if (!mounted || result == null) return;
 
-      final String? status = (result['status'] as String?)?.trim();
-      final String? designation = (result['designation'] as String?)?.trim();
-      final List<String> classCodes =
-          (result['classCodes'] as List?)?.cast<String>() ?? const <String>[];
-      final String? sortBy = (result['sortBy'] as String?)?.trim();
+      final String? status = result.status?.trim();
+      final String? designation = result.designation?.trim();
+      final List<String> classCodes = result.classCodes;
+      final String sortBy = result.sortBy;
 
       setState(() {
         _staffFilters = FilterData(
@@ -803,451 +1309,6 @@ class _StaffAttendanceDailyViewScreenState
     } finally {
       _isFilterScreenOpen = false;
     }
-  }
-
-  Widget _buildFilterCard(
-    ResponsiveHelper responsive, {
-    required bool hasActiveFilters,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: CustomSearchBar(
-                  controller: _searchController,
-                  hintText: 'Search Staff',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _navigateToFilterScreen,
-                  borderRadius: BorderRadius.circular(100),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: SvgPicture.asset(
-                          MediaRes.filterIcon,
-                          height: 20,
-                        ),
-                      ),
-                      if (hasActiveFilters)
-                        Positioned(
-                          right: 2,
-                          top: 2,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing / 2),
-          Row(
-            children: [
-              Expanded(
-                child: CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: false,
-                  isTime: false,
-                  fetchInitialTime: false,
-                  initialDate: _selectedDate,
-                  onDateSelected: (date) {
-                    setState(() {
-                      _selectedDate = date;
-                    });
-                    _loadAttendanceData(context, reset: true);
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              CustomClearAllChip(
-                onTap: hasActiveFilters ? _clearAllFiltersAndSearch : null,
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing / 2),
-          Align(
-            alignment: Alignment.centerRight,
-            child: CustomToggle(
-              label: 'Show Absent',
-              isToggled: _showAbsentOnly,
-              onToggle: (value) {
-                setState(() {
-                  _showAbsentOnly = value;
-                  if (value) {
-                    // When toggling to Absent, clear legend filters so only absent view applies.
-                    _statusLegendFilter = 'Absent';
-                    _signInAtFilter = null;
-                    _signOutAtFilter = null;
-                    _isExpectedNotMarkedFilter = null;
-                  } else if (_statusLegendFilter == 'Absent') {
-                    _statusLegendFilter = null;
-                  }
-                });
-                debugPrint(
-                  '[StaffDaily] Show Absent toggled: $_showAbsentOnly',
-                );
-                _loadAttendanceData(context, reset: true);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStaffListFromState(StaffAttendanceDailyState state) {
-    _staffMembers.clear();
-
-    for (final item in state.items) {
-      // Compute effective sign-in/sign-out display for transfer sequences.
-      String? effectiveSignIn;
-      String? effectiveSignOut;
-      StaffAttendanceTime? effectiveSignInClock;
-      StaffAttendanceTime? effectiveSignOutClock;
-      bool transferSignIn = false;
-      bool transferSignOut = false;
-      final int seq = item.sequenceNumber ?? 1;
-      final int totalSeq = item.totalSequenceCount ?? 1;
-
-      if (totalSeq <= 1) {
-        effectiveSignIn = item.formattedSignInTime;
-        effectiveSignOut = item.formattedSignOutTime;
-        effectiveSignInClock = item.signedInTime;
-        effectiveSignOutClock = item.signedOutTime;
-      } else {
-        final isFirst = seq == 1;
-        final isLast = seq == totalSeq;
-
-        if (isFirst && !isLast) {
-          effectiveSignIn = item.formattedSignInTime;
-          effectiveSignOut = item.nextActionTime?.formattedTime;
-          effectiveSignInClock = item.signedInTime;
-          effectiveSignOutClock = item.nextActionTime;
-          transferSignOut = effectiveSignOut != null;
-        } else if (!isFirst && !isLast) {
-          effectiveSignIn = item.transferTime?.formattedTime;
-          effectiveSignOut = item.nextActionTime?.formattedTime;
-          effectiveSignInClock = item.transferTime;
-          effectiveSignOutClock = item.nextActionTime;
-          transferSignIn = effectiveSignIn != null;
-          transferSignOut = effectiveSignOut != null;
-        } else if (isLast) {
-          effectiveSignIn = isFirst
-              ? item.formattedSignInTime
-              : item.transferTime?.formattedTime;
-          effectiveSignOut = item.formattedSignOutTime;
-          effectiveSignInClock = isFirst
-              ? item.signedInTime
-              : item.transferTime;
-          effectiveSignOutClock = item.signedOutTime;
-          transferSignIn = !isFirst && effectiveSignIn != null;
-        }
-      }
-
-      final day = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      );
-      final startMoment = dateAtStaffAttendanceClock(day, effectiveSignInClock);
-      final endMoment = dateAtStaffAttendanceClock(day, effectiveSignOutClock);
-      final attendedTimeDisplay = attendedLabelFromMoments(
-        startMoment,
-        endMoment,
-      );
-
-      final String? rawDesignation = item.designation.isNotEmpty
-          ? item.designation.first
-          : null;
-      final String? formattedDesignation = _formatDesignation(rawDesignation);
-
-      final String effectiveClassroomCode =
-          (item.isTransfer == true &&
-              (item.toClassroomCode ?? '').trim().isNotEmpty)
-          ? item.toClassroomCode!.trim()
-          : item.classroomCode.trim();
-
-      _staffMembers.add(
-        StaffAttendanceCardData(
-          attendanceRecordCode: item.attendanceRecordCode,
-          id: item.staffCode,
-          staffName: item.staffName,
-          staffPhotoUuid: null,
-          designationName: formattedDesignation,
-          roomName: _classroomDisplay(
-            // Transfer rows may populate `toClassroom*` instead of `classroom*`.
-            classroomCode: effectiveClassroomCode.isNotEmpty
-                ? effectiveClassroomCode
-                : item.classroomCode,
-            classroomName:
-                (item.isTransfer == true &&
-                    (item.toClassroomName ?? '').trim().isNotEmpty)
-                ? item.toClassroomName!
-                : item.classroomName,
-          ),
-          classroomCode: effectiveClassroomCode.isNotEmpty
-              ? effectiveClassroomCode
-              : null,
-          expectedToday: item.isExpectedToday,
-          hasSignIn: item.hasSignIn,
-          signInTime: effectiveSignIn ?? item.formattedSignInTime,
-          signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
-          signInBy:
-              _normalizeByName(item.signedInBy) ??
-              (_isKioskOrPinMethod(item.signedInMethod) ? 'Kiosk' : null),
-          signOutBy:
-              _normalizeByName(item.signedOutBy) ??
-              (transferSignOut ? _loggedInUserName : null) ??
-              (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null) ??
-              // Auto sign-out has no person: the API sends
-              // signedOutMethod=SYSTEM with an empty signedOutBy. Show
-              // "System" (web parity) instead of falling through to the
-              // card's own "Unknown" placeholder.
-              (_isSystemMethod(item.signedOutMethod) ? 'System' : null),
-          // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
-          signInMethod: _resolveSignMethodForDisplay(
-            method: item.signedInMethod,
-            hasRecordedTime:
-                (effectiveSignIn ?? item.formattedSignInTime)
-                    ?.trim()
-                    .isNotEmpty ==
-                true,
-          ),
-          signOutMethod: _resolveSignMethodForDisplay(
-            method: item.signedOutMethod,
-            hasRecordedTime:
-                (effectiveSignOut ?? item.formattedSignOutTime)
-                    ?.trim()
-                    .isNotEmpty ==
-                true,
-          ),
-          staffId: 0,
-          roomId: 0,
-          schoolId: 0,
-          sequenceNumber: item.sequenceNumber,
-          totalSequenceCount: item.totalSequenceCount,
-          isTransferSignIn: transferSignIn,
-          isTransferSignOut: transferSignOut,
-          attendedTimeDisplay: attendedTimeDisplay,
-          notExpectedComment: item.notExpectedComment,
-        ),
-      );
-    }
-
-    final filtered = _getFilteredStaff();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 16),
-              AppText.body(
-                'No staff attendance records found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Editing/deleting attendance records requires a STAFF_ATTENDANCE write.
-    // Editing specifically (as opposed to self sign-in/out) is further
-    // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
-    // hide the Edit action unless both checks pass (the card omits a null
-    // callback); Delete keeps the original module-only gate.
-    final canWriteStaffAttendance = context.read<RoleCubit>().canWriteModule(
-      AppAccessModules.staffAttendance,
-    );
-    final canEditAttendance = canWriteStaffAttendance && _isStaffAdminPersona;
-    return Column(
-      children: filtered.asMap().entries.map((entry) {
-        final index = entry.key;
-        final staff = entry.value;
-        return StaffAttendanceCard(
-          staff: staff,
-          index: index,
-          isExpanded: _expandedStaffIndex == index,
-          onTap: () {
-            setState(() {
-              _expandedStaffIndex = _expandedStaffIndex == index ? null : index;
-            });
-          },
-          onEdit: !canEditAttendance
-              ? null
-              : () async {
-                  await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StaffEditAttendanceForm(
-                        staffAttendance: staff,
-                        attendanceDate: _selectedDate,
-                      ),
-                    ),
-                  );
-                  if (mounted) {
-                    refreshAfterReturningFromAttendanceFlow();
-                  }
-                },
-          onDelete: !canWriteStaffAttendance
-              ? null
-              : () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (ctx) {
-                      return DeleteConfirmationBottomSheet(
-                        name: staff.staffName,
-                        type: 'attendance',
-                        onDelete: () async {
-                          Navigator.of(ctx).pop();
-                          if (staff.attendanceRecordCode == null ||
-                              staff.attendanceRecordCode!.isEmpty) {
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: const SnackBar(
-                                content: Text(
-                                  'Unable to delete: missing attendance record code.',
-                                ),
-                                backgroundColor: AppColors.errorColor,
-                              ),
-                            );
-                            return;
-                          }
-
-                          try {
-                            final normalizedAttendanceCode =
-                                _resolveStaffDeleteAttendanceRecordCode(
-                                  card: staff,
-                                  allItems: state.items,
-                                );
-                            if (normalizedAttendanceCode == null ||
-                                normalizedAttendanceCode.isEmpty) {
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: const SnackBar(
-                                  content: Text(
-                                    'Unable to delete: invalid attendance record code.',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-
-                            final storageService =
-                                serviceLocator<StorageService>();
-                            final staffCode =
-                                (await storageService.getString(
-                                          StorageKeys.staffCode,
-                                        ) ??
-                                        '')
-                                    .trim();
-                            if (staffCode.isEmpty) {
-                              if (!context.mounted) return;
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: const SnackBar(
-                                  content: Text(
-                                    'Unable to resolve staffCode. Please re-login.',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-
-                            await serviceLocator<AttendanceRepository>()
-                                .deleteStaffAttendanceRecord(
-                                  attendanceRecordCode:
-                                      normalizedAttendanceCode,
-                                  staffCode: staffCode,
-                                );
-
-                            if (!context.mounted) return;
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: const SnackBar(
-                                content: Text('Attendance deleted'),
-                                backgroundColor: AppColors.successColor,
-                              ),
-                            );
-                            _loadAttendanceData(context, reset: true);
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            final message = ApiErrorHandler.extractErrorMessage(
-                              e,
-                            );
-                            CoreUtils.showTopSnackBarFromSnackBar(
-                              context: context,
-                              snackBar: SnackBar(
-                                content: Text(message),
-                                backgroundColor: AppColors.errorColor,
-                              ),
-                            );
-                          }
-                        },
-                        onCancel: () {
-                          Navigator.of(ctx).pop();
-                        },
-                      );
-                    },
-                  );
-                },
-          onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.staffName,
-                  staffPhotoUuid: staff.staffPhotoUuid,
-                  designationName: staff.designationName,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: false,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: staff.hasSignIn,
-                  profileStatus: 'A',
-                ),
-              ),
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
-          },
-        );
-      }).toList(),
-    );
   }
 
   String? _normalizeByName(String? raw) {
@@ -1307,20 +1368,20 @@ class _StaffAttendanceDailyViewScreenState
     return null;
   }
 
-  StaffAbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
+  AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
     if (method == null) return null;
     switch (method.trim().toUpperCase()) {
       case 'GPS':
-        return StaffAbsentMarkMethod.gps;
+        return AbsentMarkMethod.gps;
       case 'PIN':
       case 'KIOSK':
-        return StaffAbsentMarkMethod.kiosk;
+        return AbsentMarkMethod.kiosk;
       case 'QR':
-        return StaffAbsentMarkMethod.qr;
+        return AbsentMarkMethod.qr;
       case 'APP':
-        return StaffAbsentMarkMethod.app;
+        return AbsentMarkMethod.app;
       case 'WEB':
-        return StaffAbsentMarkMethod.web;
+        return AbsentMarkMethod.web;
       default:
         return null;
     }
@@ -1335,98 +1396,113 @@ class _StaffAttendanceDailyViewScreenState
     if (fromCard == null || fromCard.isEmpty) return null;
     return fromCard;
   }
+}
 
-  Widget _buildAbsentStaffList(StaffAttendanceAbsentToggleState absentState) {
-    if (absentState.items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+class _StaffDailyFilterCard extends StatelessWidget {
+  const _StaffDailyFilterCard({
+    required this.responsive,
+    required this.hasActiveFilters,
+    required this.searchController,
+    required this.selectedDate,
+    required this.onFilterTap,
+    required this.onDateSelected,
+    required this.onClearAll,
+    required this.showAbsentOnly,
+    required this.onShowAbsentToggle,
+  });
+
+  final ResponsiveHelper responsive;
+  final bool hasActiveFilters;
+  final TextEditingController searchController;
+  final DateTime selectedDate;
+  final VoidCallback onFilterTap;
+  final ValueChanged<DateTime> onDateSelected;
+  final VoidCallback onClearAll;
+  final bool showAbsentOnly;
+  final ValueChanged<bool> onShowAbsentToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.cardBorderColor),
+        borderRadius: AppRadius.allMd,
+        color: AppColors.cardColor,
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              Icon(
-                Icons.person_off_outlined,
-                size: 48,
-                color: Colors.grey[400],
+              Expanded(
+                child: CustomSearchBar(
+                  controller: searchController,
+                  hintText: 'Search Staff',
+                ),
               ),
-              const SizedBox(height: 16),
-              AppText.body(
-                'No absent staff found for the selected date',
-                style: TextStyle(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
+              const SizedBox(width: AppSpacing.xs),
+              Material(
+                color: AppColors.transparentColor,
+                child: InkWell(
+                  onTap: onFilterTap,
+                  borderRadius: AppRadius.allPill,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: SvgPicture.asset(
+                          MediaRes.filterIcon,
+                          height: 20,
+                        ),
+                      ),
+                      if (hasActiveFilters)
+                        Positioned(
+                          right: 2,
+                          top: 2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.attendanceDangerAccentColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-      );
-    }
-
-    final items = absentState.items;
-
-    return Column(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final it = entry.value;
-        final roomName = _staffAbsentToggleClassroomDisplay(it);
-        final absenceDate = it.absenceDate;
-        final absentTime = it.markedAbsentTime?.formatted12h ?? '';
-        final staff = StaffAbsentCardData(
-          id: it.staffCode,
-          staffCode: it.staffCode,
-          name: it.staffName,
-          photoUuid: null,
-          roomName: roomName,
-          absentTime: absentTime,
-          absentBy: it.markedAbsentByName,
-          note: it.absenceNote,
-          staffId: index,
-          roomId: 0,
-          schoolId: 0,
-          startDate: absenceDate,
-          endDate: absenceDate,
-          hasSignIn: false,
-          expectedToday: true,
-          signInTime: null,
-          signOutTime: null,
-          markAbsentMethod: _mapAbsentMethodStringToEnum(it.markAbsentMethod),
-        );
-        return StaffAbsentCard(
-          staff: staff,
-          index: index,
-          isExpanded: _expandedAbsentIndex == index,
-          onTap: () {
-            setState(() {
-              _expandedAbsentIndex = _expandedAbsentIndex == index
-                  ? null
-                  : index;
-            });
-          },
-          onView: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: staff.id,
-                  staffId: staff.staffId,
-                  staffName: staff.name,
-                  staffPhotoUuid: staff.photoUuid,
-                  roomName: staff.roomName,
-                  isSignedIn: staff.hasSignIn,
-                  isAbsent: true,
-                  isExpectedToday: staff.expectedToday,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                  initialShowAbsentDays: true,
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Row(
+            children: [
+              Expanded(
+                child: CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: false,
+                  isTime: false,
+                  fetchInitialTime: false,
+                  initialDate: selectedDate,
+                  onDateSelected: onDateSelected,
                 ),
               ),
-            ).then((_) {
-              if (mounted) {
-                refreshAfterReturningFromAttendanceFlow();
-              }
-            });
-          },
-        );
-      }).toList(),
+              const SizedBox(width: AppSpacing.xs),
+              CustomClearAllChip(onTap: hasActiveFilters ? onClearAll : null),
+            ],
+          ),
+          SizedBox(height: responsive.verticalSpacing / 2),
+          Align(
+            alignment: Alignment.centerRight,
+            child: CustomToggle(
+              label: 'Show Absent',
+              isToggled: showAbsentOnly,
+              onToggle: onShowAbsentToggle,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

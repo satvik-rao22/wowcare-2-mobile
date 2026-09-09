@@ -1,4 +1,4 @@
-import '../../../../domain/features/activity/entities/activity_asset_presign.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_asset_presign.dart';
 
 class ActivityAssetPresignModel extends ActivityAssetPresign {
   const ActivityAssetPresignModel({

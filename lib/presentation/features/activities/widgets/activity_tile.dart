@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 class ActivityTile extends StatelessWidget {
   const ActivityTile({
     super.key,
     required this.iconPath,
     required this.label,
-    //required this.selectedStudents,
     this.onTap,
     this.unavailableActivity = false,
   });
@@ -15,7 +15,6 @@ class ActivityTile extends StatelessWidget {
   final String iconPath;
   final String label;
   final bool unavailableActivity;
-  //final List<String> selectedStudents;
   final VoidCallback? onTap;
 
   @override
@@ -29,10 +28,10 @@ class ActivityTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xff573353).withValues(alpha: 0.1),
+              color: AppColors.primaryColor.withValues(alpha: 0.1),
               width: 1,
             ),
           ),
@@ -45,11 +44,7 @@ class ActivityTile extends StatelessWidget {
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: AppTextStyles.activityBodyValue,
                 ),
               ),
             ],

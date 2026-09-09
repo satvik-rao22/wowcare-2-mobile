@@ -1,17 +1,19 @@
 import 'package:dio/dio.dart';
-import '../../../../app/di/di.dart';
-import '../../../../core/network/api_client.dart';
-import '../models/create_conversation_request.dart';
-import '../models/conversation_model.dart';
-import '../models/create_conversation_response.dart';
-import '../models/get_conversations_response.dart';
-import '../models/message_model.dart';
-import '../../../../domain/features/communication/entities/message.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/user_details_school_roles.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/data/features/communication/models/conversation_model.dart';
+import 'package:wowcare/data/features/communication/models/create_conversation_response.dart';
+import 'package:wowcare/data/features/communication/models/get_conversations_response.dart';
+import 'package:wowcare/data/features/communication/models/message_model.dart';
+import 'package:wowcare/data/features/communication/models/edit_message_request.dart';
+import 'package:wowcare/data/features/communication/models/message_reaction_request.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(
@@ -232,7 +234,7 @@ class CommunicationRemoteDataSourceImpl
 
     final response = await apiClient.client.put(
       endpoint,
-      data: {'content': content},
+      data: EditMessageRequest(content: content).toJson(),
     );
 
     if (response.data != null && response.data['success'] == true) {
@@ -412,7 +414,7 @@ class CommunicationRemoteDataSourceImpl
     // optimistically appear and then immediately get reverted. Dio's own
     // status-code-based exception (4xx/5xx) is the only failure signal
     // until the real shape is confirmed.
-    await apiClient.client.post(endpoint, data: {'emoji': emoji});
+    await apiClient.client.post(endpoint, data: MessageReactionRequest(emoji: emoji).toJson());
   }
 
   @override

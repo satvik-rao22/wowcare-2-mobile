@@ -1,5 +1,5 @@
-import '../repositories/activity_repository.dart';
-import '../entities/activity_upload_session.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_upload_session.dart';
 
 class CreateActivityUploadSessionsUseCase {
   CreateActivityUploadSessionsUseCase(this._repository);

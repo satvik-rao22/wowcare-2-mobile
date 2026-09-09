@@ -66,15 +66,6 @@ class ClassroomAttendanceSummaryEntry extends Equatable {
   final int signout;
   final int notMarked;
 
-  factory ClassroomAttendanceSummaryEntry.fromJson(Map<String, dynamic> json) =>
-      ClassroomAttendanceSummaryEntry(
-        expected: json['expected'] as int? ?? 0,
-        present: json['present'] as int? ?? 0,
-        absent: json['absent'] as int? ?? 0,
-        signout: json['signout'] as int? ?? 0,
-        notMarked: json['notMarked'] as int? ?? 0,
-      );
-
   @override
   List<Object?> get props => [expected, present, absent, signout, notMarked];
 }

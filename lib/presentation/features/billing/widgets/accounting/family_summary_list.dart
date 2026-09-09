@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -42,10 +44,10 @@ class FamilySummaryList extends StatelessWidget {
     }
     if (errorMessage != null && families.isEmpty) {
       // Detail goes to the top snackbar; keep the list area calm.
-      return const _Message(text: 'Couldn’t load families.');
+      return const _Message(text: BillingStrings.couldntLoadFamilies);
     }
     if (families.isEmpty) {
-      return const _Message(text: 'No families found.');
+      return const _Message(text: BillingStrings.noFamiliesFound);
     }
 
     return Column(
@@ -94,7 +96,7 @@ class _Message extends StatelessWidget {
           text,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.billingTextColor,

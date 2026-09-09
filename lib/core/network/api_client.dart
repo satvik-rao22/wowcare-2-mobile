@@ -1,6 +1,7 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_logger.dart';
 
@@ -57,9 +58,16 @@ class ApiClient {
     }
 
     // Global logging interceptor added AFTER auth interceptors
-    // This ensures Authorization header is logged since it's added by AuthInterceptor
-    _dio.interceptors.add(
-      InterceptorsWrapper(
+    // This ensures Authorization header is logged since it's added by AuthInterceptor.
+    //
+    // Debug builds ONLY: this interceptor logs full request/response bodies and
+    // headers (including Authorization). Never register it in release/profile —
+    // doing so would push tokens, PINs and PII through the logging pipeline in
+    // production. AppLogger already no-ops these sinks in release, but we also
+    // skip building the payloads entirely here.
+    if (kDebugMode) {
+      _dio.interceptors.add(
+        InterceptorsWrapper(
         onRequest: (options, handler) {
           ApiLogger.logRequest(
             url: options.uri.toString(),
@@ -105,8 +113,9 @@ class ApiClient {
           }
           handler.next(error);
         },
-      ),
-    );
+        ),
+      );
+    }
   }
 
   late final Dio _dio;

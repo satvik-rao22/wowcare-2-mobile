@@ -1,11 +1,17 @@
-
 import 'package:flutter/cupertino.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class CheckboxWidget extends StatefulWidget {
-  const CheckboxWidget({super.key, this.isEditable = true, required this.label, this.isChecked = true, this.onChecked});
+  const CheckboxWidget({
+    super.key,
+    this.isEditable = true,
+    required this.label,
+    this.isChecked = true,
+    this.onChecked,
+  });
   final bool isEditable;
   final String label;
   final bool isChecked;
@@ -15,20 +21,28 @@ class CheckboxWidget extends StatefulWidget {
   State<CheckboxWidget> createState() => _CheckboxWidgetState();
 }
 
+/// Kept as a minimal StatefulWidget purely to own and dispose the
+/// [ValueNotifier] below (Mandate 2: UI micro-state that belongs to one
+/// widget uses ValueNotifier + ValueListenableBuilder, not setState — but the
+/// notifier itself still needs a State to be created/disposed in).
 class _CheckboxWidgetState extends State<CheckboxWidget> {
-  late bool _isChecked;
+  late final ValueNotifier<bool> _isChecked;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    _isChecked = widget.isChecked;
+    _isChecked = ValueNotifier<bool>(widget.isChecked);
   }
 
-  void _handleChanged(bool? value){
+  @override
+  void dispose() {
+    _isChecked.dispose();
+    super.dispose();
+  }
+
+  void _handleChanged(bool? value) {
     final newValue = value ?? false;
-    setState(() {
-      _isChecked = newValue;
-    });
+    _isChecked.value = newValue;
     widget.onChecked?.call(newValue);
   }
 
@@ -39,29 +53,24 @@ class _CheckboxWidgetState extends State<CheckboxWidget> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Opacity(
-            opacity: opacity,
-            child: CustomCheckbox(
-            value: _isChecked,
-            borderColor: AppColors.themeColor,
-            onChanged: widget.isEditable ? _handleChanged : null,
-            // onChanged: widget.isEditable ?(v) {
-            //   final newVal = v ?? false;
-            //   setState(() {
-            //     _isChecked = newVal;
-            //   });
-            // } : null,
+          opacity: opacity,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _isChecked,
+            builder: (_, checked, __) => CustomCheckbox(
+              value: checked,
+              borderColor: AppColors.themeColor,
+              onChanged: widget.isEditable ? _handleChanged : null,
+            ),
           ),
         ),
-        const SizedBox(width: 2,),
+        const SizedBox(width: 2),
         GestureDetector(
-          onTap: widget.isEditable ? ()=> _handleChanged(!_isChecked) : null,
+          onTap: widget.isEditable
+              ? () => _handleChanged(!_isChecked.value)
+              : null,
           child: Text(
             widget.label,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTextStyles.activityStrongLabel,
             overflow: TextOverflow.ellipsis,
           ),
         ),

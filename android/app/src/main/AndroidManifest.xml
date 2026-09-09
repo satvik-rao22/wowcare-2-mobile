@@ -63,6 +63,28 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Android App Link: autoVerify makes the OS check
+                 https://uat-wowcare.childcarewow.app/.well-known/assetlinks.json
+                 at install time and, once verified, open this app directly for
+                 any https link to that host (e.g. an email button) instead of
+                 the browser — falls back to the browser until that file is
+                 hosted/verified. See DeepLinkHandler for how the incoming URI
+                 is turned into an in-app destination.
+
+                 The host comes from the ${appLinkHost} manifest placeholder set
+                 in app/build.gradle.kts, which gives this the debug/release
+                 split it previously lacked: release is pinned to
+                 uat-wowcare.childcarewow.app and cannot be overridden, debug
+                 accepts -PappLinkHost=<tunnel> for local testing. Do not put a
+                 literal host back here. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="${appLinkHost}" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

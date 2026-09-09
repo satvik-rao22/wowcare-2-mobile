@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:dartz/dartz.dart';
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -9,7 +13,6 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
-import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -21,6 +24,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_cached_messag
 import 'package:wowcare/domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
@@ -28,8 +32,10 @@ import 'package:wowcare/domain/features/communication/usecases/watch_messages_us
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
+import 'package:wowcare/data/features/communication/services/messaging_session_impl.dart';
+import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────────
@@ -172,25 +178,23 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
 
   Future<void> dispose() => _messagesController.close();
 
+  int cacheDraftMessageCallCount = 0;
+  int markDraftMessageFailedCallCount = 0;
+
   @override
-  Future<void> cacheDraftMessage(MessageEntity message) {
-    // TODO: implement cacheDraftMessage
-    throw UnimplementedError();
+  Future<void> cacheDraftMessage(MessageEntity message) async {
+    cacheDraftMessageCallCount++;
   }
 
   @override
-  Future<void> markDraftMessageFailed(String localTempCode) {
-    // TODO: implement markDraftMessageFailed
-    throw UnimplementedError();
+  Future<void> markDraftMessageFailed(String localTempCode) async {
+    markDraftMessageFailedCallCount++;
   }
 
   @override
   Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
     String messageCode,
-  ) {
-    // TODO: implement getMessageReceipts
-    throw UnimplementedError();
-  }
+  ) async => const Right(<ReadReceiptEntity>[]);
 }
 
 class _FakeConversationEntityRepository
@@ -373,18 +377,29 @@ class _FakeChatAttachmentUploader extends ChatAttachmentUploader {
   bool shouldFail = false;
   final List<String> uploadedAttachmentNames = [];
 
+  // The cubit's send flow calls uploadAll (batch); override that rather than
+  // the `upload` convenience wrapper (which the base delegates through it).
   @override
-  Future<ChatAttachment> upload({
+  Future<List<ChatAttachment>> uploadAll({
     required String conversationCode,
-    required ChatAttachment attachment,
+    required List<ChatAttachment> attachments,
   }) async {
-    if (attachment.isUploaded) return attachment;
-    if (shouldFail) throw Exception('upload failed: ${attachment.name}');
-    uploadedAttachmentNames.add(attachment.name);
-    return attachment.copyWith(
-      code: 'asset-${attachment.name}',
-      attachmentId: attachment.name.hashCode,
-    );
+    final out = <ChatAttachment>[];
+    for (final attachment in attachments) {
+      if (attachment.isUploaded) {
+        out.add(attachment);
+        continue;
+      }
+      if (shouldFail) throw Exception('upload failed: ${attachment.name}');
+      uploadedAttachmentNames.add(attachment.name);
+      out.add(
+        attachment.copyWith(
+          code: 'asset-${attachment.name}',
+          attachmentId: attachment.name.hashCode,
+        ),
+      );
+    }
+    return out;
   }
 }
 
@@ -450,12 +465,31 @@ AttachmentEntity _attachment({
 );
 
 void main() {
+  // ConversationThreadCubit._markRead reads WidgetsBinding.instance
+  // .lifecycleState (it must NOT mark-read while backgrounded). A pure unit
+  // test has no widget binding, so initialize one and put the app in the
+  // foreground (`resumed`) — the state a user reading a thread is actually in.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  // sendMessage persists picked attachments to getApplicationSupportDirectory
+  // (PendingAttachmentStorage) for durability. path_provider has no plugin in a
+  // unit test, so stub its channel to a real temp dir.
+  final tmpDir = Directory.systemTemp.createTempSync('conv_thread_test');
+  TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/path_provider'),
+        (call) async => tmpDir.path,
+      );
+
   late _FakeMessageEntityRepository messageRepo;
   late _FakeConversationEntityRepository conversationRepo;
   late _FakeChatAttachmentUploader attachmentUploader;
   late ConversationThreadCubit cubit;
 
   setUp(() {
+    TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+      AppLifecycleState.resumed,
+    );
     messageRepo = _FakeMessageEntityRepository();
     conversationRepo = _FakeConversationEntityRepository();
     attachmentUploader = _FakeChatAttachmentUploader();
@@ -482,6 +516,11 @@ void main() {
         messageRepo,
       ),
       getMessageReceiptsUseCase: GetMessageEntityReceiptsUseCase(messageRepo),
+      session: MessagingSessionImpl(_UnusedStorageService()),
+      conversationRepository: conversationRepo,
+      getClassroomRosterUseCase: GetClassroomRosterPresentUserCodesUseCase(
+        conversationRepo,
+      ),
     );
   });
 
@@ -615,7 +654,18 @@ void main() {
       'shows the optimistic message with local attachment previews '
       'immediately, before upload or the network round-trip resolve',
       () async {
-        final sendFuture = cubit.sendMessage(
+        // The optimistic bubble is emitted (status `pending`, with the local
+        // attachment preview) after the local-persist step but before the
+        // upload/network round-trip resolves. With everything faked, that whole
+        // sequence completes almost instantly, so rather than race a fixed
+        // delay, record the emitted states and assert a pending optimistic
+        // bubble WAS shown before the message settled to `sent`. (The persist
+        // copy of the test-only non-existent source path fails gracefully and
+        // keeps the original localPath.)
+        final emitted = <ConversationThreadState>[];
+        final sub = cubit.stream.listen(emitted.add);
+
+        await cubit.sendMessage(
           text: 'hi',
           senderCode: 'USR-1',
           senderName: 'Me',
@@ -624,15 +674,26 @@ void main() {
           schoolCode: 'SCH-1',
           attachments: [pendingAttachment('photo.jpg')],
         );
+        await sub.cancel();
 
-        // Optimistic emit happens synchronously before the first upload
-        // `await` — no need to wait for anything.
-        final optimistic = cubit.state.messages.single;
-        expect(optimistic.attachments.single.fileName, 'photo.jpg');
-        expect(optimistic.attachments.single.localFilePath, '/tmp/photo.jpg');
-        expect(optimistic.status, MessageStatus.pending);
-
-        await sendFuture;
+        final optimisticStates = emitted.where(
+          (s) => s.messages.any(
+            (m) =>
+                m.status == MessageStatus.pending &&
+                m.attachments.length == 1 &&
+                m.attachments.single.fileName == 'photo.jpg' &&
+                m.attachments.single.localFilePath == '/tmp/photo.jpg',
+          ),
+        );
+        expect(
+          optimisticStates,
+          isNotEmpty,
+          reason:
+              'a pending optimistic bubble with the local preview should '
+              'have been emitted before upload/send resolved',
+        );
+        // And it ultimately settled to sent.
+        expect(cubit.state.messages.single.status, MessageStatus.sent);
       },
     );
 

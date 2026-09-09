@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/active_school_switcher.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
+import 'package:wowcare/presentation/features/splash/view_model/splash_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -97,9 +99,39 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         if (deepLink != null) {
           await _switchSchoolForLaunch(state.pendingOrgSchool);
           if (!mounted) return;
+          _selectDeepLinkChild(deepLink);
         }
         context.go(deepLink ?? DashboardScreen.routeName);
         return;
+    }
+  }
+
+  /// Points the global child selector at the child a killed-state notification
+  /// is about, before routing to its destination.
+  ///
+  /// The warm paths ([NotificationNavigator] for an FCM tap, the notification
+  /// centre for an in-app tap) both already do this; the cold-launch path
+  /// routed straight from here and did not, so a guardian with more than one
+  /// child who tapped child B's notification from a killed app landed on
+  /// whichever child was persisted — the destination URL's `studentCode` was
+  /// read only as a remount key and could not correct it.
+  ///
+  /// The code is read back off the resolved URL rather than the payload:
+  /// `NotificationRouteResolver` has already made the decision and written it
+  /// there, and by this point the launch message is no longer in hand.
+  ///
+  /// Guardian persona only, and best-effort — [ParentChildCubit.selectByCode]
+  /// filters the code against the authenticated guardian's own children (a
+  /// request made before that list is ready is applied once it resolves), so a
+  /// stale or forged payload cannot select someone else's child.
+  void _selectDeepLinkChild(String deepLink) {
+    try {
+      if (!context.read<RoleCubit>().isParent) return;
+      final code = Uri.parse(deepLink).queryParameters['studentCode']?.trim();
+      if (code == null || code.isEmpty) return;
+      context.read<ParentChildCubit>().selectByCode(code);
+    } catch (e) {
+      AppLogger.d('[Splash] launch child-selection skipped (non-fatal): $e');
     }
   }
 

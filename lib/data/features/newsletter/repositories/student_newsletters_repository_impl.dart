@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/newsletter/entities/paginated_newsletters_entity.dart';
 import 'package:wowcare/domain/features/newsletter/repositories/student_newsletters_repository.dart';
 

@@ -4,5 +4,14 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<!-- Debug builds. Must match Runner-Release.entitlements so a
+		     Universal Link behaves the same in both. To test against a local
+		     tunnel, change this line locally and do NOT commit it — a
+		     tunnel host committed here previously shipped in debug and its
+		     Android counterpart shipped in release. -->
+		<string>applinks:uat-wowcare.childcarewow.app</string>
+	</array>
 </dict>
 </plist>

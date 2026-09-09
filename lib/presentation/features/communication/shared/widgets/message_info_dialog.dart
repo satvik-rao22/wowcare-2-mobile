@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -56,7 +59,7 @@ class MessageInfoDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black45,
+      barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
       builder: (_) => MessageInfoDialog(
         messageText: messageText,
         recipientsFuture: recipientsFuture,
@@ -82,13 +85,21 @@ class MessageInfoDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.lg,
+        vertical: 40,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.lg,
+              AppSizes.md,
+              AppSizes.sm,
+              AppSizes.md,
+            ),
             decoration: BoxDecoration(
               color: AppColors.primaryColor.withValues(alpha: 0.06),
               borderRadius: const BorderRadius.vertical(
@@ -109,12 +120,11 @@ class MessageInfoDialog extends StatelessWidget {
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
+                const SizedBox(width: AppSizes.sm),
+                Expanded(
                   child: Text(
-                    'Message Info',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
+                    AppStrings.messageInfo,
+                    style: AppTextStyles.heading18.copyWith(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryColor,
@@ -131,45 +141,45 @@ class MessageInfoDialog extends StatelessWidget {
           ),
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.6,
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSizes.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (messageText.trim().isNotEmpty) ...[
-                    _SectionLabel(label: 'Message'),
+                    _MessageSectionLabel(label: AppStrings.messageSectionLabel),
                     const SizedBox(height: 6),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(AppSizes.sm),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F7FD),
+                        color: AppColors.messagingMessageBoxBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(
+                          color: AppColors.messagingInputBorder,
+                        ),
                       ),
                       child: Text(
                         _plainText(messageText),
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
+                        style: AppTextStyles.size14.copyWith(
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryColor,
                           height: 1.45,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSizes.lg),
                   ],
                   FutureBuilder<List<MessageInfoRecipient>>(
                     future: recipientsFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
                         return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
+                          padding: EdgeInsets.symmetric(vertical: AppSizes.xl),
                           child: Center(
                             child: SizedBox(
                               width: 22,
@@ -190,28 +200,30 @@ class MessageInfoDialog extends StatelessWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _SectionLabel(label: 'Read By (${readBy.length})'),
-                          const SizedBox(height: 8),
+                          _MessageSectionLabel(
+                            label: AppStrings.readByCount(readBy.length),
+                          ),
+                          const SizedBox(height: AppSizes.xs),
                           if (readBy.isEmpty)
-                            const _EmptyNote(
-                              text: 'No one has read this message yet.',
-                            )
+                            const _EmptyNote(text: AppStrings.noOneHasRead)
                           else
                             ...readBy.map(
                               (r) => _RecipientTile(
                                 recipient: r,
                                 timestamp: r.readAt,
                                 icon: Icons.done_all_rounded,
-                                iconColor: const Color(0xFF2ECC71),
+                                iconColor: AppColors.messagingReadCheckColor,
                               ),
                             ),
-                          const SizedBox(height: 16),
-                          _SectionLabel(
-                            label: 'Delivered To (${deliveredOnly.length})',
+                          const SizedBox(height: AppSizes.md),
+                          _MessageSectionLabel(
+                            label: AppStrings.deliveredToCount(
+                              deliveredOnly.length,
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSizes.xs),
                           if (deliveredOnly.isEmpty)
-                            const _EmptyNote(text: 'Not yet delivered.')
+                            const _EmptyNote(text: AppStrings.notYetDelivered)
                           else
                             ...deliveredOnly.map(
                               (r) => _RecipientTile(
@@ -237,16 +249,21 @@ class MessageInfoDialog extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
+/// Section heading inside the message-info dialog.
+///
+/// Renamed from `_SectionLabel` to clear a name collision with the reports
+/// module's label (§6.5). The two are NOT interchangeable: this one is
+/// 12/w700 in `AppColors.primaryColor` at 60% alpha, the reports one is
+/// 13/w600 in the opaque indigo #4F46E5. Styling is unchanged by the rename.
+class _MessageSectionLabel extends StatelessWidget {
+  const _MessageSectionLabel({required this.label});
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: TextStyle(
-        fontFamily: 'Manrope',
+      style: AppTextStyles.size14.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -276,7 +293,7 @@ class _RecipientTile extends StatelessWidget {
     final isUrl = avatarSource.startsWith('http');
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: AppSizes.xsPlus),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -291,7 +308,7 @@ class _RecipientTile extends StatelessWidget {
             fontSize: 12,
             disableAttendanceStatusLookup: true,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSizes.xsPlus),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,9 +319,7 @@ class _RecipientTile extends StatelessWidget {
                       child: Text(
                         recipient.name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
+                        style: AppTextStyles.size14.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
                         ),
@@ -323,8 +338,7 @@ class _RecipientTile extends StatelessWidget {
                         ),
                         child: Text(
                           role,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
+                          style: AppTextStyles.size14.copyWith(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor.withValues(
@@ -340,8 +354,7 @@ class _RecipientTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     MessagingTimeFormatter.infoTime(timestamp!),
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
+                    style: AppTextStyles.size14.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: AppColors.primaryColor.withValues(alpha: 0.55),
@@ -351,7 +364,7 @@ class _RecipientTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.xs),
           Icon(icon, size: 16, color: iconColor),
         ],
       ),
@@ -367,8 +380,7 @@ class _EmptyNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
-        fontFamily: 'Manrope',
+      style: AppTextStyles.size14.copyWith(
         fontSize: 13,
         fontWeight: FontWeight.w500,
         color: AppColors.primaryColor.withValues(alpha: 0.4),

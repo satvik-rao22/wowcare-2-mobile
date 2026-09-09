@@ -1,18 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local
@@ -23,6 +24,18 @@ class SessionExpiredCoordinator {
       SessionExpiredCoordinator._();
 
   bool _busy = false;
+
+  /// Set the moment a call actually proceeds past the guards below (not on
+  /// every invocation). Used to absorb a second, unrelated 401 — e.g. a
+  /// background RoleCubit/notifications call that was already in flight —
+  /// landing within moments of the first. [_busy] alone doesn't cover this:
+  /// it resets back to false as soon as the first call's `finally` runs,
+  /// which can be before go_router's `currentConfiguration` has actually
+  /// settled on the sign-in route, making [_isOnSignInRoute] read stale.
+  /// Without this, that second call slips through with its own snackbar,
+  /// landing on a Sign-In screen the user hasn't touched yet — the "error
+  /// shown before username/password" symptom.
+  DateTime? _lastHandledAt;
 
   /// True when the app is already on an auth-entry route — the sign-in screen or
   /// the splash (`/`, which runs its own auth check and routes) — or there is no
@@ -57,12 +70,20 @@ class SessionExpiredCoordinator {
     bool fromEntryRoute = false,
   }) async {
     if (_busy) return;
+    // A recent handling already bounced the user out for (almost certainly)
+    // this same expired-session event — see [_lastHandledAt]'s doc comment.
+    final now = DateTime.now();
+    if (_lastHandledAt != null &&
+        now.difference(_lastHandledAt!) < const Duration(seconds: 5)) {
+      return;
+    }
     // Already on the sign-in screen (or no navigator yet): nothing to bounce.
     // This guard makes the coordinator safe to call on EVERY 401 — including the
     // case where the session was already cleared underneath a stuck authenticated
     // screen — without re-clearing/re-navigating and spamming the snackbar on
     // each subsequent 401. Deliberate entry-route callers (splash) opt out.
     if (!fromEntryRoute && _isOnSignInRoute()) return;
+    _lastHandledAt = now;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
@@ -107,7 +128,10 @@ class SessionExpiredCoordinator {
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
         try {
-          ctx.read<ParentChildCubit>().invalidate();
+          // resetForLogout, not invalidate: an expired session must also
+          // erase the PERSISTED child selection, so nothing of this parent's
+          // context is left on disk for whoever signs in next.
+          unawaited(ctx.read<ParentChildCubit>().resetForLogout());
         } catch (_) {}
         try {
           ctx.read<RoleCubit>().resetSessionForLogout();

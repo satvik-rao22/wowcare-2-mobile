@@ -14,8 +14,8 @@ import 'package:wowcare/domain/features/communication/entities/messaging_staff_r
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 
 // ── Controllable fake repository ──────────────────────────────────────────────
@@ -67,8 +67,7 @@ class _ControllableRepo implements ConversationEntityRepository {
     String? search,
     bool? unreadOnly,
     bool includeRestUnreadCounts = true,
-  }) async =>
-      const Right([]);
+  }) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -197,19 +196,25 @@ class _ControllableRepo implements ConversationEntityRepository {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
+/// The guardian these tests act as, unless a case overrides it.
+const String _kThisGuardian = 'USR-GUARDIAN-1';
+
 PrivateModeToggleCubit _build(
   _ControllableRepo repo, {
   bool initialEnabled = false,
   RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
+  String currentUserCode = _kThisGuardian,
+  String? initialActivatedBy,
 }) => PrivateModeToggleCubit(
   togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
   conversationCode: 'CONV-INT-001',
   viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
-  currentUserCode: () {
-    // TODO: implement currentUserCode
-    throw UnimplementedError();
-  },
+  initialActivatedBy: initialActivatedBy,
+  // Was an unimplemented stub that threw on the first `toggle()`, which is
+  // what failed every test in this file. `toggle` reads it to decide whether
+  // this viewer is allowed to turn OFF private mode someone else activated.
+  currentUserCode: () => currentUserCode,
 );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import '../repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
 /// Resolves a classroom's CLASSROOM_CHAT conversation, creating it (with the classroom name as
 /// title + staff roster) on first use if it doesn't exist yet. Mirrors the web Notes tab.

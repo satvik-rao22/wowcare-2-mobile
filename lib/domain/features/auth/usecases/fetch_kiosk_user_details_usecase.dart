@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/features/auth/models/user_details_model.dart';
 import 'package:wowcare/domain/features/auth/entities/user_details_entity.dart';

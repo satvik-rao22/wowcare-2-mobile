@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -14,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 
@@ -34,7 +38,21 @@ class ParentBillingScreen extends StatefulWidget {
 }
 
 class _ParentBillingScreenState extends State<ParentBillingScreen>
-    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
+    with
+        TickerProviderStateMixin,
+        SchoolSwitchReloadMixin,
+        TabBecameVisibleMixin {
+  // Parent Billing is branch index 4 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 4;
+
+  @override
+  void onTabBecameVisible() {
+    // Kept-alive billing branch — same call onSchoolSwitched() uses, just
+    // triggered by switching back to this tab instead of a school change.
+    if (mounted) _cubit.refresh();
+  }
+
   late final TabController _tabController;
   final ScrollController _billingScrollController = ScrollController();
 
@@ -141,7 +159,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 AppText.label(
-                  'Select Date Range',
+                  BillingStrings.selectDateRange,
                   style: AppTextStyles.label.copyWith(
                     color: AppColors.billingGreyMedium,
                   ),
@@ -155,7 +173,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               hasLabel: false,
               isRangePicker: true,
               initialDate: state.startDate,
-              label: 'Date Range',
+              label: BillingStrings.dateRange,
               fetchInitialTime: false,
               onRangeSelected: (start, end) => _cubit.setDateRange(start, end),
             ),
@@ -178,10 +196,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
         if (state.isPaymentLoading) return;
-        final paid = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const PayNowAmountScreen(),
-          ),
+        final paid = await context.push<bool>(
+          PayNowAmountScreen.routeName,
         );
         // Reload the ledger so the just-made payment appears (In Process →
         // Success/Failed once settled).
@@ -190,17 +206,15 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       onAutoPay: () async {
         if (state.isAutoPayLoading) return;
         _cubit.beginAutoPay();
-        final result = await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const AutoPayPaymentMethodsScreen(),
-          ),
+        final result = await context.push(
+          AutoPayPaymentMethodsScreen.routeName,
         );
         if (!mounted) return;
         _cubit.endAutoPay();
         if (result == true) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Auto Pay settings updated',
+            message: BillingStrings.autoPaySettingsUpdated,
             isSuccess: true,
           );
         }
@@ -222,7 +236,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               padding: EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  AppText.title('Billing'),
+                  AppText.title(BillingStrings.billing),
                 ],
               ),
             ),
@@ -269,7 +283,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                       const SizedBox(height: 12),
                       TextButton(
                         onPressed: _cubit.load,
-                        child: const Text('Retry'),
+                        child: const Text(BillingStrings.retry),
                       ),
                     ],
                   ),
@@ -287,12 +301,12 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                         color: AppColors.primaryColor,
                       ),
                       const SizedBox(height: 16),
-                      const AppText.value('No records found'),
+                      const AppText.value(BillingStrings.noRecordsFound),
                       const SizedBox(height: 8),
                       Text(
                         state.hasDateRange
-                            ? 'No transactions available for the selected date range'
-                            : 'No transactions available',
+                            ? BillingStrings.noTransactionsAvailableForTheSelectedDateRange
+                            : BillingStrings.noTransactionsAvailable,
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.primaryColor.withValues(alpha: 0.7),
                         ),
@@ -350,13 +364,13 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   Widget _buildStatementsTab(ParentBillingState state) {
     return ParentStatementsTab(
       familyChildren: state.students.map((s) {
-        return <String, dynamic>{
-          'code': s.code,
-          'name': s.fullName,
-          'fullName': s.fullName,
-          'room': s.role,
-          'roomName': s.role,
-        };
+        return BillingFamilyMember(
+          code: s.code,
+          name: s.fullName,
+          fullName: s.fullName,
+          room: s.role,
+          roomName: s.role,
+        );
       }).toList(),
       subscriberCode: state.ledger?.ownerCode ?? '',
       ownerType: state.ledger?.ownerType ?? 'GUARDIAN',
@@ -382,14 +396,14 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                   unselectedLabelColor:
                       AppColors.primaryColor.withValues(alpha: 0.6),
                   controller: _tabController,
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorSize: TabBarIndicatorSize.label,
                   indicator: _GradientTabIndicator(
                     gradient: AppColors.buildPrimaryGradient(),
                   ),
                   tabs: const [
-                    Tab(text: 'Billing'),
-                    Tab(text: 'Statements'),
+                    Tab(text: BillingStrings.billing),
+                    Tab(text: BillingStrings.statements),
                   ],
                 ),
               ),

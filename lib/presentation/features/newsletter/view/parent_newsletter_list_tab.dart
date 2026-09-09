@@ -1,19 +1,24 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/newsletter/model/newsletter_list_item_model.dart';
+import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
-import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
-import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_list_shimmer.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/send_newslatter_list.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/data/features/newsletter/mappers/newsletter_entity_mapper.dart';
+import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail_resolver.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_list_shimmer.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/send_newsletter_list.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -27,8 +32,16 @@ class ParentNewsletterListTab extends StatefulWidget {
 
 class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
-  String _searchQuery = '';
+
+  /// Client-side search over the page the cubit already holds. UI micro-state
+  /// (§2 bucket B): it never reaches the API, never leaves this widget and is
+  /// read by nothing else. Contrast `SentNewsLetterTab`, whose search IS a
+  /// query parameter and therefore lives in its cubit.
+  ///
+  /// A final field, not created in `build()`, and disposed below.
+  final ValueNotifier<String> _searchQuery = ValueNotifier<String>('');
 
   @override
   void initState() {
@@ -41,6 +54,8 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
     _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _scrollController.dispose();
+    _searchQuery.dispose();
     super.dispose();
   }
 
@@ -48,9 +63,52 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 180), () {
       if (!mounted) return;
-      setState(() {
-        _searchQuery = _searchController.text.trim().toLowerCase();
-      });
+      _searchQuery.value = _searchController.text.trim().toLowerCase();
+    });
+  }
+
+  /// Pulls the next page when the list cannot ask for one by scrolling.
+  ///
+  /// Search here is CLIENT-SIDE over the loaded pages — the student endpoint
+  /// takes only `status`/`page`/`size`, so there is no server-side query to
+  /// delegate to. That made the old behaviour wrong in a specific way: a
+  /// search narrowing 10 loaded rows down to 2 leaves a list shorter than the
+  /// viewport, `ScrollNotification` never fires because there is nothing to
+  /// scroll, and pagination stalls forever. A newsletter on page 3 was simply
+  /// unreachable, reported as "No Newsletters".
+  ///
+  /// So pagination is driven by two things now: the user scrolling (unchanged)
+  /// and this, which fires when scrolling is not possible or the search has no
+  /// matches yet.
+  ///
+  /// Terminates because `hasMore` comes from the server and every path is
+  /// gated on it. It deliberately does NOT retry after a failure — `loadMore`
+  /// leaves `hasMore` true when a page fails, so retrying here would hammer a
+  /// failing endpoint.
+  void _scheduleAutoPaginate({
+    required StudentNewslettersState state,
+    required String query,
+    required int visibleCount,
+  }) {
+    if (!state.hasMore ||
+        state.isPaginationLoading ||
+        state.errorMessage.isNotEmpty) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final cubit = context.read<StudentNewslettersCubit>();
+      final latest = cubit.state;
+      if (!latest.hasMore ||
+          latest.isPaginationLoading ||
+          latest.errorMessage.isNotEmpty) {
+        return;
+      }
+      final bool cannotScroll = !_scrollController.hasClients ||
+          _scrollController.position.maxScrollExtent <= 0;
+      // Nothing matched yet, or the list is too short to scroll: the user has
+      // no way to ask for the next page, so ask for it on their behalf.
+      if (visibleCount == 0 || cannotScroll) cubit.loadMore();
     });
   }
 
@@ -64,12 +122,15 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
         );
   }
 
-  List<NewsletterEntity> _filterItems(List<NewsletterEntity> items) {
-    if (_searchQuery.isEmpty) return items;
+  List<NewsletterEntity> _filterItems(
+    List<NewsletterEntity> items,
+    String query,
+  ) {
+    if (query.isEmpty) return items;
     return items.where((NewsletterEntity item) {
       final haystack =
           '${item.title} ${item.subtitle} ${item.createdByName}'.toLowerCase();
-      return haystack.contains(_searchQuery);
+      return haystack.contains(query);
     }).toList();
   }
 
@@ -89,8 +150,6 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
 
     return BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
       builder: (context, state) {
-        final filtered = _filterItems(state.items);
-
         return CustomRefreshIndicator(
           onRefresh: () => _onRefresh(context),
           child: Padding(
@@ -98,30 +157,45 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
             child: Column(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSizes.sm),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     border: Border.all(color: AppColors.cardBorderColor),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: CustomSearchBar(
                     controller: _searchController,
-                    hintText: 'Search',
+                    hintText: AppStrings.newsletterSearchHint,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSizes.sm),
                 Expanded(
-                  child: studentCode.isEmpty
-                      ? _emptyMessage('Select a child to view newsletters.')
-                      : state.isLoading && state.items.isEmpty
-                          ? const NewsletterListShimmer()
-                          : filtered.isEmpty
-                              ? _emptyScrollable(
-                                  state.errorMessage.isNotEmpty
-                                      ? state.errorMessage
-                                      : 'No Newsletters',
-                                )
-                              : NotificationListener<ScrollNotification>(
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: _searchQuery,
+                    // The two branches that do NOT depend on the query are
+                    // built once here and handed to the builder untouched —
+                    // typing in the search box never rebuilds them. Null means
+                    // "neither applies", so the builder falls through to the
+                    // branches that do filter. Branch order is unchanged.
+                    child: studentCode.isEmpty
+                        ? _emptyMessage(AppStrings.newsletterSelectChild)
+                        : state.isLoading && state.items.isEmpty
+                            ? const NewsletterListShimmer()
+                            : null,
+                    builder:
+                        (BuildContext context, String query, Widget? child) {
+                      if (child != null) return child;
+                      final filtered = _filterItems(state.items, query);
+                      _scheduleAutoPaginate(
+                        state: state,
+                        query: query,
+                        visibleCount: filtered.length,
+                      );
+                      return filtered.isEmpty
+                          ? _emptyScrollable(
+                              _emptyStateMessage(state: state, query: query),
+                            )
+                          : NotificationListener<ScrollNotification>(
                                   onNotification: (notification) {
                                     if (notification.metrics.pixels <
                                         notification.metrics.maxScrollExtent -
@@ -137,6 +211,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                     return false;
                                   },
                                   child: ListView.builder(
+                                    controller: _scrollController,
                                     physics:
                                         const AlwaysScrollableScrollPhysics(),
                                     itemCount: filtered.length +
@@ -144,7 +219,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                     itemBuilder: (context, index) {
                                       if (index >= filtered.length) {
                                         return const Padding(
-                                          padding: EdgeInsets.all(16),
+                                          padding: EdgeInsets.all(AppSizes.md),
                                           child: Center(
                                             child: PrimaryCircularLoader(),
                                           ),
@@ -167,7 +242,8 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                       final createdBy =
                                           entity.createdByName.trim().isNotEmpty
                                               ? entity.createdByName.trim()
-                                              : '-';
+                                              : AppStrings
+                                                  .newsletterUnknownAuthor;
                                       final thumbnail =
                                           resolveNewsletterThumbnail(entity);
                                       final derivedAssetCodes =
@@ -193,7 +269,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                       return Padding(
                                         key: ValueKey<String>(listKey),
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 8,
+                                          vertical: AppSizes.xs,
                                         ),
                                         child: NewsletterSentListCard(
                                           showRecipientCount: false,
@@ -222,14 +298,13 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                           onTap: () {
                                             final code = entity.code.trim();
                                             if (code.isEmpty) return;
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    PreviewNewsletterScreen(
-                                                  newsletterCode: code,
-                                                  initialNewsletter:
-                                                      previewNewsletter,
-                                                ),
+                                            context.push(
+                                              NewsletterRoutes.dashboardPreview(
+                                                code,
+                                              ),
+                                              extra: NewsletterPreviewArgs(
+                                                initialNewsletter:
+                                                    previewNewsletter,
                                               ),
                                             );
                                           },
@@ -237,7 +312,9 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                       );
                                     },
                                   ),
-                                ),
+                                );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -245,6 +322,24 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
         );
       },
     );
+  }
+
+  /// Which "nothing here" message applies.
+  ///
+  /// The old code showed "No Newsletters" for all three cases, which is how a
+  /// search that had simply not paged far enough looked identical to a child
+  /// with no newsletters at all.
+  String _emptyStateMessage({
+    required StudentNewslettersState state,
+    required String query,
+  }) {
+    if (state.errorMessage.isNotEmpty) return state.errorMessage;
+    if (query.isEmpty) return AppStrings.newsletterNoneParent;
+    // Searching, no match YET, but pages are still arriving.
+    if (state.hasMore || state.isPaginationLoading) {
+      return AppStrings.newsletterSearching;
+    }
+    return AppStrings.newsletterNoSearchMatches;
   }
 
   Widget _emptyMessage(String message) {
@@ -256,14 +351,10 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppSizes.xl),
                 child: Text(
                   message,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.newsletterEmptyState,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -283,14 +374,10 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppSizes.xl),
                 child: Text(
                   message,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.newsletterEmptyState,
                   textAlign: TextAlign.center,
                 ),
               ),

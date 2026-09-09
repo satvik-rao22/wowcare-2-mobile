@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'attendance_filter_button.dart';
 
 class StudentAttendanceFilters extends StatelessWidget {
   final TextEditingController searchController;
@@ -105,7 +103,11 @@ class StudentAttendanceFilters extends StatelessWidget {
         // Filter button, clear-all chip, and "Show Absent" toggle on one row.
         Row(
           children: [
-            _buildFilterButton(context, responsive),
+            AttendanceFilterButton(
+              responsive: responsive,
+              hasActiveFilters: hasActiveFilters,
+              onFilterTap: onFilterTap,
+            ),
             SizedBox(width: spacing),
             if (hasActiveFilters && onClearAll != null)
               Flexible(child: CustomClearAllChip(onTap: onClearAll)),
@@ -123,67 +125,6 @@ class StudentAttendanceFilters extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildFilterButton(BuildContext context, ResponsiveHelper responsive) {
-    return Container(
-      height: responsive.inputFieldHeight * 0.83,
-      constraints: BoxConstraints(
-        minWidth: responsive.inputFieldHeight * 0.83,
-        maxWidth: responsive.inputFieldHeight * 0.83,
-      ),
-      decoration: BoxDecoration(
-        color: hasActiveFilters
-            ? AppColors.themeColor.withValues(alpha: 0.15)
-            : AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: hasActiveFilters
-              ? AppColors.themeColor
-              : AppColors.cardBorderColor,
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: onFilterTap,
-          child: Padding(
-            padding: EdgeInsets.all(responsive.isTablet ? 10 : 8),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                SvgPicture.asset(
-                  MediaRes.filterIcon,
-                  width: responsive.isTablet ? 26 : 24,
-                  height: responsive.isTablet ? 26 : 24,
-                  colorFilter: ColorFilter.mode(
-                    hasActiveFilters
-                        ? AppColors.themeColor
-                        : AppColors.secondaryColor.withValues(alpha: 0.6),
-                    BlendMode.srcIn,
-                  ),
-                ),
-                if (hasActiveFilters)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: AppColors.themeColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

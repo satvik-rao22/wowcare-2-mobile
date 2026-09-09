@@ -4,8 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 
@@ -47,6 +47,8 @@ class ThreadMessageTile extends StatelessWidget {
     this.viewerIsOrgSide,
     this.participants,
     this.isGuardian,
+    this.isAdminCanDeleteAny = false,
+    this.deleteTimeLimitMinutes,
   });
 
   final String threadId;
@@ -88,6 +90,12 @@ class ThreadMessageTile extends StatelessWidget {
 
   /// See [MessageBubble.viewerIsOrgSide].
   final bool? viewerIsOrgSide;
+
+  /// See [MessageBubble.isAdminCanDeleteAny].
+  final bool isAdminCanDeleteAny;
+
+  /// See [MessageBubble.deleteTimeLimitMinutes].
+  final int? deleteTimeLimitMinutes;
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +182,8 @@ class ThreadMessageTile extends StatelessWidget {
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
           viewerIsOrgSide: viewerIsOrgSide,
+          isAdminCanDeleteAny: isAdminCanDeleteAny,
+          deleteTimeLimitMinutes: deleteTimeLimitMinutes,
         );
       },
     );

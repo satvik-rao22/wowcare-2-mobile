@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -324,12 +331,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (_isMultipleStudentsSelected &&
         activityKey.toLowerCase() == 'nap' &&
         _hasMixedNappingSelection()) {
-      return 'Nap is disabled for mixed selection. Select either all currently napping students or all not-napping students.';
+      return StudentStrings
+          .napIsDisabledForMixedSelectionSelectEitherAllC;
     }
     if (activityKey == 'Incident' && _isMultipleStudentsSelected) {
-      return 'Incident can only be recorded for a single student.';
+      return StudentStrings.incidentCanOnlyBeRecordedForASingleStudent;
     }
-    return 'This activity is currently disabled';
+    return StudentStrings.thisActivityIsCurrentlyDisabled;
   }
 
   /// Re-fetches each selected student's LIVE current classroom from the
@@ -408,7 +416,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (code == null || code.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to resolve activity code.',
+        message: StudentStrings.unableToResolveActivityCode,
         isWarning: true,
       );
       return;
@@ -435,10 +443,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     setState(() => _pendingNavigationKey = null);
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
-      final nextScreen = destinationBuilder(freshMaps);
-      final recorded = await Navigator.of(
-        context,
-      ).push<dynamic>(MaterialPageRoute(builder: (_) => nextScreen));
+      final (routeName, args) = destinationBuilder(freshMaps);
+      final recorded = await context.push<dynamic>(routeName, extra: args);
       // Activity screens pop `true` after a successful create/update.
       if (recorded == true) {
         widget.onActivityRecorded?.call();
@@ -453,7 +459,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
       children: [
         if (_currentPanel != StudentPanelType.none)
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: AppSpacing.xs),
             child: _StudentSidePanel(
               panel: _currentPanel,
               onSignInTap: widget.onSignInTap,
@@ -477,26 +483,26 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
           alignment: Alignment.bottomCenter,
           children: [
             Material(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadius.r10),
               elevation: 3,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 12,
+                  horizontal: AppSpacing.xs,
+                  vertical: AppSpacing.sm,
                 ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.r10),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ActionButton(
                       svgPath: MediaRes.attendance_panel_icon,
-                      label: 'Attendance',
+                      label: StudentStrings.attendance,
                       onTap: () {
                         _togglePanel(StudentPanelType.attendance);
                         widget.onAttendanceTap?.call();
@@ -506,12 +512,13 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.attendanceEnabled
                           ? ''
                           : (widget.attendanceDisabledHint ??
-                                'You cannot mark attendance for inactive student.'),
+                                StudentStrings
+                                    .youCannotMarkAttendanceForInactiveStudent),
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.activity_panel_icon,
-                      label: 'Activities',
+                      label: StudentStrings.activities,
                       onTap: widget.activitiesEnabled
                           ? () {
                               _togglePanel(StudentPanelType.activities);
@@ -523,26 +530,27 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.activitiesEnabled
                           ? ''
                           : (widget.activitiesDisabledHint ??
-                                'Activities can be recorded only when all '
-                                    'selected students are signed in.'),
+                                StudentStrings
+                                        .activitiesCanBeRecordedOnlyWhenAll +
+                                    StudentStrings.selectedStudentsAreSignedIn),
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.message_panel_icon,
-                      label: 'Message',
+                      label: StudentStrings.message,
                       onTap: widget.onMessageTap,
                     ),
-                    const SizedBox(height: 20),
+                    AppSpacing.gapVLg,
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
-                      label: 'Profile',
+                      label: StudentStrings.profile,
                       onTap: widget.isProfileEnabled
                           ? widget.onProfileTap
                           : null,
                       isEnabled: widget.isProfileEnabled,
-                      disabledTooltip: 'Select only one to view profile',
+                      disabledTooltip: StudentStrings.selectOnlyOneToViewProfile,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.xl),
                   ],
                 ),
               ),
@@ -552,17 +560,17 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color.fromRGBO(156, 132, 255, 1),
+                  color: AppColors.studentAccentPurple,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: AppColors.blackColor.withValues(alpha: 0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Material(
-                  color: Colors.transparent,
+                  color: AppColors.transparentColor,
                   child: InkWell(
                     onTap: () {
                       setState(() => _currentPanel = StudentPanelType.none);
@@ -570,8 +578,8 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                     },
                     customBorder: const CircleBorder(),
                     child: const Padding(
-                      padding: EdgeInsets.all(10.0),
-                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                      padding: EdgeInsets.all(AppSpacing.s10),
+                      child: Icon(Icons.close, color: AppColors.whiteColor, size: AppDimensions.iconSm),
                     ),
                   ),
                 ),
@@ -607,53 +615,53 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = attendanceAvailability;
     return Material(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.r10),
       elevation: 3,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.s10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
+          color: AppColors.whiteColor,
+          borderRadius: BorderRadius.circular(AppRadius.r10),
+          border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Attendance',
+              StudentStrings.attendance,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
             ),
-            const SizedBox(height: 8),
+            AppSpacing.gapVXs,
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
                 _AttendanceChipButton(
-                  label: 'Sign In',
+                  label: StudentStrings.signIn,
                   onTap: isLoading || !a.signInEnabled ? null : onSignInTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Sign Out',
+                  label: StudentStrings.signOut,
                   onTap: isLoading || !a.signOutEnabled ? null : onSignOutTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Transfer',
+                  label: StudentStrings.transfer,
                   onTap: isLoading || !a.transferEnabled ? null : onTransferTap,
                 ),
                 _AttendanceChipButton(
-                  label: 'Mark Absent',
+                  label: StudentStrings.markAbsent,
                   onTap: isLoading || !a.absentEnabled ? null : onMarkAbsentTap,
                 ),
               ],
             ),
             if (isLoading) ...[
-              const SizedBox(height: 8),
-              PrimaryCircularLoader(size: 16, strokeWidth: 2),
+              AppSpacing.gapVXs,
+              PrimaryCircularLoader(size: 16, strokeWidth: AppDimensions.borderThick),
             ],
           ],
         ),
@@ -716,13 +724,13 @@ class _StudentSidePanel extends StatelessWidget {
     }
     switch (action) {
       case 'Sign-In':
-        return 'Sign-In can only be done for Students/Staff not signed in.';
+        return StudentStrings.signInCanOnlyBeDoneForStudentsStaffNotSignedIn;
       case 'Sign-Out':
-        return 'Sign-Out can only be done for Students/Staff already signed in.';
+        return StudentStrings.signOutCanOnlyBeDoneForStudentsStaffAlreadySig;
       case 'Transfer':
-        return 'Transfer can only be done for Students/Staff already signed in.';
+        return StudentStrings.transferCanOnlyBeDoneForStudentsStaffAlreadySi;
       case 'Absent':
-        return 'Absent can only be marked for Students/Staff not yet signed in';
+        return StudentStrings.absentCanOnlyBeMarkedForStudentsStaffNotYetSig;
     }
     return '';
   }
@@ -733,14 +741,14 @@ class _StudentSidePanel extends StatelessWidget {
       return Container(
         width: 70,
         constraints: const BoxConstraints(maxHeight: 400),
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.billingAccentBlue),
+          color: AppColors.whiteColor,
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppColors.blackColor.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -750,15 +758,15 @@ class _StudentSidePanel extends StatelessWidget {
       );
     }
     return Material(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.r10),
       elevation: 3,
       child: Container(
         constraints: const BoxConstraints(maxHeight: 400, maxWidth: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s10),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
+          color: AppColors.whiteColor,
+          borderRadius: BorderRadius.circular(AppRadius.r10),
+          border: Border.all(color: AppColors.studentLavenderBorder),
         ),
         child: _buildActivitiesColumn(context),
       ),
@@ -774,7 +782,7 @@ class _StudentSidePanel extends StatelessWidget {
       children: [
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_in,
-          label: 'Sign-In',
+          label: StudentStrings.signIn2,
           onTap: enabled(a.signInEnabled) ? onSignInTap : null,
           isEnabled: enabled(a.signInEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -783,10 +791,10 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.signInEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Sign_out,
-          label: 'Sign-Out',
+          label: StudentStrings.signOut2,
           onTap: enabled(a.signOutEnabled) ? onSignOutTap : null,
           isEnabled: enabled(a.signOutEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -795,10 +803,10 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.signOutEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.transfer,
-          label: 'Transfer',
+          label: StudentStrings.transfer,
           onTap: enabled(a.transferEnabled) ? onTransferTap : null,
           isEnabled: enabled(a.transferEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -807,10 +815,10 @@ class _StudentSidePanel extends StatelessWidget {
             actionEnabled: enabled(a.transferEnabled),
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.s5),
         _StudentAttendanceActionItem(
           svgPath: MediaRes.Mark_absent,
-          label: 'Absent',
+          label: StudentStrings.absent,
           onTap: enabled(a.absentEnabled) ? onMarkAbsentTap : null,
           isEnabled: enabled(a.absentEnabled),
           disabledTooltip: _attendanceDisabledReason(
@@ -835,9 +843,9 @@ class _StudentSidePanel extends StatelessWidget {
       return const SizedBox(
         width: 100,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'No activities for this class',
+            StudentStrings.noActivitiesForThisClass,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
@@ -854,7 +862,7 @@ class _StudentSidePanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < visibleActivityKeys.length; i++) ...[
-            if (i > 0) const SizedBox(height: 10),
+            if (i > 0) const SizedBox(height: AppSpacing.s10),
             Builder(
               builder: (context) {
                 final key = visibleActivityKeys[i];
@@ -912,21 +920,21 @@ class _StudentAttendanceActionItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 5),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: AppColors.studentInfoColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: SvgPicture.asset(svgPath, height: 24, width: 24),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: AppSpacing.s5),
               Text(
                 label,
                 maxLines: 1,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -961,7 +969,7 @@ class _ActivityPngItem extends StatelessWidget {
       message: disabled && tooltip.isNotEmpty ? tooltip : '',
       child: InkWell(
         onTap: disabled || busy ? null : onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppRadius.allSm,
         child: Opacity(
           opacity: opacity,
           child: Column(
@@ -971,11 +979,11 @@ class _ActivityPngItem extends StatelessWidget {
                 height: 36,
                 child: busy
                     ? const Center(
-                        child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
+                        child: PrimaryCircularLoader(size: 22, strokeWidth: AppDimensions.borderThick),
                       )
                     : Image.asset(pngPath, scale: 3.5),
               ),
-              const SizedBox(height: 4),
+              AppSpacing.gapVXxs,
               Text(
                 label,
                 maxLines: 2,
@@ -984,7 +992,7 @@ class _ActivityPngItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -1006,15 +1014,15 @@ class _AttendanceChipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: AppRadius.allXl,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s10, vertical: AppSpacing.s6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: AppRadius.allXl,
           color: onTap == null
-              ? const Color.fromRGBO(242, 242, 242, 1)
-              : const Color.fromRGBO(241, 234, 255, 1),
-          border: Border.all(color: const Color.fromRGBO(170, 141, 255, 1)),
+              ? AppColors.studentSurfaceGrey
+              : AppColors.studentPurpleTint,
+          border: Border.all(color: AppColors.studentPurple),
         ),
         child: Text(
           label,
@@ -1022,8 +1030,8 @@ class _AttendanceChipButton extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: onTap == null
-                ? const Color.fromRGBO(130, 130, 130, 1)
-                : const Color(0xff573353),
+                ? AppColors.studentGrey
+                : AppColors.primaryColor,
           ),
         ),
       ),
@@ -1064,14 +1072,14 @@ class _ActionButton extends StatelessWidget {
                 height: 24,
                 width: 24,
                 colorFilter: const ColorFilter.mode(
-                  Colors.white,
+                  AppColors.whiteColor,
                   BlendMode.srcIn,
                 ),
               ),
-              const SizedBox(height: 4),
+              AppSpacing.gapVXxs,
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.whiteColor, fontSize: 12),
               ),
             ],
           ),

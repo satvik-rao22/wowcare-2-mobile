@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/date_range_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
   const AccountingDateRangeSelector({
@@ -73,7 +75,7 @@ class _AccountingDateRangeSelectorState
     if (_startDate != null && _endDate != null) {
       return '${_formatShort(_startDate!)} - ${_formatShort(_endDate!)}';
     }
-    return 'Select Date Range';
+    return BillingStrings.selectDateRange;
   }
 
   Future<void> _openPicker() async {
@@ -110,7 +112,7 @@ class _AccountingDateRangeSelectorState
         builder: (context, _) {
           return Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.billingCardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
@@ -126,7 +128,7 @@ class _AccountingDateRangeSelectorState
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Select Date Range',
+                        BillingStrings.selectDateRange,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
@@ -142,7 +144,7 @@ class _AccountingDateRangeSelectorState
                     child: Container(
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0x1AB1AFE9),
+                        color: AppColors.billingBorderLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -153,7 +155,7 @@ class _AccountingDateRangeSelectorState
                             child: Text(
                               _currentLabel(),
                               style: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.billingTextColor,

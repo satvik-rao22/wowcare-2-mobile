@@ -1,6 +1,6 @@
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/user_details_school_roles.dart';
+import '../../../../core/utils/storage_keys.dart';
+import '../../../../core/utils/user_details_school_roles.dart';
 import 'notification_center_data_source.dart';
 import 'notification_inbox_remote_data_source.dart';
 

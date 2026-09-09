@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
@@ -30,6 +30,20 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
   final flat = (data['unreadCount'] as num?)?.toInt() ?? 0;
   if (roleBucket == null) return flat;
+
+  // STAFF_DIRECT is strictly peer-to-peer (Teachers/Staff/Admins/Directors
+  // only, one conversation = exactly two parties) — the reading account's
+  // role IN THIS CONVERSATION is fixed at creation and never ambiguous, so
+  // there is no "which of my personas is this doc for" question to answer
+  // the way there is for ADMIN_CHAT/ROOM_CHAT (where the SAME physical
+  // account can hold two roles that both see the identical doc, e.g. an
+  // admin who is also a guardian at that school). If the backend ever
+  // stamps a STAFF_DIRECT doc's `unreadByRole` with a key that isn't this
+  // reader's current persona bucket (e.g. the sender's role), the
+  // roleAwareNoEntry branch below would silently resolve a genuinely
+  // unread STAFF_DIRECT message to 0 — always trust the flat count here
+  // instead.
+  if (data['conversationType'] == 'STAFF_DIRECT') return flat;
 
   final dottedKey = data['unreadByRole.$roleBucket'];
   if (dottedKey is num) {
@@ -618,32 +632,35 @@ class FirebaseConversationRealtimeDataSource
     attach = (int attempt) {
       inner?.cancel();
       runZonedGuarded(() {
-        inner = query.snapshots(includeMetadataChanges: true).listen(
-          (snapshot) {
-            if (controller.isClosed) return;
-            // Firestore's on-device persistence can serve a stale snapshot
-            // (e.g. the pre-mark-read unreadCount) as the FIRST emission on a
-            // freshly attached listener, before the server round-trip
-            // confirms the real value — that's what let a just-read
-            // conversation's badge flash back to a non-zero count on
-            // re-subscribe (dashboard badge, classroom Notes badge). Only
-            // forward server-confirmed snapshots; a genuinely offline device
-            // just waits rather than showing a value the user already read.
-            if (snapshot.metadata.isFromCache) return;
-            controller.add(
-              snapshot.docs.fold<int>(
-                0,
-                (sum, doc) =>
-                    sum + resolveRoleAwareUnreadCount(doc.data(), roleBucket),
-              ),
+        inner = query
+            .snapshots(includeMetadataChanges: true)
+            .listen(
+              (snapshot) {
+                if (controller.isClosed) return;
+                // Firestore's on-device persistence can serve a stale snapshot
+                // (e.g. the pre-mark-read unreadCount) as the FIRST emission on a
+                // freshly attached listener, before the server round-trip
+                // confirms the real value — that's what let a just-read
+                // conversation's badge flash back to a non-zero count on
+                // re-subscribe (dashboard badge, classroom Notes badge). Only
+                // forward server-confirmed snapshots; a genuinely offline device
+                // just waits rather than showing a value the user already read.
+                if (snapshot.metadata.isFromCache) return;
+                controller.add(
+                  snapshot.docs.fold<int>(
+                    0,
+                    (sum, doc) =>
+                        sum +
+                        resolveRoleAwareUnreadCount(doc.data(), roleBucket),
+                  ),
+                );
+              },
+              onError: (Object error) => retryOrForward(error, attempt),
+              onDone: () {
+                if (!controller.isClosed) controller.close();
+              },
+              cancelOnError: true,
             );
-          },
-          onError: (Object error) => retryOrForward(error, attempt),
-          onDone: () {
-            if (!controller.isClosed) controller.close();
-          },
-          cancelOnError: true,
-        );
       }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 

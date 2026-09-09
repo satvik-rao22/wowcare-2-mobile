@@ -1,6 +1,7 @@
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class UpdateActivityUseCase {
   UpdateActivityUseCase(this._repository);
@@ -14,7 +15,7 @@ class UpdateActivityUseCase {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     try {

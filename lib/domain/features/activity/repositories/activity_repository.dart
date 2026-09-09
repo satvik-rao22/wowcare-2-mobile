@@ -1,10 +1,14 @@
-import '../entities/activity_asset_presign.dart';
-import '../entities/activity_detail.dart';
-import '../entities/activity_feed_row.dart';
-import '../entities/activity_setting.dart';
-import '../entities/activity_type_details.dart';
-import '../entities/activity_type_summary.dart';
-import '../entities/activity_upload_session.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_asset_presign.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_shared_card_result.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_upload_session.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 
 abstract class ActivityRepository {
   /// Returns enabled activity settings for a classroom via
@@ -73,7 +77,7 @@ abstract class ActivityRepository {
     required String staffCode,
     required String activityDate,
     required String description,
-    List<Map<String, dynamic>> parameterValues = const [],
+    List<ActivityParameterValue> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   });
 
@@ -113,14 +117,14 @@ abstract class ActivityRepository {
     String? napReminderUserCode,
     String? napReminderRole,
     bool? requireAdminApproval,
-    List<Map<String, dynamic>> parameterValues,
-    List<Map<String, dynamic>> attachments,
+    List<ActivityParameterValue> parameterValues,
+    List<ActivityAttachment> attachments,
   });
 
   /// Creates shared activity cards via `POST /api/v2/shared-activities`.
   ///
   /// Returns `data` list (each entry contains at least `cardCode`).
-  Future<List<Map<String, dynamic>>> createSharedActivities({
+  Future<List<ActivitySharedCardResult>> createSharedActivities({
     required String activityTypeCode,
     required String classroomCode,
     required List<String> studentCodes,
@@ -130,8 +134,8 @@ abstract class ActivityRepository {
     required String activityDate,
     required String description,
     bool? requireAdminApproval,
-    required List<Map<String, dynamic>> attachments,
-    List<Map<String, dynamic>> parameterValues,
+    required List<ActivityAttachment> attachments,
+    List<ActivityParameterValue> parameterValues,
   });
 
   /// Creates upload sessions via `POST /api/v2/activities/upload-sessions`.
@@ -160,5 +164,15 @@ abstract class ActivityRepository {
   /// Returns count of pending incident approvals via
   /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
   Future<int> getPendingIncidentCount();
+
+  /// Returns the mark-activity student list for a date/filter selection.
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  });
 }
 

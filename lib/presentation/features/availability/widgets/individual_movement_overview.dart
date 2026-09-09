@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
     show PopupItem;
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
@@ -44,17 +44,21 @@ class IndividualMovementFilterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fromClassroomItems =
-        classrooms.where((c) => !toClassrooms.contains(c)).toList();
-    final toClassroomItems =
-        classrooms.where((c) => !fromClassrooms.contains(c)).toList();
+    final fromClassroomItems = classrooms
+        .where((c) => !toClassrooms.contains(c))
+        .toList();
+    final toClassroomItems = classrooms
+        .where((c) => !fromClassrooms.contains(c))
+        .toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: <Widget>[
@@ -148,8 +152,9 @@ class IndividualMovementPager extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
-  final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  onActionSelected;
+  final void Function(MovementItem item, MovementBucket targetBucket)
+  onDropToBucket;
   final bool isViewOnly;
   final ValueChanged<MovementItem>? onStudentNameTap;
   final bool Function(MovementItem item)? canDragItem;
@@ -222,12 +227,7 @@ class IndividualMovementPager extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           sections[currentSectionIndex].title,
-          style: const TextStyle(
-            fontFamily: Fonts.manrope,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryColor,
-          ),
+          style: AppTextStyles.movementPagerSectionTitle,
         ),
       ],
     );
@@ -238,8 +238,9 @@ class IndividualMovementPager extends StatelessWidget {
     const double rowApproxHeight = 116;
     final int maxRows = sections.fold<int>(
       0,
-      (previousValue, section) =>
-          section.items.length > previousValue ? section.items.length : previousValue,
+      (previousValue, section) => section.items.length > previousValue
+          ? section.items.length
+          : previousValue,
     );
     final int safeRows = maxRows == 0 ? 1 : maxRows;
     return headerAndPaddingHeight + (safeRows * rowApproxHeight);
@@ -264,8 +265,9 @@ class _MovementSectionCard extends StatelessWidget {
 
   final MovementSection section;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
-  final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
+  onActionSelected;
+  final void Function(MovementItem item, MovementBucket targetBucket)
+  onDropToBucket;
   final bool isViewOnly;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
@@ -289,7 +291,7 @@ class _MovementSectionCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isActive
@@ -301,26 +303,14 @@ class _MovementSectionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                section.title,
-                style: const TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryColor,
-                ),
-              ),
+              Text(section.title, style: AppTextStyles.movementColumnTitle),
               const SizedBox(height: 12),
               Expanded(
                 child: section.items.isEmpty
                     ? const Center(
                         child: Text(
                           'No movements available',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: 14,
-                            color: AppColors.primaryColor,
-                          ),
+                          style: AppTextStyles.movementErrorText,
                         ),
                       )
                     : ListView.builder(
@@ -335,7 +325,8 @@ class _MovementSectionCard extends StatelessWidget {
                             onActionSelected: onActionSelected,
                             isViewOnly: isViewOnly,
                             canDrag:
-                                !isViewOnly && (canDragItem?.call(item) ?? true),
+                                !isViewOnly &&
+                                (canDragItem?.call(item) ?? true),
                             cardBackgroundColor: section.backgroundColor,
                             onDragStarted: onDragStarted,
                             onDragEnded: onDragEnded,
@@ -375,7 +366,7 @@ class _MovementRow extends StatelessWidget {
   final MovementItem item;
   final MovementBucket bucket;
   final void Function(MovementItem item, IndividualMovementAction action)
-      onActionSelected;
+  onActionSelected;
   final bool isViewOnly;
   final bool canDrag;
   final Color cardBackgroundColor;
@@ -423,10 +414,7 @@ class _MovementRow extends StatelessWidget {
             value: a,
             child: PopupItem(
               title: _labelForAction(a),
-              icon: Icon(
-                _iconForAction(a),
-                color: AppColors.themeColor,
-              ),
+              icon: Icon(_iconForAction(a), color: AppColors.themeColor),
             ),
           ),
         )
@@ -463,7 +451,145 @@ class _MovementRow extends StatelessWidget {
     }
   }
 
-  Widget _typeChip(BuildContext context, String label) {
+  @override
+  Widget build(BuildContext context) {
+    final card = HighlightableCard(
+      code: item.id.toString(),
+      highlightCode: highlightCode,
+      scrollOnHighlight: true,
+      borderRadius: 14,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: cardBackgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(child: _FromToRow(item: item)),
+                const SizedBox(width: 8),
+                if (!isViewOnly)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: PopupMenuButton<IndividualMovementAction>(
+                      tooltip: 'More',
+                      padding: EdgeInsets.zero,
+                      color: AppColors.cardColor,
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      icon: const Icon(Icons.more_horiz, size: 20),
+                      onSelected: (action) => onActionSelected(item, action),
+                      itemBuilder: (_) => _buildMenuEntries(),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                DocumentImageWidget(
+                  fileUuid: item.studentCode,
+                  studentCode: item.studentCode.trim().isNotEmpty
+                      ? item.studentCode.trim()
+                      : null,
+                  mediaAssetCode: item.profilePhotoAssetCode,
+                  name: item.name,
+                  size: 30,
+                  fontSize: 11,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onStudentNameTap == null
+                        ? null
+                        : () => onStudentNameTap!(item),
+                    child: Text(
+                      item.name,
+                      style: AppTextStyles.movementStudentNameLabel,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.access_time_rounded,
+                  size: 16,
+                  color: AppColors.movementDueTimeIconColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  DateFormat('MMM dd').format(item.movementDate),
+                  style: AppTextStyles.movementClassroomLabel,
+                ),
+              ],
+            ),
+            if (item.comment.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item.comment.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.movementCommentText,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    if (!canDrag) return card;
+    return LongPressDraggable<_DraggedMovementPayload>(
+      data: _DraggedMovementPayload(item: item),
+      // Keep dragged card centered under finger for better edge paging UX.
+      dragAnchorStrategy: _centerDragAnchorStrategy,
+      onDragStarted: onDragStarted,
+      onDragEnd: (_) => onDragEnded?.call(),
+      onDragUpdate: (details) =>
+          onDragGlobalUpdate?.call(details.globalPosition),
+      feedback: Material(
+        color: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
+          child: Opacity(opacity: 0.95, child: card),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: card),
+      child: card,
+    );
+  }
+}
+
+/// "Start School"/"Leave School" type chip shown in place of a classroom name.
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Chip(
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -471,34 +597,37 @@ class _MovementRow extends StatelessWidget {
       padding: EdgeInsets.zero,
       side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.18)),
       backgroundColor: scheme.surface,
-      label: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: Fonts.manrope,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryColor,
-        ),
-      ),
+      label: Text(label, style: AppTextStyles.movementTypeChipLabel),
     );
   }
+}
 
-  Widget _classroomLabel(String value) {
+class _ClassroomLabel extends StatelessWidget {
+  const _ClassroomLabel({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     final v = value.trim();
     return Text(
       v.isEmpty ? '—' : v,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontFamily: Fonts.manrope,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: AppColors.primaryColor,
-      ),
+      style: AppTextStyles.movementClassroomLabel,
     );
   }
+}
 
-  Widget _buildFromToRow(BuildContext context) {
+/// Row showing the movement's source/destination — a classroom name on each
+/// side, or a type chip in place of whichever side doesn't apply.
+class _FromToRow extends StatelessWidget {
+  const _FromToRow({required this.item});
+
+  final MovementItem item;
+
+  @override
+  Widget build(BuildContext context) {
     final from = item.fromClassroom.trim();
     final to = item.toClassroom.trim();
 
@@ -507,18 +636,18 @@ class _MovementRow extends StatelessWidget {
 
     switch (item.movementType) {
       case MovementType.moveToNextClassroom:
-        left = _classroomLabel(from);
-        right = _classroomLabel(to);
+        left = _ClassroomLabel(value: from);
+        right = _ClassroomLabel(value: to);
         break;
       case MovementType.startSchool:
         // Start school chip on the left; destination classroom on the right.
-        left = _typeChip(context, 'Start School');
-        right = _classroomLabel(to);
+        left = const _TypeChip(label: 'Start School');
+        right = _ClassroomLabel(value: to);
         break;
       case MovementType.leaveSchool:
         // Source classroom on the left; leave school chip on the right.
-        left = _classroomLabel(from);
-        right = _typeChip(context, 'Leave School');
+        left = _ClassroomLabel(value: from);
+        right = const _TypeChip(label: 'Leave School');
         break;
     }
 
@@ -534,153 +663,6 @@ class _MovementRow extends StatelessWidget {
         const SizedBox(width: 6),
         Flexible(child: right),
       ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final card = HighlightableCard(
-      code: item.id.toString(),
-      highlightCode: highlightCode,
-      scrollOnHighlight: true,
-      borderRadius: 14,
-      child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBackgroundColor,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                child: _buildFromToRow(context),
-              ),
-              const SizedBox(width: 8),
-              if (!isViewOnly)
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.primaryColor.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: PopupMenuButton<IndividualMovementAction>(
-                    tooltip: 'More',
-                    padding: EdgeInsets.zero,
-                    color: Colors.white,
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    icon: const Icon(Icons.more_horiz, size: 20),
-                    onSelected: (action) => onActionSelected(item, action),
-                    itemBuilder: (_) => _buildMenuEntries(),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              DocumentImageWidget(
-                fileUuid: item.studentCode,
-                studentCode: item.studentCode.trim().isNotEmpty
-                    ? item.studentCode.trim()
-                    : null,
-                mediaAssetCode: item.profilePhotoAssetCode,
-                name: item.name,
-                size: 30,
-                fontSize: 11,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onStudentNameTap == null
-                      ? null
-                      : () => onStudentNameTap!(item),
-                  child: Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontFamily: Fonts.manrope,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primaryColor,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.access_time_rounded,
-                size: 16,
-                color: Color(0xFFF3B413),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                DateFormat('MMM dd').format(item.movementDate),
-                style: const TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ],
-          ),
-          if (item.comment.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                item.comment.trim(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      ),
-    );
-    if (!canDrag) return card;
-    return LongPressDraggable<_DraggedMovementPayload>(
-      data: _DraggedMovementPayload(item: item),
-      // Keep dragged card centered under finger for better edge paging UX.
-      dragAnchorStrategy: _centerDragAnchorStrategy,
-      onDragStarted: onDragStarted,
-      onDragEnd: (_) => onDragEnded?.call(),
-      onDragUpdate: (details) => onDragGlobalUpdate?.call(details.globalPosition),
-      feedback: Material(
-        color: Colors.transparent,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
-          child: Opacity(opacity: 0.95, child: card),
-        ),
-      ),
-      childWhenDragging: Opacity(opacity: 0.35, child: card),
-      child: card,
     );
   }
 }

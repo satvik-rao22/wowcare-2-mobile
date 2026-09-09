@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart';
 
-enum StaffAbsentMarkMethod { gps, qr, kiosk, app, web }
+export 'package:wowcare/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart'
+    show AbsentMarkMethod;
 
 class StaffAbsentCardData {
   final String id;
@@ -25,7 +29,7 @@ class StaffAbsentCardData {
   final bool expectedToday;
   final String? signInTime;
   final String? signOutTime;
-  final StaffAbsentMarkMethod? markAbsentMethod;
+  final AbsentMarkMethod? markAbsentMethod;
 
   StaffAbsentCardData({
     required this.id,
@@ -72,10 +76,6 @@ class StaffAbsentCard extends StatefulWidget {
 }
 
 class _StaffAbsentCardState extends State<StaffAbsentCard> {
-  // Shared text tokens mirrored from StaffCard so attendance cards read with
-  // the same Manrope/plum visual identity.
-  static const Color _plum = Color(0xff573353);
-
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -83,7 +83,9 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     final staff = widget.staff;
 
     final avatarSize = isTablet ? 52.0 : 50.0;
-    final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);
+    final headerPadding = EdgeInsets.symmetric(
+      horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
+    );
     final spacing = isTablet ? 16.0 : 9.0;
 
     return GestureDetector(
@@ -92,9 +94,12 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          color: AppColors.cardColor,
+          borderRadius: AppRadius.allMd,
+          border: Border.all(
+            color: AppColors.cardBorderColor,
+            width: AppDimensions.hairline,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -111,7 +116,8 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup: widget.disableAttendanceStatusLookup,
+                    disableAttendanceStatusLookup:
+                        widget.disableAttendanceStatusLookup,
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -121,27 +127,19 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         Flexible(
                           child: Text(
                             staff.name,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
+                            style: AppTextStyles.value.copyWith(
                               fontSize: isTablet ? 16 : 14,
-                              fontWeight: FontWeight.w500,
-                              color: _plum,
-                              height: 19 / 14,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.xs),
                         Flexible(
                           child: Text(
                             staff.roomName,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
+                            style: AppTextStyles.value.copyWith(
                               fontSize: isTablet ? 16 : 14,
-                              fontWeight: FontWeight.w500,
-                              color: _plum,
-                              height: 19 / 14,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -157,19 +155,19 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
             if (widget.isExpanded) ...[
               const Divider(
                 height: 1,
-                thickness: 1,
-                indent: 16,
-                endIndent: 16,
-                color: Color(0xFFE9ECEF),
+                thickness: AppDimensions.hairline,
+                indent: AppSpacing.md,
+                endIndent: AppSpacing.md,
+                color: AppColors.attendanceCardDividerColor,
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Room', staff.roomName),
-                    const SizedBox(height: 10),
-                    _buildDetailRow(
+                    buildAbsentDetailRow(context, 'Room', staff.roomName),
+                    const SizedBox(height: AppSpacing.s10),
+                    buildAbsentDetailRow(
                       context,
                       'Absent Time',
                       staff.absentTime,
@@ -177,23 +175,27 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                     ),
                     if (staff.absentBy.isNotEmpty &&
                         staff.absentBy != 'Unknown') ...[
-                      const SizedBox(height: 10),
-                      _buildDetailRow(context, 'Marked by', staff.absentBy),
+                      const SizedBox(height: AppSpacing.s10),
+                      buildAbsentDetailRow(
+                        context,
+                        'Marked by',
+                        staff.absentBy,
+                      ),
                     ],
                     if (staff.note != null && staff.note!.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      _buildDetailRow(context, 'Absent Note', staff.note!),
+                      const SizedBox(height: AppSpacing.s10),
+                      buildAbsentDetailRow(context, 'Absent Note', staff.note!),
                     ],
-                    const SizedBox(height: 10),
-                    _buildDetailRow(
+                    const SizedBox(height: AppSpacing.s10),
+                    buildAbsentDetailRow(
                       context,
                       'Start Date',
                       staff.startDate.isNotEmpty
                           ? staff.startDate.split('T')[0]
                           : 'N/A',
                     ),
-                    const SizedBox(height: 10),
-                    _buildDetailRow(
+                    const SizedBox(height: AppSpacing.s10),
+                    buildAbsentDetailRow(
                       context,
                       'End Date',
                       staff.endDate.isNotEmpty
@@ -201,11 +203,11 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                           : 'N/A',
                     ),
                     if (widget.onView != null) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
-                        height: 40,
-                        child: _outlinedButton('View', widget.onView),
+                        height: AppSpacing.xxxl,
+                        child: attendanceOutlinedButton('View', widget.onView),
                       ),
                     ],
                   ],
@@ -216,113 +218,5 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
         ),
       ),
     );
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context,
-    String label,
-    String value, {
-    StaffAbsentMarkMethod? method,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: _plum,
-              height: 16 / 13,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (method != null) ...[
-                _buildMethodIcon(method),
-                const SizedBox(width: 4),
-              ],
-              Flexible(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _plum,
-                    height: 19 / 14,
-                  ),
-                  textAlign: TextAlign.end,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _outlinedButton(String label, VoidCallback? onPressed) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Manrope',
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF6C7FD8),
-          height: 16 / 16,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMethodIcon(
-    StaffAbsentMarkMethod method,
-  ) {
-    const size = 18.0;
-    switch (method) {
-      case StaffAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
-      case StaffAbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
-      case StaffAbsentMarkMethod.kiosk:
-        return Icon(
-          Icons.point_of_sale_outlined,
-          size: size,
-          color: AppColors.themeColor,
-        );
-      case StaffAbsentMarkMethod.app:
-        return SvgPicture.asset(
-          MediaRes.appMethodIcon,
-          width: size,
-          height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-        );
-      case StaffAbsentMarkMethod.web:
-        return SvgPicture.asset(
-          MediaRes.webMethodIcon,
-          width: size,
-          height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
-        );
-    }
   }
 }

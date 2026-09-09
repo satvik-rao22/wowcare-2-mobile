@@ -1,7 +1,13 @@
+import '../entities/school_guardian_summary.dart';
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
 import '../entities/student_guardian.dart';
+import '../entities/guardian_profile.dart';
+import '../entities/update_student_address_request.dart';
+import '../entities/update_student_profile_request.dart';
+import '../entities/update_guardian_request.dart';
 import '../entities/student_health.dart';
+import '../entities/student_health_update_request.dart';
 import '../entities/student_immunization.dart';
 import '../entities/student_important_dates.dart';
 import '../entities/student_physical_exam.dart';
@@ -9,6 +15,7 @@ import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
+import '../entities/student_regular_schedule_input.dart';
 import '../entities/student_settings.dart';
 import '../entities/vaccine_item.dart';
 
@@ -21,6 +28,15 @@ abstract class StudentRepository {
   Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
     required String studentCode,
   });
+
+  /// Updates a student's regular schedule via the dedicated schedule API
+  /// (`PATCH /api/v1/regular-schedules`). Used by the add-student wizard.
+  Future<String> updateStudentRegularSchedules({
+    required String schoolCode,
+    required String studentCode,
+    required List<StudentRegularScheduleInput> schedule,
+  });
+
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -65,17 +81,15 @@ abstract class StudentRepository {
   });
 
   /// Updates student profile core details via `/api/v1/student/{code}/profile`.
-  ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/student/{code}/profile`.
   Future<String> updateStudentProfile({
     required String code,
-    required Map<String, dynamic> fields,
+    required UpdateStudentProfileRequest request,
   });
 
   /// Updates the student's address via `/api/v1/student/{studentCode}/address`.
   Future<String> updateStudentAddress({
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateStudentAddressRequest request,
   });
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
@@ -187,6 +201,10 @@ abstract class StudentRepository {
     required String schoolCode,
   });
 
+  /// Returns tag display names for a specific student via
+  /// `GET /api/v1/student-tags/{studentCode}`, with repository-level caching.
+  Future<List<String>> getStudentTagNames({required String studentCode});
+
   /// Students in [classroomCode] matching [tagCodes] for activity feeds.
   ///
   /// `POST /api/v1/student-tags/activity-filter`
@@ -207,9 +225,9 @@ abstract class StudentRepository {
 
   /// Logged-in guardian profile from `GET /api/v1/guardian/profile`.
   ///
-  /// Query: [schoolCode], [userCode]. Returns API `data` (includes guardian
-  /// `code` and `userCode`).
-  Future<Map<String, dynamic>> getGuardianProfile({
+  /// Query: [schoolCode], [userCode]. Returns the typed [GuardianProfile]
+  /// (guardian record code + name + photo).
+  Future<GuardianProfile> getGuardianProfile({
     required String schoolCode,
     required String userCode,
   });
@@ -230,18 +248,22 @@ abstract class StudentRepository {
   });
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.
-  ///
-  /// The returned map must contain keys: 'activeCount', 'upcomingCount',
-  /// and 'enrolledCount'.
-  Future<Map<String, int>> getStudentCounts({required String schoolCode});
+  Future<({int activeCount, int upcomingCount, int enrolledCount})>
+  getStudentCounts({required String schoolCode});
 
   /// `GET /api/v1/student/student-documents/expiry-count`
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode});
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode});
 
   /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode});
+  getStudentPhysicalCheckupCount({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///
@@ -264,11 +286,10 @@ abstract class StudentRepository {
 
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
   ///
-  /// [fields] should follow the backend PATCH contract.
   Future<String> updateGuardian({
     required String code,
     required String studentCode,
-    required Map<String, dynamic> fields,
+    required UpdateGuardianRequest request,
   });
 
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
@@ -321,7 +342,7 @@ abstract class StudentRepository {
 
   /// Raw guardians list for a school (includes email/mobile/code), used by UI
   /// flows that need full guardian details for dropdown selection.
-  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+  Future<List<SchoolGuardianSummary>> getGuardiansRawForSchool({
     required String schoolCode,
   });
 
@@ -330,6 +351,7 @@ abstract class StudentRepository {
   /// Fetches a student's physician contacts.
   Future<List<StudentPhysician>> getStudentPhysicians({
     required String studentCode,
+    bool forceRefresh = false,
   });
 
   /// Adds a physician for a student. Returns the created physician.
@@ -367,12 +389,15 @@ abstract class StudentRepository {
   // --- Health ---
 
   /// Fetches a student's health details.
-  Future<StudentHealth> getStudentHealth({required String studentCode});
+  Future<StudentHealth> getStudentHealth({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
 
   /// Updates a student's health details. Returns the updated health record.
   Future<StudentHealth> updateStudentHealth({
     required String studentCode,
-    required Map<String, dynamic> body,
+    required StudentHealthUpdateRequest request,
   });
 
   // --- Immunizations ---

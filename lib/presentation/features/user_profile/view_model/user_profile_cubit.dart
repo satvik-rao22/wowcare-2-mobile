@@ -1,0 +1,840 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:equatable/equatable.dart';
+
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/context_switch_cache_cleaner.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
+import 'package:wowcare/domain/features/auth/usecases/get_user_details_usecase.dart';
+import 'package:wowcare/domain/features/auth/usecases/switch_active_school_persona_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_cached_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
+import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart'
+    as staff_code_resolver;
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+
+part 'user_profile_state.dart';
+
+/// Outcome of a profile-photo upload so the view can show the right snackbar
+/// without inspecting cubit internals.
+enum UserProfilePhotoStatus { success, validationError, uploadError }
+
+class UserProfilePhotoResult {
+  const UserProfilePhotoResult(this.status, this.message);
+
+  final UserProfilePhotoStatus status;
+  final String message;
+
+  bool get isSuccess => status == UserProfilePhotoStatus.success;
+}
+
+/// Owns the data + business logic for the user-profile screen: login summary,
+/// staff/guardian profile loading, persona-switch availability, and the
+/// (multi-step, progress-tracked) profile-photo uploads.
+///
+/// Cross-cubit persona-switch *orchestration* (RoleCubit / ParentChildCubit /
+/// AuthCubit) and all UI feedback (snackbars, navigation, image picking) stay
+/// in the view; this cubit exposes the granular operations the view composes.
+class UserProfileCubit extends Cubit<UserProfileState> {
+  UserProfileCubit({
+    required StorageService storageService,
+    required GetStaffProfileUseCase getStaffProfileUseCase,
+    required GetCachedStaffProfileUseCase getCachedStaffProfileUseCase,
+    required GetUserDetailsUseCase getUserDetailsUseCase,
+    required SwitchActiveSchoolPersonaUseCase switchActiveSchoolPersonaUseCase,
+    required GetGuardianProfileUseCase getGuardianProfileUseCase,
+    required ImageUploadService imageUploadService,
+    required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
+  }) : _storage = storageService,
+       _getStaffProfileUseCase = getStaffProfileUseCase,
+       _getCachedStaffProfileUseCase = getCachedStaffProfileUseCase,
+       _getUserDetailsUseCase = getUserDetailsUseCase,
+       _switchActiveSchoolPersonaUseCase = switchActiveSchoolPersonaUseCase,
+       _getGuardianProfileUseCase = getGuardianProfileUseCase,
+       _imageUploadService = imageUploadService,
+       _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       super(const UserProfileState.initial());
+
+  final StorageService _storage;
+  final GetStaffProfileUseCase _getStaffProfileUseCase;
+  final GetCachedStaffProfileUseCase _getCachedStaffProfileUseCase;
+  final GetUserDetailsUseCase _getUserDetailsUseCase;
+  final SwitchActiveSchoolPersonaUseCase _switchActiveSchoolPersonaUseCase;
+  final GetGuardianProfileUseCase _getGuardianProfileUseCase;
+  final ImageUploadService _imageUploadService;
+  final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+
+  String _directStaffCode = '';
+  bool _hasShownProfileLoadError = false;
+
+  /// Wipes every cache layer (repository caches, Isar messaging data,
+  /// in-memory invalidation gates) on a persona/school switch, so screens
+  /// kept alive in the shell's IndexedStack don't keep showing the previous
+  /// context's cached data until a manual pull-to-refresh.
+  Future<void> clearCachesForContextSwitch() {
+    return clearAllCachesForContextSwitch(_storage);
+  }
+
+  /// Seeds the login summary from navigation arguments so the screen doesn't
+  /// render placeholders while storage loads.
+  void seed({
+    required String name,
+    required String email,
+    required String persona,
+    String? directStaffCode,
+  }) {
+    _directStaffCode = (directStaffCode ?? '').trim();
+    emit(
+      state.copyWith(
+        loginDisplayName: name.trim(),
+        loginEmail: email.trim(),
+        loginPersona: persona.trim(),
+      ),
+    );
+  }
+
+  String effectiveStaffCode() {
+    final fromProfile = (state.profile?.staffCode ?? '').trim();
+    if (fromProfile.isNotEmpty) return fromProfile;
+    return _directStaffCode.trim();
+  }
+
+  Future<void> load({required bool isParent}) async {
+    // Preload login-based user summary (name, email, persona) from storage.
+    try {
+      final loginDisplayName =
+          (await _storage.getString(StorageKeys.displayName) ?? '').trim();
+      final loginEmail = (await _storage.getString(StorageKeys.email) ?? '')
+          .trim();
+      final cachedDesignation =
+          (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+
+      final activeSchoolRole =
+          (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+      final rolesJson = await _storage.getString(
+        StorageKeys.roles,
+      ); // JSON array from login
+      String persona = '';
+      // Prefer the staff designation (e.g. Director / Lead Teacher) over the
+      // role/staffType; fall back to the role only when no designation exists.
+      if (cachedDesignation.isNotEmpty) {
+        persona = StringUtils.staffTypeToDisplayRole(cachedDesignation);
+      }
+      if (persona.isEmpty && activeSchoolRole.isNotEmpty) {
+        persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
+      }
+      final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      if (persona.isEmpty && rolesJson != null && rolesJson.isNotEmpty) {
+        try {
+          final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
+          final matches = matchingRolesForOrgSchool(
+            roles,
+            org,
+            school,
+          ).toList();
+          if (matches.isNotEmpty) {
+            persona = StringUtils.staffTypeToDisplayRole(
+              matches.first['role'] ?? '',
+            );
+          } else if (roles.isNotEmpty) {
+            final first = roles.first as Map<String, dynamic>;
+            final roleCode = (first['role'] ?? '').toString();
+            persona = StringUtils.staffTypeToDisplayRole(roleCode);
+          }
+        } catch (_) {}
+      }
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          loginDisplayName: loginDisplayName,
+          loginEmail: loginEmail,
+          loginPersona: persona,
+          schoolCode: school.isEmpty ? null : school,
+          organizationCode: org.isEmpty ? null : org,
+          cachedActiveSchoolRole: activeSchoolRole.isEmpty
+              ? null
+              : activeSchoolRole,
+        ),
+      );
+      await refreshSwitchProfileAvailability();
+    } catch (_) {}
+
+    // For guardian/parent persona, load guardian profile fields for phone/address
+    // and skip staff profile fetches.
+    try {
+      if (isParent) {
+        await loadGuardianProfileForParent();
+        if (isClosed) return;
+        emit(state.copyWith(profile: null));
+        return;
+      }
+    } catch (_) {}
+
+    final direct = _directStaffCode.trim();
+    if (direct.isNotEmpty) {
+      await loadStaffProfile(direct);
+      return;
+    }
+
+    final resolved = await resolveLoggedInStaffCode();
+    if (isClosed) return;
+    if (resolved.isEmpty) {
+      emit(state.copyWith(profile: null));
+    } else {
+      await loadStaffProfile(resolved);
+    }
+  }
+
+  /// Attempts to resolve staffCode for the logged-in user from local cache.
+  ///
+  /// Only reuses the cached staffCode when it was resolved for the SAME user
+  /// *and* the currently selected org/school. A user can be staff in multiple
+  /// schools under different codes, so matching on user alone would serve the
+  /// previously selected school's profile after an org/school switch.
+  ///
+  /// Falls back to the shared [staff_code_resolver.resolveLoggedInStaffCode]
+  /// (already used by the activities/communication/students features) when
+  /// that strict cache check misses — that resolver also tries a live
+  /// `/api/v1/staff/code` lookup and persists the result, so a genuinely
+  /// staff user whose cache just hasn't been (re)populated for the CURRENT
+  /// org/school yet — e.g. right after a persona/school switch, before
+  /// anything else happened to trigger that lookup — still resolves instead
+  /// of "View Staff Profile" dead-ending with "Unable to resolve staff
+  /// profile. Please re-login." for someone who is, in fact, staff.
+  Future<String> resolveLoggedInStaffCode() async {
+    try {
+      final currentUserCode =
+          (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+      final currentOrg =
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final currentSchool =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final cachedStaffCode =
+          (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
+      final cachedStaffUser =
+          (await _storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+      final cachedStaffOrg =
+          (await _storage.getString(StorageKeys.staffCodeOrganization) ?? '')
+              .trim();
+      final cachedStaffSchool =
+          (await _storage.getString(StorageKeys.staffCodeSchool) ?? '').trim();
+
+      if (cachedStaffCode.isNotEmpty &&
+          currentUserCode.isNotEmpty &&
+          cachedStaffUser == currentUserCode &&
+          cachedStaffOrg == currentOrg &&
+          cachedStaffSchool == currentSchool) {
+        return cachedStaffCode;
+      }
+      final resolved =
+          (await staff_code_resolver.resolveLoggedInStaffCode() ?? '').trim();
+      return resolved;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> refreshSwitchProfileAvailability() async {
+    final org = (state.organizationCode ?? '').trim();
+    final school = (state.schoolCode ?? '').trim();
+    if (org.isEmpty || school.isEmpty) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          distinctRolesForCurrentSchool: const [],
+          switchPersonasLoading: false,
+        ),
+      );
+      return;
+    }
+    if (isClosed) return;
+    emit(state.copyWith(switchPersonasLoading: true));
+    try {
+      var users = await readCachedUserAccessDetailsUsers(_storage);
+      if (users.isEmpty) {
+        final token = await TokenRefreshService.instance.readAccessToken();
+        if (token.isNotEmpty) {
+          users = await _getUserDetailsUseCase(accessToken: token);
+          await _storage.saveString(
+            StorageKeys.userAccessDetails,
+            jsonEncode(users),
+          );
+        }
+      }
+      final distinct = distinctActiveRolesForCurrentSchoolFromUserDetails(
+        users,
+        org,
+        school,
+      );
+      final active =
+          (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          distinctRolesForCurrentSchool: distinct,
+          cachedActiveSchoolRole: active.isEmpty ? null : active,
+          switchPersonasLoading: false,
+        ),
+      );
+    } catch (_) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          distinctRolesForCurrentSchool: const [],
+          switchPersonasLoading: false,
+        ),
+      );
+    }
+  }
+
+  void setSwitching(bool value) {
+    if (isClosed) return;
+    emit(state.copyWith(switchPersonasLoading: value));
+  }
+
+  /// Persists the persona switch in local auth caches (without touching the
+  /// visible profile, which the view applies via [applySwitchedPersona] once
+  /// the sibling cubits have refreshed).
+  Future<void> persistPersonaSwitch(String backendRole) {
+    return _switchActiveSchoolPersonaUseCase(backendRole);
+  }
+
+  void applySwitchedPersona(String backendRole) {
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        profile: null,
+        cachedActiveSchoolRole: backendRole,
+        loginPersona: StringUtils.staffTypeToDisplayRole(backendRole),
+      ),
+    );
+  }
+
+  Future<void> loadStaffProfile(String staffCode) async {
+    try {
+      // 1) Try cached profile first (fast, no loader).
+      final cached = await _getCachedStaffProfileUseCase(staffCode);
+      if (isClosed) return;
+      if (cached != null) {
+        // Persist staffType for ProfileMenuHeader.
+        if (cached.staffType.isNotEmpty) {
+          await _storage.saveString(StorageKeys.staffType, cached.staffType);
+        }
+        if (cached.designation.trim().isNotEmpty) {
+          await _storage.saveString(
+            StorageKeys.staffDesignation,
+            cached.designation.trim(),
+          );
+        }
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            profile: cached,
+            // Keep the designation in the persona so a later fresh profile with
+            // an empty designation can't drop the header back to the role.
+            loginPersona: cached.designation.trim().isNotEmpty
+                ? StringUtils.staffTypeToDisplayRole(cached.designation.trim())
+                : state.loginPersona,
+          ),
+        );
+      }
+
+      // 2) Prefetch latest profile in the background (no loader shown).
+      // forceRefresh: true — getStaffProfile() otherwise serves the same
+      // cache entry step 1 just read (5-minute TTL), so pull-to-refresh
+      // silently no-op'd instead of reflecting a just-changed API value.
+      try {
+        final fresh = await _getStaffProfileUseCase(
+          staffCode: staffCode,
+          forEditStaff: false,
+          forceRefresh: true,
+        );
+        if (isClosed) return;
+        if (fresh.staffType.isNotEmpty) {
+          await _storage.saveString(StorageKeys.staffType, fresh.staffType);
+        }
+        if (fresh.designation.trim().isNotEmpty) {
+          await _storage.saveString(
+            StorageKeys.staffDesignation,
+            fresh.designation.trim(),
+          );
+        }
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            profile: fresh,
+            // Only refresh the persona when the fresh profile actually carries a
+            // designation; otherwise keep the existing one (don't revert to role).
+            loginPersona: fresh.designation.trim().isNotEmpty
+                ? StringUtils.staffTypeToDisplayRole(fresh.designation.trim())
+                : state.loginPersona,
+          ),
+        );
+      } catch (e) {
+        CoreUtils.logApiError(e.toString());
+        if (state.profile == null && !_hasShownProfileLoadError) {
+          _hasShownProfileLoadError = true;
+          if (!isClosed) emit(state.copyWith(profileLoadFailed: true));
+        }
+      }
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      if (state.profile == null && !_hasShownProfileLoadError) {
+        _hasShownProfileLoadError = true;
+        if (!isClosed) emit(state.copyWith(profileLoadFailed: true));
+      }
+    }
+  }
+
+  Future<void> loadGuardianProfileForParent() async {
+    try {
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+          .trim();
+      if (schoolCode.isEmpty || userCode.isEmpty) return;
+
+      // Seed from the persisted guardian photo first so the avatar is visible
+      // immediately (and stays visible even if the live fetch returns an empty
+      // asset code, as the guardian profile API sometimes does).
+      final cachedAsset =
+          (await _storage.getString(StorageKeys.guardianProfileAssetCode) ?? '')
+              .trim();
+      final cachedUrl =
+          (await _storage.getString(StorageKeys.guardianProfilePhotoUrl) ?? '')
+              .trim();
+      if (!isClosed && (cachedAsset.isNotEmpty || cachedUrl.isNotEmpty)) {
+        emit(
+          state.copyWith(
+            guardianPhotoAssetCode: cachedAsset.isNotEmpty ? cachedAsset : null,
+            guardianPhotoUrl: cachedUrl.isNotEmpty ? cachedUrl : null,
+          ),
+        );
+      }
+
+      // Single canonical parse of the guardian-profile response (see
+      // GuardianProfileModel) — this used to be parsed inline here with a
+      // fallback chain that quietly differed from EditUserProfileCubit's
+      // (no `line1`/`phoneNumber` fallback), a real bug where this screen
+      // and the edit-profile screen could show different values for the
+      // same guardian.
+      final guardian = await _getGuardianProfileUseCase(
+        schoolCode: schoolCode,
+        userCode: userCode,
+      );
+
+      final guardianCode = guardian.code;
+      final photoAssetCode = guardian.photoAssetCode;
+      final photoUrl = guardian.photoUrl;
+      final resolvedName = guardian.fullName;
+      final resolvedEmail = guardian.email;
+      final resolvedPhone = guardian.phoneNumber;
+      final resolvedAddress = guardian.address.formattedAddress;
+
+      if (isClosed) return;
+      // Never clobber a known-good name/photo with an empty API value.
+      emit(
+        state.copyWith(
+          loginDisplayName: resolvedName.isNotEmpty ? resolvedName : null,
+          loginEmail: resolvedEmail.isNotEmpty ? resolvedEmail : null,
+          guardianPhone: resolvedPhone,
+          guardianAddress: resolvedAddress,
+          guardianCode: guardianCode.isNotEmpty ? guardianCode : null,
+          guardianPhotoAssetCode: photoAssetCode.isNotEmpty
+              ? photoAssetCode
+              : null,
+          guardianPhotoUrl: photoUrl.isNotEmpty ? photoUrl : null,
+        ),
+      );
+
+      // Mirror the guardian photo into storage (only when non-empty) so the
+      // three-dot (kebab) menu header — which reads these keys — shows the same
+      // photo and doesn't get wiped by an empty API response.
+      try {
+        if (photoAssetCode.isNotEmpty) {
+          await _storage.saveString(
+            StorageKeys.guardianProfileAssetCode,
+            photoAssetCode,
+          );
+        }
+        if (photoUrl.isNotEmpty) {
+          await _storage.saveString(
+            StorageKeys.guardianProfilePhotoUrl,
+            photoUrl,
+          );
+        }
+      } catch (_) {}
+    } catch (_) {
+      // Non-blocking: profile still renders with cached/login values.
+    }
+  }
+
+  /// Resolves the display name of [profile]'s primary (or first allowed)
+  /// classroom. Falls back to the raw code (or '-') when it can't be resolved.
+  Future<String> resolveClassroomNameForStaff(StaffProfile profile) async {
+    final code = profile.primaryClassroomCode.trim().isNotEmpty
+        ? profile.primaryClassroomCode.trim()
+        : (profile.allowedClassroomCodes.isNotEmpty
+              ? profile.allowedClassroomCodes.first.trim()
+              : '');
+    if (code.isEmpty) return '-';
+    return _resolveClassroomName(code);
+  }
+
+  /// Resolves the display name for a raw classroom code/value. Falls back to
+  /// the raw value (or '-') when it can't be resolved.
+  Future<String> resolveClassroomNameForStudent(String classroomRaw) async {
+    final raw = classroomRaw.trim();
+    if (raw.isEmpty) return '-';
+    return _resolveClassroomName(raw);
+  }
+
+  /// Shared lookup: maps a classroom [code] to its name via the active
+  /// classrooms for the current school, returning [code] on any miss/failure.
+  Future<String> _resolveClassroomName(String code) async {
+    try {
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return code;
+
+      final classrooms = await _getActiveClassroomsUseCase(
+        schoolCode: schoolCode,
+        onlyTypeClassroom: false,
+      );
+      for (final c in classrooms) {
+        if (c.code.trim() == code) {
+          final name = c.name.trim();
+          return name.isNotEmpty ? name : code;
+        }
+      }
+      return code;
+    } catch (_) {
+      return code;
+    }
+  }
+
+  /// Uploads a new profile photo for the current persona. Staff and guardian
+  /// flows share the multi-step shape but use different endpoints. Progress is
+  /// streamed into [UserProfileState.profilePhotoUploadPercent].
+  Future<UserProfilePhotoResult> uploadProfilePhoto({
+    required String imagePath,
+    required bool isParent,
+  }) async {
+    if (isParent) {
+      return _uploadGuardianProfilePhoto(imagePath);
+    }
+    return _uploadStaffProfilePhoto(imagePath);
+  }
+
+  Future<UserProfilePhotoResult> _uploadStaffProfilePhoto(
+    String imagePath,
+  ) async {
+    try {
+      var staffCode = effectiveStaffCode();
+      if (staffCode.isEmpty) {
+        staffCode = (await resolveLoggedInStaffCode()).trim();
+      }
+      if (staffCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Staff code is required to upload profile photo.',
+        );
+      }
+
+      if ((state.schoolCode ?? '').trim().isEmpty ||
+          (state.organizationCode ?? '').trim().isEmpty) {
+        final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim();
+        final org =
+            (await _storage.getString(StorageKeys.organizationCode) ?? '')
+                .trim();
+        if (isClosed) {
+          return const UserProfilePhotoResult(
+            UserProfilePhotoStatus.uploadError,
+            'Upload cancelled.',
+          );
+        }
+        emit(
+          state.copyWith(
+            schoolCode: school.isEmpty ? null : school,
+            organizationCode: org.isEmpty ? null : org,
+          ),
+        );
+      }
+      final schoolCode = (state.schoolCode ?? '').trim();
+      final organizationCode = (state.organizationCode ?? '').trim();
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Missing school or organization context.',
+        );
+      }
+
+      emit(
+        state.copyWith(
+          isUploadingProfilePhoto: true,
+          profilePhotoUploadPercent: 5,
+        ),
+      );
+      final file = File(imagePath);
+      final sessionCode = await _imageUploadService
+          .createStaffProfilePhotoUploadSession(
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
+      final lowerPath = imagePath.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
+      final presign = await _imageUploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'STAFF',
+        ownerCode: staffCode,
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 25));
+      await _imageUploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (isClosed || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          emit(
+            state.copyWith(
+              profilePhotoUploadPercent: 25 + (uploadPhasePercent * 55),
+            ),
+          );
+        },
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 84));
+      await _imageUploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 90));
+      await _imageUploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
+      await _imageUploadService.finalizeStaffProfilePhoto(
+        staffCode: staffCode,
+        assetCode: presign.assetCode,
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
+
+      DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      await loadStaffProfile(staffCode);
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo updated successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to update profile photo: $e',
+      );
+    } finally {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            isUploadingProfilePhoto: false,
+            profilePhotoUploadPercent: 0,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<UserProfilePhotoResult> _uploadGuardianProfilePhoto(
+    String imagePath,
+  ) async {
+    try {
+      // Resolve the guardian code — re-fetch the guardian profile if we don't
+      // have it yet (e.g. tapped before the initial profile load settled).
+      var guardianCode = state.guardianCode.trim();
+      if (guardianCode.isEmpty) {
+        await loadGuardianProfileForParent();
+        if (isClosed) {
+          return const UserProfilePhotoResult(
+            UserProfilePhotoStatus.uploadError,
+            'Upload cancelled.',
+          );
+        }
+        guardianCode = state.guardianCode.trim();
+      }
+      if (guardianCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Guardian profile is still loading. Please try again.',
+        );
+      }
+
+      if ((state.schoolCode ?? '').trim().isEmpty ||
+          (state.organizationCode ?? '').trim().isEmpty) {
+        final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim();
+        final org =
+            (await _storage.getString(StorageKeys.organizationCode) ?? '')
+                .trim();
+        if (isClosed) {
+          return const UserProfilePhotoResult(
+            UserProfilePhotoStatus.uploadError,
+            'Upload cancelled.',
+          );
+        }
+        emit(
+          state.copyWith(
+            schoolCode: school.isEmpty ? null : school,
+            organizationCode: org.isEmpty ? null : org,
+          ),
+        );
+      }
+      final schoolCode = (state.schoolCode ?? '').trim();
+      final organizationCode = (state.organizationCode ?? '').trim();
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Missing school or organization context.',
+        );
+      }
+      final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+          .trim();
+
+      emit(
+        state.copyWith(
+          isUploadingProfilePhoto: true,
+          profilePhotoUploadPercent: 5,
+        ),
+      );
+      final file = File(imagePath);
+      final sessionCode = await _imageUploadService
+          .createGuardianProfilePhotoUploadSession(
+            guardianCode: guardianCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
+      final lowerPath = imagePath.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType = lowerPath.endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
+      final presign = await _imageUploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'guardian-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'GUARDIAN',
+        ownerCode: guardianCode,
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 25));
+      await _imageUploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (isClosed || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          emit(
+            state.copyWith(
+              profilePhotoUploadPercent: 25 + (uploadPhasePercent * 55),
+            ),
+          );
+        },
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 84));
+      await _imageUploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 90));
+      await _imageUploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
+      final resolvedUrl = await _imageUploadService
+          .finalizeGuardianProfilePhoto(
+            guardianCode: guardianCode,
+            assetCode: presign.assetCode,
+            schoolCode: schoolCode,
+            userCode: userCode,
+          );
+
+      DocumentImageWidget.clearProfilePhotoCache();
+      // Persist the freshly-uploaded photo so the three-dot (kebab) menu header
+      // (which reads these keys from storage) shows it immediately too.
+      try {
+        await _storage.saveString(
+          StorageKeys.guardianProfileAssetCode,
+          presign.assetCode.trim(),
+        );
+        await _storage.saveString(
+          StorageKeys.guardianProfilePhotoUrl,
+          resolvedUrl.trim(),
+        );
+      } catch (_) {}
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            guardianPhotoUrl: resolvedUrl.trim(),
+            guardianPhotoAssetCode: presign.assetCode.trim(),
+          ),
+        );
+      }
+      await loadGuardianProfileForParent();
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo updated successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to update profile photo: $e',
+      );
+    } finally {
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            isUploadingProfilePhoto: false,
+            profilePhotoUploadPercent: 0,
+          ),
+        );
+      }
+    }
+  }
+}

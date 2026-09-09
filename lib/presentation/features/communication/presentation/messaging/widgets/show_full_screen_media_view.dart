@@ -1,17 +1,20 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:chewie/chewie.dart';
-import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/data/services/messaging_media_downloader.dart';
 import 'package:video_player/video_player.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -62,7 +65,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   bool get hasImage => _hasUsableImageUrl || widget.imageFile != null;
   bool get hasVideo => _hasUsableVideoUrl || widget.videoFile != null;
 
-  bool _isDownloading = false;
+  // UI-only save-to-gallery spinner flag (Mandate 2): a ValueNotifier rather
+  // than `setState` so only the download IconButton rebuilds.
+  final ValueNotifier<bool> _isDownloading = ValueNotifier<bool>(false);
 
   Future<Uint8List>? _imageBytesFuture;
 
@@ -125,6 +130,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   @override
   void dispose() {
     _animationController.dispose();
+    _isDownloading.dispose();
     super.dispose();
   }
 
@@ -141,8 +147,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
+    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
 
     if (_isHlsUrl(url)) {
       Future<bool> runCopy(List<String> args) async {
@@ -172,7 +177,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       throw Exception(out ?? 'Could not convert stream to a video file.');
     }
 
-    await Dio().download(url, outPath);
+    await downloadMessagingMediaToFile(url, outPath);
     return outPath;
   }
 
@@ -180,25 +185,24 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
-    await Dio().download(url, outPath);
+    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
+    await downloadMessagingMediaToFile(url, outPath);
     return outPath;
   }
 
   Future<void> _downloadCurrentMedia() async {
-    if (_isDownloading) return;
+    if (_isDownloading.value) return;
     if (!hasImage && !hasVideo) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Media is still processing. Please try again.'),
+          content: Text(AppStrings.mediaStillProcessing),
         ),
       );
       return;
     }
 
-    setState(() => _isDownloading = true);
+    _isDownloading.value = true;
     try {
       final hasAccess = await Gal.hasAccess(toAlbum: true);
       if (!hasAccess) {
@@ -209,7 +213,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Photos permission is required to save media to your gallery.',
+              AppStrings.mediaPermissionRequired,
             ),
           ),
         );
@@ -264,7 +268,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to your photo gallery.')),
+        const SnackBar(content: Text(AppStrings.savedToGallery)),
       );
     } on GalException catch (e) {
       if (!mounted) return;
@@ -275,11 +279,11 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to download media. Please try again.'),
+          content: Text(AppStrings.mediaDownloadFailed),
         ),
       );
     } finally {
-      if (mounted) setState(() => _isDownloading = false);
+      if (mounted) _isDownloading.value = false;
     }
   }
 
@@ -316,64 +320,12 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     return Uint8List(0);
   }
 
-  Widget _brokenImagePlaceholder() {
-    return Container(
-      color: Colors.black,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.broken_image, color: Colors.white54, size: 80),
-            const SizedBox(height: 16),
-            Text(
-              'Failed to load image',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildMediaWidget() {
-    if (!hasImage) {
-      return const Icon(Icons.broken_image, color: Colors.white54, size: 100);
-    }
-    return FutureBuilder<Uint8List>(
-      future: _imageBytesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Container(
-            color: Colors.black,
-            child: const Center(
-              child: PrimaryCircularLoader(
-                size: 28,
-                strokeWidth: 2,
-                color: Colors.white70,
-              ),
-            ),
-          );
-        }
-        final bytes = snapshot.data;
-        if (bytes == null || bytes.isEmpty) {
-          return _brokenImagePlaceholder();
-        }
-        return Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              _brokenImagePlaceholder(),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.blackColor,
       body: Stack(
         children: [
           // No AppBar here on purpose — a fixed app bar permanently steals
@@ -399,15 +351,15 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                               child: Hero(
                                 tag: widget.heroTag ?? 'media-hero',
                                 transitionOnUserGestures: true,
-                                child: _buildMediaWidget(),
+                                child: _MediaImage(hasImage: hasImage, imageBytesFuture: _imageBytesFuture),
                               ),
                             ),
                           )
                         : Container(
-                            color: Colors.black,
+                            color: AppColors.blackColor,
                             child: const Icon(
                               Icons.broken_image,
-                              color: Colors.white,
+                              color: AppColors.messagingOnAccent,
                               size: 100,
                             ),
                           ),
@@ -425,26 +377,26 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.75),
-                      Colors.transparent,
+                      AppColors.blackColor.withValues(alpha: 0.75),
+                      AppColors.transparentColor,
                     ],
                   ),
                 ),
-                padding: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.only(bottom: AppSizes.lg),
                 child: Row(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(AppSizes.xs),
                       child: GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: AppColors.messagingOnAccent.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.arrow_back,
-                            color: Colors.white,
+                            color: AppColors.messagingOnAccent,
                             size: 24,
                           ),
                         ),
@@ -455,9 +407,8 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                         child: Text(
                           widget.title!,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+                          style: AppTextStyles.size16.copyWith(
+                            color: AppColors.messagingOnAccent,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -466,21 +417,24 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                       const Spacer(),
                     if (hasImage || hasVideo)
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: IconButton(
-                          tooltip: 'Download',
-                          icon: _isDownloading
-                              ? const PrimaryCircularLoader(
-                                  size: 18,
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                )
-                              : const Icon(
-                                  Icons.download_rounded,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                          onPressed: _downloadCurrentMedia,
+                        padding: const EdgeInsets.all(AppSizes.xs),
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _isDownloading,
+                          builder: (context, downloading, _) => IconButton(
+                            tooltip: AppStrings.download,
+                            icon: downloading
+                                ? const PrimaryCircularLoader(
+                                    size: 18,
+                                    strokeWidth: 2,
+                                    color: AppColors.messagingOnAccent,
+                                  )
+                                : const Icon(
+                                    Icons.download_rounded,
+                                    color: AppColors.messagingOnAccent,
+                                    size: 24,
+                                  ),
+                            onPressed: _downloadCurrentMedia,
+                          ),
                         ),
                       ),
                   ],
@@ -496,6 +450,71 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
 /// In-app player for a LOCAL video file (e.g. a pending composer attachment).
 /// Uses video_player + Chewie; owns and disposes its controllers.
+/// Full-screen broken/failed image placeholder.
+Widget _brokenImagePlaceholder(BuildContext context) {
+  return Container(
+    color: AppColors.blackColor,
+    child: Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.broken_image, color: AppColors.messagingMediaHint, size: 80),
+          const SizedBox(height: AppSizes.md),
+          Text(
+            AppStrings.failedToLoadImage,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.messagingMediaHint),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Decodes [imageBytesFuture] and renders it full-screen, with loading and
+/// broken-image states.
+class _MediaImage extends StatelessWidget {
+  const _MediaImage({required this.hasImage, required this.imageBytesFuture});
+
+  final bool hasImage;
+  final Future<Uint8List>? imageBytesFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasImage) {
+      return const Icon(Icons.broken_image, color: AppColors.messagingMediaHint, size: 100);
+    }
+    return FutureBuilder<Uint8List>(
+      future: imageBytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: AppColors.blackColor,
+            child: const Center(
+              child: PrimaryCircularLoader(
+                size: 28,
+                strokeWidth: 2,
+                color: AppColors.messagingMediaSubtle,
+              ),
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return _brokenImagePlaceholder(context);
+        }
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              _brokenImagePlaceholder(context),
+        );
+      },
+    );
+  }
+}
+
 class _LocalVideoPlayer extends StatefulWidget {
   const _LocalVideoPlayer({required this.file});
 
@@ -531,8 +550,16 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
       // fixed landscape lock — a portrait pending-upload clip should expand
       // to a taller portrait frame, not get rotated onto its side.
       final fullscreenOrientations = aspectRatio >= 1.0
-          ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
-          : const [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown];
+          ? const [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]
+          : const [
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+            ];
+      // Mandate 2 (Bucket C): video-player / Chewie controller lifecycle —
+      // setState publishes the initialised controllers to build.
       setState(() {
         _videoController = controller;
         _chewieController = ChewieController(
@@ -543,10 +570,10 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
           deviceOrientationsOnEnterFullScreen: fullscreenOrientations,
           aspectRatio: aspectRatio,
           materialProgressColors: ChewieProgressColors(
-            playedColor: Colors.white,
-            handleColor: Colors.white,
-            bufferedColor: Colors.white54,
-            backgroundColor: Colors.white24,
+            playedColor: AppColors.messagingOnAccent,
+            handleColor: AppColors.messagingOnAccent,
+            bufferedColor: AppColors.messagingMediaHint,
+            backgroundColor: AppColors.messagingMediaTrackBg,
           ),
         );
       });
@@ -566,7 +593,7 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
   Widget build(BuildContext context) {
     if (_initError) {
       return const Center(
-        child: Icon(Icons.error_outline, color: Colors.white54, size: 80),
+        child: Icon(Icons.error_outline, color: AppColors.messagingMediaHint, size: 80),
       );
     }
     if (_chewieController == null) {
@@ -574,7 +601,7 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
         child: PrimaryCircularLoader(
           size: 28,
           strokeWidth: 2,
-          color: Colors.white70,
+          color: AppColors.messagingMediaSubtle,
         ),
       );
     }

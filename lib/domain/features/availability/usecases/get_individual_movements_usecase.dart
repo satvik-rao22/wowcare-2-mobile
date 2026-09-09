@@ -1,5 +1,5 @@
-import '../entities/individual_movement_board.dart';
-import '../repositories/availability_repository.dart';
+import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
+import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 
 class GetIndividualMovementsUseCase {
   GetIndividualMovementsUseCase(this._repository);

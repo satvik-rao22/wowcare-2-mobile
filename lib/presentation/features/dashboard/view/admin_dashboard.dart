@@ -1,29 +1,35 @@
+import 'dart:async';
+import 'package:wowcare/core/responsive/app_breakpoints.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
-import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
-import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_coordinator_state.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/admin_dashboard_coordinator_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/admin_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/school_status_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_attention_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/attention_grid.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/availability_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/billing_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/classroom_shifts_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_welcome_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/enrollment_card.dart';
+import 'package:wowcare/presentation/features/availability/view_model/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view_model/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/movements_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/my_day_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/ratio_monitoring_card.dart';
+import 'package:wowcare/presentation/features/dashboard/model/admin_dashboard_viewmodel.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -36,7 +42,8 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard>
+    with TabBecameVisibleMixin {
   late final AdminDashboardCoordinatorCubit _coordinator;
   final GlobalKey _ratioCardKey = GlobalKey();
   final GlobalKey _shiftsCardKey = GlobalKey();
@@ -47,6 +54,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _coordinator = serviceLocator<AdminDashboardCoordinatorCubit>();
+  }
+
+  // Dashboard is branch index 0 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 0;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Returning to the Dashboard tab (or re-tapping it while already there)
+    // refreshes the coordinator that is ALREADY alive. This used to live in
+    // DashboardScreen, where it bumped a KeyedSubtree epoch and destroyed the
+    // whole subtree — which re-resolved this coordinator from GetIt (a
+    // `registerFactory`, so a brand-new instance) and re-ran its constructor's
+    // `initialize()`, i.e. the entire cold-open fan-out, every single time.
+    //
+    // `refresh()` is the same call pull-to-refresh already makes, and every
+    // child cubit behind it has an in-flight guard plus a silent-refresh mode,
+    // so this is idempotent and cheap. Same visible outcome: fresh data.
+    unawaited(_coordinator.refresh());
   }
 
   void _scrollToRatioCard() {
@@ -123,8 +150,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // Note: ActivityFeedScreen currently does not support these query
               // parameters natively, so this sets the convention.
               context.go(
-                '/activityFeed?tab=custom&activityType=Incident&classroom=All',
-                extra: <String, dynamic>{'timestamp': DateTime.now().millisecondsSinceEpoch},
+                Uri(
+                  path: ShellBranchRoutes.activityFeed,
+                  queryParameters: const <String, String>{
+                    'tab': 'custom',
+                    'activityType': 'Incident',
+                    'classroom': 'All',
+                  },
+                ).toString(),
+                // The timestamp exists only to make each tap a distinct
+                // location so `_fastPage`'s query-keyed page identity rebuilds
+                // the feed; ActivityFeedScreen never reads it.
+                extra: IncidentFeedNonce(
+                  value: DateTime.now().millisecondsSinceEpoch,
+                ),
               );
             },
           ),
@@ -194,15 +233,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        }
-        // else if (state.isPartialError) {
-        //   CoreUtils.showTopSnackBar(
-        //     context: context,
-        //     message: 'Some sections could not be loaded. Pull down to retry.',
-        //     isWarning: true,
-        //   );
-        // }
-        else if (state.isReady) {
+        } else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',
@@ -217,7 +248,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           type: MaterialType.transparency,
           child: CustomRefreshIndicator(
             onRefresh: () => coordinator.refresh(),
-            child: _DashboardCardList(
+            child: _AdminDashboardCardList(
               cardFor: _cardFor,
               buildHeader: _buildHeader,
             ),
@@ -228,8 +259,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 }
 
-class _DashboardCardList extends StatelessWidget {
-  const _DashboardCardList({required this.cardFor, required this.buildHeader});
+class _AdminDashboardCardList extends StatelessWidget {
+  const _AdminDashboardCardList({
+    required this.cardFor,
+    required this.buildHeader,
+  });
 
   final Widget Function(AdminDashboardCard) cardFor;
   final Widget Function(String) buildHeader;
@@ -247,7 +281,22 @@ class _DashboardCardList extends StatelessWidget {
       builder: (context, dashState) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+            // §7.2 KEEPS this LayoutBuilder — it is one of the "dashboard
+            // gutter checks" the mandate names, and it decides only this
+            // subtree's own horizontal padding.
+            //
+            // Precise about what it measures: this sits OUTSIDE the 640 cap
+            // below, so `constraints.maxWidth` is the width the shell hands
+            // the list, not the capped content box. That distinction cannot
+            // change the outcome, because the threshold (360) is below the cap
+            // (640): at every width where this ternary flips, the cap is not
+            // binding and the two are the same number. Above 640 both sides
+            // yield 16.
+            //
+            // The 360 literal is gone — the boundary is AppBreakpoints', so
+            // nothing here defines a breakpoint locally.
+            final double gutter =
+                constraints.maxWidth < AppBreakpoints.narrowMaxWidth ? 12 : 16;
 
             return Align(
               alignment: Alignment.topCenter,

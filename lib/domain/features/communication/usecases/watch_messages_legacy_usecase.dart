@@ -1,5 +1,5 @@
-import '../entities/message.dart';
-import '../repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 
 /// Firestore delta stream for a single thread's messages — see
 /// [CommunicationRepository.watchMessages] for the merge-into-Isar contract.

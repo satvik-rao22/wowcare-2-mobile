@@ -6,14 +6,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
-
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../shared/utils/responsive_helper.dart';
-import '../view/activity_item.dart';
-import '../view/view_activity_screens/show_full_screen_media.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 enum MediaType { photos, video }
 
@@ -105,7 +108,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[MediaUploader] initState — hashCode=$hashCode');
+    AppLogger.d('[MediaUploader] initState — hashCode=$hashCode');
     maxPhotos = widget.limit;
     photoMaxSizeMB = widget.photoSizeLimit ?? 10;
 
@@ -136,7 +139,7 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   @override
   void dispose() {
-    debugPrint(
+    AppLogger.d(
       '[MediaUploader] dispose — hashCode=$hashCode '
       '(if this fires while the file picker is open, the host activity is '
       'being recreated)',
@@ -161,7 +164,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         });
       }
     } catch (e) {
-      debugPrint('Failed to load remote video thumbnail: $e');
+      AppLogger.e('Failed to load remote video thumbnail', e);
       _remoteVideoController?.dispose();
       _remoteVideoController = null;
       if (mounted) {
@@ -175,8 +178,8 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _generateVideoThumbnail() async {
     if (_newVideoFile == null) return;
 
-    final tempDir = await getTemporaryDirectory();
     try {
+      final tempDir = await getTemporaryDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: _newVideoFile!.path,
         thumbnailPath: tempDir.path,
@@ -191,7 +194,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         });
       }
     } catch (e) {
-      debugPrint('Thumbnail failed: $e');
+      AppLogger.e('Thumbnail generation failed', e);
     }
   }
 
@@ -215,7 +218,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
-    debugPrint(
+    AppLogger.d(
       '[MediaUploader] _pickPhotos: start source=$source '
       'hashCode=$hashCode mounted=$mounted',
     );
@@ -235,7 +238,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         source: source,
         imageQuality: 85,
       );
-      debugPrint(
+      AppLogger.d(
         '[MediaUploader] _pickPhotos: camera returned '
         '${camera == null ? 'null' : 'image'} mounted=$mounted',
       );
@@ -326,26 +329,52 @@ class _MediaUploaderState extends State<MediaUploader> {
         !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
+      if (!mounted) return;
     }
 
     File? file;
-    if (source == ImageSource.camera) {
-      final XFile? picked = await _picker.pickVideo(
-        source: source,
-        maxDuration: const Duration(seconds: videoMaxDurationSec),
+    // Both pickers can throw a PlatformException (permission denied, an OEM
+    // gallery handing back a broken result, the camera being unavailable).
+    // Letting that escape kills the flow with no feedback at all, which reads
+    // as a freeze/crash to the user - surface it as a warning instead.
+    try {
+      if (source == ImageSource.camera) {
+        final XFile? picked = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(seconds: videoMaxDurationSec),
+        );
+        if (!mounted || picked == null) return;
+        file = File(picked.path);
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
+        if (!mounted) return;
+        if (result == null || result.files.isEmpty) return;
+        final path = result.files.single.path;
+        if (path == null || path.trim().isEmpty) return;
+        file = File(path);
+      }
+    } catch (e) {
+      AppLogger.e('[MediaUploader] _pickVideo: picker failed', e);
+      _showWarning(
+        source == ImageSource.camera
+            ? 'Could not open the camera. Please try again.'
+            : 'Could not open that video. Please try again.',
       );
-      if (!mounted || picked == null) return;
-      file = File(picked.path);
-    } else {
-      final result = await FilePicker.pickFiles(
-        type: FileType.video,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null || path.trim().isEmpty) return;
-      file = File(path);
+      return;
     }
+
+    // On iOS the picked video is a *copy* in the app's temp directory; if the
+    // system reclaimed it (or the copy-out failed) every later step - length(),
+    // AVPlayer init, thumbnailing - would fail on a missing path.
+    if (!await file.exists()) {
+      if (!mounted) return;
+      _showWarning('Could not read the selected video. Please try again.');
+      return;
+    }
+    if (!mounted) return;
 
     final ext = file.path.split('.').last.toLowerCase();
     if (!_videoExt.contains(ext)) {
@@ -422,7 +451,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text(
                   'Replace',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.activityDestructiveActionText,
                 ),
               ),
             ],
@@ -453,21 +482,19 @@ class _MediaUploaderState extends State<MediaUploader> {
     _notifyParent();
   }
 
-
   void _openVideoFullscreen() {
     final url = _existingVideoUrl?.trim();
     if (url != null && url.isNotEmpty) {
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => ShowFullScreenMedia(
-            activity: ActivityItem(
-              time: '',
-              date: '',
-              name: '',
-              studentList: const [],
-              createdBy: '',
-              videoUrl: url,
-            ),
+      context.push<void>(
+        ShowFullScreenMedia.routeName,
+        extra: ShowFullScreenMediaArgs(
+          activity: ActivityItem(
+            time: '',
+            date: '',
+            name: '',
+            studentList: const [],
+            createdBy: '',
+            videoUrl: url,
           ),
         ),
       );
@@ -475,10 +502,9 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
     final file = _newVideoFile;
     if (file != null) {
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => FullscreenLocalVideoPlayerPage(videoFile: file),
-        ),
+      context.push<void>(
+        FullscreenLocalVideoPlayerPage.routeName,
+        extra: FullscreenLocalVideoArgs(videoFile: file),
       );
     }
   }
@@ -500,11 +526,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               Text(
                 'Select Media Source',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryColor,
-                ),
+                style: AppTextStyles.activityPickerDialogTitle,
               ),
               const SizedBox(height: 20),
               if (widget.allowPhoto) ...[
@@ -581,18 +603,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) =>
                         AppColors.buildPrimaryGradient().createShader(bounds),
-                    child: Icon(icon, size: 26, color: Colors.white),
+                    child: Icon(icon, size: 26, color: AppColors.cardColor),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
+                    style: AppTextStyles.activityPickerOptionLabel,
                   ),
                 ),
                 Icon(
@@ -634,19 +652,19 @@ class _MediaUploaderState extends State<MediaUploader> {
               !_remoteThumbnailReady &&
               !_remoteThumbnailError)
             Container(
-              color: Colors.grey[800],
+              color: AppColors.activityVideoPlaceholderBg,
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(color: AppColors.cardColor),
               ),
             )
           else
             Container(
-              color: Colors.grey[800],
+              color: AppColors.activityVideoPlaceholderBg,
               child: const Center(
                 child: Icon(
                   Icons.play_circle_fill,
                   size: 60,
-                  color: Colors.white70,
+                  color: AppColors.activityMediaPlaceholderIconColor,
                 ),
               ),
             ),
@@ -655,41 +673,21 @@ class _MediaUploaderState extends State<MediaUploader> {
             child: Icon(
               Icons.play_circle_fill,
               size: 60,
-              color: Colors.white.withValues(alpha: 0.9),
-              shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
+              color: AppColors.cardColor.withValues(alpha: 0.9),
+              shadows: const [
+                Shadow(
+                  blurRadius: 10,
+                  color: AppColors.activityIconBackdropColor,
+                ),
+              ],
             ),
           ),
-
-          // if (hasRemoteVideoOnly)
-          //   const Positioned(
-          //     bottom: 8,
-          //     left: 8,
-          //     child: Padding(
-          //       padding: EdgeInsets.all(8),
-          //       child: Text(
-          //         'Video',
-          //         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          //       ),
-          //     ),
-          //   ),
         ],
       ),
       onRemove: _removeVideo,
       canRemove: !widget.readOnly,
     );
   }
-
-  // Widget _buildVideoPreview() {
-  //   final hasThumbnail = _videoThumbnailFile != null;
-  //
-  //   return _previewItem(
-  //     child: hasThumbnail
-  //         ? Image.file(_videoThumbnailFile!, fit: BoxFit.cover)
-  //         : const Center(child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70)),
-  //     isVideo: true,
-  //     onRemove: _removeVideo,
-  //   );
-  // }
 
   Widget _buildPhotoPreviewNetwork(String url) {
     return _previewItem(
@@ -698,15 +696,17 @@ class _MediaUploaderState extends State<MediaUploader> {
         fit: BoxFit.cover,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : const CircularProgressIndicator(),
-        errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+        errorBuilder: (_, __, ___) =>
+            Container(color: AppColors.activityMediaLoadingPlaceholderBg),
       ),
       onRemove: () => _removeExistingPhoto(url),
       // Open the shared full-screen viewer so a saved (network) photo gets the
       // SAME experience as the feed list: full-screen zoom viewport + a
       // download button. (Local, not-yet-uploaded files keep the lightweight
       // dialog since there is nothing to download.)
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ShowFullScreenMedia(photoUrl: url)),
+      onTap: () => context.push(
+        ShowFullScreenMedia.routeName,
+        extra: ShowFullScreenMediaArgs(photoUrl: url),
       ),
       canRemove: !widget.readOnly,
     );
@@ -721,7 +721,11 @@ class _MediaUploaderState extends State<MediaUploader> {
           file,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
+            child: Icon(
+              Icons.broken_image,
+              color: AppColors.activityMediaPlaceholderIconColor,
+              size: 60,
+            ),
           ),
         ),
       ),
@@ -733,7 +737,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.blackColor,
         insetPadding: const EdgeInsets.all(0),
         child: Stack(
           children: [
@@ -749,7 +753,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               right: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: AppColors.cardColor),
               ),
             ),
           ],
@@ -775,7 +779,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               child: Container(
                 width: 120,
                 height: 120,
-                color: Colors.grey[300],
+                color: AppColors.activityMediaLoadingPlaceholderBg,
                 child: child,
               ),
             ),
@@ -789,10 +793,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                    color: Colors.black54,
+                    color: AppColors.activityIconBackdropColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.cardColor,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
@@ -800,7 +808,6 @@ class _MediaUploaderState extends State<MediaUploader> {
       ),
     );
   }
-
 
   Widget _buildAllPreviews() {
     final showVideoPreview = _keepPhotoAndVideoTogether
@@ -839,7 +846,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
               decoration: BoxDecoration(
-                color: const Color(0x1AB1AFE9),
+                color: AppColors.activityBorderLight,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -850,10 +857,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                     widget.allowVideo
                         ? 'Take/Upload Photo or Video'
                         : 'Take/Upload Photo',
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                    ),
+                    style: AppTextStyles.activityUploadBoxHint,
                   ),
                 ],
               ),
@@ -866,15 +870,14 @@ class _MediaUploaderState extends State<MediaUploader> {
               RichText(
                 text: TextSpan(
                   text: widget.label,
-                  style: TextStyle(
+                  style: AppTextStyles.activityMediaLabelText(
                     fontSize: responsive.labelFontSize,
-                    color: const Color(0xff573353),
                   ),
                   children: widget.isRequired
                       ? [
                           const TextSpan(
                             text: ' *',
-                            style: TextStyle(color: Colors.red),
+                            style: AppTextStyles.activityRequiredMarker,
                           ),
                         ]
                       : null,
@@ -886,16 +889,18 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0x66573353)),
+                    border: Border.all(color: AppColors.inputBorderColor),
                     borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Select Media',
-                        style: TextStyle(fontSize: responsive.labelFontSize),
+                        style: AppTextStyles.activityResponsiveBodyText(
+                          fontSize: responsive.labelFontSize,
+                        ),
                       ),
                       const Icon(
                         Icons.file_upload_outlined,
@@ -913,7 +918,7 @@ class _MediaUploaderState extends State<MediaUploader> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               'Please upload at least one media *',
-              style: TextStyle(color: Colors.red, fontSize: 13),
+              style: AppTextStyles.activityValidationErrorText,
             ),
           ),
 
@@ -929,6 +934,8 @@ class _MediaUploaderState extends State<MediaUploader> {
 
 /// Full-screen playback for a locally picked video file (preview tap).
 class FullscreenLocalVideoPlayerPage extends StatefulWidget {
+  static const String routeName = '/activity-fullscreen-local-video';
+
   const FullscreenLocalVideoPlayerPage({super.key, required this.videoFile});
 
   final File videoFile;
@@ -1023,18 +1030,18 @@ class _FullscreenLocalVideoPlayerPageState
         if (!didPop && _isRotated) _toggleRotated();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.blackColor,
         extendBodyBehindAppBar: true,
         appBar: _isRotated
             ? null
             : AppBar(
-                backgroundColor: Colors.transparent,
+                backgroundColor: AppColors.transparentColor,
                 elevation: 0,
                 automaticallyImplyLeading: false,
                 leading: IconButton(
                   icon: const Icon(
                     Icons.arrow_back,
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     size: 28,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -1044,7 +1051,7 @@ class _FullscreenLocalVideoPlayerPageState
           children: [
             Center(
               child: !ready
-                  ? const CircularProgressIndicator(color: Colors.white)
+                  ? const CircularProgressIndicator(color: AppColors.cardColor)
                   : GestureDetector(
                       onTap: () {
                         if (c.value.isPlaying) {
@@ -1064,7 +1071,8 @@ class _FullscreenLocalVideoPlayerPageState
                               duration: const Duration(milliseconds: 300),
                               child: const Icon(
                                 Icons.play_circle_fill,
-                                color: Colors.white70,
+                                color:
+                                    AppColors.activityMediaPlaceholderIconColor,
                                 size: 72,
                               ),
                             ),
@@ -1080,7 +1088,7 @@ class _FullscreenLocalVideoPlayerPageState
                 child: SafeArea(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: const Color(0x8A000000),
+                      color: AppColors.activityIconBackdropColor,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -1091,7 +1099,7 @@ class _FullscreenLocalVideoPlayerPageState
                         _isRotated
                             ? Icons.close_fullscreen_rounded
                             : Icons.screen_rotation_alt_rounded,
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                         size: 20,
                       ),
                       onPressed: _toggleRotated,
