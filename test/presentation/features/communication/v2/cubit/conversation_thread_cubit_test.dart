@@ -34,6 +34,10 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/communication/services/messaging_session_impl.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_settings_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/communication_settings.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_communication_settings_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -517,6 +521,9 @@ void main() {
       ),
       getMessageReceiptsUseCase: GetMessageEntityReceiptsUseCase(messageRepo),
       session: MessagingSessionImpl(_UnusedStorageService()),
+      resolveMessageDeletePermissionUseCase: ResolveMessageDeletePermissionUseCase(
+        GetCommunicationSettingsUseCase(_FakeCommunicationSettingsRepository()),
+      ),
       conversationRepository: conversationRepo,
       getClassroomRosterUseCase: GetClassroomRosterPresentUserCodesUseCase(
         conversationRepo,
@@ -777,4 +784,14 @@ void main() {
       expect(cubit.state.messages.single.status, MessageStatus.sent);
     });
   });
+}
+
+/// Never invoked in these tests — the delete-permission path isn't exercised;
+/// it only satisfies [ResolveMessageDeletePermissionUseCase]'s constructor.
+class _FakeCommunicationSettingsRepository
+    implements CommunicationSettingsRepository {
+  @override
+  Future<Either<Failure, CommunicationSettings>> getCommunicationSettings(
+    String schoolCode,
+  ) => throw UnimplementedError();
 }

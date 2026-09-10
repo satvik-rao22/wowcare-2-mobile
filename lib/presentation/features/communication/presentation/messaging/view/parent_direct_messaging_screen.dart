@@ -19,7 +19,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';

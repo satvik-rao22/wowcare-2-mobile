@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart' show Either;
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
@@ -19,7 +21,7 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
+import 'package:wowcare/data/features/communication/mappers/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
@@ -77,6 +79,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required MessagingSession session,
     required ConversationEntityRepository conversationRepository,
     required GetClassroomRosterPresentUserCodesUseCase getClassroomRosterUseCase,
+    required ResolveMessageDeletePermissionUseCase resolveMessageDeletePermissionUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
     bool isDraft = false,
     Future<ConversationEntity?> Function()? onResolveConversation,
@@ -87,6 +90,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _session = session,
        _conversationRepository = conversationRepository,
        _getClassroomRosterUseCase = getClassroomRosterUseCase,
+       _resolveMessageDeletePermissionUseCase = resolveMessageDeletePermissionUseCase,
        _pendingAttachmentStore = pendingAttachmentStore,
        _isAppForegrounded = isAppForegrounded,
        _isDraft = isDraft,
@@ -122,6 +126,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final MessagingSession _session;
   final ConversationEntityRepository _conversationRepository;
   final GetClassroomRosterPresentUserCodesUseCase _getClassroomRosterUseCase;
+  final ResolveMessageDeletePermissionUseCase _resolveMessageDeletePermissionUseCase;
 
   /// True until a draft conversation (e.g. a classroom chat that doesn't exist
   /// yet) has been created on the server. While draft, realtime/API loads are
@@ -408,6 +413,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       _session.saveComposerDraft(key, text);
 
   Future<void> removeComposerDraft(String key) => _session.removeComposerDraft(key);
+
+  /// Resolves the message-delete permission through the use-case (Mandate 5:
+  /// views don't invoke use-cases). Same settings-driven result, same `.none`
+  /// fallback as the view's previous inline `MessageDeletePermission.resolve`.
+  Future<MessageDeletePermission> resolveDeletePermission({
+    required String schoolCode,
+    required bool isAdminViewer,
+  }) => _resolveMessageDeletePermissionUseCase(
+    schoolCode: schoolCode,
+    isAdminViewer: isAdminViewer,
+  );
 
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 

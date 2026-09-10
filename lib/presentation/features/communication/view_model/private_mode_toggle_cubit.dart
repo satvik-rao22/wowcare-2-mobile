@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
 import 'private_mode_toggle_state.dart';
 
 /// Manages private mode for a single conversation in the parent thread.

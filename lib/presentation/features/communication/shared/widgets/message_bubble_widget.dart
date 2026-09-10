@@ -18,7 +18,7 @@ import 'package:wowcare/presentation/features/communication/model/communication_
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';

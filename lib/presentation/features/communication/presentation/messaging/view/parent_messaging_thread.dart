@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/policies/role_aware_ownership.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
@@ -18,7 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
@@ -35,7 +35,7 @@ import 'package:wowcare/presentation/features/communication/view_model/communica
 import 'package:wowcare/presentation/features/communication/view_model/composer_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/composer_state.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
@@ -45,8 +45,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
+import 'package:wowcare/data/features/communication/mappers/participant_mapper.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
 class ParentMessagingThread extends StatefulWidget {
@@ -169,7 +169,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     // views) — same underlying storage read.
     final schoolCode =
         (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
-    final permission = await MessageDeletePermission.resolve(
+    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
       schoolCode: schoolCode,
       isAdminViewer: false,
     );

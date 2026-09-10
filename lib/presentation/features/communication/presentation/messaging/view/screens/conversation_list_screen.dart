@@ -5,7 +5,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
