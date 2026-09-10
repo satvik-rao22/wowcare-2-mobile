@@ -5,7 +5,7 @@ import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/classroom/view/classroom_tab_cards/classroom_students_tab_card.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
 
 /// Clears every cache layer so a school switch OR persona switch starts from
 /// a clean slate everywhere — not just the module the user happens to be
@@ -46,7 +46,7 @@ Future<void> clearAllCachesForContextSwitch(StorageService storage) async {
   } catch (_) {}
 
   try {
-    SchedulingCacheGate.invalidate();
+    SchedulingEvents.notifyChanged();
   } catch (_) {}
 
   try {

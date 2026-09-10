@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
-
+import 'package:wowcare/domain/features/scheduling/entities/schedule_time.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 
 /// Resolved school-day windows from `childcareSchedule` for one weekday.
+///
+/// Times are [ScheduleTime], not Flutter's `TimeOfDay` — this is domain data,
+/// and modelling it with a widget-library type is what kept this resolver
+/// stranded in `presentation/features/scheduling/utils/`. Convert at the UI
+/// boundary via `core/extensions/schedule_time_ext.dart`.
 class SchoolDayHours {
   const SchoolDayHours({
     required this.label,
@@ -11,12 +15,12 @@ class SchoolDayHours {
     required this.endTime,
     this.halfDay,
     this.durationMinutes,
-    required this.startTimeOfDay,
-    required this.endTimeOfDay,
-    required this.scheduleMonitorStartTimeOfDay,
-    required this.scheduleMonitorEndTimeOfDay,
-    required this.ratioMonitorStartTimeOfDay,
-    required this.ratioMonitorEndTimeOfDay,
+    required this.openTime,
+    required this.closeTime,
+    required this.scheduleMonitorStart,
+    required this.scheduleMonitorEnd,
+    required this.ratioMonitorStart,
+    required this.ratioMonitorEnd,
   });
 
   /// e.g. `Mon Schedule`
@@ -36,16 +40,16 @@ class SchoolDayHours {
   final int? durationMinutes;
 
   /// School operating hours (timeline axis).
-  final TimeOfDay startTimeOfDay;
-  final TimeOfDay endTimeOfDay;
+  final ScheduleTime openTime;
+  final ScheduleTime closeTime;
 
   /// Schedule-monitoring window used for forecast API requests.
-  final TimeOfDay scheduleMonitorStartTimeOfDay;
-  final TimeOfDay scheduleMonitorEndTimeOfDay;
+  final ScheduleTime scheduleMonitorStart;
+  final ScheduleTime scheduleMonitorEnd;
 
   /// Ratio-monitoring window (compliance checks).
-  final TimeOfDay ratioMonitorStartTimeOfDay;
-  final TimeOfDay ratioMonitorEndTimeOfDay;
+  final ScheduleTime ratioMonitorStart;
+  final ScheduleTime ratioMonitorEnd;
 }
 
 /// Maps `childcareSchedule` rows to calendar / forecast time bounds per weekday.
@@ -114,12 +118,12 @@ class SchoolHoursResolver {
       endTime: endLabel,
       halfDay: halfDayLabel?.isNotEmpty == true ? halfDayLabel : null,
       durationMinutes: blockDuration,
-      startTimeOfDay: startTod,
-      endTimeOfDay: endTod,
-      scheduleMonitorStartTimeOfDay: scheduleStart,
-      scheduleMonitorEndTimeOfDay: scheduleEnd,
-      ratioMonitorStartTimeOfDay: ratioStart,
-      ratioMonitorEndTimeOfDay: ratioEnd,
+      openTime: startTod,
+      closeTime: endTod,
+      scheduleMonitorStart: scheduleStart,
+      scheduleMonitorEnd: scheduleEnd,
+      ratioMonitorStart: ratioStart,
+      ratioMonitorEnd: ratioEnd,
     );
   }
 
@@ -127,16 +131,14 @@ class SchoolHoursResolver {
   int? totalMinutesFor(DateTime date) {
     final hours = hoursFor(date);
     if (hours == null) return null;
-    return _minutesBetween(hours.startTimeOfDay, hours.endTimeOfDay);
+    return _minutesBetween(hours.openTime, hours.closeTime);
   }
 
-  static int _minutesBetween(TimeOfDay start, TimeOfDay end) {
-    final startMin = start.hour * 60 + start.minute;
-    final endMin = end.hour * 60 + end.minute;
-    return (endMin - startMin).clamp(0, 24 * 60);
+  static int _minutesBetween(ScheduleTime start, ScheduleTime end) {
+    return (end.minutesOfDay - start.minutesOfDay).clamp(0, 24 * 60);
   }
 
-  static TimeOfDay? _parse24hTime(String? raw) {
+  static ScheduleTime? _parse24hTime(String? raw) {
     final trimmed = raw?.trim() ?? '';
     if (trimmed.isEmpty) return null;
     final parts = trimmed.split(':');
@@ -145,7 +147,7 @@ class SchoolHoursResolver {
     final m = int.tryParse(parts[1]);
     if (h == null || m == null) return null;
     if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-    return TimeOfDay(hour: h, minute: m);
+    return ScheduleTime(hour: h, minute: m);
   }
 
   /// API times are typically `HH:mm` or `HH:mm:ss` (24h).

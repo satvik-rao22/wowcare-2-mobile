@@ -21,7 +21,7 @@ import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
 import 'package:wowcare/domain/features/scheduling/services/scheduling_school_time.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
@@ -102,7 +102,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     super.initState();
     final now = AppTime.now();
     _initialDeviceToday = DateTime(now.year, now.month, now.day);
-    SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
+    SchedulingEvents.tick.addListener(_onCacheInvalidated);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _applyPersonaScope();
@@ -166,7 +166,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
   @override
   void dispose() {
-    SchedulingCacheGate.revision.removeListener(_onCacheInvalidated);
+    SchedulingEvents.tick.removeListener(_onCacheInvalidated);
     super.dispose();
   }
 
@@ -179,7 +179,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   /// cubit's [StaffSchedulingCubit.silentRefreshStaff] so the dropdown
   /// updates in place — no shimmer, no shift/classroom refetch.
   void _silentlyRefreshStaffIfDirty() {
-    final current = SchedulingCacheGate.revision.value;
+    final current = SchedulingEvents.tick.value;
     if (current == _lastConsumedRevision) return;
     _lastConsumedRevision = current;
     // ignore: discarded_futures
