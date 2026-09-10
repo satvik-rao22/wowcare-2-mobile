@@ -1,6 +1,12 @@
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 
 /// Resolves classroom codes to display names using the active-classrooms API map.
+///
+/// A business rule, not a util: what a classroom code means, when a value is
+/// already a human label rather than a code, and which of a staff member's
+/// classroom fields wins are all domain decisions. Sits alongside the other
+/// `*_code_resolver` rules in the domain layer rather than in a feature's
+/// `utils/` folder — it is consumed by scheduling and the dashboard alike.
 class ClassroomNameResolver {
   const ClassroomNameResolver([this._namesByCode = const {}]);
 

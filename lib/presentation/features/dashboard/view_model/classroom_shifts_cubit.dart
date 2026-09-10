@@ -12,8 +12,10 @@ import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/forecast_slot_mapper.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/presentation/features/scheduling/model/forecast_slot_mapper.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
+import 'package:wowcare/domain/features/scheduling/entities/schedule_time.dart';
+import 'package:wowcare/core/extensions/schedule_time_ext.dart';
 
 part 'classroom_shifts_state.dart';
 
@@ -158,13 +160,13 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       final schoolHours = resolver.hoursFor(date);
 
       final forecastStart =
-          schoolHours?.scheduleMonitorStartTimeOfDay ??
-          schoolHours?.startTimeOfDay ??
-          const TimeOfDay(hour: 6, minute: 0);
+          schoolHours?.scheduleMonitorStart ??
+          schoolHours?.openTime ??
+          const ScheduleTime(hour: 6, minute: 0);
       final forecastEnd =
-          schoolHours?.scheduleMonitorEndTimeOfDay ??
-          schoolHours?.endTimeOfDay ??
-          const TimeOfDay(hour: 22, minute: 0);
+          schoolHours?.scheduleMonitorEnd ??
+          schoolHours?.closeTime ??
+          const ScheduleTime(hour: 22, minute: 0);
       final blockMinutes = schoolHours?.durationMinutes ?? 30;
 
       // ── Phase 3: forecast (depends on classroom codes + resolved hours) ───
@@ -177,8 +179,8 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
             schoolCode: schoolCode,
             organizationCode: organizationCode,
             date: date,
-            startTime: forecastStart,
-            endTime: forecastEnd,
+            startTime: forecastStart.toTimeOfDay(),
+            endTime: forecastEnd.toTimeOfDay(),
             durationMinutes: blockMinutes,
             classroomCodes: codes,
           ).catchError(

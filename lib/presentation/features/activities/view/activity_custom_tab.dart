@@ -42,7 +42,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_tab_shared_helpers.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_feed_display_rules.dart';
+import 'package:wowcare/domain/features/activity/services/activity_feed_display_rules.dart';
 
 /// Feed card model + permissions (`activity_feed_card_permissions.dart`) come through this barrel export.
 import 'activity_daily_tab.dart';

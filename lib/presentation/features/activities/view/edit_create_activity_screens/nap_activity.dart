@@ -19,11 +19,11 @@ import 'package:wowcare/domain/features/activity/entities/activity_type_details.
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view_model/nap_activity_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_attendance_window_feedback.dart';
+import 'package:wowcare/domain/features/activity/services/activity_school_time.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
@@ -1215,7 +1215,6 @@ class _NapActivityViewState extends State<_NapActivityView> {
                   ),
                 ],
               ),
-              const ActivitySchoolTimeZoneHint(),
               if (!_isNapEndContextForUi()) ...[
                 SizedBox(height: responsive.verticalSpacing * 0.6),
                 Padding(

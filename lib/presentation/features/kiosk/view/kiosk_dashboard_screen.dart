@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_c
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_qr_section_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/app/di/di.dart';
 
 /// OPTIMIZED: Kiosk dashboard screen with isolated rendering.

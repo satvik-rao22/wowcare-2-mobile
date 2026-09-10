@@ -19,7 +19,7 @@ import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.d
 import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_address_update.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
 import 'package:wowcare/presentation/features/classroom/view/classroom_tab_cards/classroom_staff_tab_card.dart'
     show notifyClassroomStaffChanged;
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -967,7 +967,7 @@ class _EditProfileDetailsScreenViewState
 
       // Profile mutation — poke the scheduling screens so they silently
       // re-pull the staff list on the next visit.
-      SchedulingCacheGate.invalidate();
+      SchedulingEvents.notifyChanged();
       // Same idea for the Classroom module's own Staff tab: allowed/primary
       // classroom assignment may have just changed (including a full
       // removal above), so its cached roster is stale the moment this

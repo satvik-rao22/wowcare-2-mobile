@@ -5,7 +5,7 @@ import '../../../../core/utils/storage_keys.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
-import '../utils/classroom_age_range.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_age_rules.dart';
 import 'assign_student_confirmation_state.dart';
 
 /// Drives the review/submit step of the "Assign students to classroom" flow,

@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.d
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_qr_entity.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 
 part 'kiosk_dashboard_state.dart';
 
@@ -188,36 +188,25 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       AppLogger.d('[Kiosk] PIN verified: persona=${result.persona.name}');
 
-      // Record the verified person's REAL role/code so AuthInterceptor can
-      // use it for the sign-in/out calls that follow, instead of the kiosk
+      // The DI singleton owns the kiosk session — resolve it once and write
+      // both the verified identity and the mode flag through it. Constructing
+      // a second instance here (as the old "on demand" fallback did) would
+      // give this cubit a private cache the router never sees.
+      final kioskAccess = serviceLocator<KioskAccessControl>();
+
+      // Record the verified person's REAL role/code, distinct from the kiosk
       // device account's own (possibly `KIOSK`) role.
-      KioskAccessControl.setVerifiedIdentity(
+      kioskAccess.setVerifiedIdentity(
         role: result.role,
         staffCode: result.staffCode,
         guardianCode: result.guardianCode,
       );
 
       // CRITICAL: Mark user as kiosk user - this enables the route guard
-      try {
-        await serviceLocator<KioskAccessControl>().setKioskModeActive(
-          result.persona.name,
-        );
-        AppLogger.d(
-          '[Kiosk] Kiosk mode activated: persona=${result.persona.name}',
-        );
-      } catch (e) {
-        // Fallback: Create KioskAccessControl on demand if not registered
-        AppLogger.w(
-          '[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e',
-        );
-        final kioskAccess = KioskAccessControl(
-          serviceLocator<StorageService>(),
-        );
-        await kioskAccess.setKioskModeActive(result.persona.name);
-        AppLogger.d(
-          '[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}',
-        );
-      }
+      await kioskAccess.setKioskModeActive(result.persona.name);
+      AppLogger.d(
+        '[Kiosk] Kiosk mode activated: persona=${result.persona.name}',
+      );
 
       // Emit success state with the result
       emit(KioskDashboardPinSuccess(result));

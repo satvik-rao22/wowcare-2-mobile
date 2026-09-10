@@ -19,7 +19,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_document_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
@@ -136,7 +136,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
 
-    final uploadedBy = await resolveLoggedInStaffCode();
+    final uploadedBy =
+        await serviceLocator<ResolveLoggedInStaffCodeUseCase>()();
 
     await _cubit.submit(
       studentCode: widget.studentCode,

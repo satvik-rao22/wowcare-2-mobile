@@ -8,13 +8,13 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_item_edit_mappers.dart'
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_school_time.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item_edit_mappers.dart'
     show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
 import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart'
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart'
     show ActivityItem;
 import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
 import 'activity_editor_cubit.dart';

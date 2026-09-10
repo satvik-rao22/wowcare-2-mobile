@@ -29,7 +29,7 @@ import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_age_rules.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';

@@ -12,7 +12,7 @@ import 'package:wowcare/presentation/features/dashboard/view_model/my_shifts_cub
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_name_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';

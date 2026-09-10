@@ -13,19 +13,14 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_d
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_data_source.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_state.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_parent_feed_merge.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/domain/features/activity/services/activity_parent_feed_merge.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 // Reuses the top-level, presentation-agnostic feed helpers that live in the
 // daily-tab library (importing them, per the migration plan — the View is NOT
 // modified): the row→item mapper, the multi-student grouper, the stable-id
 // deduper, and the option-label priming/lookup.
-import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
-    show
-        activityFeedOptionLabelsForType,
-        activityItemFromFeedRow,
-        dedupeActivitiesByStableId,
-        groupMultiStudentFeedItems,
-        primeActivityFeedOptionLabelsFromRows;
+import 'package:wowcare/presentation/features/activities/model/activity_feed_grouping.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item_from_feed_row.dart';
 
 /// Presentation context the page→item mappers need but which is NOT part of the
 /// resolved API [ActivityFeedQuery]: viewer display name, school IANA zone,

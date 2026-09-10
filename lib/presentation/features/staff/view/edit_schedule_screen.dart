@@ -10,7 +10,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart
 import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
 import 'package:go_router/go_router.dart';
 
 class EditScheduleScreen extends StatelessWidget {
@@ -472,7 +472,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
 
       // Schedule mutation — poke the scheduling screens so they silently
       // re-pull the staff list on the next visit.
-      SchedulingCacheGate.invalidate();
+      SchedulingEvents.notifyChanged();
 
       CoreUtils.showTopSnackBar(
         context: context,

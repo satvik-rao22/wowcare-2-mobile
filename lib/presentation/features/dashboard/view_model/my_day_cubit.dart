@@ -12,7 +12,7 @@ import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_d
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
 part 'my_day_state.dart';

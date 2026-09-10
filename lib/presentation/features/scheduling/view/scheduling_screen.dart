@@ -6,23 +6,23 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import '../view_model/scheduling_staff_list_cubit.dart';
-import '../../../../shared/common/widgets/custom_date_time_field.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
-import '../../../../shared/common/widgets/custom_scaffold.dart';
-import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
-import '../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import '../../students/module_access.dart';
 import '../view_model/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
 import '../model/scheduling_route_args.dart';
-import '../utils/scheduling_cache_gate.dart';
-import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
+import 'package:wowcare/domain/features/scheduling/services/scheduling_school_time.dart';
 import '../navigation/scheduling_shift_navigator.dart';
 import '../widgets/day_classroom_section.dart';
 import '../widgets/scheduling_filter_bar.dart';
@@ -144,7 +144,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
       _silentlyRefreshStaffIfDirty();
       _bootstrapSchoolZone();
     });
-    SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
+    SchedulingEvents.tick.addListener(_onCacheInvalidated);
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -171,7 +171,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
 
   @override
   void dispose() {
-    SchedulingCacheGate.revision.removeListener(_onCacheInvalidated);
+    SchedulingEvents.tick.removeListener(_onCacheInvalidated);
     super.dispose();
   }
 
@@ -185,7 +185,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   /// [SchedulingStaffListCubit]'s loading state, so the refresh is
   /// invisible to the user.
   void _silentlyRefreshStaffIfDirty() {
-    final current = SchedulingCacheGate.revision.value;
+    final current = SchedulingEvents.tick.value;
     if (current == _lastConsumedRevision) return;
     _lastConsumedRevision = current;
     // ignore: discarded_futures

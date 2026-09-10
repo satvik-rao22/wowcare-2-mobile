@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_school_time.dart';
 
 /// Shared age-vs-classroom-range rules.
 ///
@@ -14,11 +14,23 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_s
 /// out-of-range placement is a legitimate decision for staff to make (a child
 /// held back with their peer group, a room change mid-birthday, and so on), so
 /// the user is told and then allowed to proceed.
+///
+/// Lives in the domain layer because it is a cross-platform contract rule: it
+/// belongs where the domain can reach it and tests can pin it. It previously
+/// sat in `presentation/features/classroom/utils/`, from which the domain layer
+/// could not see it, and where it reached sideways into
+/// `presentation/features/attendance/view_model/` for school-today. The
+/// inclusive-bounds decision itself is on the entity, as
+/// [Classroom.isAgeOutsideRange]; everything here builds on that.
+///
+/// Every entry point takes an optional [reference] date. Pass one to get a pure,
+/// deterministic result (tests do); omit it and the school's calendar day is
+/// used, via [classroomSchoolToday].
 
 /// Completed months between [birthDate] and [reference] (school-today when
 /// omitted). Mirrors the web helper, including the day-of-month adjustment.
 int ageInCompletedMonths(DateTime birthDate, {DateTime? reference}) {
-  final ref = reference ?? attendanceSchoolToday();
+  final ref = reference ?? classroomSchoolToday();
   var months = (ref.year - birthDate.year) * 12 + (ref.month - birthDate.month);
   // The birthday's day-of-month hasn't been reached yet this month.
   if (ref.day < birthDate.day) months -= 1;
@@ -26,6 +38,9 @@ int ageInCompletedMonths(DateTime birthDate, {DateTime? reference}) {
 }
 
 /// Human-readable `1y 2m` for a month count; `0m` when zero.
+///
+/// Distinct from `ClassroomDetails.formatMonthsAsYearMonthParts`, which renders
+/// an empty string for zero because it composes one side of a card's range.
 String formatMonthsAsYearMonth(int totalMonths) {
   if (totalMonths <= 0) return '0m';
   final years = totalMonths ~/ 12;
