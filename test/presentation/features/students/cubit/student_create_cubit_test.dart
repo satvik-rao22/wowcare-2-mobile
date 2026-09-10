@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -251,6 +253,7 @@ class _Fakes {
   final updateSchedules = _FakeUpdateSchedulesUseCase();
 
   StudentCreateCubit build() => StudentCreateCubit(
+    profilePhotoBackgroundUploader: _NoopProfilePhotoBackgroundUploader(),
     getStudentPageUseCase: getPage,
     getStudentProfileUseCase: getProfile,
     getGuardianNameCodeMapForSchoolUseCase: guardianNameCodeMap,
@@ -643,4 +646,29 @@ void main() {
       expect(cubit.state.step2SelectedExistingParents, const ['Jane Doe']);
     });
   });
+}
+
+/// The delete/upload photo path isn't exercised in these tests — a no-op so the
+/// cubit constructs without a real uploader/network.
+class _NoopProfilePhotoBackgroundUploader
+    implements ProfilePhotoBackgroundUploader {
+  @override
+  Future<void> uploadStudentPhoto({
+    required String studentCode,
+    required File file,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {}
+
+  @override
+  Future<void> uploadGuardianPhoto({
+    required File file,
+    required String guardianCode,
+    required String studentCode,
+    required String email,
+    required String mobile,
+    required String schoolCode,
+    required String organizationCode,
+    required String userCode,
+  }) async {}
 }
