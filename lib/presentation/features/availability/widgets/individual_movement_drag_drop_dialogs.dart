@@ -28,7 +28,7 @@ Future<MovementDragDropDecision?> showMovementConfirmDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Confirm Movement',
@@ -46,7 +46,7 @@ Future<MovementDragDropDecision?> showMovementRejectDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Reject Movement',
@@ -69,7 +69,7 @@ Future<MovementDragDropDecision?> showMovementDateDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: title,
@@ -89,7 +89,7 @@ Future<MovementDragDropDecision?> showMovementDeleteNotAllowedDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Delete Not Allowed',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 
@@ -169,7 +170,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: index < _pin.length ? Colors.blue[400] : Colors.grey[300],
+            color: index < _pin.length ? MaterialHues.blue400 : MaterialHues.grey300,
           ),
         ),
       ),
@@ -222,8 +223,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                 child: ElevatedButton(
                   onPressed: _removeDigit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[200],
-                    foregroundColor: Colors.black,
+                    backgroundColor: MaterialHues.grey200,
+                    foregroundColor: AppColors.blackColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -247,8 +248,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       child: ElevatedButton(
         onPressed: () => _addDigit(number),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
+          backgroundColor: MaterialHues.grey200,
+          foregroundColor: AppColors.blackColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
@@ -287,7 +288,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                           );
                         },
               style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.whiteColor,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -336,13 +337,13 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
                       ),
                     )
                   : const Text(
                       'Next',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 16 * (-3 / 100),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -444,13 +445,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
                 color: AppColors.attendanceIconColor,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
               ),
               labelColor: AppColors.attendanceIconColor,

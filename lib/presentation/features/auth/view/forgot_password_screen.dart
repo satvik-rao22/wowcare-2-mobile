@@ -113,7 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: Text(
                                 'Forgot Password',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                   height: 2 / 6,
                                   fontWeight: FontWeight.w500,
@@ -127,7 +127,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: Text(
                                 "Enter the email that's associated with your account.",
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.016,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.authPrimaryTextColor,
@@ -153,7 +153,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 hintText: 'Email Address',
                                 hintStyle: TextStyle(
                                   color: AppColors.authPrimaryTextColor,
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                 ),
                                 prefixIcon: Padding(
@@ -203,7 +203,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               // Solid color (a gradient `foreground` shader breaks
                               // tap-to-position-cursor on editable fields).
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.022,
                                 color: AppColors.primaryColor,
                               ),
@@ -253,7 +253,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                         color: AppColors.cardColor,
                                         fontSize: screenHeight * 0.022,
                                         fontWeight: FontWeight.w600,
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                       ),
                                     ),
                                   ),

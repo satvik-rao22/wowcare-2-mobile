@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
@@ -571,7 +572,7 @@ class _ActivityStudentListItem extends StatelessWidget {
           border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
+              ? AppPalette.surfaceSelected
               : AppColors.cardColor,
         ),
         child: Padding(

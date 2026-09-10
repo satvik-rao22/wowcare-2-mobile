@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
 /// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.
@@ -50,7 +51,7 @@ class ProfileInfoCard extends StatelessWidget {
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           border: Border.all(color: AppColors.themeColor),
           borderRadius: borderRadius,
         ),
@@ -84,7 +85,7 @@ class ProfileInfoCard extends StatelessWidget {
                         child: const Icon(
                           Icons.edit,
                           size: 22,
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                         ),
                       ),
                     ),
@@ -135,16 +136,16 @@ class ProfileField extends StatelessWidget {
   final Widget? valueWidget;
 
   static const TextStyle _labelStaff = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: AppFonts.body,
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: Color(0xff573353),
+    color: AppColors.primaryColor,
   );
 
   static const TextStyle _valueStaff = TextStyle(
-    fontFamily: 'Manrope',
+    fontFamily: AppFonts.body,
     fontSize: 15,
-    color: Color(0xff573353),
+    color: AppColors.primaryColor,
     fontWeight: FontWeight.w400,
   );
 

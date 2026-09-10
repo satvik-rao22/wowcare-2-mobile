@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 class RoundedButton extends StatefulWidget {
   final String lable;
@@ -46,7 +47,7 @@ class _RoundedButtonState extends State<RoundedButton> {
                   height: 60,
                   width: 60,
                   child: RefreshProgressIndicator(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     backgroundColor: Color(0xFFFE3541),
                     strokeWidth: 4,
                     indicatorPadding: EdgeInsets.all(14),

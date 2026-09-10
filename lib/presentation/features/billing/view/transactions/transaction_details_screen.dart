@@ -440,12 +440,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     unselectedLabelColor:
                         AppColors.primaryColor.withValues(alpha: 0.5),
                     labelStyle: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                     unselectedLabelStyle: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                     ),
                     tabs: const [
@@ -750,7 +750,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           BillingStrings.noInvoicedDataAvailable,
           style: TextStyle(
             color: AppColors.primaryColor,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -899,7 +899,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w700,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
           TextSpan(
@@ -908,7 +908,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w400,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
         ],

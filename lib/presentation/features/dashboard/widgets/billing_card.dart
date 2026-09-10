@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -134,7 +135,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.whiteColor,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +308,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 amount: '\$${overview.netPaid.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.netPaid, totalAllAmounts),
                 label: 'Net Paid',
-                percentageColor: Colors.green,
+                percentageColor: MaterialHues.green,
               ),
             ),
             Expanded(
@@ -315,7 +316,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 amount: '\$${overview.inProcess.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.inProcess, totalAllAmounts),
                 label: 'In Process',
-                percentageColor: Colors.yellow,
+                percentageColor: MaterialHues.yellow,
               ),
             ),
             Expanded(
@@ -326,7 +327,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                   totalAllAmounts,
                 ),
                 label: 'Outstanding',
-                percentageColor: Colors.red,
+                percentageColor: MaterialHues.red,
               ),
             ),
           ],
@@ -405,7 +406,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                     return BarTooltipItem(
                       rod.toY.toStringAsFixed(0),
                       const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         fontWeight: FontWeight.bold,
                       ),
                     );
@@ -439,7 +440,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       return Text(
                         months[i],
                         style: const TextStyle(
-                          color: Colors.grey,
+                          color: MaterialHues.grey500,
                           fontSize: 12,
                         ),
                       );
@@ -454,7 +455,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       return Text(
                         '${(value / 1000).round()}k',
                         style: const TextStyle(
-                          color: Colors.grey,
+                          color: MaterialHues.grey500,
                           fontSize: 12,
                         ),
                       );
@@ -477,12 +478,12 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                   // Solid line at the base of the bars; faint elsewhere
                   if (value == minY) {
                     return FlLine(
-                      color: Colors.grey.withValues(alpha: 0.5),
+                      color: MaterialHues.grey500.withValues(alpha: 0.5),
                       strokeWidth: 1,
                     );
                   }
                   return FlLine(
-                    color: Colors.grey.withValues(alpha: 0.2),
+                    color: MaterialHues.grey500.withValues(alpha: 0.2),
                     strokeWidth: 1,
                   );
                 },
@@ -519,7 +520,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: MaterialHues.grey600,
             ),
           ),
         ),

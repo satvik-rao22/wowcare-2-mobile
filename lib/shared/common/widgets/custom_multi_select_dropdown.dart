@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
@@ -131,14 +132,14 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       height: 20,
       decoration: BoxDecoration(
         border: Border.all(
-          color: isSelected ? AppColors.themeColor : Colors.grey.shade400,
+          color: isSelected ? AppColors.themeColor : MaterialHues.grey400,
           width: 2,
         ),
         borderRadius: BorderRadius.circular(4),
         color: isSelected ? AppColors.themeColor : Colors.transparent,
       ),
       child: isSelected
-          ? const Icon(Icons.check, size: 14, color: Colors.white)
+          ? const Icon(Icons.check, size: 14, color: AppColors.whiteColor)
           : null,
     );
   }
@@ -205,9 +206,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 120),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: MaterialHues.grey300),
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
@@ -231,7 +232,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                             child: Text(
                               'No matches found',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 14,
                                 color: Color(0x99573353),
                               ),
@@ -411,7 +412,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: MaterialHues.red),
                   ),
               ],
             ),
@@ -432,7 +433,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               width: widget.width,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+                color: AppPalette.brandSoft.withValues(alpha: 0.102),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -446,8 +447,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       softWrap: false,
                       style: TextStyle(
                         color: _localSelectedItems.isEmpty
-                            ? Colors.grey[600]
-                            : Colors.black87,
+                            ? MaterialHues.grey600
+                            : MaterialHues.black87,
                         fontSize: 15,
                       ),
                     ),

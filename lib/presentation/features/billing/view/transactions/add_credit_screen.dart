@@ -109,7 +109,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.billingTextColor,
       );
@@ -143,7 +143,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       );
 
   TextStyle _valueStyle(ResponsiveHelper responsive) => TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.billingTextColor,
@@ -232,7 +232,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                   color: AppColors.billingCardOnColorText,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                 ),
               ),
             ),
@@ -244,7 +244,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.billingTextColor,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                 ),
               ),
             ),
@@ -472,7 +472,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     Text(
                       BillingStrings.processing,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.billingCardColor,
@@ -483,7 +483,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               : Text(
                   BillingStrings.save,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,

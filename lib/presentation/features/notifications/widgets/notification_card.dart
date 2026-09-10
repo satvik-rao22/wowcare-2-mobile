@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -37,7 +38,7 @@ class NotificationCard extends StatelessWidget {
     final isUnread = !notification.isRead;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.whiteColor,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -45,7 +46,7 @@ class NotificationCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorderColor),
           ),
@@ -74,11 +75,11 @@ class NotificationCard extends StatelessWidget {
                     Text(
                       notification.title,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
-                        color: Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                     if ((notification.body ?? '').trim().isNotEmpty) ...[
@@ -86,7 +87,7 @@ class NotificationCard extends StatelessWidget {
                       Text(
                         notification.body!.trim(),
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
                           height: 1.35,
@@ -100,7 +101,7 @@ class NotificationCard extends StatelessWidget {
                         Text(
                           _relativeTime(notification.createdAt),
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
                             color: AppColors.primaryColor.withValues(alpha: 0.5),
@@ -184,7 +185,7 @@ class _CategoryChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: style.foreground,

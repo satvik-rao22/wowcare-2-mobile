@@ -41,7 +41,7 @@ class FilterIconButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.errorColor,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.2),
+                  border: Border.all(color: AppColors.whiteColor, width: 1.2),
                 ),
               ),
             ),

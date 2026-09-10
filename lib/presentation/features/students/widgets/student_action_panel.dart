@@ -934,7 +934,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -992,7 +992,7 @@ class _ActivityPngItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),

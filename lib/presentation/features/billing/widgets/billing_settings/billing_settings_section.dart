@@ -58,7 +58,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                   child: Text(
                     _subTabs[index],
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: isSelected

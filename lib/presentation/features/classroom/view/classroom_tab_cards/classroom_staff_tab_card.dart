@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
@@ -676,7 +677,7 @@ class _ClassroomStaffTabCardViewState
         child: Text(
           _statusChipLabel(apiStatus),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.secondaryColor,
             fontSize: 12,
           ),
@@ -854,7 +855,7 @@ class _ClassroomStaffTabCardViewState
                                     hintText: 'Search',
                                     hintStyle: WidgetStatePropertyAll(
                                       TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         color: AppColors
                                             .classroomSearchHintTextColor,
                                         fontSize: 13,
@@ -921,7 +922,7 @@ class _ClassroomStaffTabCardViewState
                                     child: const Text(
                                       'Clear All',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -964,7 +965,7 @@ class _ClassroomStaffTabCardViewState
                                                     child: Text(
                                                       'No staff assigned.',
                                                       style: TextStyle(
-                                                        fontFamily: 'Manrope',
+                                                        fontFamily: AppFonts.body,
                                                         fontSize: 16,
                                                         color: AppColors
                                                             .primaryColor
@@ -1262,7 +1263,7 @@ class _StaffListItem extends StatelessWidget {
                     Text(
                       staff.name,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: AppColors.primaryColor,
@@ -1271,7 +1272,7 @@ class _StaffListItem extends StatelessWidget {
                     Text(
                       designationLabel,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         color: AppColors.classroomTextColor,
                       ),
                     ),
@@ -1361,7 +1362,7 @@ class _DesignationMultiSelectDropdownState
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
@@ -1405,7 +1406,7 @@ class _DesignationMultiSelectDropdownState
                         child: Text(
                           item,
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             color: AppColors.classroomTextColor,
                           ),
@@ -1424,7 +1425,7 @@ class _DesignationMultiSelectDropdownState
         hint: Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: _localSelectedItems.isEmpty
                 ? AppColors.classroomPlaceholderTextColor
                 : AppColors.classroomTextColor,

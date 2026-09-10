@@ -290,7 +290,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
     final shouldAdd = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -334,7 +334,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       child: const Text(
                         'Add Shift',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -762,7 +762,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       border: Border.all(color: const Color(0x19162831)),
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -784,7 +784,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         border: Border.all(
                           color: AppColors.primaryColor.withValues(alpha: 0.1),
                         ),
@@ -992,7 +992,7 @@ class _GradientPublishButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.blackColor.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -1002,7 +1002,7 @@ class _GradientPublishButton extends StatelessWidget {
       child: const Text(
         'Publish',
         style: TextStyle(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -71,7 +72,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           onRetry: () => context.read<MyAttendanceCubit>().load(),
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.whiteColor,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -137,7 +138,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
   Widget _buildShimmer() {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -146,8 +147,8 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
+          baseColor: MaterialHues.grey300,
+          highlightColor: MaterialHues.grey100,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -195,7 +196,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
     width: w,
     height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.whiteColor,
       borderRadius: BorderRadius.circular(radius),
     ),
   );

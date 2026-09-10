@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -134,8 +136,8 @@ class CoreUtils {
     if (context is Element && !context.mounted) return;
     final bg = backgroundColor ?? Theme.of(context).colorScheme.primary;
     final onBg = ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
-        ? Colors.white
-        : Colors.black87;
+        ? AppColors.whiteColor
+        : MaterialHues.black87;
     _showTopOverlayBanner(
       context: context,
       message: message,
@@ -235,7 +237,7 @@ class CoreUtils {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
+                        color: AppColors.blackColor.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -346,26 +348,26 @@ class CoreUtils {
     const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
 
     final backgroundColor = isError
-        ? Colors.red.shade50
+        ? MaterialHues.red50
         : isWarning
-        ? Colors.orange.shade50
+        ? MaterialHues.orange50
         : isSuccess
         ? successBackgroundColor
-        : Colors.grey.shade200;
+        : MaterialHues.grey200;
     final contentColor = isError
-        ? Colors.red
+        ? MaterialHues.red
         : isWarning
-        ? Colors.orange
+        ? MaterialHues.orange
         : isSuccess
         ? successColor
-        : Colors.black87;
+        : MaterialHues.black87;
     final borderColor = isError
-        ? Colors.red.shade100
+        ? MaterialHues.red100
         : isWarning
-        ? Colors.orange.shade100
+        ? MaterialHues.orange100
         : isSuccess
         ? successBackgroundColor
-        : Colors.grey.shade400;
+        : MaterialHues.grey400;
     final icon = isError || isWarning
         ? Icons.error_outline_rounded
         : isSuccess
@@ -410,8 +412,8 @@ class CoreUtils {
       child: Text(
         message,
         style: const TextStyle(
-          fontFamily: 'Manrope',
-          color: Colors.red,
+          fontFamily: AppFonts.body,
+          color: MaterialHues.red,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),

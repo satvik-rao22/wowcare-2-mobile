@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_health_cubit.dart';
@@ -163,7 +164,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                             child: const Icon(
                               Icons.edit,
                               size: 22,
-                              color: Colors.white,
+                              color: AppColors.whiteColor,
                             ),
                           ),
                         ],
@@ -248,7 +249,7 @@ class _HealthCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -274,10 +275,10 @@ class _HealthCard extends StatelessWidget {
                       const Text(
                         'Allergies',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                           height: 16 / 13,
                         ),
                       ),
@@ -285,10 +286,10 @@ class _HealthCard extends StatelessWidget {
                         child: Text(
                           _displayOrFallback(allergies, 'No Allergies'),
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           softWrap: true,
@@ -305,10 +306,10 @@ class _HealthCard extends StatelessWidget {
                       const Text(
                         'Medications',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                           height: 16 / 13,
                         ),
                       ),
@@ -316,10 +317,10 @@ class _HealthCard extends StatelessWidget {
                         child: Text(
                           _displayOrFallback(medication, 'No Medications'),
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           softWrap: true,
@@ -336,10 +337,10 @@ class _HealthCard extends StatelessWidget {
                       const Text(
                         'Diet Restriction',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                           height: 16 / 13,
                         ),
                       ),
@@ -350,10 +351,10 @@ class _HealthCard extends StatelessWidget {
                             'No Diet Restriction',
                           ),
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           softWrap: true,
@@ -370,10 +371,10 @@ class _HealthCard extends StatelessWidget {
                       const Text(
                         'Photo Permission',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                           height: 16 / 13,
                         ),
                       ),
@@ -387,10 +388,10 @@ class _HealthCard extends StatelessWidget {
                         Text(
                           photoPermission ? 'Yes' : 'No',
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                         ),

@@ -678,7 +678,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontFamily: Fonts.manrope,
+                                                    fontFamily: AppFonts.body,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w600,
                                                     color:
@@ -690,7 +690,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               Text(
                                                 docTypeDisplay,
                                                 style: TextStyle(
-                                                  fontFamily: Fonts.manrope,
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.primaryColor
@@ -755,7 +755,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           StudentStrings.edit,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                Fonts.manrope,
+                                                                AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
@@ -794,7 +794,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           StudentStrings.delete,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                Fonts.manrope,
+                                                                AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
@@ -888,7 +888,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                         'Download',
                                                         style: TextStyle(
                                                           fontFamily:
-                                                              Fonts.manrope,
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -970,7 +970,7 @@ class _DocumentDetailRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -984,7 +984,7 @@ class _DocumentDetailRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

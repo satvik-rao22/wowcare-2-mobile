@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 
 
@@ -24,9 +25,9 @@ class SchedulingBlockStatusStyle {
 
   static const Color dayInRatioColor = Color(0xFFACF3AA);
 
-  static const Color dayExtraStaffColor = Color(0xFF5978F7);
+  static const Color dayExtraStaffColor = AppColors.themeColor;
 
-  static const Color dayEmptyColor = Color(0xFFE9ECEF);
+  static const Color dayEmptyColor = AppPalette.borderHairline;
 
 
 

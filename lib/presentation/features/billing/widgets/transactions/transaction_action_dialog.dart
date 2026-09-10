@@ -44,7 +44,7 @@ class TransactionActionDialog extends StatelessWidget {
                     child: Text(
                       BillingStrings.newTransaction,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.billingTextColor,
@@ -66,7 +66,7 @@ class TransactionActionDialog extends StatelessWidget {
               const Text(
                 BillingStrings.whatWouldYouLikeToDo,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.billingTextMuted,

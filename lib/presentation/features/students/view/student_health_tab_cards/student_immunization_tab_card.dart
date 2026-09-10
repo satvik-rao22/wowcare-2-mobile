@@ -192,7 +192,7 @@ class _StudentImmunizationTabCardState
                               child: Text(
                                 'Dose ${model.doseNumber}',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryColor,
@@ -681,7 +681,7 @@ class _DialogField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -703,7 +703,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -752,7 +752,7 @@ class _DialogDropdown extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -780,7 +780,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

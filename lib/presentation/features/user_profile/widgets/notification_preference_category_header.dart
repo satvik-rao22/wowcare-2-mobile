@@ -17,7 +17,7 @@ class NotificationPreferenceCategoryHeader extends StatelessWidget {
       child: Text(
         categoryName,
         style: const TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: 13,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.4,

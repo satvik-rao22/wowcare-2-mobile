@@ -144,7 +144,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   value: areAllSelected,
                   label: BillingStrings.selectAll,
                   labelStyle: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,
@@ -164,7 +164,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                   state.errorMessage!,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: 14,
                                     color: AppColors.billingTextColor,
                                   ),
@@ -176,7 +176,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                   child: Text(
                                     BillingStrings.noStudentsFound,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontSize: 14,
                                       color: AppColors.billingTextColor,
                                     ),
@@ -317,7 +317,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               : const Text(
                   BillingStrings.next,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 16.0,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,
@@ -380,7 +380,7 @@ class _StudentRow extends StatelessWidget {
                   Text(
                     student.fullName,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor,
@@ -392,7 +392,7 @@ class _StudentRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 12,
                         color: AppColors.billingTextMuted,
                       ),

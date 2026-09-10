@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -6,7 +7,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -2578,12 +2578,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color.fromRGBO(
-                                                179,
-                                                38,
-                                                30,
-                                                1,
-                                              ),
+                                              color: AppPalette.statusErrorStrong,
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
@@ -3232,7 +3227,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                             ),
                                                         strutStyle: StrutStyle(
                                                           fontFamily:
-                                                              Fonts.manrope,
+                                                              AppFonts.body,
                                                           fontSize: 14,
                                                           height: 1.0,
                                                           leading: 0,

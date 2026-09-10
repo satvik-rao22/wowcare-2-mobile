@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class DuplicateStudentBottomSheet extends StatefulWidget {
@@ -74,7 +75,7 @@ class _DuplicateStudentBottomSheetState
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -107,10 +108,10 @@ class _DuplicateStudentBottomSheetState
                 child: Text(
                   'Duplicate student found',
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,
@@ -124,7 +125,7 @@ class _DuplicateStudentBottomSheetState
                 child: Text(
                   'A student with the name "${widget.enteredName}" already exists. Tap a name to view the profile, or add anyway to continue.',
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: isTablet ? 14 : 13,
                     fontWeight: FontWeight.w400,
                     color: AppColors.primaryColor.withValues(alpha: 0.65),
@@ -153,7 +154,7 @@ class _DuplicateStudentBottomSheetState
                             child: Text(
                               m,
                               style: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,

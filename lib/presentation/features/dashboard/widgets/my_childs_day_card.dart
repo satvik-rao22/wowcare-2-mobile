@@ -912,7 +912,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
             child: Text(
               _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.whiteColor),
             ),
           ),
         ],
@@ -935,7 +935,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           child: const Text(
             'Your Sign-In Pin : ',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -955,7 +955,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               child: Text(
                 pin.isEmpty ? '—' : pin,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -999,7 +999,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                color: Colors.white,
+                color: AppColors.whiteColor,
               ),
               child: BlocBuilder<ParentChildCubit, ParentChildState>(
                 builder: (context, state) {
@@ -1582,7 +1582,7 @@ class _MyChildsDayChatPreviewRowState
         // per-row margin — rounded only at the bottom to match the card's
         // own shape.
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
+        color: AppColors.chatPreviewSurface,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1668,7 +1668,7 @@ class _ChatActionButton extends StatelessWidget {
           MediaRes.communicationIcon,
           width: 24,
           height: 24,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(AppColors.whiteColor, BlendMode.srcIn),
         ),
       ),
     );

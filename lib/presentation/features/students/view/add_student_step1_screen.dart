@@ -870,7 +870,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                               child: Text(
                                 StudentStrings.addStudentStep1Of3,
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: responsive.titleFontSize,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryColor,
@@ -923,7 +923,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                               _createCubit.state.step1Status,
                                           labelStyle: TextStyle(
                                             fontSize: responsive.labelFontSize,
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontWeight: FontWeight.w400,
                                             color: AppColors.primaryColor,
                                           ),
@@ -950,7 +950,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                               _createCubit.state.step1Classroom,
                                           labelStyle: TextStyle(
                                             fontSize: responsive.labelFontSize,
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontWeight: FontWeight.w400,
                                             color: AppColors.primaryColor,
                                           ),
@@ -1088,7 +1088,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1122,7 +1122,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             controller: controller,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1153,7 +1153,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
           ),
@@ -1203,7 +1203,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
           ),
         ),
       ],
@@ -1220,7 +1220,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1271,7 +1271,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                               ? DateFormat('MM/dd/yyyy').format(selectedDate)
                               : StudentStrings.selectDate,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.inputFontSize,
                             fontWeight: selectedDate != null
                                 ? FontWeight.w600
@@ -1289,7 +1289,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.attendanceDialogHintTextColor,
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                               ),
                             ),
                           ),

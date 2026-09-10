@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -103,10 +104,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       elevation: 0,
       scrolledUnderElevation: 0,
-      foregroundColor: Colors.black,
+      foregroundColor: AppColors.blackColor,
       titleSpacing: 0,
       title: isParent
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
@@ -138,10 +139,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       child: Text(
                         label,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xff573353),
+                          color: AppColors.primaryColor,
                           height: 19 / 14,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -266,13 +267,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color.fromRGBO(179, 38, 30, 1),
+                              color: AppPalette.statusErrorStrong,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               unreadCount > 99 ? '99+' : '$unreadCount',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -334,13 +335,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color.fromRGBO(179, 38, 30, 1),
+                                color: AppPalette.statusErrorStrong,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 unreadCount > 99 ? '99+' : '$unreadCount',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.whiteColor,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -389,9 +390,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     indicatorPadding:
                         tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
                     isScrollable: tabBarStyle?.isScrollable ?? false,
-                    labelColor: tabBarStyle?.labelColor ?? Colors.black87,
+                    labelColor: tabBarStyle?.labelColor ?? MaterialHues.black87,
                     unselectedLabelColor:
-                        tabBarStyle?.unselectedLabelColor ?? Colors.black54,
+                        tabBarStyle?.unselectedLabelColor ?? MaterialHues.black54,
                     indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
                     indicatorSize: tabBarStyle?.indicatorSize,
                     splashFactory: NoSplash.splashFactory,
@@ -494,7 +495,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
       constraints: const BoxConstraints(maxWidth: 240),
       icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
       offset: const Offset(0, 48),
-      color: Colors.white,
+      color: AppColors.whiteColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       itemBuilder: (context) => [
         PopupMenuItem<int>(
@@ -562,7 +563,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 'My Profile',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -597,7 +598,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                     text,
                     style: TextStyle(
                       color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                     ),
@@ -623,7 +624,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                   'Switch Profile',
                   style: TextStyle(
                     color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                   ),
@@ -647,7 +648,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                   'Switch Organisation',
                   style: TextStyle(
                     color: AppColors.primaryColor,
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                   ),
@@ -670,7 +671,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 'Change Password',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -693,7 +694,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 'Notification settings',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -716,7 +717,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 'Help',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -739,7 +740,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 'Logout',
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -885,7 +886,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                 bottom: verticalPadding + bottomSafe,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(borderRadius),
                   topRight: Radius.circular(borderRadius),
@@ -903,10 +904,10 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                     child: Text(
                       'Change Password',
                       style: TextStyle(
-                        fontFamily: "Manrope",
+                        fontFamily: AppFonts.body,
                         fontSize: titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
@@ -921,10 +922,10 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                     child: Text(
                       'Are you sure you want to change your password? A password reset link will be sent to your registered email.',
                       style: TextStyle(
-                        fontFamily: "Manrope",
+                        fontFamily: AppFonts.body,
                         fontSize: buttonFontSize,
                         fontWeight: FontWeight.w400,
-                        color: Colors.grey,
+                        color: MaterialHues.grey500,
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
@@ -948,12 +949,12 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                                   borderRadius / 2,
                                 ),
                               ),
-                              backgroundColor: Colors.white,
+                              backgroundColor: AppColors.whiteColor,
                             ),
                             child: Text(
                               "Cancel",
                               style: TextStyle(
-                                fontFamily: "Manrope",
+                                fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
@@ -995,10 +996,10 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                             child: Text(
                               'Yes, Change Password',
                               style: TextStyle(
-                                fontFamily: "Manrope",
+                                fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                                 height: 1.0,
                               ),
                               textAlign: TextAlign.center,

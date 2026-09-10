@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomClearAllChip extends StatelessWidget {
   const CustomClearAllChip({
@@ -41,7 +42,7 @@ class CustomClearAllChip extends StatelessWidget {
               maxLines: 2,
               softWrap: true,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 color: AppColors.cardColor,
                 fontSize: fontSize ?? 13,
                 fontWeight: fontWeight ?? FontWeight.w500,

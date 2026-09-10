@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
@@ -182,7 +183,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.blackColor,
       appBar: AppBar(
         title: Text(
           widget.documentName,
@@ -190,7 +191,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.whiteColor,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
@@ -204,7 +205,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
                 ),
               ),
             )
@@ -232,7 +233,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       case _DocKind.image:
         return PhotoView(
           imageProvider: NetworkImage(widget.url),
-          backgroundDecoration: const BoxDecoration(color: Colors.black),
+          backgroundDecoration: const BoxDecoration(color: AppColors.blackColor),
           loadingBuilder: (context, event) =>
               const Center(child: PrimaryCircularLoader()),
           errorBuilder: (context, error, stackTrace) {
@@ -278,7 +279,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         final viewerUrl =
             'https://docs.google.com/viewer?embedded=true&url=${Uri.encodeComponent(widget.url)}';
         return Container(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           child: InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(viewerUrl)),
             onReceivedError: (controller, request, error) {
@@ -308,13 +309,13 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             const Icon(
               Icons.insert_drive_file_outlined,
               size: 64,
-              color: Colors.white70,
+              color: MaterialHues.white70,
             ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
+              style: const TextStyle(color: MaterialHues.white70, fontSize: 15),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -352,8 +353,8 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
       materialProgressColors: ChewieProgressColors(
         playedColor: AppColors.primaryColor,
         handleColor: AppColors.primaryColor,
-        bufferedColor: Colors.white38,
-        backgroundColor: Colors.white24,
+        bufferedColor: MaterialHues.white38,
+        backgroundColor: MaterialHues.white24,
       ),
     );
   }

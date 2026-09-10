@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 // import 'package:provider/provider.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/simmer_loader.dart';
@@ -79,7 +81,7 @@ class CustomProfileAvatar extends StatelessWidget {
           //       )
           //     : 
           CircleAvatar(
-            backgroundColor: Colors.blue, // ColorUtils.getColorFromName(
+            backgroundColor: MaterialHues.blue, // ColorUtils.getColorFromName(
               // context.isPersonnel
               //     ? context.currentStaff!.name
               //     : context.currentGuardian!.fullName,
@@ -94,7 +96,7 @@ class CustomProfileAvatar extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: fontSize,
-                color: Colors.white,
+                color: AppColors.whiteColor,
               ),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomFlexibleDropdown extends StatefulWidget {
   const CustomFlexibleDropdown({
@@ -85,11 +86,11 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
         if (widget.label != null)
           RichText(
             text: TextSpan(
-              style: widget.labelStyle ?? TextStyle(color: AppColors.primaryColor, fontSize: 13, fontFamily: 'Manrope'),
+              style: widget.labelStyle ?? TextStyle(color: AppColors.primaryColor, fontSize: 13, fontFamily: AppFonts.body),
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.showAsterisk)
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
               ],
             ),
           ),
@@ -149,7 +150,7 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
                         style: TextStyle(
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                           color:  AppColors.primaryColor,
-                          fontFamily: "Manrope",
+                          fontFamily: AppFonts.body,
                           fontSize: 14
                         ),
                       ),
@@ -168,7 +169,7 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
                       color: AppColors.primaryColor,
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
-                      fontFamily: 'Manrope'
+                      fontFamily: AppFonts.body
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

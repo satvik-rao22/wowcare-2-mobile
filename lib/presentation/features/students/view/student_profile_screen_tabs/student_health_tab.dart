@@ -143,7 +143,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                         maxLines: 3,
                         softWrap: true,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: AppColors.primaryColor,

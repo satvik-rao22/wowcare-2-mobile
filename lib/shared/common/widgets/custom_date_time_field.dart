@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -244,7 +245,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                   const TextSpan(
                     text: ' *',
                     style: TextStyle(
-                      color: Colors.red,
+                      color: MaterialHues.red,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

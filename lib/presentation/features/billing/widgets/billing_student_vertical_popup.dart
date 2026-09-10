@@ -529,7 +529,7 @@ class _MoreOptionItem extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 color: AppColors.primaryColor,
               ),
             ),

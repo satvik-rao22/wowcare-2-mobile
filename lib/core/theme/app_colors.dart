@@ -1,27 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
+/// The app's colours, addressed by name.
+///
+/// This class is a **directory, not a definition**. The semantic tokens below
+/// resolve to the roles in [AppPalette], and the feature-scoped ones resolve
+/// to [AppPalette], [LegacyHues] or [MaterialHues] wherever their value
+/// matches a token. The values themselves live in
+/// `lib/core/theme/app_theme_config.dart` — that one file is what re-skins the
+/// app, and it is the only place a new colour should be defined.
+///
+/// Feature-scoped entries (`billing*`, `attendance*`, `activity*`, …) follow
+/// the codebase's existing convention: a decorative one-off that means
+/// something only inside its own module keeps its own name here, so the
+/// semantic layer stays small and honest. When a feature colour turns out to
+/// mean "error" or "card surface", point it at the role instead.
 class AppColors {
   AppColors._();
 
-  static const themeColor = Color.fromRGBO(89, 120, 247, 1);
+  // ── Brand ──────────────────────────────────────────────────────────────────
 
-  static const primaryColor = Color.fromRGBO(87, 51, 83, 1);
-  static const secondaryColor = Color.fromRGBO(27, 35, 126, 1);
+  /// The headline brand colour: app bars, primary buttons, active states.
+  static const Color themeColor = AppPalette.brand;
 
-  static const cardColor = Colors.white;
-  static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
-  static final inputBorderColor = AppColors.primaryColor.withValues(alpha: 0.4);
+  /// The default text colour for headings and body copy.
+  static const Color primaryColor = AppPalette.textPrimary;
+
+  /// The secondary brand tone.
+  static const Color secondaryColor = AppPalette.brandSecondary;
+
+  // ── Surfaces, borders, dividers ───────────────────────────────────────────
+
+  /// A card, sheet or dialog surface.
+  static const Color cardColor = AppPalette.surfaceCard;
+
+  static final Color cardBorderColor = AppColors.primaryColor.withValues(
+    alpha: 0.15,
+  );
+  static final Color inputBorderColor = AppColors.primaryColor.withValues(
+    alpha: 0.4,
+  );
 
   static const Color transparentColor = Colors.transparent;
 
-  static const fieldBackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
+  /// The fill behind a form field or an inline chip.
+  static const Color fieldBackgroundColor = AppPalette.surfaceField;
 
-  static const accentColor = Color.fromRGBO(220, 156, 19, 1);
-  static const errorColor = Color.fromRGBO(211, 47, 47, 1);
-  static const warningColor = Color.fromRGBO(255, 160, 0, 1);
-  static const successColor = Color.fromRGBO(56, 142, 60, 1);
+  /// A divider between sections.
+  static const Color dividerColor = AppPalette.divider;
 
-  static const dividerColor = Color.fromRGBO(189, 189, 189, 1);
+  // ── Status ────────────────────────────────────────────────────────────────
+
+  /// The highlight/attention colour. Not a status — see [warningColor].
+  static const Color accentColor = AppPalette.actionHighlight;
+
+  static const Color errorColor = AppPalette.statusError;
+  static const Color warningColor = AppPalette.statusWarning;
+  static const Color successColor = AppPalette.statusSuccess;
 
   static const classroomStudentTabColor = Color.fromRGBO(44, 99, 226, 0.1);
   static const classroomStaffTabColor = Color.fromRGBO(203, 246, 255, 0.4);
@@ -37,20 +72,12 @@ class AppColors {
   static const Color colorBox2 = Color(0xFFF38D8D);
   static const Color colorBox3 = Color(0xFF5978F7);
 
-  static const List<Color> scaffoldGradientColors = [
-    Color.fromRGBO(255, 255, 255, 1),
-    Color.fromRGBO(251, 238, 250, 1),
-  ];
+  static const List<Color> scaffoldGradientColors = AppPalette.gradientPage;
 
-  static const List<Color> primaryGradientColors = [
-    Color.fromRGBO(111, 140, 255, 1),
-    Color.fromRGBO(156, 132, 255, 1),
-  ];
+  static const List<Color> primaryGradientColors = AppPalette.gradientPrimary;
 
-  static const List<Color> secondaryGradientColors = [
-    Color.fromRGBO(89, 120, 247, 1),
-    Color.fromRGBO(156, 132, 255, 1),
-  ];
+  static const List<Color> secondaryGradientColors =
+      AppPalette.gradientSecondary;
 
   /// Messaging: every staff/admin/teacher/director message renders with
   /// this gradient, on whichever side the canonical role-based alignment
@@ -63,10 +90,7 @@ class AppColors {
   /// on whichever side the canonical role-based alignment rule puts it.
   /// Placeholder tone pending design confirmation — same two-stop,
   /// similar-saturation style as [primaryGradientColors].
-  static const List<Color> pinkGradientColors = [
-    Color.fromRGBO(255, 154, 196, 1),
-    Color.fromRGBO(255, 107, 157, 1),
-  ];
+  static const List<Color> pinkGradientColors = AppPalette.gradientPink;
 
   static var chipBackground;
 
@@ -170,11 +194,11 @@ class AppColors {
   ); // Red
 
   // Card and container colors
-  static const Color billingCardColor = Colors.white;
+  static const Color billingCardColor = LegacyHues.white;
   static final Color billingCardBorderColor = primaryColor.withValues(
     alpha: 0.2,
   );
-  static final Color billingCardShadowColor = Colors.black.withValues(
+  static final Color billingCardShadowColor = LegacyHues.black.withValues(
     alpha: 0.03,
   );
 
@@ -182,36 +206,36 @@ class AppColors {
   static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
 
   // Button colors
-  static const Color billingButtonTextColor = Colors.white;
+  static const Color billingButtonTextColor = LegacyHues.white;
 
   // Error/Alert colors for billing
-  static final Color billingErrorBackgroundColor = Colors.red.shade50;
-  static final Color billingErrorBorderColor = Colors.red.shade200;
-  static final Color billingErrorIconColor = Colors.red.shade600;
-  static final Color billingErrorTextColor = Colors.red.shade700;
+  static const Color billingErrorBackgroundColor = MaterialHues.red50;
+  static const Color billingErrorBorderColor = MaterialHues.red200;
+  static const Color billingErrorIconColor = MaterialHues.red600;
+  static const Color billingErrorTextColor = MaterialHues.red700;
 
   // Grey shades for billing
-  static const Color billingGrey = Colors.grey;
-  static final Color billingGreyLight = Colors.grey.shade100;
-  static final Color billingGreyMedium = Colors.grey.shade500;
-  static final Color billingGreyDark = Colors.grey.shade700;
-  static final Color billingGreyTransparent = Colors.grey.withValues(
+  static const Color billingGrey = MaterialHues.grey500;
+  static const Color billingGreyLight = MaterialHues.grey100;
+  static const Color billingGreyMedium = MaterialHues.grey500;
+  static const Color billingGreyDark = MaterialHues.grey700;
+  static final Color billingGreyTransparent = MaterialHues.grey500.withValues(
     alpha: 0.3,
   );
 
   // Success color
-  static const Color billingSuccessColor = Colors.green;
+  static const Color billingSuccessColor = MaterialHues.green;
 
   // Background colors
-  static const Color billingBackgroundColor = Colors.white;
+  static const Color billingBackgroundColor = LegacyHues.white;
   static const Color billingTransparentColor = Colors.transparent;
 
   // Shadow colors
-  static final Color billingShadowColor = Colors.black.withValues(alpha: 0.03);
-  static final Color billingShadowColorLight = Colors.black.withValues(
+  static final Color billingShadowColor = LegacyHues.black.withValues(alpha: 0.03);
+  static final Color billingShadowColorLight = LegacyHues.black.withValues(
     alpha: 0.05,
   );
-  static final Color billingShadowColorMedium = Colors.black.withValues(
+  static final Color billingShadowColorMedium = LegacyHues.black.withValues(
     alpha: 0.08,
   );
 
@@ -224,13 +248,13 @@ class AppColors {
   static const Color billingDividerLight = Color(0xFFE9ECEF);
 
   // Button and input colors
-  static final Color billingButtonDisabled = Colors.grey[300]!;
-  static final Color billingInputBorderDefault = Colors.grey.shade200;
+  static const Color billingButtonDisabled = MaterialHues.grey300;
+  static const Color billingInputBorderDefault = MaterialHues.grey200;
   static final Color billingInputBorderFocused = const Color(0xFF6657F8);
-  static final Color billingInputBackgroundDisabled = Colors.grey[200]!;
+  static const Color billingInputBackgroundDisabled = MaterialHues.grey200;
 
   // Status indicator colors (for success/error states)
-  static const Color billingStatusSuccess = Colors.green;
+  static const Color billingStatusSuccess = MaterialHues.green;
   static const Color billingStatusError = Color(0xFFFF3B30);
 
   // AutoPay payment methods screen — Mandate 4 sweep
@@ -279,26 +303,16 @@ class AppColors {
 
   // Grey/black/white shade aliases used by the auto-pay screens (billing-scoped
   // per the codebase's per-feature token convention).
-  static const Color billingBorderStrong = Color(
-    0xFFE0E0E0,
-  ); // was Colors.grey.shade300
-  static const Color billingBadgeInactiveBackground = Color(
-    0xFFEEEEEE,
-  ); // was Colors.grey.shade200 (badge/border fill)
-  static const Color billingMutedIconColor = Color(
-    0xFF9E9E9E,
-  ); // was Colors.grey.shade500 / bare Colors.grey
-  static const Color billingCaptionTextColor = Color(
-    0xFF757575,
-  ); // was Colors.grey.shade600
-  static const Color billingBlackText87 = Color(0xDD000000); // Colors.black87
-  static const Color billingBlackText54 = Color(0x8A000000); // Colors.black54
-  static const Color billingBlackText26 = Color(0x42000000); // Colors.black26
-  static const Color billingDetailLabelOnDark = Color(
-    0xB3FFFFFF,
-  ); // Colors.white70, detail label on a dark/gradient card
+  static const Color billingBorderStrong = MaterialHues.grey300;
+  static const Color billingBadgeInactiveBackground = MaterialHues.grey200; // was Colors.grey.shade200 (badge/border fill)
+  static const Color billingMutedIconColor = MaterialHues.grey500;
+  static const Color billingCaptionTextColor = MaterialHues.grey600;
+  static const Color billingBlackText87 = MaterialHues.black87;
+  static const Color billingBlackText54 = MaterialHues.black54;
+  static const Color billingBlackText26 = MaterialHues.black26;
+  static const Color billingDetailLabelOnDark = MaterialHues.white70; // Colors.white70, detail label on a dark/gradient card
   static const Color billingCardOnColorText =
-      Colors.white; // Text/icon painted on a gradient or dark card surface
+      LegacyHues.white; // Text/icon painted on a gradient or dark card surface
 
   // Receive-payment / issue-refund screen — Mandate 4 sweep
   static const Color billingBorderFaint = Color(
@@ -315,7 +329,7 @@ class AppColors {
     Color(0xFFFF9AA2),
   ]; // Sibling-row initials-avatar background palette (indexed by name hash)
   static const Color billingUserAvatarBackground =
-      Colors.orange; // Transaction user-info initials avatar
+      MaterialHues.orange; // Transaction user-info initials avatar
 
   // Analytics section — Mandate 4 sweep
   static const List<Color> billingRevenueGradientColors = [
@@ -349,9 +363,7 @@ class AppColors {
   static const Color billingFamilyAvatarBackground = Color(0xFF67C2A6);
 
   // AutoPay new-method screen — Mandate 4 sweep
-  static const Color billingInfoBannerBackground = Color(
-    0xFFFFF3E0,
-  ); // "Outstanding balance" info block
+  static const Color billingInfoBannerBackground = MaterialHues.orange50; // "Outstanding balance" info block
   static const Color billingInfoBannerBorder = Color(0x4DFDB813);
   static const Color billingWarningIconColor = Color(
     0xFFDD6B20,
@@ -368,9 +380,9 @@ class AppColors {
 
   // Create-invoice-type dialog — Mandate 4 sweep
   static const Color billingHighlightSecondaryText =
-      Colors.white70; // Secondary/caption text on the highlighted (selected) tile
+      MaterialHues.white70; // Secondary/caption text on the highlighted (selected) tile
   static const Color billingHighlightIconBackground =
-      Colors.white24; // Icon backdrop on the highlighted tile
+      MaterialHues.white24; // Icon backdrop on the highlighted tile
 
   // Sibling-cards stats legend — Mandate 4 sweep
   static const Color billingSiblingPaidColor = Color(0xFF2E9E5B);
@@ -379,9 +391,9 @@ class AppColors {
 
   // Amount-invoiced stat bar legend — Mandate 4 sweep (own palette, distinct
   // from the sibling-cards legend above)
-  static final Color billingStatBarNetPaidColor = Colors.greenAccent.shade100;
-  static final Color billingStatBarOutstandingColor = Colors.redAccent.shade100;
-  static const Color billingStatBarInProcessColor = Colors.yellow;
+  static const Color billingStatBarNetPaidColor = MaterialHues.greenAccent100;
+  static const Color billingStatBarOutstandingColor = MaterialHues.redAccent100;
+  static const Color billingStatBarInProcessColor = MaterialHues.yellow;
 
   /// Popup drag-handle circle — same value as the second stop of
   /// [primaryGradientColors]/[secondaryGradientColors], kept as its own
@@ -406,9 +418,7 @@ class AppColors {
   /// (`Colors.grey.shade300`), kept as its own alias since the role
   /// (loading placeholder) is distinct from a border.
   static const Color billingShimmerBaseColor = billingBorderStrong;
-  static const Color billingShimmerHighlightColor = Color(
-    0xFFF5F5F5,
-  ); // was Colors.grey.shade100
+  static const Color billingShimmerHighlightColor = MaterialHues.grey100;
 
   // Additional billing literals centralized (visual-neutral) — Mandate 4 color batch
   static const Color billingBorderDefault = Color(
@@ -451,21 +461,11 @@ class AppColors {
   static const Color attendanceCardDividerColor = Color(
     0xFFE9ECEF,
   ); // Divider between card sections
-  static const Color attendanceDialogBodyTextColor = Color(
-    0xFF424242,
-  ); // Dialog body text
-  static const Color attendanceDialogHintTextColor = Color(
-    0xFF757575,
-  ); // Dialog hint/label text (was Colors.grey[600])
-  static const Color attendanceBorderLightColor = Color(
-    0xFFE0E0E0,
-  ); // Input borders / placeholder icon+text (was Colors.grey.shade300 / grey[300])
-  static const Color attendanceShimmerBaseColor = Color(
-    0xFFE0E0E0,
-  ); // Loading skeleton base (was Colors.grey.shade300) — kept separate from the border token
-  static const Color attendanceShimmerHighlightColor = Color(
-    0xFFF5F5F5,
-  ); // Loading skeleton highlight (was Colors.grey.shade100)
+  static const Color attendanceDialogBodyTextColor = MaterialHues.grey800; // Dialog body text
+  static const Color attendanceDialogHintTextColor = MaterialHues.grey600; // Dialog hint/label text (was Colors.grey[600])
+  static const Color attendanceBorderLightColor = MaterialHues.grey300; // Input borders / placeholder icon+text (was Colors.grey.shade300 / grey[300])
+  static const Color attendanceShimmerBaseColor = MaterialHues.grey300; // Loading skeleton base (was Colors.grey.shade300) — kept separate from the border token
+  static const Color attendanceShimmerHighlightColor = MaterialHues.grey100; // Loading skeleton highlight (was Colors.grey.shade100)
   static const Color attendanceOverlayScrimColor = Color(
     0x73000000,
   ); // Dialog barrier (was Colors.black.withValues(alpha: 0.45))
@@ -476,25 +476,13 @@ class AppColors {
     0x1A2196F3,
   ); // Info tint (was Colors.blue.withValues(alpha: 0.1))
   static const Color attendanceIconColor =
-      Colors.black; // Popup icon/label (was bare Colors.black)
-  static const Color attendancePopupBarrierColor = Color(
-    0x8A000000,
-  ); // Attendance popup dialog barrier (was Colors.black54)
-  static const Color attendanceEmptyStateIconColor = Color(
-    0xFFBDBDBD,
-  ); // "No data" empty-state icon (was Colors.grey[400])
-  static const Color attendanceMutedTextColor = Color(
-    0xFF9E9E9E,
-  ); // Muted text/border/icon tint (was bare Colors.grey)
-  static const Color attendanceCardBorderColor = Color(
-    0x1F000000,
-  ); // Thin 1px card border (was Colors.black12)
-  static const Color attendanceSearchHintColor = Color(
-    0xFF616161,
-  ); // Search field hint text (was Colors.grey[700])
-  static const Color attendanceBodyText87Color = Color(
-    0xDD000000,
-  ); // Body/detail text (was Colors.black87)
+      LegacyHues.black; // Popup icon/label (was bare Colors.black)
+  static const Color attendancePopupBarrierColor = MaterialHues.black54; // Attendance popup dialog barrier (was Colors.black54)
+  static const Color attendanceEmptyStateIconColor = MaterialHues.grey400; // "No data" empty-state icon (was Colors.grey[400])
+  static const Color attendanceMutedTextColor = MaterialHues.grey500; // Muted text/border/icon tint (was bare Colors.grey)
+  static const Color attendanceCardBorderColor = MaterialHues.black12; // Thin 1px card border (was Colors.black12)
+  static const Color attendanceSearchHintColor = MaterialHues.grey700; // Search field hint text (was Colors.grey[700])
+  static const Color attendanceBodyText87Color = MaterialHues.black87; // Body/detail text (was Colors.black87)
   static const Color attendanceStatBlueColor = Color(
     0xFF4285F4,
   ); // Profile stat icon/value accent (was raw hex)
@@ -546,7 +534,7 @@ class AppColors {
 
   /// General alias so `.withValues(alpha: ...)` derivatives still resolve
   /// through AppColors rather than a bare `Colors.black` literal.
-  static const Color blackColor = Colors.black;
+  static const Color blackColor = LegacyHues.black;
 
   // Staff specific colors
   //
@@ -571,16 +559,16 @@ class AppColors {
   static const Color staffLightBackgroundAltColor = Color(
     0xFFF4F4FB,
   ); // Second light background variant (distinct from staffBadgeInactiveBg's F3F4FB)
-  static final Color staffVeryLightGrey = Colors.grey.shade50;
+  static const Color staffVeryLightGrey = MaterialHues.grey50;
   static const Color staffPhotoUploadOverlayColor = Color(
     0xB3241631,
   ); // Dark scrim over the avatar while a profile-photo upload is in flight
-  static final Color staffWarningBannerBg = Colors.orange.shade50;
-  static final Color staffWarningBannerBorder = Colors.orange.shade100;
-  static final Color staffWarningBannerText = Colors.orange.shade800;
-  static final Color staffInfoBannerBg = Colors.blue.shade50;
-  static const Color staffInfoText = Colors.blue;
-  static final Color staffMutedBlueGreyText = Colors.blueGrey.shade700;
+  static const Color staffWarningBannerBg = MaterialHues.orange50;
+  static const Color staffWarningBannerBorder = MaterialHues.orange100;
+  static const Color staffWarningBannerText = MaterialHues.orange800;
+  static const Color staffInfoBannerBg = MaterialHues.blue50;
+  static const Color staffInfoText = MaterialHues.blue;
+  static const Color staffMutedBlueGreyText = MaterialHues.blueGrey700;
 
   // Activity module colors — Mandate 4 sweep
   //
@@ -607,7 +595,7 @@ class AppColors {
   /// identical to `Colors.black54` (recurs 4x: upload_photo_video's rotate
   /// button backdrop, play/pause circle, remove-button circle, and
   /// view_activity_media's play/pause circle).
-  static const Color activityIconBackdropColor = Color(0x8A000000);
+  static const Color activityIconBackdropColor = MaterialHues.black54;
 
   // "Processing" media banner/placeholder palette — shared verbatim across
   // photo_activity, view_activity_media, and avtivity_media_preview.
@@ -701,30 +689,30 @@ class AppColors {
 
   /// Bright "good" status: signed-in attendance dot, ratio-met icon (was
   /// bare `Colors.green`).
-  static const Color classroomPositiveStatusColor = Colors.green;
+  static const Color classroomPositiveStatusColor = MaterialHues.green;
 
   /// Bright "bad" status: absent attendance dot, ratio-not-met icon, error
   /// text (was bare `Colors.red`).
-  static const Color classroomNegativeStatusColor = Colors.red;
+  static const Color classroomNegativeStatusColor = MaterialHues.red;
 
   /// Muted icon/text tint — empty-state icons, help tooltips (was bare
   /// `Colors.grey`).
-  static const Color classroomMutedIconColor = Colors.grey;
+  static const Color classroomMutedIconColor = MaterialHues.grey500;
 
   /// Roster-row border (was `Colors.grey[300]`/`Colors.grey.shade300`).
-  static const Color classroomRowBorderColor = Color(0xFFE0E0E0);
+  static const Color classroomRowBorderColor = MaterialHues.grey300;
 
   /// Greyed-out roster-row background for staff/students not expected today
   /// (was `Colors.grey[100]`).
-  static const Color classroomRowGreyedBackgroundColor = Color(0xFFF5F5F5);
+  static const Color classroomRowGreyedBackgroundColor = MaterialHues.grey100;
 
   /// Dropdown placeholder/hint text, e.g. an unselected designation filter
   /// (was `Colors.grey[600]`).
-  static const Color classroomPlaceholderTextColor = Color(0xFF757575);
+  static const Color classroomPlaceholderTextColor = MaterialHues.grey600;
 
   /// Search-field hint text on the assign-staff/assign-student forms (was
   /// `Colors.grey[700]`).
-  static const Color classroomSearchFieldHintColor = Color(0xFF616161);
+  static const Color classroomSearchFieldHintColor = MaterialHues.grey700;
 
   /// Status-filter chip background on the staff/students tab cards (was
   /// `Color.fromRGBO(177, 175, 233, 0.3)`).
@@ -799,62 +787,48 @@ class AppColors {
 
   /// Ratio Monitoring table header sub-label text, e.g. "Present"/"Current"
   /// (was `Colors.grey.shade800`).
-  static const Color classroomRatioHeaderSubtextColor = Color(0xFF424242);
+  static const Color classroomRatioHeaderSubtextColor = MaterialHues.grey800;
 
   /// [ClassroomInfoShimmer]'s loading-skeleton base/highlight — kept
   /// separate from [classroomRowBorderColor] despite an identical base
   /// value, matching this file's existing shimmer-vs-border convention (see
   /// [attendanceShimmerBaseColor]).
-  static const Color classroomShimmerBaseColor = Color(0xFFE0E0E0);
-  static const Color classroomShimmerHighlightColor = Color(0xFFF5F5F5);
+  static const Color classroomShimmerBaseColor = MaterialHues.grey300;
+  static const Color classroomShimmerHighlightColor = MaterialHues.grey100;
 
   // Bare Colors.* sweep, grouped by confirmed semantic role (see per-file
   // recon before this batch was written).
   static const Color activityUploadSuccessColor =
-      Colors.green; // Upload-complete icon/text (recurs 18x)
+      MaterialHues.green; // Upload-complete icon/text (recurs 18x)
   static const Color activityUploadWarningColor =
-      Colors.orange; // Upload-incomplete icon/text (recurs 8x)
+      MaterialHues.orange; // Upload-incomplete icon/text (recurs 8x)
   static const Color activityRequiredFieldMarkerColor =
-      Colors.red; // Required-field "*" marker (recurs 6x)
+      MaterialHues.red; // Required-field "*" marker (recurs 6x)
   static const Color activityErrorTextColor = Colors
       .red; // Validation/error message + destructive action text (recurs 3x)
   static const Color activityMediaPlaceholderIconColor = Colors
       .white70; // Icon/text tint on photo/video placeholder overlays (recurs 8x)
   static const Color activityMutedGreyColor = Colors
       .grey; // Muted text/icon/border (recurs 9x, incl. 2 .withValues() derivatives)
-  static const Color activityPlaceholderTextColor = Color(
-    0xFF757575,
-  ); // Hint/placeholder/unselected text (was Colors.grey[600] / grey.shade600, recurs 6x)
-  static const Color activitySearchHintColor = Color(
-    0xFF616161,
-  ); // Search field hint text (was Colors.grey[700], recurs 1x)
-  static const Color activityVideoPlaceholderBg = Color(
-    0xFF424242,
-  ); // Video-thumbnail loading placeholder background (was Colors.grey[800], recurs 2x)
-  static const Color activityMediaLoadingPlaceholderBg = Color(
-    0xFFE0E0E0,
-  ); // Photo/video thumb loading/error placeholder bg (was Colors.grey[300], recurs 2x)
-  static const Color activityDisabledButtonBg = Color(
-    0xFFE0E0E0,
-  ); // Disabled "Choose Media" button background (was Colors.grey[300], recurs 1x)
-  static const Color activityBodyTextColor = Color(
-    0xDD000000,
-  ); // Selected/primary body text (was Colors.black87, recurs 4x)
-  static const Color activityTooltipBackgroundColor = Color(
-    0xDD000000,
-  ); // Black tooltip bubble background (was Colors.black87, recurs 2x)
+  static const Color activityPlaceholderTextColor = MaterialHues.grey600; // Hint/placeholder/unselected text (was Colors.grey[600] / grey.shade600, recurs 6x)
+  static const Color activitySearchHintColor = MaterialHues.grey700; // Search field hint text (was Colors.grey[700], recurs 1x)
+  static const Color activityVideoPlaceholderBg = MaterialHues.grey800; // Video-thumbnail loading placeholder background (was Colors.grey[800], recurs 2x)
+  static const Color activityMediaLoadingPlaceholderBg = MaterialHues.grey300; // Photo/video thumb loading/error placeholder bg (was Colors.grey[300], recurs 2x)
+  static const Color activityDisabledButtonBg = MaterialHues.grey300; // Disabled "Choose Media" button background (was Colors.grey[300], recurs 1x)
+  static const Color activityBodyTextColor = MaterialHues.black87; // Selected/primary body text (was Colors.black87, recurs 4x)
+  static const Color activityTooltipBackgroundColor = MaterialHues.black87; // Black tooltip bubble background (was Colors.black87, recurs 2x)
   static const Color activityMediaPlaceholderBg = Colors
       .black12; // Media placeholder container tint, alpha applied per call site (recurs 3x)
   static const Color activityVideoProgressTrackColor =
-      Colors.white24; // Video-progress unplayed track (recurs 1x)
+      MaterialHues.white24; // Video-progress unplayed track (recurs 1x)
   static const Color activityVideoProgressBufferedColor =
-      Colors.white38; // Video-progress buffered segment (recurs 1x)
+      MaterialHues.white38; // Video-progress buffered segment (recurs 1x)
 
   // Student specific colors
   //
   // General white alias so bare `Colors.white` surfaces/icons resolve through
   // AppColors, matching the existing [blackColor] alias.
-  static const Color whiteColor = Colors.white;
+  static const Color whiteColor = LegacyHues.white;
 
   // Profile status-chip palette (StudentAboutTabCard): each status pairs a
   // saturated label color with a 10%-alpha background of the same hue.
@@ -894,7 +868,7 @@ class AppColors {
   static const Color studentHealthRedDark = Color(0xFFC62828); // strong error text
   static const Color studentHealthGreenDark = Color(0xFF1B5E20); // strong success text
   static const Color studentHealthBlue = Color(0xFF3B82F6); // info accent
-  static const Color studentHealthRedBg = Color(0xFFFFEBEE); // light error background
+  static const Color studentHealthRedBg = MaterialHues.red50; // light error background
   static const Color studentHealthBlueBg = Color(0xFFE8F1FE); // light info background
   static const Color studentAmberBg = Color(0xFFFFF8E1); // light amber background
 
@@ -923,8 +897,8 @@ class AppColors {
   ); // gradient purple accent (was rgbo(156,132,255,1))
 
   // Info blue (was bare Colors.blue / Colors.blue[50]).
-  static const Color studentInfoColor = Color(0xFF2196F3);
-  static const Color studentInfoBg = Color(0xFFE3F2FD);
+  static const Color studentInfoColor = MaterialHues.blue;
+  static const Color studentInfoBg = MaterialHues.blue50;
   // Auth module colors — Mandate 4 sweep
   //
   // Primary headings/icons/body text across sign-in, org/school selection,
@@ -947,7 +921,7 @@ class AppColors {
   /// Password-strength "met" indicator (icon, banner text, success circle) —
   /// was both bare `Colors.green` and the identical `Color(0xFF4CAF50)`
   /// (recurs 3x).
-  static const Color authSuccessColor = Colors.green;
+  static const Color authSuccessColor = MaterialHues.green;
 
   /// Field label above each password input, and the show/hide eye icon (was
   /// `Color(0xFF888888)`, recurs 4x).
@@ -956,23 +930,23 @@ class AppColors {
   /// Password field placeholder/hint text (was `Color(0xFFBBBBBB)`).
   static const Color authHintTextColor = Color(0xFFBBBBBB);
 
-  /// Password field border (was `Color(0xFFEEEEEE)`).
-  static const Color authInputBorderColor = Color(0xFFEEEEEE);
+  /// Password field border (was `MaterialHues.grey200`).
+  static const Color authInputBorderColor = MaterialHues.grey200;
 
   /// Password-strength "met" banner background (was `Color(0xFFEFFBEF)`).
   static const Color authSuccessBackgroundColor = Color(0xFFEFFBEF);
 
   /// Muted icon tint, e.g. the sign-out confirmation sheet (was bare
   /// `Colors.grey`).
-  static const Color authMutedIconColor = Colors.grey;
+  static const Color authMutedIconColor = MaterialHues.grey500;
 
   /// Bottom-sheet drag handle (was `Colors.grey[300]`, equivalent to
   /// `Colors.grey.shade300`).
-  static final Color authDragHandleColor = Colors.grey.shade300;
+  static const Color authDragHandleColor = MaterialHues.grey300;
 
   /// Role label under the user's name on org/school selection (was
   /// `Colors.grey.shade600`, recurs 2x).
-  static final Color authSecondaryTextColor = Colors.grey.shade600;
+  static const Color authSecondaryTextColor = MaterialHues.grey600;
 
   // User profile module colors — Mandate 4 sweep
   //
@@ -986,18 +960,18 @@ class AppColors {
   static const Color userProfileBorderColor = Color(0x66573353);
 
   /// Muted icon tint (was bare `Colors.grey`, recurs 2x).
-  static const Color userProfileMutedIconColor = Colors.grey;
+  static const Color userProfileMutedIconColor = MaterialHues.grey500;
 
   /// Disabled "Save" button background on the edit-profile form — same
   /// value as [billingButtonDisabled] (was `Colors.grey[300]`).
-  static final Color userProfileDisabledButtonColor = Colors.grey[300]!;
+  static const Color userProfileDisabledButtonColor = MaterialHues.grey300;
 
   /// Disabled "Country" field text on the edit-profile form (was
   /// `Colors.grey.shade700`).
-  static final Color userProfileSecondaryTextColor = Colors.grey.shade700;
+  static const Color userProfileSecondaryTextColor = MaterialHues.grey700;
 
   /// Validation/required-field marker (was bare `Colors.red`, recurs 2x).
-  static const Color userProfileErrorColor = Colors.red;
+  static const Color userProfileErrorColor = MaterialHues.red;
 
   /// "Soft purple" header/badge background — same value as
   /// [activitySoftPurpleFieldColor] (was `Color(0xFFB1AFE9)`, recurs 2x).
@@ -1016,32 +990,30 @@ class AppColors {
   static const Color userProfileLightBackgroundColor = Color(0xFFF8F7FA);
 
   /// Disabled notification-channel checkbox fill (was `Colors.grey.shade300`).
-  static final Color userProfileDisabledCheckboxFillColor =
-      Colors.grey.shade300;
+  static const Color userProfileDisabledCheckboxFillColor = MaterialHues.grey300;
 
   /// Disabled notification-channel checkbox border (was
   /// `Colors.grey.shade400`).
-  static final Color userProfileDisabledCheckboxBorderColor =
-      Colors.grey.shade400;
+  static const Color userProfileDisabledCheckboxBorderColor = MaterialHues.grey400;
 
   // Onboarding module colors — Mandate 4 sweep
   //
   // Inactive page-indicator dot (was `Colors.grey.shade300`).
-  static final Color onboardingInactiveDotColor = Colors.grey.shade300;
+  static const Color onboardingInactiveDotColor = MaterialHues.grey300;
   // ── Reports (Mandate M4) ────────────────────────────────────────────────
   /// Error-state icon on the Generated-reports failure panel. This is the
   /// exact value of the `Colors.red` it replaced (#F44336), NOT
   /// [errorColor] (#D32F2F) — substituting the nearer token would have
   /// changed the rendered colour. Worth consolidating with [errorColor] as a
   /// deliberate design decision, not as part of a centralisation pass.
-  static const Color reportsErrorIconColor = Color(0xFFF44336);
+  static const Color reportsErrorIconColor = MaterialHues.red;
 
   /// Muted/inactive grey across the reports module — empty-state icons,
   /// file-preview placeholder icons, unselected checkbox borders and the
   /// disabled download gradient. Exact value of the `Colors.grey[400]` /
   /// `Colors.grey.shade400` it replaced (#BDBDBD). Shares its hex with
   /// [dividerColor] but means "inactive", not "rule between rows".
-  static const Color reportsMutedColor = Color(0xFFBDBDBD);
+  static const Color reportsMutedColor = MaterialHues.grey400;
 
   /// Indigo accent — section labels and the "All ... selected by default"
   /// notes. Exact value of the `Color(0xff4F46E5)` it replaced.
@@ -1059,16 +1031,16 @@ class AppColors {
   static const Color reportsMonthPickerSelectedColor = Color(0xFFEEEDF0);
 
   /// Disabled control surface — exact value of `Colors.grey[300]` (#E0E0E0).
-  static const Color reportsDisabledSurfaceColor = Color(0xFFE0E0E0);
+  static const Color reportsDisabledSurfaceColor = MaterialHues.grey300;
 
   /// Disabled control foreground — exact value of `Colors.grey[600]`
   /// / `Colors.grey.shade600` (#757575).
-  static const Color reportsDisabledForegroundColor = Color(0xFF757575);
+  static const Color reportsDisabledForegroundColor = MaterialHues.grey600;
 
   /// Required-field "*" marker. Same value and meaning as
   /// [activityRequiredFieldMarkerColor]; the two should collapse into one
   /// shared semantic token in a cross-feature pass.
-  static const Color reportsRequiredFieldMarkerColor = Colors.red;
+  static const Color reportsRequiredFieldMarkerColor = MaterialHues.red;
 
   // Individual Movements (Mandate 4) — see
   // lib/presentation/features/availability/**. Board-column background tints
@@ -1121,14 +1093,14 @@ class AppColors {
   // ── Dashboard: disabled / shimmer chrome ──────────────────────────────────
 
   /// Label of a disabled self-attendance action button.
-  static const Color disabledActionLabel = Color(0xFF757575); // Colors.grey[600]
+  static const Color disabledActionLabel = MaterialHues.grey600;
 
   /// Border of a disabled self-attendance action button.
-  static const Color disabledActionBorder = Color(0xFFBDBDBD); // Colors.grey[400]
+  static const Color disabledActionBorder = MaterialHues.grey400;
 
   /// Shimmer skeleton base / highlight.
-  static const Color shimmerBase = Color(0xFFE0E0E0);      // Colors.grey[300]
-  static const Color shimmerHighlight = Color(0xFFF5F5F5); // Colors.grey[100]
+  static const Color shimmerBase = MaterialHues.grey300;
+  static const Color shimmerHighlight = MaterialHues.grey100;
 
   // ── Newsletter (Mandate 4) ────────────────────────────────────────────────
   // Feature-prefixed, matching the `billing*` convention already in this file.
@@ -1171,9 +1143,7 @@ class AppColors {
 
   /// Document thumbnail fill when no asset resolved, and the fallback behind a
   /// failed placeholder image. Was `Colors.grey.shade200`.
-  static const Color newsletterThumbnailPlaceholderBackground = Color(
-    0xFFEEEEEE,
-  );
+  static const Color newsletterThumbnailPlaceholderBackground = MaterialHues.grey200;
 
   /// Letterbox behind a component image while it loads.
   /// Was `Colors.grey.shade100`.
@@ -1181,13 +1151,13 @@ class AppColors {
   /// Same hex as [shimmerHighlight] but a different meaning, so it is its own
   /// token rather than a reuse (§4: a colour that encodes meaning gets a named
   /// semantic token).
-  static const Color newsletterImageLoadingBackground = Color(0xFFF5F5F5);
+  static const Color newsletterImageLoadingBackground = MaterialHues.grey100;
 
   /// Background of the "loaded from cache, refresh failed" banner on the
   /// preview screen. A SEMANTIC state colour, not a palette entry — it is the
   /// only thing distinguishing a stale newsletter from a fresh one, and it
   /// pairs with the banner's own text. Was `Colors.orange.shade50`.
-  static const Color newsletterStaleBannerBackground = Color(0xFFFFF3E0);
+  static const Color newsletterStaleBannerBackground = MaterialHues.orange50;
 
   /// Scrim behind the "+N" extra-attachment count on a card thumbnail.
   /// Was `Colors.black.withValues(alpha: 0.65)`.
@@ -1212,7 +1182,7 @@ class AppColors {
   /// Unread-count badge fill (also its own drop-shadow at reduced alpha).
   static const Color messagingUnreadBadge = Color(0xFF00B894);
   /// Text/icon drawn ON a coloured messaging accent (e.g. the unread badge).
-  static const Color messagingOnAccent = Colors.white;
+  static const Color messagingOnAccent = LegacyHues.white;
   /// Subtle InkWell splash on a conversation tile.
   static const Color messagingTileSplash = Color(0x1A6C5CE7);
 
@@ -1235,11 +1205,11 @@ class AppColors {
   static const Color messagingTextPlaceholder = Color(0xFFB2BEC3);
 
   /// Field / chip outline in filter sheets (was Colors.grey[300]).
-  static const Color messagingBorderColor = Color(0xFFE0E0E0);
+  static const Color messagingBorderColor = MaterialHues.grey300;
   /// Input hint text in filter fields (was Colors.grey[400]).
-  static const Color messagingHintText = Color(0xFFBDBDBD);
+  static const Color messagingHintText = MaterialHues.grey400;
   /// Unselected filter-chip label (was Colors.grey[700]).
-  static const Color messagingChipTextUnselected = Color(0xFF616161);
+  static const Color messagingChipTextUnselected = MaterialHues.grey700;
 
   /// Composer TextField outline (slate-200).
   static const Color messagingInputBorder = Color(0xFFE2E8F0);
@@ -1279,14 +1249,14 @@ class AppColors {
 
   // Attachment viewer.
   /// Muted surface behind an image placeholder / a card outline (grey-200).
-  static const Color messagingSurfaceMuted = Color(0xFFEEEEEE);
+  static const Color messagingSurfaceMuted = MaterialHues.grey200;
   /// Muted glyph (broken/unsupported image icon) (grey-500).
-  static const Color messagingIconMuted = Color(0xFF9E9E9E);
+  static const Color messagingIconMuted = MaterialHues.grey500;
   /// Secondary metadata text (file size/type, empty note) (grey-600).
-  static const Color messagingTextMeta = Color(0xFF757575);
+  static const Color messagingTextMeta = MaterialHues.grey600;
   // Document type-badge tints (semantic — the file-type icon shape also
   // conveys the type, so these are not colour-only signals).
-  static const Color messagingFilePdf = Color(0xFFF44336);
+  static const Color messagingFilePdf = MaterialHues.red;
   static const Color messagingFileExcel = Color(0xFF388E3C);
   static const Color messagingFilePowerpoint = Color(0xFFEF6C00);
   static const Color messagingFileWord = Color(0xFF1976D2);
@@ -1304,7 +1274,7 @@ class AppColors {
   /// 54% white — hint text / broken-media icons over the black viewer.
   static const Color messagingMediaHint = Color(0x8AFFFFFF);
   /// 70% white — loaders over the black viewer.
-  static const Color messagingMediaSubtle = Color(0xB3FFFFFF);
+  static const Color messagingMediaSubtle = MaterialHues.white70;
   /// 24% white — video scrubber track background.
   static const Color messagingMediaTrackBg = Color(0x3DFFFFFF);
 
@@ -1320,10 +1290,10 @@ class AppColors {
   /// Left-border accent on the "editing" preview strip (amber-600).
   static const Color messagingEditAccent = Color(0xFFFFB300);
   /// Pending-attachment "remove" badge fill (red-500).
-  static const Color messagingRemoveBadge = Color(0xFFF44336);
+  static const Color messagingRemoveBadge = MaterialHues.red;
   /// Dark scrim over an attachment thumbnail (video play chip / filename strip)
   /// — const-usable equivalent of the old Colors.black54.
-  static const Color messagingScrimDark = Color(0x8A000000);
+  static const Color messagingScrimDark = MaterialHues.black54;
 
   // ── Message bubble — semantic fills (Mandate 4) ────────────────────────────
   // Bubble background encodes WHO sent the message. The three fills are told
@@ -1335,7 +1305,7 @@ class AppColors {
   // GRADIENTS via buildPrimaryGradient()/buildPinkGradient()).
 
   /// Received (peer) message bubble fill — flat white, left-aligned.
-  static const Color messagingBubbleReceived = Colors.white;
+  static const Color messagingBubbleReceived = LegacyHues.white;
 
   /// Staff-Direct (1:1) legacy "their message" fill — flat light blue, used
   /// only where role-colouring is intentionally off (senderIsOrgSide == null).
@@ -1362,16 +1332,16 @@ class AppColors {
   static const Color messagingLinkOnAccent = Color(0xFF64B5F6);
 
   /// Link colour inside a message rendered on a light bubble.
-  static const Color messagingLink = Colors.blue;
+  static const Color messagingLink = MaterialHues.blue;
 
   /// Document-attachment file-type icon (PDF/doc/xls in the file card).
-  static const Color messagingDocumentIcon = Colors.redAccent;
+  static const Color messagingDocumentIcon = MaterialHues.redAccent;
 
   /// Image-attachment placeholder background while a thumbnail loads/fails.
-  static const Color messagingThumbPlaceholderBg = Color(0xFFE0E0E0);
+  static const Color messagingThumbPlaceholderBg = MaterialHues.grey300;
 
   /// Stronger meta grey — file-size caption + "Processing…" label (grey700).
-  static const Color messagingMetaStrong = Color(0xFF616161);
+  static const Color messagingMetaStrong = MaterialHues.grey700;
 
   // ── Conversation list (Mandate 4) ──────────────────────────────────────────
 
@@ -1410,7 +1380,7 @@ class AppColors {
   static const Color messagingMutedPurple = Color(0xFF9B96B0);
 
   /// Active-filter indicator dot on the filter button.
-  static const Color messagingNotificationDot = Colors.red;
+  static const Color messagingNotificationDot = MaterialHues.red;
 
   /// Admin-chat conversation-tile ink splash (blue, matches the admin accent).
   static const Color messagingAdminChatSplash = Color(0x1A0984E3);
@@ -1418,13 +1388,13 @@ class AppColors {
   // ── Parent messaging thread (Mandate 4) ────────────────────────────────────
 
   /// Transient flash when auto-scrolling to a quoted/target message.
-  static const Color messagingScrollHighlight = Colors.green;
+  static const Color messagingScrollHighlight = MaterialHues.green;
 
   /// Thread header bottom divider (slightly cooler than [messagingDividerLight]).
   static const Color messagingBorderSubtle = Color(0xFFE9ECEF);
 
   /// Error/"unable to load" icon (distinct meaning from the document-icon red).
-  static const Color messagingErrorIcon = Colors.redAccent;
+  static const Color messagingErrorIcon = MaterialHues.redAccent;
 
   /// Read-only participant name-badge chip background (translucent plum).
   static const Color messagingChipBgPlum = Color(0x1A573353);
@@ -1437,10 +1407,10 @@ class AppColors {
   // ── Staff messaging thread (Mandate 4) ─────────────────────────────────────
 
   /// Staff-info dialog field label (Designation/Email) — near-black (black87).
-  static const Color messagingMenuText = Color(0xDD000000);
+  static const Color messagingMenuText = MaterialHues.black87;
 
   /// Staff-info dialog field value — mid-grey (black54).
-  static const Color messagingMenuSubtext = Color(0x8A000000);
+  static const Color messagingMenuSubtext = MaterialHues.black54;
 
   // ── Conversation thread — participant role badges (Mandate 4) ──────────────
   // A distinct scheme from the messagingRoleXxx set: this screen's participant
@@ -1459,13 +1429,13 @@ class AppColors {
   static const Color messagingErrorDarkText = Color(0xFFB71C1C);
 
   /// Character-counter colour once the message exceeds the limit.
-  static const Color messagingCounterExceeded = Colors.red;
+  static const Color messagingCounterExceeded = MaterialHues.red;
 
   // ── Shimmer placeholders (Mandate 4) ───────────────────────────────────────
   // Two shimmer palettes are in use across the messaging placeholders: a warm
   // grey pair (list/selection shimmers) and a cooler slate pair (thread shimmer).
-  static const Color messagingShimmerBase = Color(0xFFE0E0E0);
-  static const Color messagingShimmerHighlight = Color(0xFFF5F5F5);
+  static const Color messagingShimmerBase = MaterialHues.grey300;
+  static const Color messagingShimmerHighlight = MaterialHues.grey100;
   static const Color messagingShimmerBaseCool = Color(0xFFE2E8F0);
   static const Color messagingShimmerHighlightCool = Color(0xFFF8FAFC);
 

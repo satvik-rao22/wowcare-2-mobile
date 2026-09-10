@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:file_picker/file_picker.dart';
@@ -100,7 +101,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
   File? selectedFile;
   final OutlineInputBorder border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(5),
-    borderSide: const BorderSide(color: Colors.grey),
+    borderSide: const BorderSide(color: MaterialHues.grey500),
   );
 
   @override
@@ -167,7 +168,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w500,
-        color: Colors.black87,
+        color: MaterialHues.black87,
       ),
     );
   }
@@ -189,7 +190,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: Colors.blue),
+              borderSide: const BorderSide(color: MaterialHues.blue),
             ),
             label: _createLabel(field), // Only using label, removed labelText
           ),
@@ -203,7 +204,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: Colors.blue),
+              borderSide: const BorderSide(color: MaterialHues.blue),
             ),
             label: _createLabel(field), // Only using label, removed labelText
           ),
@@ -212,7 +213,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               value: '',
               child: Text(
                 'Select ${field.label}',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: MaterialHues.grey500),
               ),
             ),
             ...?field.dropdownOptions?.map((option) {
@@ -244,7 +245,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 border: border,
                 enabledBorder: border,
                 focusedBorder: border.copyWith(
-                  borderSide: const BorderSide(color: Colors.blue),
+                  borderSide: const BorderSide(color: MaterialHues.blue),
                 ),
                 suffixIcon: const Icon(Icons.calendar_today),
                 label: _createLabel(
@@ -267,14 +268,14 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: MaterialHues.grey500),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(right: 10),
-                      color: Colors.grey.shade300,
+                      color: MaterialHues.grey300,
                       child: const Text(
                         'Choose File',
                         style: TextStyle(fontWeight: FontWeight.w500),
@@ -295,7 +296,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '${field.label} is required',
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                  style: const TextStyle(color: MaterialHues.red, fontSize: 12),
                 ),
               ),
           ],
@@ -359,7 +360,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: AppColors.themeColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.whiteColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                       ),

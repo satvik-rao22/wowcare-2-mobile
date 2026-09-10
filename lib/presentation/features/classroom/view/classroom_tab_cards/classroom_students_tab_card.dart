@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart';
@@ -430,7 +431,7 @@ class _ClassroomStudentsTabCardViewState
         child: Text(
           _statusChipLabel(apiStatus),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.secondaryColor,
             fontSize: 12,
           ),
@@ -1224,7 +1225,7 @@ class _ClassroomStudentsTabCardViewState
                             hintText: 'Search',
                             hintStyle: WidgetStatePropertyAll(
                               TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.classroomSearchHintTextColor,
                                 fontSize: 13,
                               ),
@@ -1280,7 +1281,7 @@ class _ClassroomStudentsTabCardViewState
                             const Text(
                               'Select All',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1320,7 +1321,7 @@ class _ClassroomStudentsTabCardViewState
                                     child: const Text(
                                       'Clear All',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -1364,7 +1365,7 @@ class _ClassroomStudentsTabCardViewState
                                                       child: Text(
                                                         entry.value,
                                                         style: const TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: AppFonts.body,
                                                           fontSize: 14,
                                                         ),
                                                       ),
@@ -1408,7 +1409,7 @@ class _ClassroomStudentsTabCardViewState
                                 });
                               },
                               labelStyle: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1422,7 +1423,7 @@ class _ClassroomStudentsTabCardViewState
                                 _applyNappingToggle(value);
                               },
                               labelStyle: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1459,7 +1460,7 @@ class _ClassroomStudentsTabCardViewState
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: AppFonts.body,
                                               fontSize: 16,
                                               color: AppColors.primaryColor
                                                   .withValues(alpha: 0.6),
@@ -1762,7 +1763,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
@@ -1810,7 +1811,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                           child: Text(
                             item,
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontSize: 14,
                               color: AppColors.classroomTextColor,
                             ),
@@ -1830,7 +1831,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         hint: Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: _localSelectedItems.isEmpty
                 ? AppColors.classroomPlaceholderTextColor
                 : AppColors.classroomTextColor,

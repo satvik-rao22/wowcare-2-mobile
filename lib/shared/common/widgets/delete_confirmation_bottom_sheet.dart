@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class DeleteConfirmationBottomSheet extends StatefulWidget {
@@ -200,7 +202,7 @@ class _DeleteConfirmationBottomSheetState
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -246,7 +248,7 @@ class _DeleteConfirmationBottomSheetState
                               child: SvgPicture.asset(
                                 MediaRes.formDeleteIcon,
                                 colorFilter: const ColorFilter.mode(
-                                  Colors.white,
+                                  AppColors.whiteColor,
                                   BlendMode.srcIn,
                                 ),
                                 width: isLargeTablet
@@ -270,10 +272,10 @@ class _DeleteConfirmationBottomSheetState
                 child: Text(
                   typeText,
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,

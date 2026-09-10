@@ -184,7 +184,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 15,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -203,7 +203,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             keyboardType: TextInputType.multiline,
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'^\s'))],
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -211,7 +211,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AppColors.attendanceMutedTextColor,

@@ -168,6 +168,36 @@ flutter:
         - asset: assets/fonts/Imperial_Script/ImperialScript-Regular.ttf
           weight: 200
 
+    # Poppins is the ChildcareWow brand typeface (the brand guide substitutes
+    # this geometric sans for Modulus Pro, and the production website ships
+    # the same family). It is what `AppSkin.childcareWow` renders in — see
+    # lib/core/theme/app_theme_config.dart.
+    #
+    # Three weights only, matching what the brand guide actually prescribes:
+    # Medium body, Semi Bold headings, Bold emphasis. Flutter resolves any
+    # other requested weight to the nearest bundled face, which lands where
+    # the guide wants it anyway:
+    #
+    #   w400 (192 sites) -> Medium 500   the guide sets body at Medium
+    #   w800 (15 sites)  -> Bold 700
+    #   w900 (4 sites)   -> Bold 700
+    #   w200 (1 site)    -> Medium 500
+    #
+    # MediumItalic covers the 8 italic call sites (message bubbles, hint and
+    # caption text); without an italic face Flutter renders them upright,
+    # since it does not synthesise a slant for a bundled family.
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/poppins/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/poppins/Poppins-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/poppins/Poppins-Bold.ttf
+          weight: 700
+
 
 
 

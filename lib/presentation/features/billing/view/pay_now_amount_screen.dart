@@ -110,7 +110,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                         const Text(
                           BillingStrings.paymentAmount,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: _primary,
@@ -163,7 +163,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 child: Text(
                   BillingStrings.currentOutstandingUnpaidBalance,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: _primary,
@@ -218,7 +218,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const Text(
                 BillingStrings.customAmount,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: _primary,
@@ -250,7 +250,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     const Text(
                       BillingStrings.totalPaymentAmount,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: _primary,
@@ -259,7 +259,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     Text(
                       '\$${_money(state.customTotal)}',
                       style: const TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: _primary,
@@ -297,7 +297,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: student.fullName,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: _primary,
@@ -306,7 +306,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: '  (Outstanding: \$${_money(student.outstanding)})',
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
                     color: AppColors.billingCaptionTextColor,
@@ -344,7 +344,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // Manrope, primary text color, soft border, InputBorder.none inside a
     // bordered container.
     final textStyle = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,

@@ -528,7 +528,7 @@ class _ClassroomListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: const Color(0x33162831)),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -598,7 +598,7 @@ class _DailyClassroomListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: const Color(0x33162831)),
         borderRadius: BorderRadius.circular(8),
       ),

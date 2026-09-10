@@ -113,6 +113,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class GradientTimePickerField extends StatelessWidget {
@@ -208,7 +209,7 @@ class GradientTimePickerField extends StatelessWidget {
               colorScheme: theme.colorScheme.copyWith(
                 primary: AppColors.themeColor,
                 secondary: AppColors.themeColor,
-                onPrimary: Colors.white,
+                onPrimary: AppColors.whiteColor,
               ),
             ),
             child: child!,
@@ -256,7 +257,7 @@ class GradientTimePickerField extends StatelessWidget {
                         child: const Text(
                           'Cancel',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             color: AppColors.primaryColor,
                           ),
                         ),
@@ -264,7 +265,7 @@ class GradientTimePickerField extends StatelessWidget {
                       const Text(
                         'Select time',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
                         ),
@@ -276,7 +277,7 @@ class GradientTimePickerField extends StatelessWidget {
                         child: const Text(
                           'OK',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontWeight: FontWeight.w700,
                             color: AppColors.themeColor,
                           ),
@@ -319,7 +320,7 @@ class GradientTimePickerField extends StatelessWidget {
             text: TextSpan(
               text: label,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
@@ -329,7 +330,7 @@ class GradientTimePickerField extends StatelessWidget {
                   const TextSpan(
                     text: ' *',
                     style: TextStyle(
-                      color: Colors.red,
+                      color: MaterialHues.red,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -368,7 +369,7 @@ class GradientTimePickerField extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 15,
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -414,10 +415,10 @@ class GradientTimePickerField extends StatelessWidget {
           Text(
             errorText!,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
             ),
           ),
         ],

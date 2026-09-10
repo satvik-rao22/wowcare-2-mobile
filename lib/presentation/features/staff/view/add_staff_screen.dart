@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -756,7 +757,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                           child: Text(
                             widget.isEdit ? "Edit Staff" : "Add Staff",
                             style: TextStyle(
-                              fontFamily: "Manrope",
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primaryColor,
@@ -848,7 +849,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                       selectedItem: _selectedRole,
                                       labelStyle: TextStyle(
                                         fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
+                                        fontFamily: AppFonts.body,
                                         fontWeight: FontWeight.w400,
                                         color: AppColors.primaryColor,
                                       ),
@@ -930,7 +931,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                       selectedItem: _selectedDesignation,
                                       labelStyle: TextStyle(
                                         fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
+                                        fontFamily: AppFonts.body,
                                         fontWeight: FontWeight.w400,
                                         color: AppColors.primaryColor,
                                       ),
@@ -1019,7 +1020,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                                   labelStyle: TextStyle(
                                                     fontSize: responsive
                                                         .labelFontSize,
-                                                    fontFamily: "Manrope",
+                                                    fontFamily: AppFonts.body,
                                                     fontWeight: FontWeight.w400,
                                                     color: const Color(
                                                       0xff573353,
@@ -1094,7 +1095,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                                 style: TextStyle(
                                                   fontSize:
                                                       responsive.labelFontSize,
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   color: const Color(
                                                     0xff573353,
                                                   ),
@@ -1116,7 +1117,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                         selectedItem: _selectedStatus,
                                         labelStyle: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -1236,7 +1237,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1273,7 +1274,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600, // typing weight
               color: AppColors.primaryColor,

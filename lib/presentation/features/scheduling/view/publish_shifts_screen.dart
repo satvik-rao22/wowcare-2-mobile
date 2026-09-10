@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
@@ -184,10 +185,10 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
               top: 8,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   offset: const Offset(0, -4),
                   blurRadius: 16,
                 ),
@@ -283,7 +284,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
             style: labelStyle,
             children: const [
               TextSpan(text: 'Until Date'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),

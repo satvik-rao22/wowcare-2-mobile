@@ -1236,7 +1236,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             child: Text(
                               StudentStrings.students,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
@@ -1621,7 +1621,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     const Text(
                                       StudentStrings.showInactive,
                                       style: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                         color: AppColors.primaryColor,

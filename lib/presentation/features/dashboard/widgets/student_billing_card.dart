@@ -457,7 +457,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

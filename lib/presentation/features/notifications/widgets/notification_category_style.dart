@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 
@@ -28,7 +30,7 @@ class NotificationCategoryStyle {
         );
       case NotificationCategory.student:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF3F51B5),
+          foreground: MaterialHues.indigo,
           background: Color(0xFFE8EAF6),
         );
     }
@@ -54,18 +56,18 @@ class NotificationCategoryStyle {
         );
       case 'STUDENT':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF3F51B5),
+          foreground: MaterialHues.indigo,
           background: Color(0xFFE8EAF6),
         );
       case 'CLASSROOM':
       case 'CLASSROOM_SCHEDULE':
         return const NotificationCategoryStyle(
           foreground: Color(0xFFE65100),
-          background: Color(0xFFFFF3E0),
+          background: MaterialHues.orange50,
         );
       case 'USER':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF455A64),
+          foreground: MaterialHues.blueGrey700,
           background: Color(0xFFECEFF1),
         );
       case 'BILLING':
@@ -87,7 +89,7 @@ class NotificationCategoryStyle {
       case 'STAFF_SCHEDULING':
         return const NotificationCategoryStyle(
           foreground: Color(0xFF1565C0),
-          background: Color(0xFFE3F2FD),
+          background: MaterialHues.blue50,
         );
       case 'AVAILABILITY':
       case 'FUTURE_AVAILABILITY':
@@ -107,7 +109,7 @@ class NotificationCategoryStyle {
         );
       default:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF573353),
+          foreground: AppColors.primaryColor,
           background: Color(0xFFF1ECF1),
         );
     }

@@ -294,7 +294,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   /// Field label style matching the Add Staff form (Manrope, responsive size).
   TextStyle _formLabelStyle(ResponsiveHelper responsive) => TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.billingTextColor,
       );
@@ -365,7 +365,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: _requiredLabel(
                 BillingStrings.invoiceItems,
                 TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
@@ -832,7 +832,7 @@ class _ItemTextField extends StatelessWidget {
     // background with the themed border, w600 input text).
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextColor,
     );
@@ -866,7 +866,7 @@ class _ItemTextField extends StatelessWidget {
             keyboardType: keyboardType,
             onChanged: onChanged,
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.billingTextColor,

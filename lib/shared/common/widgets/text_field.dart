@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -75,14 +76,14 @@ class CustomTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         filled: useGradientBorder ? true : isFilled,
         fillColor: useGradientBorder
-            ? (fillColor ?? Colors.white)
-            : (fillColor ?? Colors.grey.shade100),
-        border: _border(useGradientBorder ? null : Colors.grey.shade300),
-        enabledBorder: _border(useGradientBorder ? null : Colors.grey.shade300),
+            ? (fillColor ?? AppColors.whiteColor)
+            : (fillColor ?? MaterialHues.grey100),
+        border: _border(useGradientBorder ? null : MaterialHues.grey300),
+        enabledBorder: _border(useGradientBorder ? null : MaterialHues.grey300),
         focusedBorder:
             _border(useGradientBorder ? null : AppColors.themeColor),
-        errorBorder: _border(useGradientBorder ? null : Colors.red),
-        focusedErrorBorder: _border(useGradientBorder ? null : Colors.red),
+        errorBorder: _border(useGradientBorder ? null : MaterialHues.red),
+        focusedErrorBorder: _border(useGradientBorder ? null : MaterialHues.red),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
@@ -122,7 +123,7 @@ class CustomTextField extends StatelessWidget {
     // placement on editable fields (you can't tap to position the cursor —
     // it jumps to the end). Use a solid themed color instead.
     return TextStyle(
-      fontFamily: 'Manrope',
+      fontFamily: AppFonts.body,
       fontSize: baseSize,
       fontWeight: baseWeight,
       color: AppColors.primaryColor,

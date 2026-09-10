@@ -247,7 +247,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                             const Text(
                               BillingStrings.showInactive,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.billingTextColor,

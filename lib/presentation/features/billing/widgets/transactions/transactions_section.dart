@@ -162,7 +162,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       child: Text(
                         BillingStrings.noTransactionsMatchYourFilters,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryColor,

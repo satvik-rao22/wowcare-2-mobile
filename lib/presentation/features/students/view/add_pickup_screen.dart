@@ -370,7 +370,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             ? StudentStrings.editPickup
                             : StudentStrings.addPickup,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -413,7 +413,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   StudentStrings.selectFromExisting,
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.primaryColor,
                                   ),
@@ -438,7 +438,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               showAsterisk: true,
                               labelStyle: TextStyle(
                                 fontSize: responsive.labelFontSize,
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.primaryColor,
                               ),
@@ -447,14 +447,14 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   : 6.0,
                               fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                               selectedTextStyle: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: responsive.inputFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
                                 height: 19 / 14,
                               ),
                               popupItemTextStyle: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: responsive.inputFontSize,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.primaryColor,
@@ -613,7 +613,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -661,7 +661,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,

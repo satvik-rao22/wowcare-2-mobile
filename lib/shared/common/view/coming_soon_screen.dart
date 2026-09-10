@@ -34,7 +34,7 @@ class ComingSoonScreen extends StatelessWidget {
                 child: const Text(
                   'Go Back',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

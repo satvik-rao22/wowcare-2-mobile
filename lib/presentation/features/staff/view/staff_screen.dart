@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -592,7 +593,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 child: Text(
                                   'Staff',
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.primaryColor,
@@ -1058,12 +1059,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                                         ),
                                                     decoration: BoxDecoration(
                                                       color:
-                                                          const Color.fromRGBO(
-                                                            179,
-                                                            38,
-                                                            30,
-                                                            1,
-                                                          ),
+                                                          AppPalette.statusErrorStrong,
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             10,
@@ -1155,7 +1151,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                         const Text(
                                           'Show inactive',
                                           style: TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: AppFonts.body,
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                             color: AppColors.primaryColor,

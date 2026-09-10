@@ -546,19 +546,19 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                   showAsterisk: true,
                   labelStyle: TextStyle(
                     fontSize: responsive.labelFontSize + 1,
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w400,
                     color: AppColors.userProfileTextColor,
                   ),
                   selectedTextStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.userProfileSecondaryTextColor,
                     height: 19 / 14,
                   ),
                   popupItemTextStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w400,
                     color: AppColors.userProfileTextColor,
@@ -615,7 +615,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
               child: Text(
                 'Save',
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.buttonFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.cardColor,
@@ -649,7 +649,7 @@ class _InputField extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize + 1,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.userProfileTextColor,
     );
@@ -716,7 +716,7 @@ class _InputField extends StatelessWidget {
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.userProfileTextColor,
@@ -760,21 +760,21 @@ class _CustomDropdownField extends StatelessWidget {
       showAsterisk: isRequired,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize + 1,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.userProfileTextColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.userProfileTextColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.userProfileTextColor,

@@ -498,7 +498,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 : const Text(
                     '-',
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 15,
                       color: AppColors.primaryColor,
                       fontWeight: FontWeight.w400,
@@ -595,7 +595,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                           Text(
                             name,
                             style: const TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primaryColor,
@@ -781,7 +781,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                       const Text(
                         StudentStrings.schedule,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -1053,7 +1053,7 @@ class _ProfileTagChip extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontWeight: FontWeight.w600,
           fontSize: 15,
           color: AppColors.secondaryColor,
@@ -1103,7 +1103,7 @@ class _ScheduleChip extends StatelessWidget {
         maxLines: isTimeChip ? 2 : 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: 15,
           fontWeight: FontWeight.w600,
           color: isTimeChip ? AppColors.staffBadgeActiveText : labelColor,
@@ -1140,7 +1140,7 @@ class _Chip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w600,
               fontSize: 15,
               color: labelColor,

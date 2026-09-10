@@ -72,7 +72,7 @@ class ProfileMenuHeader extends StatelessWidget {
                     state.displayName.isNotEmpty ? state.displayName : 'User',
                     style: const TextStyle(
                       color: AppColors.userProfileTextColor,
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -84,7 +84,7 @@ class ProfileMenuHeader extends StatelessWidget {
                     state.persona.isNotEmpty ? state.persona : 'Profile',
                     style: const TextStyle(
                       color: AppColors.userProfileTextColor,
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                     ),

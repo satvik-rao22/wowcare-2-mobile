@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
@@ -514,7 +515,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               child: Text(
                 _schoolHoursLoadError!,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 12,
                   color: AppColors.staffWarningBannerText,
                   fontWeight: FontWeight.w500,
@@ -618,7 +619,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                 child: Text(
                   'Save',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.cardColor,
@@ -662,7 +663,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               Text(
                 day,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,
@@ -698,7 +699,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                       child: const Text(
                         'Enable',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -711,7 +712,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Text(
               'Holiday',
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.attendanceDialogHintTextColor,
@@ -723,7 +724,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               Text(
                 _schoolHoursHint(day)!,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.staffMutedBlueGreyText,
@@ -772,7 +773,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Text(
               title,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,

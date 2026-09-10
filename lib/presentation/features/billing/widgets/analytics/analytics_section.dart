@@ -99,7 +99,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
                     state.errorMessage!,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: isTablet ? 14 : 13,
                       color: AppColors.billingTextColor.withValues(alpha: 0.7),
                     ),
@@ -464,7 +464,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingTextColor,
@@ -477,7 +477,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                   Text(
                     ytdLabel,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor.withValues(alpha: 0.8),
@@ -487,7 +487,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                   Text(
                     formatter.currency(ytdAmount),
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: isTablet ? 24 : 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingTextColor,
@@ -520,7 +520,7 @@ class _AnalyticsBarCard extends StatelessWidget {
               Text(
                 legendLabel,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: isTablet ? 13 : 12,
                   color: AppColors.billingTextColor.withValues(alpha: 0.8),
                 ),
@@ -569,7 +569,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 child: Text(
                   BillingStrings.subsidiesOverview,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: isTablet ? 16 : 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingTextColor,
@@ -582,7 +582,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                   Text(
                     BillingStrings.totalSubsidiesInvoiced,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor.withValues(alpha: 0.8),
@@ -592,7 +592,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                   Text(
                     formatter.currency(subsidiesInvoicedYtd),
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: isTablet ? 24 : 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingTextColor,
@@ -880,7 +880,7 @@ class _PlotArea extends StatelessWidget {
                 months[index],
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: isTablet ? 12 : 10.5,
                   color: AppColors.billingTextColor.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w500,
@@ -1051,7 +1051,7 @@ class _YAxisLabels extends StatelessWidget {
         return Text(
           formatCompact ? formatter.currencyCompact(v) : formatter.currency(v),
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: isTablet ? 11 : 10,
             color: AppColors.billingTextColor.withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
@@ -1087,7 +1087,7 @@ class _LegendDot extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: isTablet ? 12 : 11,
             fontWeight: FontWeight.w500,
             color: AppColors.billingTextColor.withValues(alpha: 0.8),

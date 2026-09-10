@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1349,7 +1350,7 @@ class _MessageBubbleState extends State<MessageBubble>
           margin: html.Margins.zero,
           padding: html.HtmlPaddings.zero,
           fontSize: html.FontSize(15.5),
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: textColor,
         ),
         'p': html.Style(
@@ -1425,7 +1426,7 @@ class _MessageBubbleState extends State<MessageBubble>
               margin: html.Margins.zero,
               padding: html.HtmlPaddings.zero,
               fontSize: html.FontSize(13.5),
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: isMe
                   ? AppColors.messagingOnAccent.withValues(alpha: 0.92)
                   : AppColors.primaryColor,

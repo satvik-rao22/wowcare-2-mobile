@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 import '../model/scheduling_models.dart';
 import 'day_classroom_section.dart';
@@ -19,7 +20,7 @@ class DayGanttTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: const Color(0x33162831)),
         borderRadius: BorderRadius.circular(8),
       ),

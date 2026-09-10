@@ -144,7 +144,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                           items: const [BillingStrings.visa, BillingStrings.masterCard, BillingStrings.discover, BillingStrings.ach],
                           selectedItem: _selectedPaymentMethodLabel(),
                           labelStyle: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.labelFontSize,
                             fontWeight: FontWeight.w400,
                             color: _primary,
@@ -152,14 +152,14 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                           fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                           selectedTextStyle: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w600,
                             color: _primary,
                             height: 19 / 14,
                           ),
                           popupItemTextStyle: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w400,
                             color: _primary,
@@ -193,7 +193,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       selectedItem:
                                           _expMonth.isEmpty ? null : _expMonth,
                                       labelStyle: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: responsive.labelFontSize,
                                         fontWeight: FontWeight.w400,
                                         color: _primary,
@@ -201,7 +201,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                                       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                                       selectedTextStyle: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w600,
                                         color: _primary,
@@ -226,7 +226,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       selectedItem:
                                           _expYear.isEmpty ? null : _expYear,
                                       labelStyle: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: responsive.labelFontSize,
                                         fontWeight: FontWeight.w400,
                                         color: _primary,
@@ -234,7 +234,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                                       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                                       selectedTextStyle: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w600,
                                         color: _primary,
@@ -285,7 +285,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             items: const [BillingStrings.checking, BillingStrings.savings],
                             selectedItem: _selectedAccountTypeLabel(),
                             labelStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.labelFontSize,
                               fontWeight: FontWeight.w400,
                               color: _primary,
@@ -293,7 +293,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                             fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                             selectedTextStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
                               color: _primary,
@@ -331,7 +331,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                   child: Text(
                                     BillingStrings.yourCurrentOutstandingBalance,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       color: AppColors.billingInfoBannerTextColor,
                                       fontSize: 12,
                                     ),
@@ -369,7 +369,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         text: TextSpan(
           text: text,
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w400,
             color: _primary,
@@ -420,7 +420,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         }
       },
         style: TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
           color: _primary,
@@ -429,7 +429,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w400,
             color: AppColors.billingGrey,
@@ -512,7 +512,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             child: Text(
               feeText,
               style: const TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 12,
                 color: AppColors.billingFeeBannerTextColor,
               ),

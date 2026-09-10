@@ -128,7 +128,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 child: Text(
                   'We found $count student${count == 1 ? '' : 's'} with the same last name',
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
@@ -144,7 +144,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 child: Text(
                   StudentStrings.wouldYouLikeToAddAnyOfThemAsSiblings,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryColor.withValues(alpha: 0.85),
@@ -233,7 +233,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                     Text(
                                       name,
                                       style: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: isTablet ? 16 : 15,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.primaryColor,
@@ -243,7 +243,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                     Text(
                                       'Status: $status | Classroom: $classroom',
                                       style: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: 13,
                                         color: AppColors.primaryColor
                                             .withValues(alpha: 0.55),
@@ -291,7 +291,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             child: Text(
                               StudentStrings.skip,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
@@ -326,7 +326,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
                             color: AppColors.whiteColor,

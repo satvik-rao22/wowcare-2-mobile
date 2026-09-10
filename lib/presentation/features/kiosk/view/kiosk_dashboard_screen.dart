@@ -193,7 +193,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
               child: Column(
                 children: [
                   Container(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     child: SafeArea(
                       bottom: false,
                       child: Row(

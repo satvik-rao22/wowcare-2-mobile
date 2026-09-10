@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Visual palette for a newsletter [colorTheme] value from the API.
 class NewsletterThemeColors {
@@ -10,7 +11,7 @@ class NewsletterThemeColors {
     required this.divider,
     required this.titleGradientStart,
     required this.titleGradientEnd,
-    this.titleTextColor = Colors.white,
+    this.titleTextColor = AppColors.whiteColor,
   });
 
   final Color heading;
@@ -33,7 +34,7 @@ class NewsletterThemeColors {
         return const NewsletterThemeColors(
           heading: Color(0xFFE65100),
           body: Color(0xFFBF360C),
-          accent: Color(0xFFFF9800),
+          accent: MaterialHues.orange,
           divider: Color(0xFFFFCC80),
           titleGradientStart: Color(0xFFC05D38),
           titleGradientEnd: Color(0xFFE89264),
@@ -61,7 +62,7 @@ class NewsletterThemeColors {
           heading: Color(0xFFC62828),
           body: Color(0xFF880E4F),
           accent: Color(0xFFEF5350),
-          divider: Color(0xFFEF9A9A),
+          divider: MaterialHues.red200,
           titleGradientStart: Color(0xFFC62828),
           titleGradientEnd: Color(0xFFFF8A65),
         );

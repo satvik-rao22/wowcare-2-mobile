@@ -4,12 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
@@ -242,7 +242,7 @@ class _EditStudentPhysicalExamScreenState
                 TextSpan(
                   text: StudentStrings.physicalCheckupDate,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: AppColors.primaryColor,
@@ -278,7 +278,7 @@ class _EditStudentPhysicalExamScreenState
                               ? AppColors.attendanceMutedTextColor
                               : AppColors.blackColor,
                           fontSize: 14,
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                         ),
                       ),
                       SvgPicture.asset(
@@ -301,7 +301,7 @@ class _EditStudentPhysicalExamScreenState
                 selectedItem: state.formStatus,
                 labelStyle: const TextStyle(
                   fontSize: 15,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w400,
                   color: AppColors.primaryColor,
                 ),
@@ -322,7 +322,7 @@ class _EditStudentPhysicalExamScreenState
               color: AppColors.whiteColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black26,
+                  color: MaterialHues.black26,
                   offset: Offset(0, -4),
                   blurRadius: 16,
                 ),

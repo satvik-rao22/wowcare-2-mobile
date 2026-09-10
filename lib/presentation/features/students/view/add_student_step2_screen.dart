@@ -682,7 +682,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   ? StudentStrings.addParentOptional
                                   : StudentStrings.addParent),
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -731,7 +731,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         StudentStrings.selectFromExisting,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -761,7 +761,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         StudentStrings.selectParent2,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -804,7 +804,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                             _createCubit.state.step2Relation,
                                         labelStyle: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -871,7 +871,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         _createCubit.state.step2Relation,
                                     labelStyle: TextStyle(
                                       fontSize: responsive.labelFontSize,
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.primaryColor,
                                     ),
@@ -910,7 +910,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         StudentStrings.emergencyContact,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -935,7 +935,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                         StudentStrings.childCustody,
                                         style: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -1052,7 +1052,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1087,7 +1087,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1118,7 +1118,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
           ),
@@ -1168,7 +1168,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
           ),
         ),
       ],

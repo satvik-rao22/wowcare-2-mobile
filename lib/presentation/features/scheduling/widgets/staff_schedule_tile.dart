@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_media_res.dart';
@@ -158,7 +159,7 @@ Color? schedulingAttendanceDotColor(String? status) {
   if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') {
     return const Color.fromRGBO(0, 177, 21, 1);
   }
-  if (normalized == 'ABSENT') return Colors.red;
+  if (normalized == 'ABSENT') return MaterialHues.red;
   return null;
 }
 

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -442,7 +443,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -506,7 +507,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -546,7 +547,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
                             ? AppColors.billingGrey
                             : AppColors.attendanceIconColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ),
@@ -580,7 +581,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
               text: TextSpan(
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
-                  fontFamily: "Manrope",
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w400,
                   color: AppColors.primaryColor,
                 ),
@@ -623,7 +624,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
                               ? AppColors.billingGrey
                               : AppColors.attendanceIconColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                         ),
                       ),
                     ),
@@ -665,7 +666,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );

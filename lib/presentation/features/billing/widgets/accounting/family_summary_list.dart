@@ -96,7 +96,7 @@ class _Message extends StatelessWidget {
           text,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.billingTextColor,

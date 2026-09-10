@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -117,7 +118,7 @@ class _AssignStaffSelectionViewState extends State<_AssignStaffSelectionView> {
           const Text(
             'Select Staffs',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -347,7 +348,7 @@ class _StaffConfirmationView extends StatelessWidget {
                               maxLines: 2,
                               preferLongPress: true,
                               style: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -487,7 +488,7 @@ class StaffListItem extends StatelessWidget {
                     maxLines: 2,
                     preferLongPress: true,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       color: AppColors.primaryColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

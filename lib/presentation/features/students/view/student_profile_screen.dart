@@ -337,7 +337,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 child: Text(
                   t,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryColor,
@@ -396,7 +396,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 const Text(
                   StudentStrings.details,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryColor,
@@ -411,7 +411,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     child: const Text(
                       StudentStrings.close,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
                       ),
@@ -667,13 +667,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               indicatorPadding: const EdgeInsets.only(bottom: AppSpacing.xs),
               labelStyle: const TextStyle(
                 color: AppColors.studentDarkPlum,
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 16,
               ),
               labelColor: AppColors.studentDarkPlum,

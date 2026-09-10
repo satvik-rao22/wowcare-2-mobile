@@ -960,7 +960,7 @@ class _EditStudentProfileDetailsScreenState
                     child: Text(
                       StudentStrings.editStudent,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
@@ -1011,7 +1011,7 @@ class _EditStudentProfileDetailsScreenState
                                 '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
                                     .trim(),
                                 style: const TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryColor,
@@ -1170,19 +1170,19 @@ class _EditStudentProfileDetailsScreenState
                             showAsterisk: true,
                             labelStyle: TextStyle(
                               fontSize: responsive.labelFontSize,
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.w400,
                               color: AppColors.primaryColor,
                             ),
                             selectedTextStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.attendanceSearchHintColor,
                               height: 19 / 14,
                             ),
                             popupItemTextStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w400,
                               color: AppColors.primaryColor,
@@ -1262,7 +1262,7 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1310,7 +1310,7 @@ class _EditStudentProfileDetailsScreenState
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1343,21 +1343,21 @@ class _EditStudentProfileDetailsScreenState
       isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
@@ -1378,7 +1378,7 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1414,7 +1414,7 @@ class _EditStudentProfileDetailsScreenState
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : StudentStrings.selectDate,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600

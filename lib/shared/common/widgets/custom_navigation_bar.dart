@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
@@ -357,7 +357,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
+                  color: AppColors.blackColor.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
               : const BoxDecoration(),
@@ -372,7 +372,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     _iconFor(item),
                     height: sizes.iconSize,
                     colorFilter: isActive
-                        ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
+                        ? const ColorFilter.mode(AppColors.whiteColor, BlendMode.dstIn)
                         : null,
                   ),
                   if (badgeCount > 0)
@@ -385,9 +385,9 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: MaterialHues.red,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white, width: 1.2),
+                          border: Border.all(color: AppColors.whiteColor, width: 1.2),
                         ),
                         constraints: const BoxConstraints(
                           minWidth: 16,
@@ -396,7 +396,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                         child: Text(
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.whiteColor,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             height: 1,
@@ -413,8 +413,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                 child: Text(
                   _labelFor(item, isParent),
                   style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: Fonts.inter,
+                    color: AppColors.whiteColor,
+                    fontFamily: AppFontFamilies.inter,
                     fontSize: sizes.fontSize,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   ),
@@ -466,7 +466,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             gradient: AppColors.buildPrimaryGradient(),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
+                color: AppColors.blackColor.withValues(alpha: 0.12),
                 blurRadius: 12,
                 offset: const Offset(0, -6),
               ),

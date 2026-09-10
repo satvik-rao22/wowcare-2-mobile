@@ -228,7 +228,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                         child: Text(
                                           widget.name,
                                           style: TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: isTablet ? 16 : 14,
                                             fontWeight: FontWeight.w500,
                                             color: AppColors.billingTextColor,
@@ -246,7 +246,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             ? Text(
                                                 widget.classroom,
                                                 style: TextStyle(
-                                                  fontFamily: Fonts.manrope,
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: isTablet ? 16 : 14,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.billingTextColor,
@@ -267,7 +267,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       Text(
                                                         BillingStrings.payment,
                                                         style: TextStyle(
-                                                          fontFamily: Fonts.manrope,
+                                                          fontFamily: AppFonts.body,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -285,7 +285,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       Text(
                                                         widget.paymentMethod,
                                                         style: TextStyle(
-                                                          fontFamily: Fonts.manrope,
+                                                          fontFamily: AppFonts.body,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -304,7 +304,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                 : Text(
                                                     BillingStrings.notSetup,
                                                     style: TextStyle(
-                                                      fontFamily: Fonts.manrope,
+                                                      fontFamily: AppFonts.body,
                                                       fontSize:
                                                           isTablet ? 16 : 14,
                                                       fontWeight:
@@ -384,7 +384,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                           child: const Text(
                                             BillingStrings.view,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
+                                              fontFamily: AppFonts.body,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               color: AppColors.billingCardOnColorText,
@@ -426,7 +426,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.billingTextColor,
@@ -441,7 +441,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: valueColor ?? AppColors.billingTextColor,
@@ -454,7 +454,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                 Text(
                   note,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,

@@ -81,7 +81,7 @@ class _NotificationSettingsContent extends StatelessWidget {
                           child: Text(
                             'Notification Settings',
                             style: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.userProfileTextColor,
@@ -152,7 +152,7 @@ class _NotificationBody extends StatelessWidget {
               state.errorMessage ?? 'No notification preferences available.',
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
@@ -227,7 +227,7 @@ class _HeaderLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,

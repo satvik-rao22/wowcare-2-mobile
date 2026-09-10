@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// A label/value row used on [StaffDatesTab] for a single important-date
 /// field (Hire Date, CDA, First Aid/CPR, BRC).
@@ -55,7 +56,7 @@ class DateRow extends StatelessWidget {
                 textStyle: const TextStyle(
                   color: AppColors.cardColor,
                   fontSize: 12,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w600,
                 ),
                 child: Icon(
@@ -142,7 +143,7 @@ class PhysicalCard extends StatelessWidget {
                     color: statusColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 12,
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                   ),
                 ),
               ),
@@ -213,7 +214,7 @@ class DialogField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -235,7 +236,7 @@ class DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -277,7 +278,7 @@ class DialogDropdown extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -305,7 +306,7 @@ class DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

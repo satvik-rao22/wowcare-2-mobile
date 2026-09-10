@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/edit_shift_cubit.dart';
@@ -247,10 +248,10 @@ class _EditShiftViewState extends State<_EditShiftView> {
                   top: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppColors.blackColor.withValues(alpha: 0.05),
                       offset: const Offset(0, -4),
                       blurRadius: 16,
                     ),
@@ -391,7 +392,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                       Text(
                         state.daysError!,
                         style: const TextStyle(
-                          color: Colors.red,
+                          color: MaterialHues.red,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -469,7 +470,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -487,7 +488,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -523,7 +524,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.whiteColor,
               ),
             ),
           ),
@@ -606,8 +607,8 @@ class _EditShiftViewState extends State<_EditShiftView> {
             minHeight: responsive.inputFieldHeight,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppPalette.borderField),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -624,7 +625,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             ),
             decoration: InputDecoration(
               hintText: 'Eg. Please note the change in classroom location',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: MaterialHues.grey500),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

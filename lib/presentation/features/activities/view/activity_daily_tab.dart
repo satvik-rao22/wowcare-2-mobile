@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 
@@ -2759,12 +2760,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                         ),
                                                     decoration: BoxDecoration(
                                                       color:
-                                                          const Color.fromRGBO(
-                                                            179,
-                                                            38,
-                                                            30,
-                                                            1,
-                                                          ),
+                                                          AppPalette.statusErrorStrong,
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             10,
@@ -3426,7 +3422,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                 ),
                                                             strutStyle: StrutStyle(
                                                               fontFamily:
-                                                                  Fonts.manrope,
+                                                                  AppFonts.body,
                                                               fontSize: 14,
                                                               height: 1.0,
                                                               leading: 0,
@@ -3629,12 +3625,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                         vertical: 2,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color.fromRGBO(
-                                                      179,
-                                                      38,
-                                                      30,
-                                                      1,
-                                                    ),
+                                                    color: AppPalette.statusErrorStrong,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,

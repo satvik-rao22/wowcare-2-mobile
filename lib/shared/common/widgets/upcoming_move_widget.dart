@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class UpcomingMoveWidget extends StatelessWidget {
   final String month;
@@ -23,10 +25,10 @@ class UpcomingMoveWidget extends StatelessWidget {
         Text(
           'Upcoming move',
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         const SizedBox(height: 6),
@@ -38,7 +40,7 @@ class UpcomingMoveWidget extends StatelessWidget {
                 Text(
                   month,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     color: Color(0x8041414E),
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
@@ -50,7 +52,7 @@ class UpcomingMoveWidget extends StatelessWidget {
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF41414E),
-                    fontFamily: 'Manrope'
+                    fontFamily: AppFonts.body
                   ),
 
 
@@ -67,7 +69,7 @@ class UpcomingMoveWidget extends StatelessWidget {
             Text(
               currentClass,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
                 letterSpacing: -0.03 * 16,
@@ -84,7 +86,7 @@ class UpcomingMoveWidget extends StatelessWidget {
             Text(
               nextClass,
               style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                   letterSpacing: -0.03 * 16,

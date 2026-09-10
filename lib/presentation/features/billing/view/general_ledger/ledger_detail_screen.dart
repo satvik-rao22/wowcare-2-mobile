@@ -136,7 +136,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                       Text(
                                         ledger.name,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: titleFontSize,
                                           fontWeight: FontWeight.w600,
                                           color: _kPrimary,
@@ -214,7 +214,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
               state.errorMessage ?? BillingStrings.errorLoadingTransactions,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 color: AppColors.billingTextSecondary,
                 fontSize: 14,
               ),
@@ -246,7 +246,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 BillingStrings.noTransactionsFound,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.billingTextSecondary,
                   fontSize: 14,
                 ),
@@ -298,7 +298,7 @@ class _LedgerSubtitle extends StatelessWidget {
         '${balType != null ? ' $balType' : ''}';
 
     const style = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextSecondary,
@@ -359,7 +359,7 @@ class _LedgerEntryCard extends StatelessWidget {
               child: Text(
                 tx.type!,
                 style: const TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingLedgerTypeChipColor,

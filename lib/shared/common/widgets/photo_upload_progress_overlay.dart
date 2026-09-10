@@ -46,7 +46,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.primaryColor.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              border: Border.all(color: AppColors.whiteColor.withValues(alpha: 0.22)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -54,7 +54,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                 Text(
                   '${clamped.round()}%',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -65,7 +65,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: (clamped / 100).clamp(0.0, 1.0),
                     minHeight: 4,
-                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    backgroundColor: AppColors.whiteColor.withValues(alpha: 0.22),
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       AppColors.themeColor,
                     ),
@@ -80,7 +80,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                       height: 10,
                       width: 10,
                       colorFilter: ColorFilter.mode(
-                        Colors.white.withValues(alpha: 0.92),
+                        AppColors.whiteColor.withValues(alpha: 0.92),
                         BlendMode.srcIn,
                       ),
                     ),
@@ -88,7 +88,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                     Text(
                       clamped >= 100 ? 'Finalizing' : 'Uploading',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
+                        color: AppColors.whiteColor.withValues(alpha: 0.92),
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),

@@ -18,7 +18,7 @@ class BillingCardText {
 
   /// Header name/title — Manrope 14 (16 on tablet), w500.
   static TextStyle name(bool isTablet) => TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: isTablet ? 16 : 14,
         fontWeight: FontWeight.w500,
         color: kBillingCardTextColor,
@@ -27,7 +27,7 @@ class BillingCardText {
 
   /// Detail-row label — Manrope 13, w400.
   static const TextStyle label = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: kBillingCardTextColor,
@@ -36,7 +36,7 @@ class BillingCardText {
 
   /// Detail-row value — Manrope 14, w500.
   static const TextStyle value = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     color: kBillingCardTextColor,
@@ -45,7 +45,7 @@ class BillingCardText {
 
   /// Small sub-note shown under a value — Manrope 10, w500.
   static const TextStyle note = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 10,
     fontWeight: FontWeight.w500,
     color: kBillingCardTextColor,
@@ -277,7 +277,7 @@ class FilledActionButton extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.billingCardOnColorText,
@@ -315,7 +315,7 @@ class OutlineActionButton extends StatelessWidget {
         child: Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: _accent,
@@ -364,7 +364,7 @@ class StaffCardActions extends StatelessWidget {
                 child: Text(
                   secondaryLabel!,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: _accent,
@@ -389,7 +389,7 @@ class StaffCardActions extends StatelessWidget {
               child: Text(
                 primaryLabel,
                 style: const TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.billingCardOnColorText,

@@ -450,7 +450,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                                 ? AppColors.attendanceMutedTextColor
                                 : AppColors.blackColor,
                             fontSize: responsive.inputFontSize,
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                           ),
                         ),
                       ),
@@ -527,7 +527,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                               ? AppColors.attendanceMutedTextColor
                               : AppColors.blackColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                         ),
                       ),
                     ),

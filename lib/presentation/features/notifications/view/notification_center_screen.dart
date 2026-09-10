@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/active_school_switcher.dart';
 import 'package:wowcare/core/utils/notification_events.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
@@ -58,7 +59,7 @@ class NotificationCenterScreen extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       appBar: const CustomAppBar(hasBackButton: true),
       // Same app-wide bottom nav as the shell. The bar handles being rendered
       // outside the shell: tapping a tab routes into that branch via
@@ -120,10 +121,10 @@ class _Header extends StatelessWidget {
           child: Text(
             'Notifications',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.titleFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
             ),
           ),
         ),
@@ -179,7 +180,7 @@ class _Header extends StatelessWidget {
                           .read<NotificationCenterCubit>()
                           .setModuleFilter(null),
                       icon: const Icon(Icons.close_rounded, size: 20),
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -227,10 +228,10 @@ class _ActionsRow extends StatelessWidget {
                   child: const Text(
                     'Mark all as read',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                     ),
                   ),
                 ),
@@ -243,7 +244,7 @@ class _ActionsRow extends StatelessWidget {
               onToggle: cubit.setOnlyUnread,
               labelOnLeftSide: false,
               labelStyle: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -425,7 +426,7 @@ class _EmptyView extends StatelessWidget {
         Text(
           'You’re all caught up',
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor.withValues(alpha: 0.7),
@@ -435,7 +436,7 @@ class _EmptyView extends StatelessWidget {
         Text(
           'No notifications to show',
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor.withValues(alpha: 0.45),
@@ -469,7 +470,7 @@ class _ErrorView extends StatelessWidget {
             Text(
               'Couldn’t load notifications',
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,

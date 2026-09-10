@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -812,11 +813,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           color = null;
           label = null;
         } else {
-          color = Colors.green;
+          color = MaterialHues.green;
           label = 'Signed in';
         }
       } else if (normalized == 'ABSENT') {
-        color = Colors.red;
+        color = MaterialHues.red;
         label = 'Absent';
       } else {
         color = null;
@@ -896,9 +897,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               fontSize: 12,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w600,
             ),
             child: Container(
@@ -907,7 +908,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               decoration: BoxDecoration(
                 color: dotColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1),
+                border: Border.all(color: AppColors.whiteColor, width: 1),
               ),
             ),
           ),
@@ -959,7 +960,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: widget.fontSize,
-          color: Colors.white,
+          color: AppColors.whiteColor,
         ),
       ),
     );
@@ -1000,7 +1001,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: widget.fontSize,
-            color: Colors.white,
+            color: AppColors.whiteColor,
           ),
         ),
       );
@@ -1029,13 +1030,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   Widget _buildShimmer() {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: MaterialHues.grey300,
+      highlightColor: MaterialHues.grey100,
       child: Container(
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: MaterialHues.grey300,
           shape: widget.shape,
           borderRadius: widget.shape == BoxShape.rectangle
               ? (widget.borderRadius ?? BorderRadius.circular(8))

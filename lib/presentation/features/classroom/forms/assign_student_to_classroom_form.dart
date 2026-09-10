@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -114,7 +115,7 @@ class _AssignStudentSelectionViewState
           const Text(
             'Select Students',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -384,7 +385,7 @@ class _StudentConfirmationView extends StatelessWidget {
                               maxLines: 2,
                               preferLongPress: true,
                               style: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -522,7 +523,7 @@ class StudentListItem extends StatelessWidget {
                     maxLines: 2,
                     preferLongPress: true,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       color: AppColors.primaryColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

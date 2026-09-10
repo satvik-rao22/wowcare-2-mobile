@@ -1400,7 +1400,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
 
   // Label style shared by the CustomDropdowns (matches the Add Staff form).
   static const TextStyle _ddLabel = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: _primary,
@@ -1411,7 +1411,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         child: Text(
           text,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: _primary,
@@ -1439,7 +1439,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         textCapitalization:
             capsAll ? TextCapitalization.characters : TextCapitalization.none,
         style: const TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: _primary,
@@ -1448,7 +1448,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.billingMutedIconColor,

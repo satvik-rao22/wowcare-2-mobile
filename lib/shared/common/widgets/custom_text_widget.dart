@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -48,7 +49,7 @@ class CustomTextWidget extends StatelessWidget {
       style:
           textStyle ??
           TextStyle(
-            fontFamily: fontFamily ?? 'Manrope',
+            fontFamily: fontFamily ?? AppFonts.body,
             fontSize: fontSize ?? responsive.titleFontSize,
             fontWeight: fontWeight ?? FontWeight.w600,
             color: fontColor ?? AppColors.primaryColor,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -174,7 +175,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
               context.read<MyShiftsCubit>().load(date: state.selectedDate),
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.whiteColor,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -266,7 +267,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                                     child: Text(
                                       'No school hours configured for this day.',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         color: AppColors.primaryColor,
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -363,7 +364,7 @@ class _DateNavRow extends StatelessWidget {
             child: Text(
               dateLabel,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 color: AppColors.primaryColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -431,7 +432,7 @@ class _MyShiftsStaffProfileHeader extends StatelessWidget {
               Text(
                 staffName,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
@@ -446,7 +447,7 @@ class _MyShiftsStaffProfileHeader extends StatelessWidget {
                 Text(
                   designation,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     color: AppColors.primaryColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -461,7 +462,7 @@ class _MyShiftsStaffProfileHeader extends StatelessWidget {
                 Text(
                   classroom,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     color: AppColors.primaryColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

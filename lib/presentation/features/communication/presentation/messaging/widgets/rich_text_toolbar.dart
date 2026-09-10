@@ -232,8 +232,8 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     return Container(
       height: 48, // Slightly taller for larger touch targets
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        color: AppColors.whiteColor,
+        border: Border(top: BorderSide(color: AppColors.messagingInputBorder, width: 1)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -347,7 +347,7 @@ class _Divider extends StatelessWidget {
       width: 1,
       height: 22,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: const Color(0xFFE2E8F0),
+      color: AppColors.messagingInputBorder,
     );
   }
 }

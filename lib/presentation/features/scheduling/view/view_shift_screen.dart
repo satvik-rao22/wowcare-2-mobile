@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -85,10 +86,10 @@ class ViewShiftScreen extends StatelessWidget {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.blackColor.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -234,7 +235,7 @@ class ViewShiftScreen extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),

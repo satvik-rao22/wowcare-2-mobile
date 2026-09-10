@@ -28,7 +28,7 @@ class CustomRefreshIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       backgroundColor: AppColors.themeColor,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       displacement: displacement ?? 24,
       onRefresh: onRefresh,
       notificationPredicate:

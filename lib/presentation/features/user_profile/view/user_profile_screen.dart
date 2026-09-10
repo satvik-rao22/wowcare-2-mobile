@@ -852,7 +852,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                         ? 'View Student Profile'
                                                         : 'View Staff Profile',
                                                     textStyle: TextStyle(
-                                                      fontFamily: Fonts.manrope,
+                                                      fontFamily: AppFonts.body,
                                                       fontSize: 16,
                                                       fontWeight:
                                                           FontWeight.w700,

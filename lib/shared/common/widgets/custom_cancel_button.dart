@@ -35,7 +35,7 @@ class CustomCancelButton extends StatelessWidget {
       child: TextButton(
         onPressed: onPressedCancel ?? () => Navigator.pop(context),
         style: TextButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.whiteColor,
           padding: const EdgeInsets.symmetric(vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -48,7 +48,7 @@ class CustomCancelButton extends StatelessWidget {
                     ),
                 child: Text(
                   cancelButtonLabel ?? 'Cancel',
-                  style: labelStyle.copyWith(color: Colors.white),
+                  style: labelStyle.copyWith(color: AppColors.whiteColor),
                 ),
               )
             : label,

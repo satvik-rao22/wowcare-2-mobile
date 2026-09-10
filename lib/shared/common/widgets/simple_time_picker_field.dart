@@ -4,6 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -78,10 +79,10 @@ class SimpleTimePickerField extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           border: Border.all(
-            color: Colors.grey.shade300,
+            color: MaterialHues.grey300,
           ),
           borderRadius: BorderRadius.circular(8),
-          color: const Color.fromRGBO(249, 245, 250, 1),
+          color: AppPalette.surfaceSelected,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

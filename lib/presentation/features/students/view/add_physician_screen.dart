@@ -203,7 +203,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           ? StudentStrings.editPhysician
                           : StudentStrings.addPhysician,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
@@ -348,7 +348,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -396,7 +396,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,

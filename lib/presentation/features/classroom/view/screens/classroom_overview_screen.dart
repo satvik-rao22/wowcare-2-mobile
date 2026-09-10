@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
@@ -280,7 +281,7 @@ class _HeaderStat extends StatelessWidget {
             color: AppColors.themeColor,
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
           ),
         ),
         const SizedBox(height: 8),
@@ -290,7 +291,7 @@ class _HeaderStat extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
           ),
         ),
       ],
@@ -342,7 +343,7 @@ class _SectionRow extends StatelessWidget {
                         color: AppColors.primaryColor,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                     Text(
@@ -351,7 +352,7 @@ class _SectionRow extends StatelessWidget {
                         color: AppColors.themeColor,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ],
@@ -366,7 +367,7 @@ class _SectionRow extends StatelessWidget {
                       color: AppColors.primaryColor,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                     ),
                   ),
                   Text(
@@ -375,7 +376,7 @@ class _SectionRow extends StatelessWidget {
                       color: AppColors.themeColor,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                     ),
                   ),
                 ],
@@ -449,7 +450,7 @@ class _LegendDot extends StatelessWidget {
             style: TextStyle(
               color: AppColors.primaryColor.withValues(alpha: 0.8),
               fontSize: 13,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -482,7 +483,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
                 color: AppColors.primaryColor,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
               ),
             ),
           ),
@@ -569,7 +570,7 @@ class _RatioHeaderCell extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
               ),
             ),
             const SizedBox(height: 20),
@@ -582,7 +583,7 @@ class _RatioHeaderCell extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.classroomRatioHeaderSubtextColor,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
               ),
             ),
           ] else
@@ -595,7 +596,7 @@ class _RatioHeaderCell extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.classroomRatioHeaderSubtextColor,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
               ),
             ),
           const SizedBox(height: 12),

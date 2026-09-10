@@ -88,7 +88,7 @@ class _CustomRepeatOnDaysSelectorState
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                     ),
                   ),
                 ),
@@ -140,7 +140,7 @@ class _CustomRepeatOnDaysSelectorState
               color: isSelected ? AppColors.themeColor : Colors.transparent,
             ),
             child: isSelected
-                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                ? const Icon(Icons.check, size: 18, color: AppColors.whiteColor)
                 : null,
           ),
           const SizedBox(width: 10),

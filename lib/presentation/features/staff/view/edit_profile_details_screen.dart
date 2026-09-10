@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:io';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -561,7 +562,7 @@ class _EditProfileDetailsScreenViewState
           'Profile Photo',
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
           ),
@@ -608,7 +609,7 @@ class _EditProfileDetailsScreenViewState
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
           ),
         ),
       ],
@@ -1247,7 +1248,7 @@ class _EditProfileDetailsScreenViewState
                         child: Text(
                           'Edit Staff',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.titleFontSize,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -1422,7 +1423,7 @@ class _EditProfileDetailsScreenViewState
                                     isEnabled: true,
                                     labelStyle: TextStyle(
                                       fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
+                                      fontFamily: AppFonts.body,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.primaryColor,
                                     ),
@@ -1434,14 +1435,14 @@ class _EditProfileDetailsScreenViewState
                                         ? 64.0
                                         : 56.0,
                                     selectedTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: AppFonts.body,
                                       fontSize: responsive.inputFontSize,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     popupItemTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: AppFonts.body,
                                       fontSize: responsive.inputFontSize,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.primaryColor,
@@ -1560,19 +1561,19 @@ class _EditProfileDetailsScreenViewState
                                 showAsterisk: true,
                                 labelStyle: TextStyle(
                                   fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
+                                  fontFamily: AppFonts.body,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.primaryColor,
                                 ),
                                 selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: responsive.inputFontSize,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.billingGreyDark,
                                   height: 19 / 14,
                                 ),
                                 popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: responsive.inputFontSize,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.primaryColor,
@@ -1665,7 +1666,7 @@ class _EditProfileDetailsScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1711,7 +1712,7 @@ class _EditProfileDetailsScreenViewState
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1741,21 +1742,21 @@ class _EditProfileDetailsScreenViewState
       showAsterisk: isRequired,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
@@ -1771,7 +1772,7 @@ class _EditProfileDetailsScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1807,7 +1808,7 @@ class _EditProfileDetailsScreenViewState
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600

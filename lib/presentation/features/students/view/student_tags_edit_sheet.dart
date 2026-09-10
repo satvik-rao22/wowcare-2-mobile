@@ -169,7 +169,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                     const Text(
                       StudentStrings.editTags,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,

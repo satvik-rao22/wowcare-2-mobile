@@ -29,7 +29,7 @@ class NonEditableInfoWidget extends StatelessWidget {
             style: TextStyle(
               color: AppColors.primaryColor,
               fontSize: responsive.labelFontSize,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w400,
             ),
             children: [
@@ -73,7 +73,7 @@ class NonEditableInfoWidget extends StatelessWidget {
                 child: Text(
                   value!,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.userProfileTextColor,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// A pill-shaped (fully rounded) gradient button with an external
 /// [isLoading]/[enabled] state — distinct from [RoundedButton] (rectangular,
@@ -40,7 +41,7 @@ class RoundedButtonNew extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
+              ? const CircularProgressIndicator(color: AppColors.whiteColor)
               : Text(
                   label,
                   style: TextStyle(

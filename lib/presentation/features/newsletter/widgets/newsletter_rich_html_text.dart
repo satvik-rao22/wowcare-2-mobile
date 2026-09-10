@@ -81,7 +81,7 @@ class NewsletterRichHtmlText extends StatelessWidget {
         // KEPT, unlike the other Manrope lines: flutter_html builds its own
         // text styles and does NOT inherit ThemeData.fontFamily, so deleting
         // this would silently change every newsletter's body font.
-        fontFamily: defaults.fontFamily ?? Fonts.manrope,
+        fontFamily: defaults.fontFamily ?? AppFonts.body,
         color: defaults.color,
         fontWeight: defaults.fontWeight,
         lineHeight: html.LineHeight(defaults.height ?? 1.45),
@@ -190,12 +190,12 @@ class NewsletterRichHtmlText extends StatelessWidget {
         ),
       ),
       'code': html.Style(
-        fontFamily: 'monospace',
+        fontFamily: AppFonts.mono,
         backgroundColor: theme.divider.withValues(alpha: 0.25),
         padding: html.HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
       ),
       'pre': html.Style(
-        fontFamily: 'monospace',
+        fontFamily: AppFonts.mono,
         whiteSpace: html.WhiteSpace.pre,
         margin: html.Margins.symmetric(vertical: 8),
         padding: html.HtmlPaddings.all(10),

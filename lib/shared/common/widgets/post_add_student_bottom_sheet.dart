@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 
 class PostAddStudentBottomSheet extends StatelessWidget {
@@ -43,7 +44,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -63,7 +64,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.school,
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     size: 36,
                   ),
                 ),
@@ -74,10 +75,10 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                 child: Text(
                   'Do you want to add additional details for this student now?',
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,
@@ -87,10 +88,10 @@ class PostAddStudentBottomSheet extends StatelessWidget {
               Text(
                 'A new student${studentName.isNotEmpty ? ' $studentName ' : ' '}is added successfully',
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF573353),
+                  color: AppColors.primaryColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -108,7 +109,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.whiteColor,
                             borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
                           ),
                           child: TextButton(
@@ -121,7 +122,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                             child: Text(
                               'Do it later',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
@@ -151,10 +152,10 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         child: Text(
                           'Yes',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.whiteColor,
                             height: 1.0,
                           ),
                         ),

@@ -144,7 +144,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         widget.title ??
                             StudentStrings.addStudentStep3Of3Optional,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -186,7 +186,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                   StudentStrings.schedule,
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.primaryColor,
                                   ),
@@ -199,7 +199,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     fontSize: 12,
                                     color:
                                         AppColors.attendanceDialogHintTextColor,
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                   ),
                                 ),
                                 AppSpacing.gapVSm,
@@ -285,7 +285,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         child: Text(
                           StudentStrings.skip,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.buttonFontSize,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -310,7 +310,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       child: Text(
                         widget.primaryButtonLabel ?? StudentStrings.next,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.whiteColor,
@@ -358,7 +358,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               Text(
                 day,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,
@@ -421,7 +421,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   Text(
                     StudentStrings.holiday,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.attendanceDialogHintTextColor,
@@ -432,7 +432,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: const Text(
                       StudentStrings.enable,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,

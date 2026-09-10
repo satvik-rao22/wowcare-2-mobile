@@ -96,7 +96,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                   fontWeight: FontWeight.w600,
                   fontSize: calHelper.dayFontSize,
                 ),
-                selectedTextStyle: const TextStyle(color: Colors.white),
+                selectedTextStyle: const TextStyle(color: AppColors.whiteColor),
                 todayDecoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient().withOpacity(0.3),
                   shape: BoxShape.circle,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/add_shift_cubit.dart';
@@ -203,10 +204,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                       top: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
                           offset: const Offset(0, -4),
                           blurRadius: 16,
                         ),
@@ -366,7 +367,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                           Text(
                             state.daysError!,
                             style: const TextStyle(
-                              color: Colors.red,
+                              color: MaterialHues.red,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -422,7 +423,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -440,7 +441,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -480,7 +481,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                 ),
               ),
             ),
@@ -560,8 +561,8 @@ class _AddShiftViewState extends State<_AddShiftView> {
             minHeight: responsive.inputFieldHeight,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppPalette.borderField),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -578,7 +579,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
             ),
             decoration: InputDecoration(
               hintText: 'Write a note',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: MaterialHues.grey500),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

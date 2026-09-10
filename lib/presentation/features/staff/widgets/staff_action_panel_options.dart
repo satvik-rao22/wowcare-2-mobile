@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
@@ -195,7 +196,7 @@ class AttendanceActionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -288,7 +289,7 @@ class ActivityPngItem extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: AppColors.primaryColor,
             ),
           ),

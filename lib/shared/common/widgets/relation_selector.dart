@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -171,9 +173,9 @@ class RelationSelectorState extends State<RelationSelector> {
         widget.labelStyle ??
         TextStyle(
           fontSize: responsive.labelFontSize,
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           fontWeight: FontWeight.w400,
-          color: const Color(0xff573353),
+          color: AppColors.primaryColor,
         );
 
     return Column(
@@ -190,17 +192,17 @@ class RelationSelectorState extends State<RelationSelector> {
           fieldHeight: widget.fieldHeight,
           contentPadding: widget.contentPadding,
           selectedTextStyle: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: responsive.inputFontSize,
             fontWeight: FontWeight.w600,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
             height: 19 / 14,
           ),
           popupItemTextStyle: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: responsive.inputFontSize,
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
           onSelect: (val) {
             setState(() {
@@ -233,7 +235,7 @@ class RelationSelectorState extends State<RelationSelector> {
               if (widget.isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: MaterialHues.red),
                 ),
             ],
           ),
@@ -247,8 +249,8 @@ class RelationSelectorState extends State<RelationSelector> {
             minHeight: widget.fieldHeight ?? responsive.inputFieldHeight,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppPalette.borderField),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -266,7 +268,7 @@ class RelationSelectorState extends State<RelationSelector> {
             },
             decoration: InputDecoration(
               hintText: widget.customFieldHint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: MaterialHues.grey500),
               border: InputBorder.none,
               contentPadding:
                   widget.contentPadding ??
@@ -276,10 +278,10 @@ class RelationSelectorState extends State<RelationSelector> {
                   ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),

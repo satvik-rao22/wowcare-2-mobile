@@ -135,7 +135,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               child: Text(
                                 'Change Password',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                   height: 2 / 6,
                                   fontWeight: FontWeight.w500,
@@ -156,7 +156,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'Current Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -176,7 +176,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'New Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -196,7 +196,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'Confirm New Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -250,7 +250,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                           style: TextStyle(
                                             fontSize: screenHeight * 0.015,
                                             color: AppColors.authSuccessColor,
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                           ),
                                         ),
                                       ),
@@ -310,7 +310,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                       color: AppColors.cardColor,
                                       fontSize: screenHeight * 0.022,
                                       fontWeight: FontWeight.w600,
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                     ),
                                   ),
                           ),
@@ -361,7 +361,7 @@ class _PasswordField extends StatelessWidget {
             hintText: hintText,
             hintStyle: TextStyle(
               color: AppColors.authHintTextColor,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: screenHeight * 0.022,
             ),
             prefixIcon: Padding(
@@ -415,7 +415,7 @@ class _PasswordField extends StatelessWidget {
           // Solid color (a gradient `foreground` shader breaks
           // tap-to-position-cursor on editable fields).
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: screenHeight * 0.022,
             color: AppColors.primaryColor,
           ),

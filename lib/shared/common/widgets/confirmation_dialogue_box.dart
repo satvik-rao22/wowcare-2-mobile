@@ -50,7 +50,7 @@ class ConfirmationDialog extends StatelessWidget {
             child: Text(
               confirmText,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 fontWeight: FontWeight.w600,
               ),
             ),

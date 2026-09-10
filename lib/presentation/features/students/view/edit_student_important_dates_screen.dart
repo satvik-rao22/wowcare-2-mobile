@@ -225,7 +225,7 @@ class _EditStudentImportantDatesScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -263,7 +263,7 @@ class _EditStudentImportantDatesScreenState
                             ? AppColors.attendanceMutedTextColor
                             : AppColors.blackColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ),

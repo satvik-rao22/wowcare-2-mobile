@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class SchedulePicker extends StatefulWidget {
   const SchedulePicker({super.key});
@@ -39,9 +40,9 @@ class _SchedulePickerState extends State<SchedulePicker> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: MaterialHues.grey300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,8 +63,8 @@ class _SchedulePickerState extends State<SchedulePicker> {
                       width: 95,
                       label: day,
                       labelColor: isAvailable
-                          ? const Color.fromRGBO(27, 35, 126, 1)
-                          : Colors.grey.shade700,
+                          ? AppColors.secondaryColor
+                          : MaterialHues.grey700,
                       color: isAvailable
                           ? const Color(0x4DB1AFE9)
                           : const Color(0xFFF3F4FB),
@@ -74,7 +75,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
                       _ScheduleChip(
                         width: 95,
                         label: _formatTimeSlot(slot!),
-                        labelColor: const Color.fromRGBO(27, 35, 126, 1),
+                        labelColor: AppColors.secondaryColor,
                         color: Colors.transparent,
                         isTimeChip: true,
                       ),
@@ -142,7 +143,7 @@ class _ScheduleChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           fontWeight: FontWeight.w600,
           fontSize: 14,
           color: labelColor,
@@ -235,24 +236,24 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
     final snackBar = SnackBar(
       content: Row(
         children: [
-          const Icon(Icons.warning, color: Colors.orange),
+          const Icon(Icons.warning, color: MaterialHues.orange),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                color: Colors.orange,
+                color: MaterialHues.orange,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
       ),
-      backgroundColor: Colors.orange.shade50,
+      backgroundColor: MaterialHues.orange50,
       duration: const Duration(seconds: 2),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.orange.shade100),
+        side: BorderSide(color: MaterialHues.orange100),
       ),
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
@@ -370,7 +371,7 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       padding: const EdgeInsets.only(left: 16, top: 4),
                       child: Text(
                         startError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12.5),
+                        style: const TextStyle(color: MaterialHues.red, fontSize: 12.5),
                       ),
                     ),
                 ],
@@ -435,7 +436,7 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       padding: const EdgeInsets.only(left: 16, top: 4),
                       child: Text(
                         endError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12.5),
+                        style: const TextStyle(color: MaterialHues.red, fontSize: 12.5),
                       ),
                     ),
                 ],

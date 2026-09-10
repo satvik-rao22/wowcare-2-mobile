@@ -281,7 +281,7 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.name,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
                                       color: AppColors.primaryColor,
@@ -295,7 +295,7 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.classroom,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
                                       color: AppColors.primaryColor,
@@ -357,7 +357,7 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Text(
                                               tags[0],
                                               style: const TextStyle(
-                                                fontFamily: Fonts.manrope,
+                                                fontFamily: AppFonts.body,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: AppColors
@@ -379,7 +379,7 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Text(
                                               tags[1],
                                               style: const TextStyle(
-                                                fontFamily: Fonts.manrope,
+                                                fontFamily: AppFonts.body,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: AppColors
@@ -404,7 +404,7 @@ class _StudentCardState extends State<StudentCard> {
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily: Fonts.inter,
+                                                  fontFamily: AppFontFamilies.inter,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
                                                   color:
@@ -482,7 +482,7 @@ class _StudentCardState extends State<StudentCard> {
                                           child: Text(
                                             day,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
+                                              fontFamily: AppFonts.body,
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
@@ -597,7 +597,7 @@ class _StudentCardState extends State<StudentCard> {
                                               ? StudentStrings.deactivate
                                               : StudentStrings.reactivate,
                                           style: const TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors
@@ -649,7 +649,7 @@ class _StudentCardState extends State<StudentCard> {
                                           child: const Text(
                                             StudentStrings.delete,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
+                                              fontFamily: AppFonts.body,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               color: AppColors
@@ -678,7 +678,7 @@ class _StudentCardState extends State<StudentCard> {
                                         child: const Text(
                                           StudentStrings.edit,
                                           style: TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.whiteColor,

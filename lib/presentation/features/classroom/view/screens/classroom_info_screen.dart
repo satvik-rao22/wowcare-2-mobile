@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
@@ -239,7 +240,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         title: Text(
           classroomName.trim().isEmpty ? 'Classroom' : classroomName.trim(),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -742,7 +743,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -767,7 +768,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
               Text(
                 details.ageRangeCompactDisplay,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   color: AppColors.classroomTextColor,
                 ),
               ),
@@ -780,14 +781,14 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                       TextSpan(
                         text: 'Capacity: ',
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           color: AppColors.classroomTextColor,
                         ),
                         children: [
                           TextSpan(
                             text: '${details.capacity}',
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.bold,
                               color: AppColors.classroomTextColor,
                             ),
@@ -803,14 +804,14 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                       TextSpan(
                         text: 'Ratio: ',
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           color: AppColors.classroomTextColor,
                         ),
                         children: [
                           TextSpan(
                             text: details.studentTeacherRatioDisplay,
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.bold,
                               color: AppColors.classroomTextColor,
                             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -31,7 +32,7 @@ class AssignFormHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -66,7 +67,7 @@ class AssignFormSearchBar extends StatelessWidget {
       hintText: hintText,
       hintStyle: const WidgetStatePropertyAll(
         TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.classroomSearchFieldHintColor,
         ),
       ),
@@ -111,7 +112,7 @@ class SelectAllCheckboxRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: checkboxBuilder(value, onChanged),
         ),
-        const Text('Select All', style: TextStyle(fontFamily: 'Manrope')),
+        const Text('Select All', style: TextStyle(fontFamily: AppFonts.body)),
       ],
     );
   }
@@ -146,7 +147,7 @@ class AssignFormResultsArea extends StatelessWidget {
               errorMessage!,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 color: AppColors.classroomNegativeStatusColor,
               ),
             ),
@@ -173,7 +174,7 @@ class AssignFormEmptySelection extends StatelessWidget {
         child: Text(
           message,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.classroomTextColor,
             fontSize: 16,
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:gal/gal.dart';
@@ -587,7 +588,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w600,
                                                   color: AppColors.primaryColor,
@@ -598,7 +599,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                             Text(
                                               doc.documentType,
                                               style: TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: AppFonts.body,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w500,
                                                 color: AppColors.primaryColor
@@ -662,7 +663,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Edit',
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -701,7 +702,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Delete',
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -768,7 +769,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                                     'View',
                                                                     style: TextStyle(
                                                                       fontFamily:
-                                                                          'Manrope',
+                                                                          AppFonts.body,
                                                                       fontSize:
                                                                           16,
                                                                       fontWeight:
@@ -808,7 +809,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                     child: const Text(
                                                       'Download',
                                                       style: TextStyle(
-                                                        fontFamily: 'Manrope',
+                                                        fontFamily: AppFonts.body,
                                                         fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -889,7 +890,7 @@ class _DocumentDetailRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -903,7 +904,7 @@ class _DocumentDetailRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

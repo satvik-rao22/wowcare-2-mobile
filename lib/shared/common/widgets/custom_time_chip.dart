@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 class CustomTimeChip extends StatelessWidget {
   const CustomTimeChip({
@@ -21,7 +22,7 @@ class CustomTimeChip extends StatelessWidget {
         minWidth: 90,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: const Color.fromRGBO(177, 175, 233, 0.4),
@@ -34,7 +35,7 @@ class CustomTimeChip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Color.fromRGBO(27, 35, 126, 1),
+              color: AppColors.secondaryColor,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

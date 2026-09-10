@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -49,14 +50,14 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : Colors.grey[300],
+        color: isEnabled ? null : MaterialHues.grey300,
       ),
       child: TextButton(
         onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
-          disabledForegroundColor: Colors.grey[600],
+          foregroundColor: isEnabled ? AppColors.whiteColor : MaterialHues.grey600,
+          disabledForegroundColor: MaterialHues.grey600,
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -68,7 +69,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
                 ),
               )
             : widget.widget ??
@@ -77,7 +78,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isEnabled ? Colors.white : Colors.grey[600],
+                    color: isEnabled ? AppColors.whiteColor : MaterialHues.grey600,
                   ),
                 ),
       ),

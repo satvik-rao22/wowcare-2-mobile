@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -272,7 +273,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
       return const Color.fromRGBO(221, 164, 55, 1);
     }
     if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
-      return const Color.fromRGBO(117, 117, 117, 1);
+      return MaterialHues.grey600;
     }
     return const Color.fromARGB(255, 238, 223, 8);
   }
@@ -598,7 +599,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                             ? const Text(
                                 '-',
                                 style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: 15,
                                   color: AppColors.primaryColor,
                                   fontWeight: FontWeight.w400,
@@ -615,12 +616,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                     final name = _displayClassroomName(code);
                                     return ProfileChip(
                                       label: name,
-                                      labelColor: const Color.fromRGBO(
-                                        27,
-                                        35,
-                                        126,
-                                        1,
-                                      ),
+                                      labelColor: AppColors.secondaryColor,
                                       color:
                                           chipColors[index % chipColors.length],
                                     );
@@ -636,7 +632,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                             ? const Text(
                                 '-',
                                 style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: 15,
                                   color: AppColors.primaryColor,
                                   fontWeight: FontWeight.w400,
@@ -646,12 +642,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                 label: _displayClassroomName(
                                   profile.primaryClassroomCode,
                                 ),
-                                labelColor: const Color.fromRGBO(
-                                  27,
-                                  35,
-                                  126,
-                                  1,
-                                ),
+                                labelColor: AppColors.secondaryColor,
                                 color: chipColors.first,
                               ),
                       ),
@@ -707,7 +698,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                 const Text(
                                   'Schedule',
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.primaryColor,
@@ -786,18 +777,13 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                     width: 130,
                                                     label: displayDay,
                                                     labelColor: isAvailable
-                                                        ? const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          )
-                                                        : Colors.grey.shade700,
+                                                        ? AppColors.secondaryColor
+                                                        : MaterialHues.grey700,
                                                     color: isAvailable
                                                         ? const Color(
                                                             0x4DB1AFE9,
                                                           )
-                                                        : Colors.grey.shade200,
+                                                        : MaterialHues.grey200,
                                                   ),
                                                   if (workLabel != null &&
                                                       workLabel
@@ -808,12 +794,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                       width: 130,
                                                       label: workLabel,
                                                       labelColor:
-                                                          const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          ),
+                                                          AppColors.secondaryColor,
                                                       color: AppColors
                                                           .transparentColor,
                                                       isTimeChip: true,
@@ -828,12 +809,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                       width: 130,
                                                       label: '$breakLabel',
                                                       labelColor:
-                                                          const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          ),
+                                                          AppColors.secondaryColor,
                                                       color: AppColors
                                                           .transparentColor,
                                                       isTimeChip: true,

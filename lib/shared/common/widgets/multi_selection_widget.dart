@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class MultiSelectWidget extends StatefulWidget {
@@ -101,7 +102,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 320),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: StatefulBuilder(
@@ -126,7 +127,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
+                                    color: MaterialHues.grey300,
                                   ),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
@@ -176,13 +177,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                 child: Text(
                                                   widget.clearSelectionText,
                                                   style: TextStyle(
-                                                    fontFamily: "Manrope",
+                                                    fontFamily: AppFonts.body,
                                                     fontSize: responsive
                                                         .inputFontSize,
                                                     fontWeight: FontWeight.w500,
                                                     color: hasSelections
-                                                        ? Color(0xff573353)
-                                                        : Colors.grey.shade400,
+                                                        ? AppColors.primaryColor
+                                                        : MaterialHues.grey400,
                                                   ),
                                                 ),
                                               ),
@@ -227,11 +228,11 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                           child: Text(
                                             tag,
                                             style: TextStyle(
-                                              fontFamily: "Manrope",
+                                              fontFamily: AppFonts.body,
                                               fontSize:
                                                   responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
-                                              color: const Color(0xff573353),
+                                              color: AppColors.primaryColor,
                                             ),
                                           ),
                                         ),
@@ -287,16 +288,16 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             text: TextSpan(
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
-                fontFamily: "Manrope",
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
               children: [
                 TextSpan(text: widget.label),
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: MaterialHues.red),
                   ),
               ],
             ),
@@ -324,7 +325,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+                color: AppPalette.brandSoft.withValues(alpha: 0.102),
                 //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -337,8 +338,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                         displayText,
                         style: TextStyle(
                           color: widget.selectedOptions.isEmpty
-                              ? Colors.grey[600]
-                              : Colors.black87,
+                              ? MaterialHues.grey600
+                              : MaterialHues.black87,
                           fontSize: 15,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -350,9 +351,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       child: Text(
                         widget.hintText,
                         style: TextStyle(
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -370,7 +371,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           decoration: BoxDecoration(
                             color: widget.colorfulSelection
                                 ? _getTagBackgroundColor(tag)
-                                : Colors.white,
+                                : AppColors.whiteColor,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -383,7 +384,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                     color: _getTagTextColor(tag),
                                     fontWeight: FontWeight.w600,
                                     fontSize: responsive.inputFontSize,
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -414,7 +415,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       _isDropdownOpen
                           ? Icons.keyboard_arrow_up_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                       size: responsive.isTablet ? 28 : 24,
                     ),
                   ),
@@ -430,7 +431,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 widget.errorText!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+                style: const TextStyle(color: MaterialHues.red, fontSize: 12),
               ),
             ),
         ],
@@ -451,13 +452,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : Colors.grey,
+          color: value ? Colors.transparent : MaterialHues.grey500,
           width: 2,
         ),
         gradient: value ? AppColors.buildPrimaryGradient() : null,
       ),
       child: value
-          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          ? const Icon(Icons.check, size: 16, color: AppColors.whiteColor)
           : null,
     );
   }

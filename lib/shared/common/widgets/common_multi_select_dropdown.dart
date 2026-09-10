@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CommonMultiSelectDropdown extends StatefulWidget {
   const CommonMultiSelectDropdown({
@@ -86,14 +87,14 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
           text: TextSpan(
             style: const TextStyle(
               fontSize: 14,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w400,
               color: AppColors.primaryColor,
             ),
             children: [
               TextSpan(text: widget.label),
               if (widget.isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -104,16 +105,16 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: AppPalette.borderField),
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.whiteColor,
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     count == 0 ? 'Select' : '$count item(s) selected',
-                    style: const TextStyle(fontFamily: 'Manrope'),
+                    style: const TextStyle(fontFamily: AppFonts.body),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

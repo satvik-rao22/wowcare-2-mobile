@@ -264,7 +264,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       Text(
                                         userName,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.022,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.authAccentTextColor,
@@ -274,7 +274,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       Text(
                                         userRole,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.authSecondaryTextColor,
@@ -290,7 +290,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 orgDisplayName,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.02,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.authAccentTextColor,
@@ -302,7 +302,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 child: Text(
                                   'Select your School',
                                   style: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.022,
                                     height: 2 / 6,
                                     fontWeight: FontWeight.w500,
@@ -316,7 +316,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 child: Text(
                                   "Choose the school you want to continue with.",
                                   style: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.016,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.authPrimaryTextColor,
@@ -363,13 +363,13 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                     ),
                                   ),
                                   selectedTextStyle: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.022,
                                     fontWeight: FontWeight.w500,
                                     color: AppColors.authPrimaryTextColor,
                                   ),
                                   popupItemTextStyle: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.02,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.authPrimaryTextColor,

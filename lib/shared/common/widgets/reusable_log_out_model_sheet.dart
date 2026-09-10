@@ -78,7 +78,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(20),
         ),

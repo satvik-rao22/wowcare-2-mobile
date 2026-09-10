@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -396,7 +397,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                         child: Text(
                           unreadCount.toString(),
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             color: AppColors.cardColor,
                             fontSize: 12,
                           ),

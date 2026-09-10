@@ -84,7 +84,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   TextStyle _t(double size, FontWeight weight, Color color,
           {double? spacing}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: size,
         fontWeight: weight,
         color: color,

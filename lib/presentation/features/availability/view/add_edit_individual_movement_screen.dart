@@ -202,7 +202,7 @@ class _AddEditIndividualMovementScreenState
           color: AppColors.cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),

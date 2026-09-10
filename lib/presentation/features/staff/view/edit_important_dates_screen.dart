@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -503,7 +504,7 @@ class _EditImportantDatesScreenViewState
                   selectedItem: _selectedPhysicalCheckupStatus,
                   labelStyle: TextStyle(
                     fontSize: responsive.labelFontSize,
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w400,
                     color: AppColors.primaryColor,
                   ),
@@ -594,7 +595,7 @@ class _EditImportantDatesScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );

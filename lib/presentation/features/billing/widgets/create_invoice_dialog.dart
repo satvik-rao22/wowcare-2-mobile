@@ -35,7 +35,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                     child: Text(
                       BillingStrings.createInvoice,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.billingTextColor,
@@ -60,7 +60,7 @@ class CreateInvoiceDialog extends StatelessWidget {
               const Text(
                 BillingStrings.selectTheTypeOfInvoice,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.billingTextMuted,
@@ -166,7 +166,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                   Text(
                     widget.title,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: primaryText,
@@ -177,7 +177,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                   Text(
                     widget.subtitle,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 12,
                       color: secondaryText,
                       height: 1.3,

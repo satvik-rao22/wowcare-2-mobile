@@ -232,7 +232,7 @@ class _BillingScreenState extends State<BillingScreen>
                                 child: Text(
                                   BillingStrings.billing,
                                   style: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.billingTextColor,
@@ -382,7 +382,7 @@ class _BillingScreenState extends State<BillingScreen>
                                         child: Text(
                                           _tabs[index],
                                           style: const TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
                                           ),

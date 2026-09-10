@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -178,7 +179,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             color: AppColors.primaryColor,
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -337,7 +338,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
       title: Text(
         widget.studentName.trim().isEmpty ? 'Details' : widget.studentName,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.primaryColor,
           fontSize: 18,
           fontWeight: FontWeight.w600,
@@ -361,7 +362,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
           child: const Text(
             'Close',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w500,
             ),
@@ -430,7 +431,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                     color: AppColors.classroomTextColor,
@@ -440,7 +441,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     color: AppColors.classroomTextColor,
                   ),

@@ -58,7 +58,7 @@ class CustomFloatingTextButton extends StatelessWidget {
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.whiteColor,
           shape: RoundedRectangleBorder(
             borderRadius: borderRadius ?? BorderRadius.circular(10),
           ),

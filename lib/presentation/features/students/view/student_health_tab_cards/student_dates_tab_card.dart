@@ -200,7 +200,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             child: Text(
                               StudentStrings.editPhysicalExamination,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
@@ -786,7 +786,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -859,7 +859,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

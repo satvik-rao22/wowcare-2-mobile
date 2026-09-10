@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -488,13 +489,13 @@ class _AttentionShimmerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: MaterialHues.grey300,
+        highlightColor: MaterialHues.grey100,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,7 +506,7 @@ class _AttentionShimmerCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -514,7 +515,7 @@ class _AttentionShimmerCard extends StatelessWidget {
                   width: 80,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -525,7 +526,7 @@ class _AttentionShimmerCard extends StatelessWidget {
               width: 100,
               height: 24,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -552,7 +553,7 @@ class _AttentionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(10),
         ),

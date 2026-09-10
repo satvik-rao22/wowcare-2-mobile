@@ -155,7 +155,7 @@ class _AccountingDateRangeSelectorState
                             child: Text(
                               _currentLabel(),
                               style: const TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.billingTextColor,

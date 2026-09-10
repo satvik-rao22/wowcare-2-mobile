@@ -44,7 +44,7 @@ class DashboardCardToggle extends StatelessWidget {
               width: 21,
               height: 21,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),

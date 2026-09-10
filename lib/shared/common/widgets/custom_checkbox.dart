@@ -34,7 +34,7 @@ class CustomCheckbox extends StatelessWidget {
                 scale: scale ?? 1.2,
                 child: Checkbox(
                   activeColor: AppColors.themeColor,
-                  checkColor: Colors.white,
+                  checkColor: AppColors.whiteColor,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   side: BorderSide(
                     color:

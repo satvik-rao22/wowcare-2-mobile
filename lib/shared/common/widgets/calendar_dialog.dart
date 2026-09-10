@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
@@ -154,7 +155,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
     final double amPmMinWidth = calHelper.isTablet ? 80 : 64;
 
     return Dialog(
-      backgroundColor: widget.whiteBgColor ? Colors.white : null,
+      backgroundColor: widget.whiteBgColor ? AppColors.whiteColor : null,
       insetPadding: EdgeInsets.symmetric(
         vertical: calHelper.calendarMargin * 0.5,
         horizontal: calHelper.calendarMargin,
@@ -212,7 +213,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                   SizedBox(height: calHelper.calendarPadding * 0.4),
                   const Divider(
                     height: 2,
-                    color: Color(0xFFE0E0E0),
+                    color: MaterialHues.grey300,
                   ),
                   SizedBox(height: calHelper.calendarPadding * 0.4),
                   SizedBox(
@@ -240,7 +241,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         selectedDayTextStyle: TextStyle(
                           fontSize: dayFontSize,
                           fontWeight: FontWeight.w400,
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                         ),
                         yearTextStyle: TextStyle(
                           fontSize: yearFontSize,
@@ -500,7 +501,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             child: const Text(
                               'Cancel',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF6C7FD8),
@@ -549,10 +550,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             child: const Text(
                               'OK',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                                 height: 1,
                               ),
                             ),

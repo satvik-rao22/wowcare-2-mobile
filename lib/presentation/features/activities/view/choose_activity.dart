@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -356,7 +357,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                     ? AppColors.activityMutedGreyColor
                                           .withValues(alpha: 0.1)
                                     : isSelected
-                                    ? const Color.fromARGB(255, 249, 245, 250)
+                                    ? AppPalette.surfaceSelected
                                     : AppColors.transparentColor,
                               ),
                               child: Row(

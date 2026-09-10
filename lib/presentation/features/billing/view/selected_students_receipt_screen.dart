@@ -52,7 +52,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   static const Color _text = AppColors.billingTextColor;
   static TextStyle _ts(double size, FontWeight weight, {Color? color}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: size,
         fontWeight: weight,
         color: color ?? _text,
@@ -425,7 +425,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 : Text(
                     label,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.billingCardColor,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -372,7 +373,7 @@ class _StaffCardState extends State<StaffCard> {
                                                   child: Text(
                                                     '+${orderedAllowedClassrooms.length - 1}',
                                                     style: const TextStyle(
-                                                      fontFamily: 'Inter',
+                                                      fontFamily: AppFontFamilies.inter,
                                                       fontSize: 12,
                                                       fontWeight:
                                                           FontWeight.w400,
