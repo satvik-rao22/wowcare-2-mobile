@@ -149,6 +149,8 @@ class MessagingInputArea extends StatelessWidget {
                   child: TextField(
                     controller: controller,
                     decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppSurfaces.fieldFill,
                       hintText: AppStrings.typeAMessage,
                       hintStyle: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingComposerHint,

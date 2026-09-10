@@ -248,7 +248,8 @@ class AppColors {
   static const Color billingRevenueSeriesColor = AppPalette.statusSuccess;
   static const Color billingInvoicedSeriesColor = AppPalette.statusInfo;
   static const Color billingRefundsSeriesColor = AppPalette.statusError;
-  static const Color billingSubsidyBalanceSeriesColor = AppPalette.statusWarning;
+  static const Color billingSubsidyBalanceSeriesColor =
+      AppPalette.statusWarning;
   static const Color billingSubsidyInvoicedSeriesColor = AppPalette.dataPurple;
   static const Color billingSubsidyReceivedSeriesColor = AppPalette.dataTeal;
   static const Color billingChartGridLineColor = AppPalette.surfaceField;

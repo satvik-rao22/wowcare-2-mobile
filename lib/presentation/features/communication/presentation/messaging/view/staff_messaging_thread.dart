@@ -555,6 +555,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             minLines: 3,
             maxLines: 8,
             decoration: InputDecoration(
+              filled: true,
+              fillColor: AppSurfaces.fieldFill,
               hintText: 'Edit your message...',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CommonMultiSelectDropdown extends StatefulWidget {
   const CommonMultiSelectDropdown({
@@ -108,11 +109,7 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.transparentColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppPalette.surfaceField,
-            ),
+            decoration: AppSurfaces.well(radius: 12),
             child: Row(
               children: [
                 Expanded(

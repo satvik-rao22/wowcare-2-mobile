@@ -21,6 +21,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentImmunizationTabCard extends StatefulWidget {
   const StudentImmunizationTabCard({
@@ -308,9 +309,11 @@ class _StudentImmunizationTabCardState
                         if (statusUi == 'Exempt') ...[
                           AppSpacing.gapVMd,
                           TextField(
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: AppSurfaces.fieldFill,
                               labelText: StudentStrings.exemptionReason,
-                              border: OutlineInputBorder(),
+                              border: const OutlineInputBorder(),
                             ),
                             controller: TextEditingController(
                               text: exemptionReason,

@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Outcome of [showUnexpectedSignInAttentionDialog].
 class UnexpectedSignInAttentionResult {
@@ -186,6 +187,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                   maxLines: 3,
                   minLines: 1,
                   decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppSurfaces.fieldFill,
                     hintText: 'Add a Comment',
                     hintStyle: AppTextStyles.body.copyWith(
                       color: AppColors.attendanceDialogHintTextColor,

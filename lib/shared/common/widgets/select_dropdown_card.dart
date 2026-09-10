@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class SelectDropdownCard extends StatelessWidget {
   const SelectDropdownCard({
@@ -20,21 +22,10 @@ class SelectDropdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(14);
+    final borderRadius = BorderRadius.circular(AppRadius.r14);
 
     return Container(
-      decoration: BoxDecoration(
-        color: AppPalette.surfaceField,
-        borderRadius: borderRadius,
-        border: Border.all(color: AppColors.transparentColor),
-        boxShadow: const [
-          BoxShadow(
-            color: AppPalette.shadowAmbient,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.well(radius: AppRadius.r14),
       child: DropdownButtonFormField<String>(
         initialValue: initialValue,
         isExpanded: true,

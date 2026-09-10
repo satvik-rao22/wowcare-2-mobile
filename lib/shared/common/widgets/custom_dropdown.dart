@@ -420,6 +420,8 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                   color: AppColors.primaryColor,
                 ),
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppSurfaces.fieldFill,
                   isDense: true,
                   hintText: 'Search',
                   hintStyle: TextStyle(

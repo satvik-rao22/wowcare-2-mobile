@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_bottom_sheet_scaffold.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Read-only view of a single shift. Mirrors the form layout of [AddShiftScreen]
 /// so the fields look familiar, but every field is non-interactive. The bottom
@@ -303,12 +304,7 @@ class ViewShiftScreen extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(responsive.isTablet ? 16.0 : 12.0),
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.well(radius: responsive.isTablet ? 12.0 : 8.0,),
           child: Text(
             note!,
             style: TextStyle(
@@ -475,13 +471,7 @@ class _ScopeRadioTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.fieldBackgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.themeColor.withValues(alpha: 0.18),
-          ),
-        ),
+        decoration: AppSurfaces.well(radius: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

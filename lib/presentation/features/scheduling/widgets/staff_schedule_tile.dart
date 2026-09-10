@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_media_res.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
 /// values (e.g. 7.5h) keep their decimal.
@@ -285,13 +286,7 @@ class StaffTimeRangePill extends StatelessWidget {
     const radius = 8.0;
     final inner = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
-        borderRadius: BorderRadius.circular(radius),
-        border: isPublished
-            ? Border.all(color: borderColor, width: 1.2)
-            : null,
-      ),
+      decoration: AppSurfaces.well(radius: radius),
       child: Text(
         '$startTime -\n$endTime',
         textAlign: TextAlign.center,

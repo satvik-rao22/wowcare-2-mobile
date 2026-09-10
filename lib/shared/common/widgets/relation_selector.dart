@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Standardized "Relation" picker: a dropdown of common relation types plus
 /// an "Other" option that reveals a free-text field for anything not
@@ -248,13 +249,7 @@ class RelationSelectorState extends State<RelationSelector> {
           constraints: BoxConstraints(
             minHeight: widget.fieldHeight ?? responsive.inputFieldHeight,
           ),
-          decoration: BoxDecoration(
-            color: AppPalette.surfaceField,
-            border: Border.all(color: AppColors.transparentColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.well(radius: responsive.isTablet ? 12.0 : 8.0,),
           child: TextField(
             controller: _customController,
             textCapitalization: TextCapitalization.words,

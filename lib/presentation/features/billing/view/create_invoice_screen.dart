@@ -727,11 +727,7 @@ class _SelectedStudentsBanner extends StatelessWidget {
     if (students.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor),
-      ),
+      decoration: AppSurfaces.well(radius: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

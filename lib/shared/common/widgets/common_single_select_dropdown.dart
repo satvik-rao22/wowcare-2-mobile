@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CommonSingleSelectDropdown extends StatelessWidget {
   const CommonSingleSelectDropdown({
@@ -45,11 +46,7 @@ class CommonSingleSelectDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.transparentColor),
-            borderRadius: BorderRadius.circular(12),
-            color: AppPalette.surfaceField,
-          ),
+          decoration: AppSurfaces.well(radius: 12),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,

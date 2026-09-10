@@ -31,6 +31,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Material's colour roles, mapped onto ours.
@@ -132,6 +133,24 @@ WidgetStateColor _colorWhenSelected(Color selected, Color rest) =>
       (Set<WidgetState> states) =>
           states.contains(WidgetState.selected) ? selected : rest,
     );
+
+/// The field default, taken from the same builder call sites use.
+InputDecorationTheme _fieldTheme() {
+  final InputDecoration d = AppSurfaces.fieldDecoration();
+  return InputDecorationTheme(
+    filled: d.filled,
+    fillColor: d.fillColor,
+    border: d.border,
+    enabledBorder: d.enabledBorder,
+    focusedBorder: d.focusedBorder,
+    errorBorder: d.errorBorder,
+    focusedErrorBorder: d.focusedErrorBorder,
+    hintStyle: TextStyle(
+      fontFamily: AppFonts.body,
+      color: AppPalette.textMuted,
+    ),
+  );
+}
 
 /// The component themes shared by both brightnesses.
 ///
@@ -289,6 +308,15 @@ ThemeData _build(Brightness brightness) {
       entryModeIconColor: AppPalette.iconDefault,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.allXl),
     ),
+
+    // ── Fields ────────────────────────────────────────────────────────────
+    //
+    // The default for anything typed into that does not build its own
+    // decoration. A field is cut *into* the surface: cool fill, no outline
+    // at rest, a brand ring on focus. It does not get the well's inset
+    // shadow — InputDecoration cannot paint one, and wrapping the field
+    // would put its error and counter text inside the well.
+    inputDecorationTheme: _fieldTheme(),
 
     // ── Small parts ───────────────────────────────────────────────────────
     dividerTheme: DividerThemeData(color: AppPalette.divider),

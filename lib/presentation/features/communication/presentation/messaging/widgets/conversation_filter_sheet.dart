@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Filter bottom sheet for STAFF_DIRECT conversations.
 ///
@@ -382,6 +383,8 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
           controller: controller,
           onChanged: widget.onChanged,
           decoration: InputDecoration(
+            filled: true,
+            fillColor: AppSurfaces.fieldFill,
             hintText: AppStrings.classroomCodeHint,
             hintStyle: const TextStyle(color: AppColors.messagingHintText),
             border: OutlineInputBorder(

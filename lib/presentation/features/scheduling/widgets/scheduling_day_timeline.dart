@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
 import '../model/scheduling_staff_shift_style.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Left column width for daily classroom Gantt rows.
 const double kSchedulingDayLeftColumnWidth = 152;
@@ -1145,10 +1146,7 @@ class _CountRow extends StatelessWidget {
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
-            borderRadius: BorderRadius.circular(4),
-          ),
+          decoration: AppSurfaces.well(radius: 4),
           child: Text(
             '$count',
             style: const TextStyle(

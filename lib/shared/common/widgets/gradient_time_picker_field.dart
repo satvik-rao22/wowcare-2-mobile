@@ -115,6 +115,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class GradientTimePickerField extends StatelessWidget {
   const GradientTimePickerField({
@@ -357,12 +358,7 @@ class GradientTimePickerField extends StatelessWidget {
                 vertical: responsive.isTablet ? 16.0 : 12.0,
               ),
 
-              decoration: BoxDecoration(
-                color: AppColors.fieldBackgroundColor,
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 12.0 : 8.0,
-                ),
-              ),
+              decoration: AppSurfaces.well(radius: responsive.isTablet ? 12.0 : 8.0,),
 
               child: Row(
                 children: [

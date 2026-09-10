@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class MovementDragDropDecision {
   const MovementDragDropDecision({
@@ -307,6 +308,8 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         maxLines: 3,
                         minLines: 1,
                         decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppSurfaces.fieldFill,
                           hintText: widget.commentHint,
                           hintStyle: AppTextStyles.body.copyWith(
                             color: AppColors.attendanceDialogHintTextColor,

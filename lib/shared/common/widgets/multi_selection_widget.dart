@@ -120,6 +120,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                             padding: const EdgeInsets.all(12),
                             child: TextField(
                               decoration: InputDecoration(
+                                filled: true,
+                                fillColor: AppSurfaces.fieldFill,
                                 hintText: widget.hintText,
                                 prefixIcon: const Icon(Icons.search, size: 20),
                                 border: OutlineInputBorder(

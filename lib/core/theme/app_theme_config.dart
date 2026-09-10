@@ -838,7 +838,6 @@ class AppPalette {
   static const Color mediaScrim = _brand
       ? Color(0xB3061240)
       : Color(0xB3000000);
-
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
