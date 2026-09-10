@@ -165,6 +165,92 @@ class BrandRamps {
   static const Color navy900 = Color(0xFF061240);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
+
+  // ── L4 surfaces — the flat skeuomorphic ground set ───────────────────────
+  //
+  // Nine tones, warm at the bottom and cool as they rise, taken from the
+  // design system's `colors.css` L4 block. They are what makes a *flat* fill
+  // read as a solid object: the page is a warm tray, everything raised off it
+  // is a cooler card, and everything you type into is cut back down into a
+  // well. Depth comes from the bevel/shadow pairs in [AppElevation], never
+  // from a gradient.
+
+  /// `#FBF8F2` — the warm page ground. Scaffolds, the drawer, the bottom bar,
+  /// tab strips: the tray everything else sits on.
+  static const Color tray = Color(0xFFFBF8F2);
+
+  /// `#FBFCFF` — the face of anything raised off the tray: cards, bars, keys.
+  static const Color card = Color(0xFFFBFCFF);
+
+  /// `#EFF2FB` — an inner tinted row, a chip, a bottom-sheet ground.
+  static const Color sub = Color(0xFFEFF2FB);
+
+  /// `#E5EAF7` — the well. Fields, tracks, troughs, disabled keys.
+  static const Color well = Color(0xFFE5EAF7);
+
+  /// `#EDF1FA` — a shallower well, e.g. a segmented control at rest.
+  static const Color wellAlt = Color(0xFFEDF1FA);
+
+  /// `#D8E0F2` — a deep well: sheet grabbers, inset dividers.
+  static const Color wellDeep = Color(0xFFD8E0F2);
+
+  /// `#BFC9E2` — the deepest step; "not marked" dots and inert markers.
+  static const Color wellDeepest = Color(0xFFBFC9E2);
+
+  /// `#F5F8FE` — the coolest near-white, for a panel that must separate from
+  /// [card] without becoming a well.
+  static const Color offWhite = Color(0xFFF5F8FE);
+
+  /// `#FFFAF2` — **the only white**. Text and glyphs on pink or navy, and the
+  /// lit top bevel. Pure `#FFFFFF` is retired under this skin.
+  static const Color warmWhite = Color(0xFFFFFAF2);
+
+  // ── L4 tints — the soft fill that pairs with each hue ────────────────────
+  //
+  // One step lighter and one step cooler than the `-100` steps above, tuned
+  // to sit on the L4 tray without going chalky. These are the fills behind a
+  // status pill, an avatar or a domain-coded tile.
+
+  /// `#FBDEE9` — pink tint: the active-nav wash, a pink pill.
+  static const Color pinkTint = Color(0xFFFBDEE9);
+
+  /// `#D2F1F2` — teal tint: student avatars and student-scoped tiles.
+  static const Color tealTint = Color(0xFFD2F1F2);
+
+  /// `#FBEBCF` — sun tint: staff avatars and staff-scoped tiles.
+  static const Color sunTint = Color(0xFFFBEBCF);
+
+  /// `#8A5208` — readable ink on [sunTint]; `sun600` is too light to sit on it.
+  static const Color sunText = Color(0xFF8A5208);
+
+  /// `#D3F4E4` — green tint: "signed in", "on track", "paid".
+  static const Color greenTint = Color(0xFFD3F4E4);
+
+  /// `#FBDEDC` — danger tint: "absent", "over ratio", "overdue".
+  static const Color dangerTint = Color(0xFFFBDEDC);
+
+  // ── Rims — the solid under-edge a key is pressed down onto ───────────────
+  //
+  // A rim is a hard, un-blurred offset shadow, not a gradient and not a
+  // border: it is the side of the key you can see until you push it away.
+
+  /// `#A10F45` — the rim under a pink key. Darker than [pink700], which is a
+  /// *text* tone; a rim needs to read as a shaded side, not as a hover state.
+  static const Color pinkRim = Color(0xFFA10F45);
+
+  /// `#12595B` — the rim under a teal key.
+  static const Color tealRim = Color(0xFF12595B);
+
+  /// `#CFD8EC` — the rim under a neutral (card-faced) key: kiosk digits,
+  /// segmented peers, quiet secondary actions.
+  static const Color neutralRim = Color(0xFFCFD8EC);
+
+  // ── Shadow bases — tinted, never black ───────────────────────────────────
+
+  /// `#3F2D14` — the base every *ambient* drop shadow is tinted with. A warm
+  /// brown, so a shadow cast onto the warm [tray] reads as shade rather than
+  /// as a grey smudge. Call sites apply the alpha.
+  static const Color shadowWarm = Color(0xFF3F2D14);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -379,19 +465,23 @@ class AppPalette {
 
   // ── Brand ────────────────────────────────────────────────────────────────
 
-  /// The headline brand colour: app bars, primary buttons, active states.
-  static const Color brand = _brand ? BrandRamps.teal500 : LegacyHues.indigo;
+  /// The headline brand colour: primary keys, the active nav slot, links.
+  ///
+  /// Pink, not teal, under the brand skin. Teal is domain colour — it means
+  /// "this is about a child" — so it comes off the chrome entirely and the
+  /// one recommended action carries the brand instead.
+  static const Color brand = _brand ? BrandRamps.pink600 : LegacyHues.indigo;
 
-  /// A lighter brand tint, e.g. the first stop of the primary gradient.
+  /// A lighter brand tint, for a hover wash or a secondary accent.
   static const Color brandLight = _brand
-      ? BrandRamps.teal400
+      ? BrandRamps.pink500
       : LegacyHues.indigoLight;
 
-  /// A darker brand tone for pressed states and rims.
-  static const Color brandDark = _brand ? BrandRamps.teal700 : LegacyHues.navy;
+  /// A darker brand tone for pressed states and text on a brand tint.
+  static const Color brandDark = _brand ? BrandRamps.pink700 : LegacyHues.navy;
 
-  /// Text and icons drawn on top of [brand].
-  static const Color onBrand = _brand ? BrandRamps.white : LegacyHues.white;
+  /// Text and icons drawn on top of [brand]. Warm white, never pure white.
+  static const Color onBrand = _brand ? BrandRamps.warmWhite : LegacyHues.white;
 
   /// The secondary brand tone (deep navy today, brand navy under the redesign).
   static const Color brandSecondary = _brand
@@ -414,11 +504,18 @@ class AppPalette {
       ? BrandRamps.sun400
       : LegacyHues.amber;
 
-  /// A soft brand wash used as the base for field fills, badges and pills.
+  /// A soft brand wash used as the base for badges and pills.
   /// Call sites usually apply their own low alpha on top of it.
   static const Color brandSoft = _brand
-      ? BrandRamps.teal200
+      ? BrandRamps.pinkTint
       : LegacyHues.lavender;
+
+  /// The quiet, non-recommended action: a secondary key, a body link, a
+  /// minor chrome affordance. Teal is deliberately *not* the headline colour
+  /// any more, but it is still the app's second voice.
+  static const Color actionSecondary = _brand
+      ? BrandRamps.teal600
+      : LegacyHues.indigo;
 
   // ── Text ─────────────────────────────────────────────────────────────────
 
@@ -435,44 +532,51 @@ class AppPalette {
       ? BrandRamps.inkFaint
       : LegacyHues.grey500;
 
-  /// Text on a dark or saturated surface.
-  static const Color textOnDark = _brand ? BrandRamps.white : LegacyHues.white;
+  /// Text on a dark or saturated surface. Warm white `#FFFAF2` — the only
+  /// white in the brand skin.
+  static const Color textOnDark = _brand
+      ? BrandRamps.warmWhite
+      : LegacyHues.white;
 
   /// A tappable link.
   static const Color textLink = _brand ? BrandRamps.teal700 : LegacyHues.indigo;
 
   // ── Surfaces ─────────────────────────────────────────────────────────────
 
-  /// The scaffold background.
-  static const Color surfacePage = _brand ? BrandRamps.cream : LegacyHues.white;
+  /// The scaffold background — the warm tray everything else sits on.
+  static const Color surfacePage = _brand ? BrandRamps.tray : LegacyHues.white;
 
-  /// A card, sheet or dialog.
-  static const Color surfaceCard = _brand ? BrandRamps.white : LegacyHues.white;
+  /// A card, sheet or dialog: the cool face of anything raised off the tray.
+  static const Color surfaceCard = _brand ? BrandRamps.card : LegacyHues.white;
 
-  /// A panel raised above the page but below a dialog.
+  /// A panel raised above the page but below a dialog. Shares the [card]
+  /// face — in a flat material, "raised" is told by the bevel and the
+  /// ambient shadow, not by a different fill.
   static const Color surfaceRaised = _brand
-      ? BrandRamps.cream100
+      ? BrandRamps.card
       : LegacyHues.white;
 
-  /// A recessed area: an input well, a progress trough, a search field.
+  /// An inner tinted region: a nested row, a chip strip, a bottom-sheet
+  /// ground. One step down from [surfaceCard], not yet a well.
   static const Color surfaceSunken = _brand
-      ? BrandRamps.cream200
+      ? BrandRamps.sub
       : LegacyHues.grey100;
 
-  /// A neutral light fill for read-only fields and inert tiles.
+  /// A neutral light fill for read-only fields and inert tiles — the shallow
+  /// well, so it reads as inert rather than as something you can press.
   static const Color surfaceMuted = _brand
-      ? BrandRamps.cream100
+      ? BrandRamps.wellAlt
       : LegacyHues.grey100;
 
-  /// The fill behind a form field or an inline chip — a soft brand-washed
-  /// tint rather than a flat grey.
+  /// The fill behind a form field or an inline chip: the well. Anything you
+  /// type into is cut *into* the surface, never raised off it.
   static const Color surfaceField = _brand
-      ? BrandRamps.teal50
+      ? BrandRamps.well
       : Color(0x1AB1AFE9);
 
   /// The fill of a selected row, tile or chip in a list or picker.
   static const Color surfaceSelected = _brand
-      ? BrandRamps.teal50
+      ? BrandRamps.pinkTint
       : Color(0xFFF9F5FA);
 
   /// A dark surface: the navy rail, an inverse banner.
@@ -485,24 +589,26 @@ class AppPalette {
 
   // ── Borders and dividers ─────────────────────────────────────────────────
 
-  /// The faintest rule: between list rows, inside cards.
+  /// The faintest rule: the 1px hairline round a card, and the line between
+  /// list rows. Translucent navy, so it darkens whatever it sits on rather
+  /// than painting a grey line over it.
   static const Color borderHairline = _brand
-      ? BrandRamps.cream200
+      ? Color(0x120A1C5D)
       : Color(0xFFE9ECEF);
 
   /// A visible card or input border.
-  static const Color border = _brand ? BrandRamps.cream200 : Color(0xFFE0E0E0);
+  static const Color border = _brand ? Color(0x140A1C5D) : Color(0xFFE0E0E0);
 
   /// The border of a text field or a bordered chip. In the legacy skin this is
   /// [textPrimary] at 40% alpha, which is why it reads as a tinted rather than
   /// a neutral edge.
   static const Color borderField = _brand
-      ? BrandRamps.cream200
+      ? Color(0x1F0A1C5D)
       : Color(0x66573353);
 
   /// A border that needs to read as an edge, e.g. a focused field.
   static const Color borderStrong = _brand
-      ? BrandRamps.inkFaint
+      ? Color(0x290A1C5D)
       : LegacyHues.grey400;
 
   /// The focus ring.
@@ -511,20 +617,66 @@ class AppPalette {
       : LegacyHues.indigo;
 
   /// A divider between sections.
-  static const Color divider = _brand
-      ? BrandRamps.cream200
-      : LegacyHues.grey400;
+  static const Color divider = _brand ? Color(0x140A1C5D) : LegacyHues.grey400;
+
+  // ── Material — the depth set the flat skeuomorphic surfaces are built from
+  //
+  // Depth comes from four things and never from a gradient: a lit bevel on
+  // the top edge, an ambient shadow below, an inset shadow for anything
+  // recessed, and a solid rim under anything you press. Light always comes
+  // from directly above.
+
+  /// The base tint of every **ambient** drop shadow. A warm brown, so shade
+  /// cast onto the warm [surfacePage] reads as shade, not as grey haze.
+  /// [AppElevation] applies the alpha.
+  static const Color shadowAmbient = _brand
+      ? BrandRamps.shadowWarm
+      : LegacyHues.black;
+
+  /// The base tint of every **inset** shadow — wells, troughs, recessed
+  /// keys. Navy, never black.
+  static const Color shadowInset = _brand ? BrandRamps.ink : LegacyHues.black;
+
+  /// The lit top edge of a raised **light** surface (card, key face, chip).
+  static const Color bevelLit = _brand ? BrandRamps.white : LegacyHues.white;
+
+  /// The lit top edge of a raised **dark** surface (impact card, toast, a
+  /// pink key) — warm white, so the highlight matches the ink on it.
+  static const Color bevelGloss = _brand
+      ? BrandRamps.warmWhite
+      : LegacyHues.white;
+
+  /// The solid under-edge of a key faced in [surfaceCard].
+  static const Color rimNeutral = _brand
+      ? BrandRamps.neutralRim
+      : LegacyHues.grey300;
+
+  /// The solid under-edge of the recommended (pink) key.
+  static const Color rimAction = _brand ? BrandRamps.pinkRim : LegacyHues.navy;
+
+  /// The solid under-edge of a [actionSecondary] key.
+  static const Color rimSecondary = _brand
+      ? BrandRamps.tealRim
+      : LegacyHues.navy;
+
+  /// The solid under-edge of a destructive key.
+  static const Color rimDestructive = _brand
+      ? BrandRamps.danger600
+      : LegacyHues.red;
+
+  /// The solid under-edge of a navy (impact) key.
+  static const Color rimImpact = _brand ? BrandRamps.navy900 : LegacyHues.black;
 
   // ── Status ───────────────────────────────────────────────────────────────
 
   /// Success: a completed upload, a met ratio, a paid invoice.
   static const Color statusSuccess = _brand
-      ? BrandRamps.green500
+      ? BrandRamps.green600
       : LegacyHues.green;
 
   /// The soft tint that pairs with [statusSuccess].
   static const Color statusSuccessSoft = _brand
-      ? BrandRamps.green100
+      ? BrandRamps.greenTint
       : Color(0xFFE8F5E9);
 
   /// Warning: something needs attention but nothing has failed.
@@ -534,7 +686,7 @@ class AppPalette {
 
   /// The soft tint that pairs with [statusWarning].
   static const Color statusWarningSoft = _brand
-      ? BrandRamps.sun100
+      ? BrandRamps.sunTint
       : Color(0xFFFFF3E0);
 
   /// Error: a failed request, a validation failure, a destructive action.
@@ -544,7 +696,7 @@ class AppPalette {
 
   /// The soft tint that pairs with [statusError].
   static const Color statusErrorSoft = _brand
-      ? BrandRamps.danger50
+      ? BrandRamps.dangerTint
       : Color(0xFFFFEBEE);
 
   /// A stronger, more saturated error tone than [statusError] — used for
@@ -558,31 +710,85 @@ class AppPalette {
 
   /// The soft tint that pairs with [statusInfo].
   static const Color statusInfoSoft = _brand
-      ? BrandRamps.teal100
+      ? BrandRamps.tealTint
       : Color(0xFFE3F2FD);
 
   // ── Gradients ────────────────────────────────────────────────────────────
+  //
+  // **There are no gradients under the brand skin.** Rule 3 of the design
+  // language is that every fill is flat and depth comes from the bevel, the
+  // well, the rim and the ambient shadow instead. Each list below is
+  // therefore two *identical* stops: the roles keep their names and their
+  // `List<Color>` shape so the 123 call sites that draw them keep compiling
+  // and go flat in one step, and each one is retired as its module moves
+  // onto an [AppSurfaces] decoration.
+  //
+  // Do not reintroduce a second stop here. The guard test in
+  // `test/core/theme/centralized_theme_test.dart` fails if one appears.
 
-  /// The scaffold's top-to-bottom wash.
+  /// The scaffold ground. Flat warm tray.
   static const List<Color> gradientPage = _brand
-      ? <Color>[BrandRamps.white, BrandRamps.cream100]
+      ? <Color>[BrandRamps.tray, BrandRamps.tray]
       : <Color>[LegacyHues.white, LegacyHues.blush];
 
-  /// The primary action / staff message-bubble gradient.
+  /// The primary action, and the "my message" bubble. Flat brand pink —
+  /// which is what the design's own `mine` bubble and `.key--primary` are.
   static const List<Color> gradientPrimary = _brand
-      ? <Color>[BrandRamps.teal400, BrandRamps.teal600]
+      ? <Color>[BrandRamps.pink600, BrandRamps.pink600]
       : <Color>[LegacyHues.indigoLight, LegacyHues.violet];
 
-  /// The secondary gradient, one stop darker at the start than
-  /// [gradientPrimary].
+  /// The secondary fill, one step darker than [gradientPrimary] so the two
+  /// still read apart where a screen shows both.
   static const List<Color> gradientSecondary = _brand
-      ? <Color>[BrandRamps.teal500, BrandRamps.teal700]
+      ? <Color>[BrandRamps.pink700, BrandRamps.pink700]
       : <Color>[LegacyHues.indigo, LegacyHues.violet];
 
-  /// The guardian message-bubble gradient.
+  /// The guardian message bubble.
+  ///
+  /// Deep pink rather than the design's `#FBDEE9`: the bubble's text colour
+  /// is chosen at the call site and is currently light, so the tint would be
+  /// unreadable. This stays dark — distinct from [gradientPrimary], legible
+  /// under the existing ink — until the Communication module re-skins the
+  /// bubble and its ink together.
   static const List<Color> gradientPink = _brand
-      ? <Color>[BrandRamps.pink400, BrandRamps.pink600]
+      ? <Color>[BrandRamps.pink800, BrandRamps.pink800]
       : <Color>[LegacyHues.pinkLight, LegacyHues.pink];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5b. MOTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Durations and curves. Gentle, sparing, physical: objects settle, they
+/// never whip. Ported from the design system's `motion.css`.
+class AppMotion {
+  AppMotion._();
+
+  /// 90 ms — a key going down or coming back up. Must feel instant.
+  static const Duration press = Duration(milliseconds: 90);
+
+  /// 160 ms — a small state change.
+  static const Duration fast = Duration(milliseconds: 160);
+
+  /// 200 ms — the default.
+  static const Duration base = Duration(milliseconds: 200);
+
+  /// 300 ms — a panel or sheet moving.
+  static const Duration panel = Duration(milliseconds: 300);
+
+  /// How far a rimmed key sinks, in logical pixels. The rim collapses from
+  /// [AppElevation.rimDepth] to [AppElevation.rimDepthPressed] over the same
+  /// distance, so the face lands exactly on the rim.
+  static const double pressTravel = 3;
+
+  /// How far a non-rimmed tappable surface sinks — a row, a card, a chip.
+  static const double pressTravelSurface = 2;
+
+  /// `cubic-bezier(0.22, 1, 0.36, 1)`, near enough.
+  static const Curve easeOut = Curves.easeOutCubic;
+
+  /// `cubic-bezier(0.4, 0, 0.2, 1)`.
+  static const Curve easeInOut = Curves.easeInOutCubic;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

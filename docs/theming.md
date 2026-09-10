@@ -1,12 +1,13 @@
-# Theming — one file controls the app's colours and fonts
+# Theming: one file controls the app's colours and fonts
 
 Everything visual in WowCare resolves to a token in **`lib/core/theme/app_theme_config.dart`**.
 No other file under `lib/` names a colour or a font family. Change a value in that
 file and the whole app follows.
 
-A guard test enforces this: `test/core/theme/centralized_theme_test.dart` fails the
-build if any file reintroduces a `Colors.*` reference or a bare `'Manrope'`-style
-font string.
+Two guard tests enforce this. `test/core/theme/centralized_theme_test.dart` fails
+the build if any file reintroduces a `Colors.*` reference, a bare `'Manrope'`-style
+font string, a colour literal of its own, or a gradient.
+`test/core/theme/flat_skeu_material_test.dart` guards the material itself.
 
 ---
 
@@ -16,13 +17,13 @@ One constant:
 
 ```dart
 // lib/core/theme/app_theme_config.dart
-static const AppSkin skin = AppSkin.legacy;   // ← change this
+static const AppSkin skin = AppSkin.childcareWow;   // ← change this
 ```
 
 | Skin | Palette | Typeface |
 |---|---|---|
-| `AppSkin.legacy` (**current default**) | plum `#573353` text, indigo `#5978F7` brand | Manrope |
-| `AppSkin.childcareWow` | navy `#0A1C5D` ink, brand teal `#27BEC1`, pink `#F83D76` | Poppins |
+| `AppSkin.legacy` | plum `#573353` text, indigo `#5978F7` brand, white ground | Manrope |
+| `AppSkin.childcareWow` (**current default**) | navy `#0A1C5D` ink, pink `#E01B5D` action, warm `#FBF8F2` ground | Poppins |
 
 `AppSkin.childcareWow` is the ChildcareWow brand design language, taken from
 *WowCare Design Components* and the brand colour and type guide. Both skins are
@@ -35,12 +36,14 @@ Verified effect of flipping the constant:
 AppFonts.body                       Manrope             Poppins
 ThemeData.fontFamily                Manrope             Poppins
 AppTextStyles.title.fontFamily      Manrope             Poppins
-AppColors.themeColor                #5978F7             #27BEC1
+AppColors.themeColor                #5978F7             #E01B5D
 AppColors.primaryColor              #573353             #0A1C5D
 AppColors.errorColor                #D32F2F             #D92D20
-AppColors.successColor              #388E3C             #13B167
-AppColors.primaryGradientColors     #6F8CFF → #9C84FF   #45CDD1 → #1D9B9E
-lightTheme.primaryColor             #5978F7             #27BEC1
+AppColors.successColor              #388E3C             #0E8F53
+AppColors.cardColor                 #FFFFFF             #FBFCFF
+AppColors.fieldBackgroundColor      #1AB1AFE9           #E5EAF7
+AppColors.primaryGradientColors     #6F8CFF → #9C84FF   #E01B5D → #E01B5D
+lightTheme.primaryColor             #5978F7             #E01B5D
 ```
 
 ### Why the switch is compile-time
@@ -62,9 +65,19 @@ mean converting all of them to `Theme.of(context)` lookups.
 | `LegacyHues` | The hues the app ships with today (`plum`, `indigo`, `lavender`…). | No. Raw palette. |
 | `MaterialHues` | Exact values of the Flutter `Colors.*` swatches the app used to reach for. | Only to preserve an exact Material shade. |
 | `AppPalette` | **Semantic roles.** `textPrimary`, `surfaceCard`, `statusError`, `borderHairline`… | **Yes. Prefer these.** |
+| `AppMotion` | Durations, curves, and how far a pressed thing sinks. | Yes. |
 | `AppFontFamilies` | The families registered in `pubspec.yaml`. | Only to pin one specific family. |
 | `AppFonts` | **Font roles.** `body`, `display`, `numeric`, `script`, `mono`. | **Yes. Prefer these.** |
 | `AppTypeScale` | Sizes, weights, line-heights, letter-spacing. | Yes, for new text. |
+
+Four more files sit on top of it, and they are what a widget actually calls:
+
+| File | Holds |
+|---|---|
+| `app_elevation.dart` | `AppElevation`: the shadow, bevel, well and rim recipes, plus `AppInset`. |
+| `skeu_decoration.dart` | `SkeuDecoration`, a `Decoration` that can paint an *inset* shadow, which `BoxDecoration` cannot. |
+| `app_surfaces.dart` | **`AppSurfaces`**: one ready-made decoration per design specimen. **This is the one to call.** |
+| `skeu_press.dart` | `SkeuPressable`, the app's single press effect. |
 
 `AppPalette` is the layer the skin switch rewires. Each role is written as
 `_brand ? <brand value> : <legacy value>`, so both skins are visible side by side.
@@ -73,6 +86,111 @@ mean converting all of them to `Theme.of(context)` lookups.
 definition**: its semantic tokens forward to `AppPalette`, and its feature-scoped
 tokens (`billing*`, `attendance*`, `activity*`…) forward to `AppPalette`,
 `LegacyHues` or `MaterialHues` wherever their value matches one.
+
+---
+
+## The flat skeuomorphic material
+
+Under `AppSkin.childcareWow` the app is built from physical, pressable objects
+on a warm tray. **Rule 3 of the design language: there are no gradients.** Every
+fill is one flat colour, and an object reads as an object because of four things
+instead: a lit bevel on the *top* edge, an ambient shadow *below*, an inset
+shadow for anything recessed, and a solid rim under anything you press. Light
+always comes from directly above.
+
+### The L4 surface set
+
+Nine tones, warm at the bottom and cooler as they rise. They live on
+`BrandRamps` and reach product code through the `AppPalette` roles beside them.
+
+| Tone | Hex | Role | Where |
+|---|---|---|---|
+| tray | `#FBF8F2` | `surfacePage` | scaffolds, drawer, bottom bar, tab strips |
+| card | `#FBFCFF` | `surfaceCard`, `surfaceRaised` | anything raised off the tray |
+| sub | `#EFF2FB` | `surfaceSunken` | inner tinted rows, chips, sheet grounds |
+| well | `#E5EAF7` | `surfaceField` | fields, tracks, troughs, disabled keys |
+| wellAlt | `#EDF1FA` | `surfaceMuted` | segmented rests, inert tiles |
+| wellDeep | `#D8E0F2` | none yet | sheet grabbers, inset rules |
+| wellDeepest | `#BFC9E2` | none yet | "not marked" dots, inert markers |
+| offWhite | `#F5F8FE` | none yet | a panel that must separate from `card` |
+| warmWhite | `#FFFAF2` | `textOnDark`, `onBrand`, `bevelGloss` | **the only white** |
+
+Pure `#FFFFFF` and pure black are retired. Ink on a dark face is warm white.
+
+### Colour roles
+
+| Role | Value |
+|---|---|
+| Action: primary keys, active nav, links, required asterisks | pink `#E01B5D`, rim `#A10F45`, tint `#FBDEE9`, text-on-tint `#BA124C` |
+| Ink and impact | navy `#0A1C5D`, soft `#4D5983`, faint `#8A93B2` |
+| Secondary action | teal `#1D9B9E` / `#1A7C7F` |
+| **Student** domain coding | teal `#1A7C7F` on tint `#D2F1F2` |
+| **Staff** domain coding | sun `#F9AD3A`, dark `#D3790C`, tint `#FBEBCF`, text `#8A5208` |
+| Status | green `#0E8F53` tint `#D3F4E4`; danger `#D92D20` tint `#FBDEDC`; warnings borrow the sun ramp |
+
+Teal and sun are **domain** colours, not decoration: on an attendance or
+classroom screen the split is how a child's row reads apart from an adult's.
+They are load-bearing, so keep them off the chrome. Pink is the action and
+nothing else; navy is ink, and at most one navy impact card per screen.
+
+### The four devices, as CSS
+
+```
+card     radius 20   fill #FBFCFF   border 1px rgba(10,28,93,.07)
+                     inset 0 1px 0 rgba(255,255,255,.95)      <- lit top bevel
+                     0 7px 16px -14px rgba(63,45,20,.6)       <- warm ambient
+
+well     radius 16   fill #E5EAF7
+                     inset 0 3px 6px rgba(10,28,93,.14)
+                     inset 0 -1px 0 rgba(255,255,255,.8)
+
+key      radius 16   fill #E01B5D   text #FFFAF2
+                     0 4px 0 #A10F45                          <- the rim
+                     0 12px 22px -14px rgba(224,27,93,.8)
+         pressed:    translateY(3px), rim drops to 0 1px 0
+
+impact   radius 20   fill #0A1C5D   text #FFFAF2
+                     inset 0 1px 0 rgba(255,250,240,.22)
+                     0 14px 26px -18px rgba(63,45,20,.6)
+```
+
+### Using it
+
+Do not assemble these by hand. `AppSurfaces` has one builder per specimen, and
+each returns a `SkeuDecoration`, which is a `Decoration`, so a widget swaps its
+`decoration:` and nothing about its content moves or shifts:
+
+```dart
+Container(
+  decoration: AppSurfaces.card(),   // was BoxDecoration(color: ..., boxShadow: ...)
+  child: ...,                        // unchanged
+)
+
+Container(decoration: AppSurfaces.key(KeyVariant.primary));
+Container(decoration: AppSurfaces.pill(AppTone.success));  // ink: AppTone.success.ink
+```
+
+The full set: `card`, `panel`, `impact`, `toast`, `sub`, `tray`, `bar`, `sheet`,
+`well`, `field`, `trough`, `segmented`, `segmentSelected`, `key`, `keyPressed`,
+`keyInk`, `iconKey`, `fab`, `pill`, `chip`, `chipSelected`, `avatar`, `knob`,
+`navActive`, `emptyIcon`.
+
+Wrap anything tappable in `SkeuPressable`: `.key` for a rimmed key (sinks 3px,
+exactly the distance the rim collapses by), `.surface` for everything else
+(sinks 2px). That is the app's only press effect.
+
+Gradient SVGs are flattened at the call site with
+`ColorFilter.mode(colour, BlendMode.srcIn)`. No asset is edited. Note that
+`BlendMode.dstIn` *masks* a glyph rather than recolouring it, which is not the
+same thing.
+
+### The two lists that ratchet
+
+`centralized_theme_test.dart` carries an allowlist of the files that still draw
+a gradient, and one of the files that still declare a colour literal. Both only
+ever shrink: a module is not finished while any of its files are still listed,
+and the test also fails if a file is listed but no longer offends. See
+`docs/redesign-flat-skeu-plan.md` for the module order.
 
 ---
 
@@ -100,10 +218,7 @@ pins a specific family, so text styled through it does **not** follow the skin
 switch. Use `AppFonts.body` instead.
 
 ---
-
-## What this pass covered, and what it did not
-
-**Centralised** (this phase):
+## What the centralisation pass covered
 
 - 566 font-family references across 126 files → `AppFonts` roles. Zero raw
   font-family strings remain in `lib/`.
@@ -116,29 +231,54 @@ switch. Use `AppFonts.body` instead.
 - Poppins registered in `pubspec.yaml` so the brand skin renders rather than
   silently falling back. Three weights only (Medium 500, Semi Bold 600, Bold
   700, plus a Medium italic), which is what the brand guide prescribes: 648 KB
-  instead of the 1.1 MB a full 400–800 set costs. Flutter resolves the other
+  instead of the 1.1 MB a full 400 to 800 set costs. Flutter resolves the other
   weights the app asks for to the nearest bundled face, so the 192 `w400` sites
   render at Medium, where the guide wants body copy anyway.
 
+That pass changed no pixel: under `AppSkin.legacy` all 435 `AppColors` tokens
+rendered byte-identical to `develop`. It is what made the re-skin below a
+one-file edit rather than a thousand call-site edits.
+
+## What the flat skeuomorphic pass covered
+
+Foundation only, so far. Every screen changed colour, but no widget changed
+shape, content or behaviour:
+
+- The **L4 surface ramp**, the L4 tints, the rims and the shadow bases were
+  added to `BrandRamps`.
+- The **semantic roles were re-pointed**: `brand` from teal to pink,
+  `surfacePage` to the warm tray, `surfaceCard` to the cool card face,
+  `surfaceField` to the well, `textOnDark` and `onBrand` to warm white, and
+  the status tints to their L4 values. `actionSecondary` is new.
+- The **gradient roles were flattened** to two identical stops, which took all
+  123 gradient-drawing files flat in one step without touching one of them.
+  The `AppColors.build*Gradient()` helpers keep their signatures and are
+  deleted per module as call sites move onto `AppSurfaces`.
+- **`AppElevation`, `SkeuDecoration`, `AppSurfaces`, `SkeuPressable`** and
+  `SkeuInnerShadow` were added: the material, and the two primitives ported
+  from the `wowcare-skeumorph` kit.
+
+**Still to come**, per `docs/redesign-flat-skeu-plan.md`: the chrome (nav bar,
+drawer, tab strips, app bars), the 88 shared widgets, then the 15 feature
+modules one commit at a time. The two allowlists in the guard test are the
+progress bar.
+
 **Deliberately not touched:**
 
-- **No widget was restyled.** `lightTheme`/`darkTheme` still set only
-  `brightness`, `primaryColor`, `colorScheme`, `useMaterial3`, `fontFamily` and
-  `textTheme`. No `appBarTheme`, `inputDecorationTheme` or button themes were
-  added, because those would restyle every widget that currently relies on
-  Flutter's defaults.
-- **No colour changed value.** Under `AppSkin.legacy` all 435 `AppColors` tokens
-  render byte-identical to `develop`, verified by dumping every token's ARGB on
-  both branches and diffing.
+- **`lightTheme` / `darkTheme` still set only** `brightness`, `primaryColor`,
+  `colorScheme`, `useMaterial3`, `fontFamily` and `textTheme`. No
+  `appBarTheme`, `inputDecorationTheme` or button themes were added, because
+  those would restyle every widget that currently relies on Flutter's
+  defaults, silently and everywhere at once.
 - **Font sizes** were left at their call sites. `AppTypeScale` exists for new
   text; migrating ~1,250 existing `fontSize:` values is a layout change, not a
   colour or font change.
-- **186 module-local colour literals** remain across 52 files, mostly
-  already-named per-module palettes: `scheduling_staff_shift_style.dart`,
+- **53 files still declare a colour literal**, mostly already-named per-module
+  palettes: `scheduling_staff_shift_style.dart`,
   `scheduling_block_status_style.dart`, `notification_category_style.dart`,
-  `enrollment_card.dart`'s breakdown-bar segments, and roughly 85 one-offs in
-  `lib/shared/common/widgets/`. These are decorative values local to one widget,
-  not app-level theme colours. Folding them in is a follow-up.
+  `enrollment_card.dart`'s breakdown-bar segments, and `app_colors.dart`'s own
+  feature-scoped one-offs. They are on the guard test's allowlist and come off
+  it module by module.
 - `newsletter_color_theme.dart` stays as it is on purpose: those colours arrive
   with the newsletter record and are chosen by its author, so they are data, not
   theming.
