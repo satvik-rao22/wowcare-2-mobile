@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Pill key used by [MessagingEntryScreen] to launch a communication module
 /// (Staff Messaging / Admin Chat / Room Chat).
@@ -73,15 +74,13 @@ class _CommunicationLauncherButtonState
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
+            SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: AppRadius.pill,
               width: double.infinity,
               padding: EdgeInsets.symmetric(
                 vertical: widget.verticalPadding,
                 horizontal: widget.horizontalPadding,
-              ),
-              decoration: AppSurfaces.key(
-                KeyVariant.primary,
-                radius: AppRadius.pill,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

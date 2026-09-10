@@ -24,6 +24,7 @@ import '../view_model/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// The notification center opened from the app-bar bell.
 ///
@@ -207,12 +208,13 @@ class _ActionsRow extends StatelessWidget {
               opacity: canMarkAll ? 1 : 0.5,
               child: GestureDetector(
                 onTap: canMarkAll ? cubit.markAllAsRead : null,
-                child: Container(
+                child: SkeuKeyBox(
+                  variant: KeyVariant.primary,
+                  radius: 10,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                   child: const Text(
                     'Mark all as read',
                     style: TextStyle(

@@ -4,6 +4,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// "↓ New Messages" chip shown above the input bar when a new message
 /// arrives while the user is reading older history, instead of forcing a
@@ -35,14 +36,12 @@ class NewMessagesIndicator extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: GestureDetector(
                 onTap: onTap,
-                child: Container(
+                child: SkeuKeyBox(
+                  variant: KeyVariant.primary,
+                  radius: AppRadius.pill,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 8,
-                  ),
-                  decoration: AppSurfaces.key(
-                    KeyVariant.primary,
-                    radius: AppRadius.pill,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

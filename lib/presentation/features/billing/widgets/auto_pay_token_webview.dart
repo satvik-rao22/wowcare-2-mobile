@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Hosts `assets/forte_auto_pay.html` to collect card / ACH details and
 /// tokenize them with the Forte JS SDK (which has no native Dart equivalent and
@@ -67,9 +68,12 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
     // backend; it is never logged.
     if (data is Map) {
       final tokenData = data['data'];
-      final hasToken = tokenData is Map &&
+      final hasToken =
+          tokenData is Map &&
           ((tokenData['onetime_token'] ?? tokenData['onetimeToken']) != null);
-      debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (tokenPresent=$hasToken)');
+      debugPrint(
+        '[AUTOPAY][WEBVIEW] tokenization callback (tokenPresent=$hasToken)',
+      );
     } else {
       debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (no data)');
     }
@@ -86,9 +90,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
         backgroundColor: AppColors.transparentColor,
         foregroundColor: AppColors.billingCardOnColorText,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: AppSurfaces.key(KeyVariant.primary),
-        ),
+        flexibleSpace: SkeuKeyBox(variant: KeyVariant.primary),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -99,8 +101,9 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
           : InAppWebView(
               initialData: InAppWebViewInitialData(
                 data: _html!,
-                baseUrl: WebUri.uri(Uri.parse(
-                    'https://forte-autopay.${widget.payload.env}')),
+                baseUrl: WebUri.uri(
+                  Uri.parse('https://forte-autopay.${widget.payload.env}'),
+                ),
               ),
               onWebViewCreated: (controller) {
                 _controller = controller;

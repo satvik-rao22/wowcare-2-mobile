@@ -80,6 +80,12 @@ class MediaRes {
   static const userImageFemale = '$_baseImages/WowCarePNG.png';
   static const logo_wow = '$_baseImages/WowCarePNG.png';
 
+  /// The logo as a vector on a transparent ground, for anywhere it sits on a
+  /// surface that is not white. Both PNGs carry an opaque white square that
+  /// shows as a tile behind the owl on the warm page tone; this one had the
+  /// same background rect from the export and it has been removed.
+  static const logoMark = '$_baseImages/WowCareSVG.svg';
+
   /// Brand mark shown on the splash screen and in the drawer header, and the
   /// source art for the launcher icon. Its canvas is 1000x1240, so any use
   /// with a fixed square box needs `BoxFit.contain` to avoid squashing it.

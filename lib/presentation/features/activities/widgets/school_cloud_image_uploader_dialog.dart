@@ -13,6 +13,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Maximum number of images that can be uploaded to the school cloud gallery
 /// in a single "Image Uploader" run.
@@ -375,8 +376,9 @@ class _GradientChooseMediaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: AppSurfaces.key(enabled ? KeyVariant.primary : KeyVariant.disabled, radius: 8),
+    return SkeuKeyBox(
+      variant: enabled ? KeyVariant.primary : KeyVariant.disabled,
+      radius: 8,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(

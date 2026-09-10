@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/view_model/add_credit_cubi
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Captures an account credit for a family/owner and posts it via
 /// `POST /api/v1/invoices/credits`. Styled to match the Receive Payment screen.
@@ -96,8 +97,11 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     }
   }
 
-  void _showMessage(String message,
-      {bool isError = false, bool isSuccess = false}) {
+  void _showMessage(
+    String message, {
+    bool isError = false,
+    bool isSuccess = false,
+  }) {
     CoreUtils.showTopSnackBar(
       context: context,
       message: message,
@@ -109,14 +113,17 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
   // ── Shared field styling (matches Receive Payment) ─────────────────────────
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: AppFonts.body,
-        fontWeight: FontWeight.w400,
-        color: AppColors.billingTextColor,
-      );
+    fontSize: responsive.labelFontSize,
+    fontFamily: AppFonts.body,
+    fontWeight: FontWeight.w400,
+    color: AppColors.billingTextColor,
+  );
 
-  Widget _fieldLabel(ResponsiveHelper responsive, String text,
-      {bool required = false}) {
+  Widget _fieldLabel(
+    ResponsiveHelper responsive,
+    String text, {
+    bool required = false,
+  }) {
     return RichText(
       text: TextSpan(
         style: _labelStyle(responsive),
@@ -133,22 +140,22 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
   }
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: AppColors.billingBorderDefault),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-      );
+    color: AppColors.billingCardColor,
+    border: Border.all(color: AppColors.billingBorderDefault),
+    borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+  );
 
   EdgeInsets _fieldPadding(ResponsiveHelper responsive) => EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
-      );
+    horizontal: responsive.isTablet ? 16.0 : 12.0,
+    vertical: responsive.isTablet ? 16.0 : 12.0,
+  );
 
   TextStyle _valueStyle(ResponsiveHelper responsive) => TextStyle(
-        fontFamily: AppFonts.body,
-        fontSize: responsive.inputFontSize,
-        fontWeight: FontWeight.w600,
-        color: AppColors.billingTextColor,
-      );
+    fontFamily: AppFonts.body,
+    fontSize: responsive.inputFontSize,
+    fontWeight: FontWeight.w600,
+    color: AppColors.billingTextColor,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +183,10 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                     padding: EdgeInsets.only(top: 4.0, left: 2.0),
                     child: Text(
                       BillingStrings.pleaseEnterValidAmount,
-                      style: TextStyle(color: AppColors.errorColor, fontSize: 12),
+                      style: TextStyle(
+                        color: AppColors.errorColor,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 SizedBox(height: verticalSpacing),
@@ -184,8 +194,11 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 SizedBox(height: labelGap),
                 _buildReasonDropdown(responsive),
                 SizedBox(height: verticalSpacing),
-                _fieldLabel(responsive, BillingStrings.description,
-                    required: true),
+                _fieldLabel(
+                  responsive,
+                  BillingStrings.description,
+                  required: true,
+                ),
                 SizedBox(height: labelGap),
                 _buildCounterField(
                   responsive,
@@ -252,10 +265,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          height: 1.5,
-          decoration: AppSurfaces.key(KeyVariant.primary),
-        ),
+        SkeuKeyBox(variant: KeyVariant.primary, height: 1.5),
       ],
     );
   }
@@ -296,8 +306,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           Expanded(
             child: TextField(
               controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
@@ -305,8 +316,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
               style: _valueStyle(responsive),
               decoration: InputDecoration(
                 hintText: '0.00',
-                hintStyle:
-                    _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+                hintStyle: _labelStyle(
+                  responsive,
+                ).copyWith(color: AppColors.billingGrey),
                 border: InputBorder.none,
                 contentPadding: _fieldPadding(responsive),
               ),
@@ -328,54 +340,58 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           child: ValueListenableBuilder<String?>(
             valueListenable: _selectedReason,
             builder: (context, selectedReason, _) => PopupMenuButton<String>(
-            enabled: !_isSubmitting,
-            padding: EdgeInsets.zero,
-            position: PopupMenuPosition.under,
-            color: AppColors.billingCardColor,
-            constraints: BoxConstraints(
-              minWidth: constraints.maxWidth,
-              maxWidth: constraints.maxWidth,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-            ),
-            onSelected: (value) => _selectedReason.value = value,
-            itemBuilder: (context) => _reasonOptions
-                .map(
-                  (r) => PopupMenuItem<String>(
-                    value: r,
-                    child: Text(
-                      r,
-                      style: _valueStyle(responsive)
-                          .copyWith(fontWeight: FontWeight.w500),
+              enabled: !_isSubmitting,
+              padding: EdgeInsets.zero,
+              position: PopupMenuPosition.under,
+              color: AppColors.billingCardColor,
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth,
+                maxWidth: constraints.maxWidth,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 12.0 : 8.0,
+                ),
+              ),
+              onSelected: (value) => _selectedReason.value = value,
+              itemBuilder: (context) => _reasonOptions
+                  .map(
+                    (r) => PopupMenuItem<String>(
+                      value: r,
+                      child: Text(
+                        r,
+                        style: _valueStyle(
+                          responsive,
+                        ).copyWith(fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                )
-                .toList(),
-            child: Padding(
-              padding: _fieldPadding(responsive),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      selectedReason ?? BillingStrings.selectReason,
-                      style: selectedReason != null
-                          ? _valueStyle(responsive)
-                          : _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
-                      overflow: TextOverflow.ellipsis,
+                  )
+                  .toList(),
+              child: Padding(
+                padding: _fieldPadding(responsive),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        selectedReason ?? BillingStrings.selectReason,
+                        style: selectedReason != null
+                            ? _valueStyle(responsive)
+                            : _labelStyle(
+                                responsive,
+                              ).copyWith(color: AppColors.billingGrey),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AppColors.primaryColor,
+                      size: 24,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         );
       },
@@ -402,7 +418,9 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
             style: _valueStyle(responsive),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+              hintStyle: _labelStyle(
+                responsive,
+              ).copyWith(color: AppColors.billingGrey),
               border: InputBorder.none,
               contentPadding: _fieldPadding(responsive),
             ),
@@ -429,8 +447,12 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
-      padding:
-          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         boxShadow: <BoxShadow>[
@@ -445,9 +467,10 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
           topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
         ),
       ),
-      child: Container(
+      child: SkeuKeyBox(
+        variant: !(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+        radius: responsive.isTablet ? 16.0 : 8.0,
         height: responsive.buttonHeight,
-        decoration: AppSurfaces.key(!(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
           child: _isSubmitting
@@ -460,7 +483,8 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.billingButtonTextColor),
+                          AppColors.billingButtonTextColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),

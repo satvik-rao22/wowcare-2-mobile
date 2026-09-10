@@ -29,6 +29,7 @@ import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -382,9 +383,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: AppRadius.md,
             padding: const EdgeInsets.all(AppSpacing.s2),
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.md),
             child: Container(
               width: 50,
               constraints: const BoxConstraints(maxHeight: 400),

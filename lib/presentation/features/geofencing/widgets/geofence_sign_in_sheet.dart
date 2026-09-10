@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bottom sheet shown to ALL roles (parent, staff, admin) when they enter
 /// the school geofence zone.
@@ -162,8 +163,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: DecoratedBox(
-              decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: 14,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
@@ -200,8 +202,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: DecoratedBox(
-              decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: 14,
               child: Padding(
                 padding: const EdgeInsets.all(1.5),
                 child: TextButton(
@@ -213,14 +216,14 @@ class GeofenceSignInSheet extends StatelessWidget {
                     ),
                   ),
                   child: const Text(
-                      'Dismiss',
-                      style: TextStyle(
-                        fontFamily: AppFonts.body,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
+                    'Dismiss',
+                    style: TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.themeColor,
                     ),
+                  ),
                 ),
               ),
             ),
@@ -248,7 +251,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           : '/dashboard/student-selection-sign-in-form';
       // Pass the currently-viewed child so the form pre-selects them.
       final code = (studentCode ?? '').trim();
-      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
+      return code.isNotEmpty
+          ? '$base?studentCode=${Uri.encodeComponent(code)}'
+          : base;
     } else {
       // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn

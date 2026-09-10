@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
@@ -27,9 +28,10 @@ class CustomCancelButton extends StatelessWidget {
     );
     final label = Text(cancelButtonLabel ?? 'Cancel', style: labelStyle);
 
-    return Container(
+    return SkeuKeyBox(
+      variant: KeyVariant.secondary,
+      radius: 8,
       height: 48,
-      decoration: AppSurfaces.key(KeyVariant.secondary, radius: 8),
       padding: const EdgeInsets.all(1),
       child: TextButton(
         onPressed: onPressedCancel ?? () => Navigator.pop(context),

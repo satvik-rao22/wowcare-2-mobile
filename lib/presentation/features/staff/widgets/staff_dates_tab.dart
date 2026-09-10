@@ -20,6 +20,7 @@ import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -824,10 +825,11 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                               if (mounted) _loadDates(useCache: false);
                             });
                       },
-                      child: Container(
+                      child: SkeuKeyBox(
+                        variant: KeyVariant.primary,
+                        radius: 8,
                         width: 38,
                         height: 38,
-                        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.edit,

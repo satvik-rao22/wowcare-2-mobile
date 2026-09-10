@@ -47,6 +47,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -843,7 +844,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                             MediaRes.uploadIcon,
                                             height: 10,
                                             width: 10,
-                                            color: AppColors.whiteColor.withValues( alpha: 0.92, ),
+                                            color: AppColors.whiteColor
+                                                .withValues(alpha: 0.92),
                                           ),
                                           const SizedBox(width: 3),
                                           Text(
@@ -872,10 +874,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                             child: Container(
                               width: 32,
                               height: 32,
-                              decoration: AppSurfaces.card(radius: AppRadius.lg),
-                              child: Container(
+                              decoration: AppSurfaces.card(
+                                radius: AppRadius.lg,
+                              ),
+                              child: SkeuKeyBox(
+                                variant: KeyVariant.primary,
+                                radius: AppRadius.r14,
                                 margin: const EdgeInsets.all(AppSpacing.s2),
-                                decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.r14,),
                                 child: const Icon(
                                   Icons.camera_alt,
                                   color: AppColors.whiteColor,
@@ -1019,7 +1024,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xs),
-      decoration: AppSurfaces.key(KeyVariant.primary, borderRadius: const BorderRadius.vertical( bottom: Radius.circular(AppRadius.md), )),
+      decoration: AppSurfaces.key(
+        KeyVariant.primary,
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.md),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CustomFloatingTextButton extends StatelessWidget {
   const CustomFloatingTextButton({
@@ -23,13 +24,11 @@ class CustomFloatingTextButton extends StatelessWidget {
   final bool? isFilled;
 
   Widget _buildFilledButton() {
-    return Container(
-      height: height ?? 50,
+    return SkeuKeyBox(
+      variant: KeyVariant.primary,
+      radius: borderRadius?.topLeft.x ?? 10,
       width: width ?? 50,
-      decoration: AppSurfaces.key(
-        KeyVariant.primary,
-        radius: borderRadius?.topLeft.x ?? 10,
-      ),
+      height: height ?? 50,
       child: FloatingActionButton(
         heroTag: null,
         onPressed: onPressed,
@@ -41,13 +40,11 @@ class CustomFloatingTextButton extends StatelessWidget {
   }
 
   Widget _buildOutlinedButton() {
-    return Container(
-      height: height ?? 50,
+    return SkeuKeyBox(
+      variant: KeyVariant.secondary,
+      radius: borderRadius?.topLeft.x ?? 10,
       width: width ?? 50,
-      decoration: AppSurfaces.key(
-        KeyVariant.secondary,
-        radius: borderRadius?.topLeft.x ?? 10,
-      ),
+      height: height ?? 50,
       padding: const EdgeInsets.all(1),
       child: TextButton(
         onPressed: onPressed,

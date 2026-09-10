@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -200,11 +200,11 @@ class _SignInScreenState extends State<SignInScreen>
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () => FocusScope.of(context).unfocus(),
-            child: Container(
-              decoration: AppSurfaces.key(KeyVariant.primary),
+            child: ColoredBox(
+              color: AppColors.pageBackgroundColor,
               child: Stack(
                 children: [
-                  const _LottieAnimation(),
+                  const _Brandmark(),
                   _buildBottomMenu(context, state),
                 ],
               ),
@@ -230,11 +230,11 @@ class _SignInScreenState extends State<SignInScreen>
           return Container(
             width: MediaQuery.of(context).size.width,
             height: height,
-            decoration: const BoxDecoration(
-              color: AppColors.cardColor,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(30.0),
-                topRight: Radius.circular(30.0),
+            // The form is a panel raised off the page ground: card face, lit
+            // top edge, its shadow thrown up onto the ground behind it.
+            decoration: AppSurfaces.card(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
               ),
             ),
             child: Padding(
@@ -243,8 +243,13 @@ class _SignInScreenState extends State<SignInScreen>
                 shrinkWrap: true,
                 children: [
                   const Text(
-                    '  Login with email',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                    'Login with email',
+                    style: TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryColor,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   SignInForm(
@@ -335,25 +340,42 @@ class _SignInScreenState extends State<SignInScreen>
   }
 }
 
-/// The top Lottie animation. A private widget class (not a `_buildXxx()`
-/// method) so it can be `const` — it never rebuilds when [AuthState] changes,
-/// unlike a method called from inside the `BlocConsumer` builder would.
-class _LottieAnimation extends StatelessWidget {
-  const _LottieAnimation();
+/// The logo and the wordmark, on the page ground.
+///
+/// A private widget class (not a `_buildXxx()` method) so it can be `const`
+/// — it never rebuilds when [AuthState] changes, unlike a method called from
+/// inside the `BlocConsumer` builder would.
+class _Brandmark extends StatelessWidget {
+  const _Brandmark();
 
   @override
   Widget build(BuildContext context) {
+    final Size screen = MediaQuery.of(context).size;
     return Align(
       alignment: Alignment.topCenter,
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        margin: EdgeInsets.only(
-          top:
-              MediaQuery.of(context).padding.top +
-              MediaQuery.of(context).size.height * 0.01,
+      child: SizedBox(
+        width: screen.width,
+        height: screen.height * 0.4,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            AppArtwork(
+              MediaRes.logoMark,
+              height: screen.height * 0.14,
+              width: screen.height * 0.14,
+            ),
+            SizedBox(height: screen.height * 0.012),
+            Text(
+              'WowCare',
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: screen.height * 0.032,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ],
         ),
-        height: MediaQuery.of(context).size.height * 0.4,
-        child: Lottie.asset(MediaRes.signInLottie),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class PostAddStudentBottomSheet extends StatelessWidget {
   final String studentName;
@@ -95,12 +96,10 @@ class PostAddStudentBottomSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Container(
+                    child: SkeuKeyBox(
+                      variant: KeyVariant.secondary,
+                      radius: borderRadius / 2,
                       height: buttonHeight,
-                      decoration: AppSurfaces.key(
-                        KeyVariant.secondary,
-                        radius: borderRadius / 2,
-                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
                         child: Container(
@@ -136,12 +135,10 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                   ),
                   SizedBox(width: horizontalPadding / 2),
                   Expanded(
-                    child: Container(
+                    child: SkeuKeyBox(
+                      variant: KeyVariant.primary,
+                      radius: borderRadius / 2,
                       height: buttonHeight,
-                      decoration: AppSurfaces.key(
-                        KeyVariant.primary,
-                        radius: borderRadius / 2,
-                      ),
                       child: TextButton(
                         onPressed: onYes,
                         style: TextButton.styleFrom(

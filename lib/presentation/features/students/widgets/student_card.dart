@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -405,7 +406,8 @@ class _StudentCardState extends State<StudentCard> {
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily: AppFontFamilies.inter,
+                                                  fontFamily:
+                                                      AppFontFamilies.inter,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
                                                   color:
@@ -664,9 +666,10 @@ class _StudentCardState extends State<StudentCard> {
                                   ],
                                   AppSpacing.gapHMd,
                                   Expanded(
-                                    child: Container(
+                                    child: SkeuKeyBox(
+                                      variant: KeyVariant.primary,
+                                      radius: AppRadius.sm,
                                       height: 40,
-                                      decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                                       child: TextButton(
                                         onPressed: widget.onEdit,
                                         style: TextButton.styleFrom(

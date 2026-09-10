@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
@@ -154,10 +155,11 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Health', style: AppTextStyles.title),
-                          Container(
+                          SkeuKeyBox(
+                            variant: KeyVariant.primary,
+                            radius: 8,
                             width: 38,
                             height: 38,
-                            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                             alignment: Alignment.center,
                             child: const Icon(
                               Icons.edit,

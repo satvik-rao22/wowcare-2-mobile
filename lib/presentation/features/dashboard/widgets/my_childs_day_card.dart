@@ -43,6 +43,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_conversations
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -907,9 +908,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           AppIcon(MediaRes.notificationsGradientIcon),
           const SizedBox(width: 8),
           Text(
-              _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: AppColors.themeColor),
-            ),
+            _isReminder ? 'Turn off reminder' : 'Send reminder',
+            style: const TextStyle(color: AppColors.themeColor),
+          ),
         ],
       ),
     );
@@ -923,13 +924,13 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Text(
-            'Your Sign-In Pin : ',
-            style: TextStyle(
-              color: AppColors.themeColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          'Your Sign-In Pin : ',
+          style: TextStyle(
+            color: AppColors.themeColor,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
+        ),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
           buildWhen: (prev, curr) =>
               prev.guardianClockPin != curr.guardianClockPin ||
@@ -937,14 +938,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           builder: (context, state) {
             final pin = state.guardianClockPin.trim();
             return Text(
-                pin.isEmpty ? '—' : pin,
-                style: const TextStyle(
-                  color: AppColors.themeColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              );
+              pin.isEmpty ? '—' : pin,
+              style: const TextStyle(
+                color: AppColors.themeColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            );
           },
         ),
         const SizedBox(width: 16),
@@ -1639,10 +1640,11 @@ class _ChatActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
+      child: SkeuKeyBox(
+        variant: KeyVariant.primary,
+        radius: 14,
         width: 44,
         height: 44,
-        decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
         alignment: Alignment.center,
         child: AppIcon(
           MediaRes.communicationIcon,

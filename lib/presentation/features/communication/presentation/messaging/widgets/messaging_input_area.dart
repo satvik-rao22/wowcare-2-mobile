@@ -10,6 +10,7 @@ import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class MessagingInputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -189,8 +190,8 @@ class MessagingInputArea extends StatelessWidget {
                 const SizedBox(width: AppSizes.xs),
                 GestureDetector(
                   onTap: onSend,
-                  child: Container(
-                    decoration: AppSurfaces.key(KeyVariant.primary),
+                  child: SkeuKeyBox(
+                    variant: KeyVariant.primary,
                     padding: const EdgeInsets.all(AppSizes.sm),
                     child: const Icon(
                       Icons.send,

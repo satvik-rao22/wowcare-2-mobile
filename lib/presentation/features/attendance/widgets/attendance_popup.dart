@@ -28,6 +28,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/staff_attend
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Resolves the parent persona's selected child and builds the
 /// [StudentAttendanceProfile] widget to open for them — shared by
@@ -1630,11 +1631,11 @@ class AttendancePopupViewButton extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: AppRadius.allSm,
-      child: Container(
-        height: isTablet ? 56 : 48,
+      child: SkeuKeyBox(
+        variant: KeyVariant.secondary,
         width: double.infinity,
+        height: isTablet ? 56 : 48,
         margin: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
-        decoration: AppSurfaces.key(KeyVariant.secondary),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),

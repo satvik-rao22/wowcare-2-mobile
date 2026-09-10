@@ -27,6 +27,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffDocumentsTab extends StatelessWidget {
   const StaffDocumentsTab({
@@ -640,9 +641,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                             Row(
                                               children: [
                                                 Expanded(
-                                                  child: Container(
+                                                  child: SkeuKeyBox(
+                                                    variant: KeyVariant.primary,
+                                                    radius: 8,
                                                     height: 40,
-                                                    decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                                     child: TextButton(
                                                       onPressed: () =>
                                                           _handleEdit(
@@ -657,7 +659,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Edit',
                                                         style: TextStyle(
-                                                          fontFamily: AppFonts.body,
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -696,7 +699,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Delete',
                                                         style: TextStyle(
-                                                          fontFamily: AppFonts.body,
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -763,7 +767,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                                     'View',
                                                                     style: TextStyle(
                                                                       fontFamily:
-                                                                          AppFonts.body,
+                                                                          AppFonts
+                                                                              .body,
                                                                       fontSize:
                                                                           16,
                                                                       fontWeight:
@@ -781,9 +786,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                               ),
                                               const SizedBox(width: 12),
                                               Expanded(
-                                                child: Container(
+                                                child: SkeuKeyBox(
+                                                  variant: KeyVariant.primary,
+                                                  radius: 8,
                                                   height: 40,
-                                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                                   child: TextButton(
                                                     onPressed: () =>
                                                         _handleDownload(
@@ -796,7 +802,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                     child: const Text(
                                                       'Download',
                                                       style: TextStyle(
-                                                        fontFamily: AppFonts.body,
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.w700,

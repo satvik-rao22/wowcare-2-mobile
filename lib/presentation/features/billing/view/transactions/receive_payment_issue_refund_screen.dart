@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
   const ReceivePaymentIssueRefundScreen({
@@ -310,7 +311,9 @@ class _ReceivePaymentIssueRefundScreenState
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+          hintStyle: _labelStyle(
+            responsive,
+          ).copyWith(color: AppColors.billingGrey),
           border: InputBorder.none,
           contentPadding: _fieldPadding(responsive),
         ),
@@ -345,8 +348,11 @@ class _ReceivePaymentIssueRefundScreenState
                 _buildPaymentTypeField(responsive, labelGap),
                 if (_selectedPaymentType == 'Cheque') ...<Widget>[
                   SizedBox(height: verticalSpacing),
-                  _fieldLabel(responsive, BillingStrings.chequeNumber,
-                      required: true),
+                  _fieldLabel(
+                    responsive,
+                    BillingStrings.chequeNumber,
+                    required: true,
+                  ),
                   SizedBox(height: labelGap),
                   _outlinedTextField(
                     responsive,
@@ -785,9 +791,9 @@ class _ReceivePaymentIssueRefundScreenState
                           selected ?? BillingStrings.selectPaymentType,
                           style: selected != null
                               ? valueStyle
-                              : _labelStyle(
-                                  responsive,
-                                ).copyWith(color: AppColors.billingMutedIconColor),
+                              : _labelStyle(responsive).copyWith(
+                                  color: AppColors.billingMutedIconColor,
+                                ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -832,9 +838,10 @@ class _ReceivePaymentIssueRefundScreenState
           topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
         ),
       ),
-      child: Container(
+      child: SkeuKeyBox(
+        variant: !(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+        radius: responsive.isTablet ? 16.0 : 8.0,
         height: responsive.buttonHeight,
-        decoration: AppSurfaces.key(!(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
           child: _isSubmitting
@@ -951,10 +958,7 @@ class _ReceivePaymentIssueRefundScreenState
             ),
           ),
         const SizedBox(height: 12),
-        Container(
-          height: 1.5,
-          decoration: AppSurfaces.key(KeyVariant.primary),
-        ),
+        SkeuKeyBox(variant: KeyVariant.primary, height: 1.5),
       ],
     );
   }

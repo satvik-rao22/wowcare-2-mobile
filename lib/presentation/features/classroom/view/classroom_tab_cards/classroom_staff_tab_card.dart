@@ -37,6 +37,7 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/utils
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -897,11 +898,12 @@ class _ClassroomStaffTabCardViewState
                                   _buildStatusChip(status),
                                   const SizedBox(width: 8),
                                 ],
-                                Container(
+                                SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 6,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
                                   ),
-                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 6),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.cardColor,
@@ -963,7 +965,8 @@ class _ClassroomStaffTabCardViewState
                                                     child: Text(
                                                       'No staff assigned.',
                                                       style: TextStyle(
-                                                        fontFamily: AppFonts.body,
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 16,
                                                         color: AppColors
                                                             .primaryColor

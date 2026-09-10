@@ -17,6 +17,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -153,7 +154,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       padding: EdgeInsets.all(
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
-                      decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                      decoration: AppSurfaces.card(
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                        ),
+                      ),
                       child: Column(
                         children: [
                           Expanded(
@@ -233,7 +238,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               right: AppSpacing.md,
               top: AppSpacing.xs,
             ),
-            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+            decoration: AppSurfaces.card(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              ),
+            ),
             child: Row(
               children: [
                 if (widget.showSkip) ...[
@@ -263,9 +273,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   AppSpacing.gapHSm,
                 ],
                 Expanded(
-                  child: Container(
+                  child: SkeuKeyBox(
+                    variant: KeyVariant.primary,
+                    radius: responsive.isTablet ? 16.0 : 8.0,
                     height: responsive.buttonHeight,
-                    decoration: AppSurfaces.key(KeyVariant.primary, radius: responsive.isTablet ? 16.0 : 8.0,),
                     child: TextButton(
                       onPressed: _onNext,
                       child: Text(

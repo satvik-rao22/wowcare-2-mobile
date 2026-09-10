@@ -8,6 +8,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/validators/app_validators.dart';
 import 'package:wowcare/presentation/features/auth/view_model/change_password_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -33,8 +34,7 @@ class ChangePasswordScreen extends StatefulWidget {
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final TextEditingController _currentPasswordController =
       TextEditingController();
-  final TextEditingController _newPasswordController =
-      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
@@ -223,8 +223,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   value.text,
                                 );
                                 return Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Icon(
                                       isValid
@@ -241,7 +240,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                           vertical: 8,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.authSuccessBackgroundColor,
+                                          color: AppColors
+                                              .authSuccessBackgroundColor,
                                           borderRadius: BorderRadius.circular(
                                             8,
                                           ),
@@ -288,8 +288,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       height: screenHeight * 0.06,
                       child: InkWell(
                         onTap: isLoading ? null : _handleSubmit,
-                        child: Container(
-                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 12,
                           child: Center(
                             child: isLoading
                                 ? SizedBox(

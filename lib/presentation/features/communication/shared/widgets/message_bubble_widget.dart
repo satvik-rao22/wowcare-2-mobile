@@ -31,6 +31,7 @@ import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 part 'message_bubble_parts.dart';
 part 'message_bubble_reaction_parts.dart';
 
@@ -549,9 +550,9 @@ class _MessageBubbleState extends State<MessageBubble>
                   Navigator.pop(context);
                   widget.onDelete?.call();
                 },
-                child: Container(
+                child: SkeuKeyBox(
+                  variant: KeyVariant.destructive,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: AppSurfaces.key(KeyVariant.destructive),
                   alignment: Alignment.center,
                   child: Text(
                     AppStrings.delete,

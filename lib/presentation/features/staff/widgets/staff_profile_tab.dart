@@ -22,6 +22,7 @@ import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
@@ -516,10 +517,11 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                   await _profileCubit.refresh(widget.staffCode);
                                 }
                               },
-                              child: Container(
+                              child: SkeuKeyBox(
+                                variant: KeyVariant.primary,
+                                radius: 8,
                                 width: 38,
                                 height: 38,
-                                decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                                 alignment: Alignment.center,
                                 child: const Icon(
                                   Icons.edit,
@@ -775,7 +777,8 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                     width: 130,
                                                     label: displayDay,
                                                     labelColor: isAvailable
-                                                        ? AppColors.secondaryColor
+                                                        ? AppColors
+                                                              .secondaryColor
                                                         : MaterialHues.grey700,
                                                     color: isAvailable
                                                         ? const Color(
@@ -791,8 +794,8 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                     ScheduleChip(
                                                       width: 130,
                                                       label: workLabel,
-                                                      labelColor:
-                                                          AppColors.secondaryColor,
+                                                      labelColor: AppColors
+                                                          .secondaryColor,
                                                       color: AppColors
                                                           .transparentColor,
                                                       isTimeChip: true,
@@ -806,8 +809,8 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                                     ScheduleChip(
                                                       width: 130,
                                                       label: '$breakLabel',
-                                                      labelColor:
-                                                          AppColors.secondaryColor,
+                                                      labelColor: AppColors
+                                                          .secondaryColor,
                                                       color: AppColors
                                                           .transparentColor,
                                                       isTimeChip: true,

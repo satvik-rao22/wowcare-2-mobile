@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cub
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -696,12 +697,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               child: Container(
                                                 width: 32,
                                                 height: 32,
-                                                decoration: AppSurfaces.card(radius: 16),
-                                                child: Container(
+                                                decoration: AppSurfaces.card(
+                                                  radius: 16,
+                                                ),
+                                                child: SkeuKeyBox(
+                                                  variant: KeyVariant.primary,
+                                                  radius: 14,
                                                   margin: const EdgeInsets.all(
                                                     2,
                                                   ),
-                                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 14,),
                                                   child: const Icon(
                                                     Icons.camera_alt,
                                                     color: AppColors.cardColor,
@@ -762,7 +766,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     Expanded(
                                       child: Container(
                                         height: 48,
-                                        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
+                                        decoration: AppSurfaces.key(
+                                          KeyVariant.primary,
+                                          radius: 8,
+                                        ),
                                         child: ValueListenableBuilder<bool>(
                                           valueListenable: _openingProfile,
                                           builder: (context, openingProfile, _) => TextButton(
@@ -842,7 +849,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     // "My Profile" card with 4px gap from screen edge and gradient border
                     Container(
                       margin: const EdgeInsets.fromLTRB(4, 6, 4, 12),
-                      decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
+                      decoration: AppSurfaces.key(
+                        KeyVariant.primary,
+                        radius: 10,
+                      ),
                       child: Container(
                         margin: const EdgeInsets.all(1),
                         decoration: AppSurfaces.card(radius: 9),
@@ -950,10 +960,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               );
                                             }
                                           },
-                                          child: Container(
+                                          child: SkeuKeyBox(
+                                            variant: KeyVariant.primary,
+                                            radius: 8,
                                             width: 38,
                                             height: 38,
-                                            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                                             alignment: Alignment.center,
                                             child: const Icon(
                                               Icons.edit,

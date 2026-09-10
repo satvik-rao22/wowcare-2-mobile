@@ -11,6 +11,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class GeneratedReportCard extends StatefulWidget {
   const GeneratedReportCard({
@@ -114,13 +115,11 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                                   valueListenable: _isDownloading,
                                   builder: (context, downloading, _) => SizedBox(
                                     width: double.infinity,
-                                    child: Container(
-                                      decoration: AppSurfaces.key(
-                                        downloading
-                                            ? KeyVariant.disabled
-                                            : KeyVariant.primary,
-                                        radius: AppRadius.sm,
-                                      ),
+                                    child: SkeuKeyBox(
+                                      variant: downloading
+                                          ? KeyVariant.disabled
+                                          : KeyVariant.primary,
+                                      radius: AppRadius.sm,
                                       child: ElevatedButton(
                                         onPressed: downloading
                                             ? null

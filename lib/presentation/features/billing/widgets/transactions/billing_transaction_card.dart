@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
@@ -405,7 +406,11 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
-      const Divider(height: 1, thickness: 1, color: AppColors.billingDividerLight),
+      const Divider(
+        height: 1,
+        thickness: 1,
+        color: AppColors.billingDividerLight,
+      ),
       const SizedBox(height: 8),
       _studentInfoRow(),
       const SizedBox(height: 8),
@@ -413,29 +418,54 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
     if (type == 'invoice') {
       content
-        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
+        ..add(
+          _infoRow(
+            BillingStrings.description,
+            widget.transaction.displayDescription,
+          ),
+        )
         ..add(const SizedBox(height: 10))
         ..add(_primaryButton(BillingStrings.viewInvoice, widget.onView));
     } else if (type == 'payment') {
       if (widget.transaction.paymentMode != null &&
           widget.transaction.paymentMode!.isNotEmpty) {
         content
-          ..add(_infoRow(BillingStrings.paymentMethod, widget.transaction.paymentMode!))
+          ..add(
+            _infoRow(
+              BillingStrings.paymentMethod,
+              widget.transaction.paymentMode!,
+            ),
+          )
           ..add(const SizedBox(height: 10));
       }
       content
-        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
+        ..add(
+          _infoRow(
+            BillingStrings.description,
+            widget.transaction.displayDescription,
+          ),
+        )
         ..add(const SizedBox(height: 10))
         ..add(_primaryButton(BillingStrings.viewReceipt, widget.onViewReceipt));
     } else if (type == 'refund') {
       if (widget.transaction.paymentMode != null &&
           widget.transaction.paymentMode!.isNotEmpty) {
         content
-          ..add(_infoRow(BillingStrings.paymentMethod, widget.transaction.paymentMode!))
+          ..add(
+            _infoRow(
+              BillingStrings.paymentMethod,
+              widget.transaction.paymentMode!,
+            ),
+          )
           ..add(const SizedBox(height: 10));
       }
       content
-        ..add(_infoRow(BillingStrings.description, widget.transaction.displayDescription))
+        ..add(
+          _infoRow(
+            BillingStrings.description,
+            widget.transaction.displayDescription,
+          ),
+        )
         ..add(const SizedBox(height: 10))
         ..add(_primaryButton(BillingStrings.viewReceipt, widget.onViewReceipt));
     } else {
@@ -606,9 +636,10 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     return Row(
       children: <Widget>[
         Expanded(
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             height: 40,
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: TextButton(
               onPressed: onPressed,
               style: TextButton.styleFrom(

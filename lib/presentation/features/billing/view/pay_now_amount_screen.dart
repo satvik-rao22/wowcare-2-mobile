@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Pay Now — step 1: choose how much to pay (full family balance or a custom
 /// per-owner allocation). Continues to the saved-method picker.
@@ -96,8 +97,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           // Seed the family-balance field once after load.
           if (!state.isLoading && !_seededCurrent) {
             _seededCurrent = true;
-            _currentController.text =
-                state.currentAmount > 0 ? _money(state.currentAmount) : '';
+            _currentController.text = state.currentAmount > 0
+                ? _money(state.currentAmount)
+                : '';
           }
           return StaffFormLayout(
             title: BillingStrings.payNow,
@@ -131,15 +133,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   }
 
   Widget _buildLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerLoader(height: 22, width: 160, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ShimmerLoader(
+        height: 22,
+        width: 160,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ],
+  );
 
   Widget _buildCurrentOption(PayNowState state) {
     final selected = state.mode == PayNowAmountMode.currentOutstanding;
@@ -356,16 +370,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         border: Border.all(
-          color: hasError ? AppColors.errorColor : AppColors.billingBorderDefault,
+          color: hasError
+              ? AppColors.errorColor
+              : AppColors.billingBorderDefault,
         ),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         onChanged: onChanged,
         style: textStyle,
         decoration: InputDecoration(
@@ -406,10 +420,11 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
         child: InkWell(
           onTap: canConfirm ? () => unawaited(_confirm()) : null,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 54,
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 16,
             width: double.infinity,
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 16),
+            height: 54,
             child: const Center(
               child: Text(
                 BillingStrings.confirm,

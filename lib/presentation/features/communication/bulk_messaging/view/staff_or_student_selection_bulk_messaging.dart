@@ -31,6 +31,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/widgets/selection_shimmer.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -548,7 +549,13 @@ class _StaffOrStudentSelectionBulkMessagingState
                                         padding: EdgeInsets.all(
                                           responsive.isTablet ? 32.0 : 16.0,
                                         ),
-                                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 30.0 : 20.0, ), )),
+                                        decoration: AppSurfaces.card(
+                                          borderRadius: BorderRadius.all(
+                                            Radius.circular(
+                                              responsive.isTablet ? 30.0 : 20.0,
+                                            ),
+                                          ),
+                                        ),
                                         child: Column(
                                           children: [
                                             Align(
@@ -954,17 +961,20 @@ class _StaffOrStudentSelectionBulkMessagingState
         right: AppSizes.md,
         top: AppSizes.md,
       ),
-      decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+      decoration: AppSurfaces.card(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.secondary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: AppSurfaces.key(
-                KeyVariant.secondary,
-                radius: responsive.isTablet ? 16.0 : 8.0,
-              ),
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
@@ -983,12 +993,10 @@ class _StaffOrStudentSelectionBulkMessagingState
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: AppSurfaces.key(
-                KeyVariant.primary,
-                radius: responsive.isTablet ? 16.0 : 8.0,
-              ),
               child: TextButton(
                 onPressed: () {
                   if (widget.isStaffSelection) {

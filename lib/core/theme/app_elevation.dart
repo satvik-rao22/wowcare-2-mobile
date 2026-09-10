@@ -139,6 +139,18 @@ class AppElevation {
     ),
   ];
 
+  /// A card being pressed: the same shadow pulled in close, so the surface
+  /// reads as having moved toward the ground rather than away from it.
+  /// `0 2px 6px -6px rgba(63,45,20,.6)`.
+  static List<BoxShadow> get cardPressed => <BoxShadow>[
+    BoxShadow(
+      color: _warm(.6),
+      offset: const Offset(0, 2),
+      blurRadius: 6,
+      spreadRadius: -6,
+    ),
+  ];
+
   /// A larger panel that has to separate from a busy ground:
   /// `0 10px 24px -22px rgba(63,45,20,.5)`.
   static List<BoxShadow> get panel => <BoxShadow>[

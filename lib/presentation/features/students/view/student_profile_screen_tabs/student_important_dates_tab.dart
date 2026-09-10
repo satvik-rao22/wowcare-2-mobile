@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -232,10 +233,11 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),
-                            child: Container(
+                            child: SkeuKeyBox(
+                              variant: KeyVariant.primary,
+                              radius: AppRadius.sm,
                               width: 38,
                               height: 38,
-                              decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.edit,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ConfirmationDialog extends StatelessWidget {
   final String title;
@@ -41,9 +42,10 @@ class ConfirmationDialog extends StatelessWidget {
         ],
         TextButton(
           onPressed: () => Navigator.of(context).pop(true), // Confirm action
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: Text(
               confirmText,
               style: const TextStyle(

@@ -392,9 +392,9 @@ class AppSurfaces {
   /// The same key with its rim collapsed to 1px — what you paint while the
   /// face is translated down by [AppMotion.pressTravel].
   ///
-  /// Only the rimmed variants change. A secondary key has no rim to collapse,
-  /// so it just sinks the 2px of `SkeuPressable.surface`, and a disabled key
-  /// does not respond at all.
+  /// The rimmed variants collapse their rim from 4px to 1px. A secondary key
+  /// has no rim, so instead its ambient shadow pulls in close — the surface
+  /// reading as pushed toward the ground. A disabled key does not respond.
   static SkeuDecoration keyPressed(
     KeyVariant variant, {
     double radius = AppRadius.lg,
@@ -406,7 +406,10 @@ class AppSurfaces {
       borderRadius: borderRadius,
     );
     return switch (variant) {
-      KeyVariant.secondary || KeyVariant.disabled => rest,
+      KeyVariant.disabled => rest,
+      KeyVariant.secondary => rest.copyWith(
+        boxShadow: AppElevation.cardPressed,
+      ),
       _ => rest.copyWith(
         boxShadow: <BoxShadow>[
           BoxShadow(

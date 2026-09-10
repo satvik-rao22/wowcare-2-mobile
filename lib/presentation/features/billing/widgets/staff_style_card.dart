@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).
@@ -20,12 +21,12 @@ class BillingCardText {
 
   /// Header name/title — Manrope 14 (16 on tablet), w500.
   static TextStyle name(bool isTablet) => TextStyle(
-        fontFamily: AppFonts.body,
-        fontSize: isTablet ? 16 : 14,
-        fontWeight: FontWeight.w500,
-        color: kBillingCardTextColor,
-        height: 19 / 14,
-      );
+    fontFamily: AppFonts.body,
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: FontWeight.w500,
+    color: kBillingCardTextColor,
+    height: 19 / 14,
+  );
 
   /// Detail-row label — Manrope 13, w400.
   static const TextStyle label = TextStyle(
@@ -99,8 +100,9 @@ class StaffStyleCard extends StatefulWidget {
 }
 
 class _StaffStyleCardState extends State<StaffStyleCard> {
-  late final ValueNotifier<bool> _isExpanded =
-      ValueNotifier<bool>(widget.initiallyExpanded);
+  late final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(
+    widget.initiallyExpanded,
+  );
 
   @override
   void dispose() {
@@ -126,66 +128,70 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
           builder: (context, internalExpanded, _) {
             final expanded = widget.isExpanded ?? internalExpanded;
             return IntrinsicHeight(
-          child: Container(
-            width: constraints.maxWidth,
-            decoration: BoxDecoration(
-              color: AppColors.billingCardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Material(
-              color: AppColors.transparentColor,
-              child: InkWell(
-                onTap: _toggle,
-                onLongPress: widget.onLongPress,
-                child: Column(
-                  children: [
-                    Container(
-                      constraints: const BoxConstraints(minHeight: 60),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isTablet ? 24 : 16,
-                        vertical: 8,
-                      ),
-                      alignment: Alignment.center,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (!expanded && widget.collapsedPrefix != null) ...[
-                            widget.collapsedPrefix!,
-                            SizedBox(width: isTablet ? 16 : 9),
-                          ],
-                          if (widget.leading != null) ...[
-                            widget.leading!,
-                            SizedBox(width: isTablet ? 16 : 9),
-                          ],
-                          Expanded(child: widget.header),
-                        ],
-                      ),
-                    ),
-                    if (expanded) ...[
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: kBillingCardDividerColor,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: widget.expandedChildren,
+              child: Container(
+                width: constraints.maxWidth,
+                decoration: BoxDecoration(
+                  color: AppColors.billingCardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.cardBorderColor,
+                    width: 1,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Material(
+                  color: AppColors.transparentColor,
+                  child: InkWell(
+                    onTap: _toggle,
+                    onLongPress: widget.onLongPress,
+                    child: Column(
+                      children: [
+                        Container(
+                          constraints: const BoxConstraints(minHeight: 60),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 24 : 16,
+                            vertical: 8,
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (!expanded &&
+                                  widget.collapsedPrefix != null) ...[
+                                widget.collapsedPrefix!,
+                                SizedBox(width: isTablet ? 16 : 9),
+                              ],
+                              if (widget.leading != null) ...[
+                                widget.leading!,
+                                SizedBox(width: isTablet ? 16 : 9),
+                              ],
+                              Expanded(child: widget.header),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
+                        if (expanded) ...[
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: kBillingCardDividerColor,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: widget.expandedChildren,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
+            );
           },
         );
       },
@@ -236,7 +242,11 @@ class StaffCardDetailRow extends StatelessWidget {
                 ),
               if (note != null && note!.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(note!, textAlign: TextAlign.right, style: BillingCardText.note),
+                Text(
+                  note!,
+                  textAlign: TextAlign.right,
+                  style: BillingCardText.note,
+                ),
               ],
             ],
           ),
@@ -261,8 +271,9 @@ class FilledActionButton extends StatelessWidget {
     return SizedBox(
       height: 40,
       width: double.infinity,
-      child: DecoratedBox(
-        decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
+      child: SkeuKeyBox(
+        variant: KeyVariant.primary,
+        radius: AppRadius.sm,
         child: TextButton(
           onPressed: onTap,
           style: TextButton.styleFrom(
@@ -304,9 +315,7 @@ class OutlineActionButton extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _accent),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           label,
@@ -373,9 +382,10 @@ class StaffCardActions extends StatelessWidget {
           const SizedBox(width: 16),
         ],
         Expanded(
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             height: 40,
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: TextButton(
               onPressed: onPrimary,
               style: TextButton.styleFrom(padding: EdgeInsets.zero),

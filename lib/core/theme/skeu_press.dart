@@ -23,6 +23,8 @@
 library;
 
 import 'package:flutter/widgets.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Sinks its child while pressed. Purely visual: [onTap] and [onLongPress]
@@ -100,6 +102,109 @@ class _SkeuPressableState extends State<SkeuPressable> {
                       child: child,
                     ),
             ),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// A key that is actually depressed when you press it.
+///
+/// [SkeuPressable] on its own cannot do this. A key's rim *is* a shadow on
+/// the key's own decoration, so translating the whole widget carries the rim
+/// down with the face and nothing appears to move. The rim has to stay where
+/// it is while the face descends onto it, which takes both halves at once:
+///
+/// * the face translates down [AppMotion.pressTravel] (3 px), and
+/// * the decoration swaps to [AppSurfaces.keyPressed], whose rim is 1 px
+///   instead of 4.
+///
+/// 3 down plus 3 off the rim means the *bottom edge of the key does not
+/// move*: only the face travels, onto the rim, which is what being pressed
+/// looks like. Releasing reverses it over [AppMotion.press], 90 ms.
+///
+/// The press is watched with a [Listener], not a [GestureDetector], so it
+/// takes no part in the gesture arena: whatever the child does with taps —
+/// a `TextButton`, an `InkWell`, a `GestureDetector` — still happens.
+class SkeuKeyBox extends StatefulWidget {
+  const SkeuKeyBox({
+    required this.variant,
+    this.child,
+    this.radius = AppRadius.lg,
+    this.borderRadius,
+    this.enabled = true,
+    this.width,
+    this.height,
+    this.padding,
+    this.margin,
+    this.alignment,
+    super.key,
+  });
+
+  final KeyVariant variant;
+
+  /// Optional: a key can be a bare shape — a progress bar's filled track,
+  /// a decorative rule — with nothing to press.
+  final Widget? child;
+  final double radius;
+  final BorderRadius? borderRadius;
+
+  /// A disabled key does not respond. Pass the variant you want painted;
+  /// this only governs whether the press animates.
+  final bool enabled;
+
+  final double? width;
+  final double? height;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final AlignmentGeometry? alignment;
+
+  @override
+  State<SkeuKeyBox> createState() => _SkeuKeyBoxState();
+}
+
+class _SkeuKeyBoxState extends State<SkeuKeyBox> {
+  bool _down = false;
+
+  void _set(bool down) {
+    if (!widget.enabled || _down == down) return;
+    setState(() => _down = down);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool pressed = _down && widget.enabled;
+    // A rimmed key travels the 3px its rim collapses by. A secondary key has
+    // no rim, so it takes the 2px a plain tappable surface does.
+    final double travel = switch (widget.variant) {
+      KeyVariant.secondary ||
+      KeyVariant.disabled => AppMotion.pressTravelSurface,
+      _ => AppMotion.pressTravel,
+    };
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedContainer(
+        duration: AppMotion.press,
+        curve: AppMotion.easeOut,
+        transform: Matrix4.translationValues(0, pressed ? travel : 0, 0),
+        width: widget.width,
+        height: widget.height,
+        margin: widget.margin,
+        padding: widget.padding,
+        alignment: widget.alignment,
+        decoration: pressed
+            ? AppSurfaces.keyPressed(
+                widget.variant,
+                radius: widget.radius,
+                borderRadius: widget.borderRadius,
+              )
+            : AppSurfaces.key(
+                widget.variant,
+                radius: widget.radius,
+                borderRadius: widget.borderRadius,
+              ),
         child: widget.child,
       ),
     );

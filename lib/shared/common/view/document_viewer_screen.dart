@@ -17,6 +17,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 enum _DocKind { image, video, pdf, office }
 
@@ -74,7 +75,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   _DocKind _resolveKind() {
     final mime = widget.mimeType.trim().toLowerCase();
     final ext = p.extension(Uri.parse(widget.url).path).trim().toLowerCase();
-    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic'];
+    const imageExts = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+      '.bmp',
+      '.heic',
+    ];
     const videoExts = ['.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'];
 
     if (mime.startsWith('image/') || imageExts.contains(ext)) {
@@ -113,7 +122,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           break;
         case _DocKind.pdf:
           final tempDir = await getTemporaryDirectory();
-          final fileName = 'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
+          final fileName =
+              'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           final path = p.join(tempDir.path, fileName);
           await Dio().download(widget.url, path);
           if (!mounted) return;
@@ -194,9 +204,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.whiteColor,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: AppSurfaces.key(KeyVariant.primary),
-        ),
+        flexibleSpace: SkeuKeyBox(variant: KeyVariant.primary),
         actions: [
           if (_isBusy)
             const Padding(
@@ -206,7 +214,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.whiteColor,
+                  ),
                 ),
               ),
             )
@@ -234,7 +244,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       case _DocKind.image:
         return PhotoView(
           imageProvider: NetworkImage(widget.url),
-          backgroundDecoration: const BoxDecoration(color: AppColors.blackColor),
+          backgroundDecoration: const BoxDecoration(
+            color: AppColors.blackColor,
+          ),
           loadingBuilder: (context, event) =>
               const Center(child: PrimaryCircularLoader()),
           errorBuilder: (context, error, stackTrace) {

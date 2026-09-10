@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
 /// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + edit key.
@@ -71,13 +72,11 @@ class ProfileInfoCard extends StatelessWidget {
                   if (showHeaderEdit && onEdit != null)
                     GestureDetector(
                       onTap: onEdit,
-                      child: Container(
+                      child: SkeuKeyBox(
+                        variant: KeyVariant.primary,
+                        radius: 8,
                         width: 38,
                         height: 38,
-                        decoration: AppSurfaces.key(
-                          KeyVariant.primary,
-                          radius: 8,
-                        ),
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.edit,

@@ -40,6 +40,7 @@ import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -98,10 +99,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
     if (!mounted) return;
     final isAdminViewer = context.read<RoleCubit>().role == 'admin';
-    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
-      schoolCode: schoolCode,
-      isAdminViewer: isAdminViewer,
-    );
+    final permission = await context
+        .read<CommunicationCubit>()
+        .resolveDeletePermission(
+          schoolCode: schoolCode,
+          isAdminViewer: isAdminViewer,
+        );
     if (!mounted) return;
     _deletePermission.value = permission;
   }
@@ -111,8 +114,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// on [DocumentImageWidget] is never actually used to resolve an image
   /// (only `imageUrl`/`mediaAssetCode` are), so route to whichever one
   /// matches the value's shape instead.
-  String get _rawStaffAvatar =>
-      widget.staffInfo.avatar.trim();
+  String get _rawStaffAvatar => widget.staffInfo.avatar.trim();
   String? get _staffAvatarAsImageUrl =>
       _rawStaffAvatar.startsWith('http') ? _rawStaffAvatar : null;
   String? get _staffAvatarAsMediaAssetCode =>
@@ -125,17 +127,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// is a normal, not-yet-started employment state and must behave like
   /// ACTIVE here.
   bool get _staffInactive {
-    final status = (widget.staffInfo.staffStatus)
-        ?.trim()
-        .toUpperCase();
+    final status = (widget.staffInfo.staffStatus)?.trim().toUpperCase();
     if (status == 'INACTIVE') return true;
     // Backend-authoritative "still active" flag, independent of
     // staffStatus — a participant can be deactivated (e.g. account
     // disabled) for a reason other than an INACTIVE employment status. See
     // ConversationParticipant.isActive's doc comment. `false` (not just
     // absent/null) is required to flip this — a missing signal fails open.
-    final isActiveParticipant =
-        widget.staffInfo.staffIsActiveParticipant;
+    final isActiveParticipant = widget.staffInfo.staffIsActiveParticipant;
     return isActiveParticipant == false;
   }
 
@@ -152,9 +151,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     try {
       final staffCode = await resolveLoggedInStaffCode();
       if (staffCode == null || staffCode.isEmpty) return;
-      final profile = await resolveStaffProfile(
-        staffCode: staffCode,
-      );
+      final profile = await resolveStaffProfile(staffCode: staffCode);
       if (!mounted) return;
       final inactive = profile.status.trim().toUpperCase() == 'INACTIVE';
       // Notifier only fires on a real change — no manual diff needed.
@@ -533,7 +530,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
         title: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.sm, AppSizes.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSizes.lg,
+            AppSizes.md,
+            AppSizes.sm,
+            AppSizes.md,
+          ),
           //height: 60,
           decoration: AppSurfaces.sub(radius: AppRadius.xl),
           child: Row(
@@ -588,7 +590,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.messagingErrorIcon, width: 2),
+                borderSide: const BorderSide(
+                  color: AppColors.messagingErrorIcon,
+                  width: 2,
+                ),
               ),
               //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: const EdgeInsets.symmetric(
@@ -623,7 +628,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                 }
                 Navigator.pop(dialogContext);
               },
-              style: TextButton.styleFrom(overlayColor: AppColors.transparentColor),
+              style: TextButton.styleFrom(
+                overlayColor: AppColors.transparentColor,
+              ),
               child: Text(
                 AppStrings.save,
                 style: AppTextStyles.heading18.copyWith(
@@ -732,7 +739,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
-                                          color: AppColors.messagingMessageBoxBg,
+                                          color:
+                                              AppColors.messagingMessageBoxBg,
                                         ),
                                         child: ListView.builder(
                                           controller: _scrollController,
@@ -790,7 +798,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                               key: ValueKey(messageId),
                                               controller: _scrollController,
                                               index: index,
-                                              highlightColor: AppColors.messagingScrollHighlight
+                                              highlightColor: AppColors
+                                                  .messagingScrollHighlight
                                                   .withValues(alpha: 0.7),
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
@@ -808,7 +817,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       ),
                                                     ),
                                                   if (showDateHeader)
-                                                    const SizedBox(height: AppSizes.xsPlus),
+                                                    const SizedBox(
+                                                      height: AppSizes.xsPlus,
+                                                    ),
                                                   // Spacing: compact for grouped, normal for new group
                                                   SizedBox(
                                                     height: isGrouped
@@ -830,7 +841,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               CommunicationCubit
                                                             >()
                                                             .deleteAttachment(
-                                                              widget.staffInfo.code,
+                                                              widget
+                                                                  .staffInfo
+                                                                  .code,
                                                               attachment
                                                                   .attachmentId!,
                                                             );
@@ -926,7 +939,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             CommunicationCubit
                                                           >()
                                                           .removeReaction(
-                                                            widget.staffInfo.code,
+                                                            widget
+                                                                .staffInfo
+                                                                .code,
                                                             message.code,
                                                             emoji,
                                                             currentUserCode:
@@ -1097,7 +1112,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                     controller:
                                                         _scrollController,
                                                     index: index,
-                                                    highlightColor: AppColors.messagingScrollHighlight
+                                                    highlightColor: AppColors
+                                                        .messagingScrollHighlight
                                                         .withValues(alpha: 0.7),
                                                     child: Column(
                                                       mainAxisSize:
@@ -1123,8 +1139,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           ),
 
                                                         ThreadMessageTile(
-                                                          threadId:
-                                                              widget.staffInfo.code,
+                                                          threadId: widget
+                                                              .staffInfo
+                                                              .code,
                                                           messageCode:
                                                               message.code,
                                                           quotedMessageId: message
@@ -1138,7 +1155,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                     CommunicationCubit
                                                                   >()
                                                                   .deleteAttachment(
-                                                                    widget.staffInfo.code,
+                                                                    widget
+                                                                        .staffInfo
+                                                                        .code,
                                                                     attachment
                                                                         .attachmentId!,
                                                                   );
@@ -1149,7 +1168,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                 CommunicationCubit
                                                               >()
                                                               .retrySendMessage(
-                                                                widget.staffInfo.code,
+                                                                widget
+                                                                    .staffInfo
+                                                                    .code,
                                                                 msg,
                                                               ),
                                                           currentUserCode:
@@ -1228,7 +1249,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                   CommunicationCubit
                                                                 >()
                                                                 .removeReaction(
-                                                                  widget.staffInfo.code,
+                                                                  widget
+                                                                      .staffInfo
+                                                                      .code,
                                                                   message.code,
                                                                   emoji,
                                                                   currentUserCode:
@@ -1398,10 +1421,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.cardColor,
-        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl, vertical: AppSizes.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.xl,
+          vertical: AppSizes.md,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -1488,7 +1516,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                     text: TextSpan(
                                       children: [
                                         const TextSpan(
-                                          text: AppStrings.designationLabelColon,
+                                          text:
+                                              AppStrings.designationLabelColon,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.messagingMenuText,
@@ -1498,7 +1527,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           text: widget.staffInfo.designation
                                               .toString(),
                                           style: const TextStyle(
-                                            color: AppColors.messagingMenuSubtext,
+                                            color:
+                                                AppColors.messagingMenuSubtext,
                                           ),
                                         ),
                                       ],
@@ -1524,7 +1554,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           text: widget.staffInfo.email
                                               .toString(),
                                           style: const TextStyle(
-                                            color: AppColors.messagingMenuSubtext,
+                                            color:
+                                                AppColors.messagingMenuSubtext,
                                           ),
                                         ),
                                       ],
@@ -1582,7 +1613,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.error_outline_rounded,
               size: 48,
-              color: isUnauthorized ? AppColors.messagingIconMuted : AppColors.messagingErrorIcon,
+              color: isUnauthorized
+                  ? AppColors.messagingIconMuted
+                  : AppColors.messagingErrorIcon,
             ),
             const SizedBox(height: AppSizes.sm),
             CustomTextWidget(
@@ -1614,14 +1647,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   currentUserId: _currentUserCode,
                 );
               },
-              child: Container(
+              child: SkeuKeyBox(
+                variant: KeyVariant.primary,
+                radius: AppRadius.pill,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
                   vertical: AppSizes.sm,
-                ),
-                decoration: AppSurfaces.key(
-                  KeyVariant.primary,
-                  radius: AppRadius.pill,
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,
@@ -1740,7 +1771,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm, vertical: AppSizes.xxs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.sm,
+        vertical: AppSizes.xxs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.messagingChipBgPlum,
         borderRadius: BorderRadius.circular(12),
@@ -1842,14 +1876,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         name: name,
         // The reaction row carries the reactor's own role directly —
         // prefer it over the static staffInfo designation.
-        role:
-            r.role ??
-            (isMe
-                ? null
-                : (widget.staffInfo.designation)?.trim()),
-        avatarSource: isMe
-            ? null
-            : widget.staffInfo.avatar.trim(),
+        role: r.role ?? (isMe ? null : (widget.staffInfo.designation)?.trim()),
+        avatarSource: isMe ? null : widget.staffInfo.avatar.trim(),
       );
     }).toList();
 

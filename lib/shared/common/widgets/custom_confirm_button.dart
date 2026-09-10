@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -45,13 +46,11 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
   Widget build(BuildContext context) {
     final bool isEnabled = widget.onPressed != null;
 
-    return Container(
+    return SkeuKeyBox(
+      variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+      radius: 8,
       width: double.infinity,
       height: 48,
-      decoration: AppSurfaces.key(
-        isEnabled ? KeyVariant.primary : KeyVariant.disabled,
-        radius: 8,
-      ),
       child: TextButton(
         onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(

@@ -43,6 +43,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
 /// "Assign Students to Classroom" sheet). The Students-tab card listens and
@@ -1296,11 +1297,12 @@ class _ClassroomStudentsTabCardViewState
                                   _buildStatusChip(status),
                                   const SizedBox(width: 8),
                                 ],
-                                Container(
+                                SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 6,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
                                   ),
-                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 6),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.cardColor,
@@ -1363,7 +1365,8 @@ class _ClassroomStudentsTabCardViewState
                                                       child: Text(
                                                         entry.value,
                                                         style: const TextStyle(
-                                                          fontFamily: AppFonts.body,
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 14,
                                                         ),
                                                       ),

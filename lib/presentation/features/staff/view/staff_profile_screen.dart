@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/utils
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -597,7 +598,8 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                                               MediaRes.uploadIcon,
                                               height: 10,
                                               width: 10,
-                                              color: AppColors.cardColor.withValues( alpha: 0.92, ),
+                                              color: AppColors.cardColor
+                                                  .withValues(alpha: 0.92),
                                             ),
                                             const SizedBox(width: 3),
                                             Text(
@@ -626,9 +628,10 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                               width: 32,
                               height: 32,
                               decoration: AppSurfaces.card(radius: 16),
-                              child: Container(
+                              child: SkeuKeyBox(
+                                variant: KeyVariant.primary,
+                                radius: 14,
                                 margin: const EdgeInsets.all(2),
-                                decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
                                 child: const Icon(
                                   Icons.camera_alt,
                                   color: AppColors.cardColor,
@@ -703,7 +706,10 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: AppSurfaces.key(KeyVariant.primary, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12))),
+      decoration: AppSurfaces.key(
+        KeyVariant.primary,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [

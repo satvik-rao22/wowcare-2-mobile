@@ -12,6 +12,7 @@ import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CalendarDialog extends StatefulWidget {
   final bool isRangePicker;
@@ -532,12 +533,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Container(
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 8,
                           height: 40,
-                          decoration: AppSurfaces.key(
-                            KeyVariant.primary,
-                            radius: 8,
-                          ),
                           child: TextButton(
                             onPressed: () {
                               if (widget.isRangePicker) {

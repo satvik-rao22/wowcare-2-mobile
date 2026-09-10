@@ -24,6 +24,7 @@ import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.d
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class DiscountsSection extends StatefulWidget {
   const DiscountsSection({
@@ -352,9 +353,10 @@ class _AddDiscountButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: SkeuKeyBox(
+        variant: KeyVariant.primary,
+        radius: AppRadius.sm,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [

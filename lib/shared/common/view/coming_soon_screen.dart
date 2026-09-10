@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ComingSoonScreen extends StatelessWidget {
   const ComingSoonScreen({super.key});
@@ -23,12 +24,13 @@ class ComingSoonScreen extends StatelessWidget {
             SizedBox(height: MediaQuery.of(context).size.height * 0.1),
             GestureDetector(
               onTap: () => Navigator.pop(context),
-              child: Container(
+              child: SkeuKeyBox(
+                variant: KeyVariant.primary,
+                radius: 16,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 12,
                 ),
-                decoration: AppSurfaces.key(KeyVariant.primary, radius: 16),
                 child: const Text(
                   'Go Back',
                   style: TextStyle(
@@ -44,4 +46,3 @@ class ComingSoonScreen extends StatelessWidget {
     );
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Isolated PIN pad widget with local state management.
 /// Prevents PIN input changes from triggering QR widget rebuilds.
@@ -144,7 +145,10 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             if (widget.title != null) ...[
               Text(
                 widget.title!,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 20),
             ],
@@ -171,7 +175,9 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: index < _pin.length ? MaterialHues.blue400 : MaterialHues.grey300,
+            color: index < _pin.length
+                ? MaterialHues.blue400
+                : MaterialHues.grey300,
           ),
         ),
       ),
@@ -269,9 +275,10 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
     return Row(
       children: [
         Expanded(
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             height: 48,
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             padding: const EdgeInsets.all(1),
             child: TextButton(
               onPressed: _isSubmitting
@@ -293,20 +300,21 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                 ),
               ),
               child: const Text(
-                  'Cancel',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 16 * (-3 / 100),
-                  ),
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 16 * (-3 / 100),
                 ),
+              ),
             ),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: Container(
-            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
@@ -327,7 +335,9 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.whiteColor,
+                        ),
                       ),
                     )
                   : const Text(

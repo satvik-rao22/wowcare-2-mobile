@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class SelectedStudentsReceiptScreen extends StatefulWidget {
   const SelectedStudentsReceiptScreen({
@@ -38,16 +39,19 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
   final Future<bool> Function(String mode, List<Student> students)? onSubmit;
 
   @override
-  State<SelectedStudentsReceiptScreen> createState() => _SelectedStudentsReceiptScreenState();
+  State<SelectedStudentsReceiptScreen> createState() =>
+      _SelectedStudentsReceiptScreenState();
 }
 
-class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptScreen> {
+class _SelectedStudentsReceiptScreenState
+    extends State<SelectedStudentsReceiptScreen> {
   bool isProcessing = false;
 
   /// Local, mutable copy so a student can be removed from the invoice on this
   /// preview step; the trimmed list is what gets submitted.
-  late final List<Student> _students =
-      List<Student>.from(widget.selectedStudents);
+  late final List<Student> _students = List<Student>.from(
+    widget.selectedStudents,
+  );
 
   // Add-Staff text palette (Manrope, #573353).
   static const Color _text = AppColors.billingTextColor;
@@ -119,140 +123,150 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 style: _ts(16, FontWeight.w700),
               ),
               const SizedBox(height: 12),
-          if (dueDateString != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                children: [
-                  Text(
-                    BillingStrings.dueDate,
-                    style: _ts(14, FontWeight.w400,
-                        color: _text.withValues(alpha: 0.6)),
-                  ),
-                  Text(
-                    dueDateString,
-                    style: _ts(14, FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          if (serviceStart != null || serviceEnd != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                children: [
-                  Text(
-                    BillingStrings.servicePeriod,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.billingGreyMedium,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${serviceStart != null ? DateFormat('MMM dd, yyyy').format(serviceStart) : 'N/A'} - ${serviceEnd != null ? DateFormat('MMM dd, yyyy').format(serviceEnd) : 'N/A'}',
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+              if (dueDateString != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Text(
+                        BillingStrings.dueDate,
+                        style: _ts(
+                          14,
+                          FontWeight.w400,
+                          color: _text.withValues(alpha: 0.6),
+                        ),
                       ),
-                    ),
+                      Text(dueDateString, style: _ts(14, FontWeight.w600)),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          if (invoiceData.internalNote != null && invoiceData.internalNote!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    BillingStrings.internalNoteLabel,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.billingGreyMedium,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    invoiceData.internalNote!,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  BillingStrings.description,
-                  style: _ts(15, FontWeight.w400,
-                      color: _text.withValues(alpha: 0.6)),
-                  textAlign: TextAlign.start,
                 ),
-              ),
-              Expanded(
-                flex: 1,
-                child: Text(
-                  BillingStrings.amount,
-                  style: _ts(15, FontWeight.w400,
-                      color: _text.withValues(alpha: 0.6)),
-                  textAlign: TextAlign.end,
+              if (serviceStart != null || serviceEnd != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Text(
+                        BillingStrings.servicePeriod,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.billingGreyMedium,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${serviceStart != null ? DateFormat('MMM dd, yyyy').format(serviceStart) : 'N/A'} - ${serviceEnd != null ? DateFormat('MMM dd, yyyy').format(serviceEnd) : 'N/A'}',
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
-          ...items.map((raw) {
-            final description = raw.description;
-            final amount = double.tryParse(raw.amount) ?? 0.0;
-            final type = raw.type;
-            final isDiscount = type == 'Discount' || type == 'Subsidy';
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Row(
+              if (invoiceData.internalNote != null &&
+                  invoiceData.internalNote!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        BillingStrings.internalNoteLabel,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.billingGreyMedium,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        invoiceData.internalNote!,
+                        style: const TextStyle(
+                          color: AppColors.primaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Expanded(
                     flex: 3,
                     child: Text(
-                      description,
-                      style: _ts(14, FontWeight.w600),
+                      BillingStrings.description,
+                      style: _ts(
+                        15,
+                        FontWeight.w400,
+                        color: _text.withValues(alpha: 0.6),
+                      ),
+                      textAlign: TextAlign.start,
                     ),
                   ),
                   Expanded(
                     flex: 1,
                     child: Text(
-                      '${isDiscount ? '-' : '+'}\$${amount.toStringAsFixed(2)}',
-                      style: _ts(14, FontWeight.w600,
-                          color: isDiscount ? AppColors.errorColor : _text),
+                      BillingStrings.amount,
+                      style: _ts(
+                        15,
+                        FontWeight.w400,
+                        color: _text.withValues(alpha: 0.6),
+                      ),
                       textAlign: TextAlign.end,
                     ),
                   ),
                 ],
               ),
-            );
-          }).toList(),
-          const SizedBox(height: 10),
-          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Total Amount: \$${totalAmount.toStringAsFixed(2)}',
-                style: _ts(16, FontWeight.w700),
+              Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
+              ...items.map((raw) {
+                final description = raw.description;
+                final amount = double.tryParse(raw.amount) ?? 0.0;
+                final type = raw.type;
+                final isDiscount = type == 'Discount' || type == 'Subsidy';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          description,
+                          style: _ts(14, FontWeight.w600),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          '${isDiscount ? '-' : '+'}\$${amount.toStringAsFixed(2)}',
+                          style: _ts(
+                            14,
+                            FontWeight.w600,
+                            color: isDiscount ? AppColors.errorColor : _text,
+                          ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 10),
+              Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Total Amount: \$${totalAmount.toStringAsFixed(2)}',
+                    style: _ts(16, FontWeight.w700),
+                  ),
+                ],
               ),
-            ],
-          ),
             ],
           ),
         ),
@@ -281,8 +295,11 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
               padding: const EdgeInsets.symmetric(vertical: 12.0),
               child: Text(
                 BillingStrings.noStudentsSelectedGoBack,
-                style: _ts(14, FontWeight.w400,
-                    color: _text.withValues(alpha: 0.6)),
+                style: _ts(
+                  14,
+                  FontWeight.w400,
+                  color: _text.withValues(alpha: 0.6),
+                ),
               ),
             ),
           ..._students.asMap().entries.map((entry) {
@@ -311,19 +328,27 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                           Text(
                             student.tags.isNotEmpty
                                 ? '${student.tags.first.id} - ${student.tags.first.name} - ${student.roomName ?? 'N/A'}'
-                                : student.roomName ?? BillingStrings.noDetailsAvailable,
-                            style: _ts(14, FontWeight.w400,
-                                color: _text.withValues(alpha: 0.6)),
+                                : student.roomName ??
+                                      BillingStrings.noDetailsAvailable,
+                            style: _ts(
+                              14,
+                              FontWeight.w400,
+                              color: _text.withValues(alpha: 0.6),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     // Remove this student from the invoice (disabled while saving).
                     IconButton(
-                      onPressed:
-                          isProcessing ? null : () => _removeStudent(student),
-                      icon: const Icon(Icons.delete_outline,
-                          color: AppColors.errorColor, size: 20),
+                      onPressed: isProcessing
+                          ? null
+                          : () => _removeStudent(student),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.errorColor,
+                        size: 20,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -332,7 +357,10 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 if (!isLast)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Divider(thickness: 0.5, color: AppColors.billingGreyLight),
+                    child: Divider(
+                      thickness: 0.5,
+                      color: AppColors.billingGreyLight,
+                    ),
                   ),
               ],
             );
@@ -350,7 +378,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     if (isProcessing) return;
     if (_students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(BillingStrings.addAtLeastOneStudentToInvoice)),
+        const SnackBar(
+          content: Text(BillingStrings.addAtLeastOneStudentToInvoice),
+        ),
       );
       return;
     }
@@ -361,7 +391,8 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Invoice total: \$${total.toStringAsFixed(2)} — preview only'),
+            'Invoice total: \$${total.toStringAsFixed(2)} — preview only',
+          ),
         ),
       );
       return;
@@ -379,7 +410,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
-      title: widget.isConfirmation ? BillingStrings.invoiceReceipt : BillingStrings.invoicePreview,
+      title: widget.isConfirmation
+          ? BillingStrings.invoiceReceipt
+          : BillingStrings.invoicePreview,
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -395,12 +428,16 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   }
 
   Widget _buildBottomBar() {
-    Widget gradientButton(String label, VoidCallback? onPressed,
-        {bool busy = false}) {
+    Widget gradientButton(
+      String label,
+      VoidCallback? onPressed, {
+      bool busy = false,
+    }) {
       return Opacity(
         opacity: onPressed == null ? 0.6 : 1,
-        child: DecoratedBox(
-          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
+        child: SkeuKeyBox(
+          variant: KeyVariant.primary,
+          radius: 12,
           child: TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(
@@ -415,9 +452,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(
-                              AppColors.billingCardOnColorText),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.billingCardOnColorText,
+                      ),
                     ),
                   )
                 : Text(
@@ -438,7 +475,10 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: widget.isConfirmation
-            ? gradientButton(BillingStrings.done, () => Navigator.of(context).pop())
+            ? gradientButton(
+                BillingStrings.done,
+                () => Navigator.of(context).pop(),
+              )
             : Row(
                 children: [
                   Expanded(
@@ -463,4 +503,3 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     );
   }
 }
-

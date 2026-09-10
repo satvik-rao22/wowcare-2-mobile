@@ -33,6 +33,7 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -722,9 +723,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               Row(
                                                 children: [
                                                   Expanded(
-                                                    child: Container(
+                                                    child: SkeuKeyBox(
+                                                      variant:
+                                                          KeyVariant.primary,
+                                                      radius: AppRadius.sm,
                                                       height: 40,
-                                                      decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                                                       child: TextButton(
                                                         onPressed: () =>
                                                             _handleEdit(
@@ -851,9 +854,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                 ),
                                                 AppSpacing.gapHSm,
                                                 Expanded(
-                                                  child: Container(
+                                                  child: SkeuKeyBox(
+                                                    variant: KeyVariant.primary,
+                                                    radius: AppRadius.sm,
                                                     height: 40,
-                                                    decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                                                     child: TextButton(
                                                       onPressed: () =>
                                                           _handleDownload(

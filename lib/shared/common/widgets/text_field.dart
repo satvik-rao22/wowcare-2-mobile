@@ -34,10 +34,6 @@ class CustomTextField extends StatelessWidget {
   /// Optional font weight for the input text.
   final FontWeight? textFontWeight;
 
-  /// When true, the field is drawn with a visible brand edge rather than the
-  /// edgeless well. Named for the gradient border it used to paint.
-  final bool useGradientBorder;
-
   const CustomTextField({
     super.key,
     this.controller,
@@ -56,12 +52,11 @@ class CustomTextField extends StatelessWidget {
     this.usePrimaryGradientText = false,
     this.textFontSize,
     this.textFontWeight,
-    this.useGradientBorder = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final field = TextFormField(
+    return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       focusNode: focusNode,
@@ -88,19 +83,6 @@ class CustomTextField extends StatelessWidget {
           vertical: 12,
         ),
       ),
-    );
-
-    if (!useGradientBorder) return field;
-
-    // A brand edge instead of the edgeless well: a 1.5px inset on a pink
-    // container reveals the fill as the field's border.
-    return Container(
-      decoration: BoxDecoration(
-        color: AppPalette.brand,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(1.5),
-      child: ClipRRect(borderRadius: BorderRadius.circular(7), child: field),
     );
   }
 

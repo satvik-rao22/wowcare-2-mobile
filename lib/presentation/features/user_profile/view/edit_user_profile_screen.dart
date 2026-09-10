@@ -14,6 +14,7 @@ import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// The [EditUserProfileCubit] is provided by the router's GoRoute builder
 /// (which also kicks off the profile load), so this screen just renders
@@ -349,7 +350,8 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty &&
+        !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -414,8 +416,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
         // instead of celebrating.
         CoreUtils.showTopSnackBar(
           context: context,
-          message:
-              message.isNotEmpty ? message : 'Profile updated successfully',
+          message: message.isNotEmpty
+              ? message
+              : 'Profile updated successfully',
           isSuccess: !cubit.emailChangeFailed,
           isWarning: cubit.emailChangeFailed,
         );
@@ -588,10 +591,16 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             right: 16,
             top: 8,
           ),
-          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-          child: Container(
+          decoration: AppSurfaces.card(
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            ),
+          ),
+          child: SkeuKeyBox(
+            variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+            radius: responsive.isTablet ? 16.0 : 8.0,
             height: responsive.buttonHeight,
-            decoration: AppSurfaces.key(!(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0,),
             child: TextButton(
               onPressed: isSubmitting ? null : () => _saveProfileDetails(),
               child: Text(
@@ -690,7 +699,9 @@ class _InputField extends StatelessWidget {
                             : const <TextInputFormatter>[])),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.userProfileMutedIconColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.userProfileMutedIconColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

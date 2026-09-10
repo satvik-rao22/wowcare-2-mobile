@@ -14,6 +14,7 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class EditScheduleScreen extends StatelessWidget {
   const EditScheduleScreen({
@@ -590,10 +591,16 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
           right: 16,
           top: 8,
         ),
-        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-        child: Container(
+        decoration: AppSurfaces.card(
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          ),
+        ),
+        child: SkeuKeyBox(
+          variant: KeyVariant.primary,
+          radius: responsive.isTablet ? 16.0 : 8.0,
           height: responsive.buttonHeight,
-          decoration: AppSurfaces.key(KeyVariant.primary, radius: responsive.isTablet ? 16.0 : 8.0,),
           child: ValueListenableBuilder<bool>(
             valueListenable: _isSubmitting,
             builder: (context, isSubmitting, _) {

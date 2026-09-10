@@ -23,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentDatesTabCard extends StatefulWidget {
   const StudentDatesTabCard({
@@ -513,15 +514,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               StudentStrings.physicalExams,
                               style: AppTextStyles.title,
                             ),
-                            Container(
+                            SkeuKeyBox(
+                              variant: _disableAddPhysicalExam
+                                  ? KeyVariant.disabled
+                                  : KeyVariant.primary,
+                              radius: AppRadius.sm,
                               width: 38,
                               height: 38,
-                              decoration: AppSurfaces.key(
-                                _disableAddPhysicalExam
-                                    ? KeyVariant.disabled
-                                    : KeyVariant.primary,
-                                radius: AppRadius.sm,
-                              ),
                               alignment: Alignment.center,
                               child: Icon(
                                 Icons.edit,

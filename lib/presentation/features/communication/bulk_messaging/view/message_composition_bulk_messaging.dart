@@ -20,6 +20,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -226,7 +227,13 @@ class _MessageCompositionBulkMessagingState
                                   padding: EdgeInsets.all(
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
-                                  decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 30.0 : 20.0, ), )),
+                                  decoration: AppSurfaces.card(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(
+                                        responsive.isTablet ? 30.0 : 20.0,
+                                      ),
+                                    ),
+                                  ),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -445,17 +452,20 @@ class _MessageCompositionBulkMessagingState
         right: 16,
         top: 16,
       ),
-      decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+      decoration: AppSurfaces.card(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.secondary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: AppSurfaces.key(
-                KeyVariant.secondary,
-                radius: responsive.isTablet ? 16.0 : 8.0,
-              ),
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
@@ -474,12 +484,10 @@ class _MessageCompositionBulkMessagingState
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: AppSurfaces.key(
-                KeyVariant.primary,
-                radius: responsive.isTablet ? 16.0 : 8.0,
-              ),
               child: TextButton(
                 onPressed: () {
                   if (compositionState.canSend) {

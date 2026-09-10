@@ -199,10 +199,21 @@ void main() {
       });
 
       test('a key with no rim does not fake one when pressed', () {
-        expect(
-          AppSurfaces.keyPressed(KeyVariant.secondary),
-          AppSurfaces.key(KeyVariant.secondary),
+        // A secondary key has no rim to collapse, so pressing it pulls its
+        // ambient shadow in close instead — the surface reading as pushed
+        // toward the ground rather than sprouting a rim it never had.
+        final SkeuDecoration rest = AppSurfaces.key(KeyVariant.secondary);
+        final SkeuDecoration down = AppSurfaces.keyPressed(
+          KeyVariant.secondary,
         );
+        expect(down.color, rest.color);
+        expect(down.boxShadow, AppElevation.cardPressed);
+        expect(
+          down.boxShadow.first.offset.dy,
+          lessThan(rest.boxShadow.first.offset.dy),
+        );
+
+        // A disabled key does not respond at all.
         expect(
           AppSurfaces.keyPressed(KeyVariant.disabled),
           AppSurfaces.key(KeyVariant.disabled),

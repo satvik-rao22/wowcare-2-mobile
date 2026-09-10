@@ -50,6 +50,7 @@ import 'package:wowcare/data/features/communication/mappers/participant_mapper.d
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -171,10 +172,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     // views) — same underlying storage read.
     final schoolCode =
         (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
-    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
-      schoolCode: schoolCode,
-      isAdminViewer: false,
-    );
+    final permission = await context
+        .read<CommunicationCubit>()
+        .resolveDeletePermission(schoolCode: schoolCode, isAdminViewer: false);
     if (!mounted) return;
     _deletePermission.value = permission;
   }
@@ -193,14 +193,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   /// the same backend resource the v2 Admin Chat toggle already uses).
   PrivateModeToggleCubit? _privateModeToggleCubit;
 
-  bool get _privateModeActive =>
-      widget.parentInfo.privateModeActive;
+  bool get _privateModeActive => widget.parentInfo.privateModeActive;
 
   String? get _privateModeActivatedBy =>
       widget.parentInfo.privateModeActivatedBy;
 
-  Map<String, String> get _guardianMap =>
-      widget.parentInfo.guardianMap;
+  Map<String, String> get _guardianMap => widget.parentInfo.guardianMap;
 
   List<MapEntry<String, String>> get _guardianEntries =>
       _guardianMap.entries.toList();
@@ -476,7 +474,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (!widget.isGuardian || _privateModeToggleCubit == null) return;
     final code = widget.parentInfo.code;
     if (code.isEmpty) return;
-    final result = await context.read<CommunicationCubit>()
+    final result = await context
+        .read<CommunicationCubit>()
         .getConversationEntity(code);
     if (!mounted) return;
     result.fold((_) {}, (conversation) {
@@ -625,14 +624,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         (_privateModeToggleCubit?.state.isEnabled ?? false);
 
     List<String> receivers = [];
-    receivers.addAll(
-      widget.parentInfo.staffList,
-    );
+    receivers.addAll(widget.parentInfo.staffList);
 
     if (!myPrivateModeEnabled) {
-      receivers.addAll(
-        widget.parentInfo.parents,
-      );
+      receivers.addAll(widget.parentInfo.parents);
     }
 
     final authState = context.read<AuthCubit>().state;
@@ -858,7 +853,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             // this the list isn't scrollable at all — so pull-to-refresh
             // never triggers regardless of message count.
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.xs, vertical: AppSizes.sm),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.xs,
+              vertical: AppSizes.sm,
+            ),
             reverse: true,
             itemCount: messages.length,
             itemBuilder: (context, index) {
@@ -896,7 +894,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 key: ValueKey(messageId),
                 controller: controller,
                 index: index,
-                highlightColor: AppColors.messagingScrollHighlight.withValues(alpha: 0.7),
+                highlightColor: AppColors.messagingScrollHighlight.withValues(
+                  alpha: 0.7,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -922,11 +922,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           );
                         }
                       },
-                      onRetry: (msg) =>
-                          context.read<CommunicationCubit>().retrySendMessage(
-                            widget.parentInfo.code,
-                            msg,
-                          ),
+                      onRetry: (msg) => context
+                          .read<CommunicationCubit>()
+                          .retrySendMessage(widget.parentInfo.code, msg),
                       currentUserCode: _currentUserCode,
                       reactionsController: _reactionsController,
                       isParentMessaging: true,
@@ -1152,7 +1150,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         const AlwaysScrollableScrollPhysics(),
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: AppSizes.xs,
+                                                          horizontal:
+                                                              AppSizes.xs,
                                                           vertical: AppSizes.sm,
                                                         ),
                                                     reverse: true,
@@ -1258,8 +1257,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ThreadMessageTile(
                                                               isGuardian: widget
                                                                   .isGuardian,
-                                                              threadId:
-                                                                  widget.parentInfo.code,
+                                                              threadId: widget
+                                                                  .parentInfo
+                                                                  .code,
                                                               messageCode:
                                                                   message.code,
                                                               quotedMessageId:
@@ -1274,7 +1274,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .deleteAttachment(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         attachment
                                                                             .attachmentId!,
                                                                       );
@@ -1285,7 +1287,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     CommunicationCubit
                                                                   >()
                                                                   .retrySendMessage(
-                                                                    widget.parentInfo.code,
+                                                                    widget
+                                                                        .parentInfo
+                                                                        .code,
                                                                     msg,
                                                                   ),
                                                               currentUserCode:
@@ -1393,7 +1397,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .removeReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -1406,7 +1412,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .addReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -1421,7 +1429,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       CommunicationCubit
                                                                     >()
                                                                     .removeReaction(
-                                                                      widget.parentInfo.code,
+                                                                      widget
+                                                                          .parentInfo
+                                                                          .code,
                                                                       message
                                                                           .code,
                                                                       emoji,
@@ -1490,7 +1500,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         const AlwaysScrollableScrollPhysics(),
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: AppSizes.xs,
+                                                          horizontal:
+                                                              AppSizes.xs,
                                                           vertical: AppSizes.sm,
                                                         ),
                                                     reverse: true,
@@ -1597,8 +1608,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ThreadMessageTile(
                                                               isGuardian: widget
                                                                   .isGuardian,
-                                                              threadId:
-                                                                  widget.parentInfo.code,
+                                                              threadId: widget
+                                                                  .parentInfo
+                                                                  .code,
                                                               messageCode:
                                                                   message.code,
                                                               quotedMessageId:
@@ -1613,7 +1625,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .deleteAttachment(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         attachment
                                                                             .attachmentId!,
                                                                       );
@@ -1624,7 +1638,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     CommunicationCubit
                                                                   >()
                                                                   .retrySendMessage(
-                                                                    widget.parentInfo.code,
+                                                                    widget
+                                                                        .parentInfo
+                                                                        .code,
                                                                     msg,
                                                                   ),
                                                               currentUserCode:
@@ -1732,7 +1748,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .removeReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -1745,7 +1763,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .addReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -1760,7 +1780,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       CommunicationCubit
                                                                     >()
                                                                     .removeReaction(
-                                                                      widget.parentInfo.code,
+                                                                      widget
+                                                                          .parentInfo
+                                                                          .code,
                                                                       message
                                                                           .code,
                                                                       emoji,
@@ -1841,7 +1863,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         const AlwaysScrollableScrollPhysics(),
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                          horizontal: AppSizes.xs,
+                                                          horizontal:
+                                                              AppSizes.xs,
                                                           vertical: AppSizes.sm,
                                                         ),
                                                     reverse: true,
@@ -1945,8 +1968,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ThreadMessageTile(
                                                               isGuardian: widget
                                                                   .isGuardian,
-                                                              threadId:
-                                                                  widget.parentInfo.code,
+                                                              threadId: widget
+                                                                  .parentInfo
+                                                                  .code,
                                                               messageCode:
                                                                   message.code,
                                                               quotedMessageId:
@@ -1961,7 +1985,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .deleteAttachment(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         attachment
                                                                             .attachmentId!,
                                                                       );
@@ -1972,7 +1998,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     CommunicationCubit
                                                                   >()
                                                                   .retrySendMessage(
-                                                                    widget.parentInfo.code,
+                                                                    widget
+                                                                        .parentInfo
+                                                                        .code,
                                                                     msg,
                                                                   ),
                                                               currentUserCode:
@@ -2080,7 +2108,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .removeReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -2093,7 +2123,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .addReaction(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         message
                                                                             .code,
                                                                         emoji,
@@ -2108,7 +2140,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       CommunicationCubit
                                                                     >()
                                                                     .removeReaction(
-                                                                      widget.parentInfo.code,
+                                                                      widget
+                                                                          .parentInfo
+                                                                          .code,
                                                                       message
                                                                           .code,
                                                                       emoji,
@@ -2224,7 +2258,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               ),
                             ),
                           ),
-
                         ],
                       )
                     : Column(
@@ -2278,8 +2311,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             const AlwaysScrollableScrollPhysics(),
                                                         padding:
                                                             const EdgeInsets.symmetric(
-                                                              horizontal: AppSizes.xs,
-                                                              vertical: AppSizes.sm,
+                                                              horizontal:
+                                                                  AppSizes.xs,
+                                                              vertical:
+                                                                  AppSizes.sm,
                                                             ),
                                                         reverse: true,
                                                         itemCount:
@@ -2355,7 +2390,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _parent1Controller,
                                                             index: index,
                                                             highlightColor:
-                                                                AppColors.messagingScrollHighlight
+                                                                AppColors
+                                                                    .messagingScrollHighlight
                                                                     .withValues(
                                                                       alpha:
                                                                           0.7,
@@ -2387,8 +2423,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 ThreadMessageTile(
                                                                   isGuardian: widget
                                                                       .isGuardian,
-                                                                  threadId:
-                                                                      widget.parentInfo.code,
+                                                                  threadId: widget
+                                                                      .parentInfo
+                                                                      .code,
                                                                   messageCode:
                                                                       message
                                                                           .code,
@@ -2414,7 +2451,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .retrySendMessage(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         msg,
                                                                       ),
                                                                   currentUserCode:
@@ -2532,7 +2571,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                           CommunicationCubit
                                                                         >()
                                                                         .removeReaction(
-                                                                          widget.parentInfo.code,
+                                                                          widget
+                                                                              .parentInfo
+                                                                              .code,
                                                                           message
                                                                               .code,
                                                                           emoji,
@@ -2605,8 +2646,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             const AlwaysScrollableScrollPhysics(),
                                                         padding:
                                                             const EdgeInsets.symmetric(
-                                                              horizontal: AppSizes.xs,
-                                                              vertical: AppSizes.sm,
+                                                              horizontal:
+                                                                  AppSizes.xs,
+                                                              vertical:
+                                                                  AppSizes.sm,
                                                             ),
                                                         reverse: true,
                                                         itemCount:
@@ -2682,7 +2725,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _parent2Controller,
                                                             index: index,
                                                             highlightColor:
-                                                                AppColors.messagingScrollHighlight
+                                                                AppColors
+                                                                    .messagingScrollHighlight
                                                                     .withValues(
                                                                       alpha:
                                                                           0.7,
@@ -2714,8 +2758,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 ThreadMessageTile(
                                                                   isGuardian: widget
                                                                       .isGuardian,
-                                                                  threadId:
-                                                                      widget.parentInfo.code,
+                                                                  threadId: widget
+                                                                      .parentInfo
+                                                                      .code,
                                                                   messageCode:
                                                                       message
                                                                           .code,
@@ -2741,7 +2786,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .retrySendMessage(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         msg,
                                                                       ),
                                                                   currentUserCode:
@@ -2859,7 +2906,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                           CommunicationCubit
                                                                         >()
                                                                         .removeReaction(
-                                                                          widget.parentInfo.code,
+                                                                          widget
+                                                                              .parentInfo
+                                                                              .code,
                                                                           message
                                                                               .code,
                                                                           emoji,
@@ -2944,8 +2993,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             const AlwaysScrollableScrollPhysics(),
                                                         padding:
                                                             const EdgeInsets.symmetric(
-                                                              horizontal: AppSizes.xs,
-                                                              vertical: AppSizes.sm,
+                                                              horizontal:
+                                                                  AppSizes.xs,
+                                                              vertical:
+                                                                  AppSizes.sm,
                                                             ),
                                                         reverse: true,
                                                         itemCount:
@@ -3019,7 +3070,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _getActiveScrollController(),
                                                             index: index,
                                                             highlightColor:
-                                                                AppColors.messagingScrollHighlight
+                                                                AppColors
+                                                                    .messagingScrollHighlight
                                                                     .withValues(
                                                                       alpha:
                                                                           0.7,
@@ -3051,8 +3103,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 ThreadMessageTile(
                                                                   isGuardian: widget
                                                                       .isGuardian,
-                                                                  threadId:
-                                                                      widget.parentInfo.code,
+                                                                  threadId: widget
+                                                                      .parentInfo
+                                                                      .code,
                                                                   messageCode:
                                                                       message
                                                                           .code,
@@ -3078,7 +3131,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                         CommunicationCubit
                                                                       >()
                                                                       .retrySendMessage(
-                                                                        widget.parentInfo.code,
+                                                                        widget
+                                                                            .parentInfo
+                                                                            .code,
                                                                         msg,
                                                                       ),
                                                                   currentUserCode:
@@ -3196,7 +3251,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                           CommunicationCubit
                                                                         >()
                                                                         .removeReaction(
-                                                                          widget.parentInfo.code,
+                                                                          widget
+                                                                              .parentInfo
+                                                                              .code,
                                                                           message
                                                                               .code,
                                                                           emoji,
@@ -3426,7 +3483,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.error_outline_rounded,
               size: 48,
-              color: isUnauthorized ? AppColors.messagingIconMuted : AppColors.messagingErrorIcon,
+              color: isUnauthorized
+                  ? AppColors.messagingIconMuted
+                  : AppColors.messagingErrorIcon,
             ),
             const SizedBox(height: AppSizes.sm),
             CustomTextWidget(
@@ -3438,9 +3497,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             ),
             const SizedBox(height: 6),
             CustomTextWidget(
-              text: isUnauthorized
-                  ? AppStrings.goBackStartNew
-                  : message,
+              text: isUnauthorized ? AppStrings.goBackStartNew : message,
               fontSize: 13,
               fontColor: AppColors.messagingTextMeta,
               textAlign: TextAlign.center,
@@ -3458,14 +3515,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   currentUserId: _currentUserCode,
                 );
               },
-              child: Container(
+              child: SkeuKeyBox(
+                variant: KeyVariant.primary,
+                radius: AppRadius.pill,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
                   vertical: AppSizes.sm,
-                ),
-                decoration: AppSurfaces.key(
-                  KeyVariant.primary,
-                  radius: AppRadius.pill,
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,
@@ -3522,9 +3577,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     // Only INACTIVE (withdrawn) actually blocks sending — UPCOMING is a
     // normal, not-yet-started enrollment state and must behave like ACTIVE
     // here.
-    final status = (widget.parentInfo.studentStatus)
-        ?.trim()
-        .toUpperCase();
+    final status = (widget.parentInfo.studentStatus)?.trim().toUpperCase();
     return status == 'INACTIVE';
   }
 
@@ -3550,7 +3603,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   /// just means the screen keeps using the (possibly stale) data it already
   /// had, same as before this existed.
   Future<void> _refreshParticipants(String conversationCode) async {
-    final result = await context.read<CommunicationCubit>()
+    final result = await context
+        .read<CommunicationCubit>()
         .getConversationEntity(conversationCode);
     if (!mounted) return;
     result.fold(
@@ -3712,14 +3766,21 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.cardColor,
-        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Top row: Avatar + Title + Info + Private Mode Toggle (Guardian only)
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.xxs, AppSizes.xs),
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.md,
+              AppSizes.xs,
+              AppSizes.xxs,
+              AppSizes.xs,
+            ),
             child: Row(
               children: [
                 // Back arrow — hidden for guardian persona (PRD requirement)
@@ -3743,17 +3804,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 DocumentImageWidget(
                   disableAttendanceStatusLookup: true,
                   fileUuid: '',
-                  imageUrl:
-                      widget.parentInfo.avatar.startsWith(
-                        'http',
-                      )
+                  imageUrl: widget.parentInfo.avatar.startsWith('http')
                       ? widget.parentInfo.avatar
                       : null,
                   mediaAssetCode:
-                      widget.parentInfo.avatar
-                              .isNotEmpty &&
-                          !widget.parentInfo.avatar
-                              .startsWith('http')
+                      widget.parentInfo.avatar.isNotEmpty &&
+                          !widget.parentInfo.avatar.startsWith('http')
                       ? widget.parentInfo.avatar
                       : null,
                   name: title,
@@ -3824,7 +3880,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                 (isActivator || !toggleState.isEnabled);
                             return Tooltip(
                               message: !canOperate
-                                  ? AppStrings.privateModeOnlyActivatorCanDisable
+                                  ? AppStrings
+                                        .privateModeOnlyActivatorCanDisable
                                   : toggleState.isEnabled
                                   ? AppStrings.privateModeOnTooltip
                                   : AppStrings.privateModeOffTooltip,
@@ -3891,7 +3948,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                     ?.displayName ??
                                 'a guardian'));
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSizes.md, 0, AppSizes.md, AppSizes.xs),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.md,
+                    0,
+                    AppSizes.md,
+                    AppSizes.xs,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
@@ -3905,7 +3967,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       decoration: BoxDecoration(
                         color: AppColors.messagingNoticeBg,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColors.messagingNoticeBorder),
+                        border: Border.all(
+                          color: AppColors.messagingNoticeBorder,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -3943,7 +4007,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             // Tab-selector chips: "Group Chat" + one chip per guardian.
             // Tapping switches the TabBarView without showing a TabBar.
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSizes.md, 0, AppSizes.md, AppSizes.xs),
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.md,
+                0,
+                AppSizes.md,
+                AppSizes.xs,
+              ),
               child: SizedBox(
                 height: 28,
                 child: ListView(
@@ -3985,7 +4054,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 }).toList();
                 if (guardianChips.isEmpty) return const SizedBox.shrink();
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSizes.md, 0, AppSizes.md, AppSizes.xs),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSizes.md,
+                    0,
+                    AppSizes.md,
+                    AppSizes.xs,
+                  ),
                   child: ParentParticipantChips(
                     participants: guardianChips,
                     privateModeEnabled: false,
@@ -4044,7 +4118,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm, vertical: AppSizes.xxs),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.sm,
+        vertical: AppSizes.xxs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.messagingChipBgPlum,
         borderRadius: BorderRadius.circular(12),
@@ -4099,7 +4176,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               Icon(
                 Icons.visibility_off,
                 size: 12,
-                color: isSelected ? AppColors.messagingOnAccent : AppColors.messagingNotificationDot,
+                color: isSelected
+                    ? AppColors.messagingOnAccent
+                    : AppColors.messagingNotificationDot,
               ),
             ],
           ],

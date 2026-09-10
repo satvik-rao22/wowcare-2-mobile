@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -94,13 +95,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             ),
                             SizedBox(height: screenHeight * 0.01),
                             Text(
-                                'WowCare',
-                                style: TextStyle(
-                                  fontSize: screenHeight * 0.03,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.themeColor,
-                                ),
+                              'WowCare',
+                              style: TextStyle(
+                                fontSize: screenHeight * 0.03,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.themeColor,
                               ),
+                            ),
                             SizedBox(height: screenHeight * 0.05),
                             Align(
                               alignment: Alignment.centerLeft,
@@ -219,8 +220,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             : () => context.read<ForgotPasswordCubit>().submit(
                                 _emailController.text,
                               ),
-                        child: Container(
-                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 12,
                           child: Center(
                             child: isLoading
                                 ? SizedBox(

@@ -7,6 +7,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ReportItem {
   const ReportItem({
@@ -199,9 +200,10 @@ class _GenerateButton extends StatelessWidget {
     final isEnabled = onPressed != null;
 
     if (!isPrimary) {
-      return Container(
+      return SkeuKeyBox(
+        variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+        radius: 8,
         height: 44,
-        decoration: AppSurfaces.key(isEnabled ? KeyVariant.primary : KeyVariant.disabled, radius: 8),
         padding: const EdgeInsets.all(1),
         child: TextButton(
           onPressed: onPressed,
@@ -218,10 +220,10 @@ class _GenerateButton extends StatelessWidget {
             children: [
               isEnabled
                   ? _ReportFormatIcon(
-                        format: format,
-                        color: AppColors.themeColor,
-                        size: 18,
-                      )
+                      format: format,
+                      color: AppColors.themeColor,
+                      size: 18,
+                    )
                   : _ReportFormatIcon(
                       format: format,
                       color: AppColors.reportsDisabledForegroundColor,
@@ -242,9 +244,10 @@ class _GenerateButton extends StatelessWidget {
       );
     }
 
-    return Container(
+    return SkeuKeyBox(
+      variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+      radius: 8,
       height: 44,
-      decoration: AppSurfaces.key(isEnabled ? KeyVariant.primary : KeyVariant.disabled, radius: 8),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(

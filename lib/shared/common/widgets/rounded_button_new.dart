@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// A pill-shaped primary key with an external [isLoading]/[enabled] state —
 /// distinct from [RoundedButton] (rectangular, caller-coloured) and
@@ -32,24 +33,27 @@ class RoundedButtonNew extends StatelessWidget {
     final isInteractive = enabled && !isLoading;
     return GestureDetector(
       onTap: isInteractive ? onPressed : null,
-      child: Opacity(
-        opacity: isInteractive ? 1.0 : 0.5,
-        child: Container(
-          width: double.infinity,
-          height: 50,
-          decoration: AppSurfaces.key(KeyVariant.primary, radius: 25),
-          alignment: Alignment.center,
-          child: isLoading
-              ? const CircularProgressIndicator(color: AppPalette.onBrand)
-              : Text(
-                  label,
-                  style: TextStyle(
-                    color: lableColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+      child: SkeuKeyBox(
+        // The design's dead key: recessed and rimless, so it reads flat and
+        // inert rather than as a live key behind a veil of opacity.
+        variant: isInteractive ? KeyVariant.primary : KeyVariant.disabled,
+        enabled: isInteractive,
+        radius: 25,
+        width: double.infinity,
+        height: 50,
+        alignment: Alignment.center,
+        child: isLoading
+            ? const CircularProgressIndicator(color: AppPalette.onBrand)
+            : Text(
+                label,
+                style: TextStyle(
+                  color: isInteractive
+                      ? lableColor
+                      : AppSurfaces.keyInk(KeyVariant.disabled),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-        ),
+              ),
       ),
     );
   }
