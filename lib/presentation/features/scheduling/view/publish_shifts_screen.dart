@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Result returned by [PublishShiftsScreen] on success. The screen also pops
 /// with `true` if the caller only cares about "did we publish?". Kept for
@@ -184,22 +185,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
               right: 16,
               top: 8,
             ),
-            decoration: BoxDecoration(
-              color: AppColors.whiteColor,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blackColor.withValues(alpha: 0.05),
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft:
-                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                topRight:
-                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              ),
-            ),
+            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
             child: CustomButtonLayout(
               confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
               onPressedConfirm: (state.isFormValid && !isSubmitting)

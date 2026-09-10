@@ -625,19 +625,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                             child: Container(
                               width: 32,
                               height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.cardColor,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.blackColor.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
+                              decoration: AppSurfaces.card(radius: 16),
                               child: Container(
                                 margin: const EdgeInsets.all(2),
                                 decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),

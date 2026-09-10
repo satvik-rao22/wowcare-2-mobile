@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
@@ -97,20 +98,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: AppColors.primaryColor.withValues(alpha: 0.08),
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                  color: AppColors.cardColor,
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: AppColors.blackColor.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
+                decoration: AppSurfaces.card(radius: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

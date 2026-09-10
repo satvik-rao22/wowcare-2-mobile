@@ -195,17 +195,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
         color: Colors.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryColor.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.card(radius: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -20,6 +20,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_pickup_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddPickupScreen extends StatefulWidget {
   const AddPickupScreen({
@@ -378,19 +379,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       padding: EdgeInsets.all(
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.whiteColor,
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.blackColor.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
+                      decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                       child: ListView(
                         padding: EdgeInsets.zero,
                         children: [
@@ -562,20 +551,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               right: AppSpacing.md,
               top: AppSpacing.xs,
             ),
-            decoration: BoxDecoration(
-              color: AppColors.whiteColor,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blackColor.withValues(alpha: 0.05),
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              ),
-            ),
+            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
             child: CustomButtonLayout(
               confirmButtonLabel: StudentStrings.save,
               cancelButtonLabel: StudentStrings.cancel,

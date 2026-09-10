@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddEditIndividualMovementScreen extends StatefulWidget {
   const AddEditIndividualMovementScreen({
@@ -198,20 +199,7 @@ class _AddEditIndividualMovementScreenState
           right: 16,
           top: 8,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
         child: CustomConfirmButton(label: 'Save', onPressed: _onSavePressed),
       ),
       child: SingleChildScrollView(

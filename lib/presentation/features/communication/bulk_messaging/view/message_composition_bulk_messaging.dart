@@ -226,23 +226,7 @@ class _MessageCompositionBulkMessagingState
                                   padding: EdgeInsets.all(
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.cardColor,
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(
-                                        responsive.isTablet ? 30.0 : 20.0,
-                                      ),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.blackColor.withValues(
-                                          alpha: 0.05,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
+                                  decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 30.0 : 20.0, ), )),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
@@ -461,20 +445,7 @@ class _MessageCompositionBulkMessagingState
         right: 16,
         top: 16,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
+      decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

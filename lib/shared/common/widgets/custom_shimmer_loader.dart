@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ShimmerLoader extends StatelessWidget {
   final Widget? child;
@@ -52,17 +52,7 @@ class AttendanceCardShimmer extends StatelessWidget {
       child: Container(
         margin: margin ?? const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppPalette.surfaceCard,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: 16),
         child: Row(
           children: [
             // Avatar placeholder
@@ -129,17 +119,7 @@ class SummaryCardShimmer extends StatelessWidget {
       child: Container(
         margin: margin ?? const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppPalette.surfaceCard,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.07),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -505,17 +485,7 @@ class StaffCardShimmer extends StatelessWidget {
       child: Container(
         margin: margin ?? const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppPalette.surfaceCard,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

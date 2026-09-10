@@ -29,6 +29,7 @@ import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditProfileDetailsScreen extends StatelessWidget {
   const EditProfileDetailsScreen({
@@ -1257,19 +1258,7 @@ class _EditProfileDetailsScreenViewState
                         padding: EdgeInsets.all(
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.billingShadowColorLight,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                         child: ListView(
                           padding: EdgeInsets.zero,
                           children: [
@@ -1612,20 +1601,7 @@ class _EditProfileDetailsScreenViewState
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.billingShadowColorLight,
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, _) {

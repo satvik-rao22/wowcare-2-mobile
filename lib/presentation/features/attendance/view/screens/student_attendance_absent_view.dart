@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/student_atte
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -1027,18 +1028,7 @@ class _AbsentStudentCardItem extends StatelessWidget {
           horizontal: responsive.isTablet ? 16 : 12,
           vertical: responsive.isTablet ? 14 : 10,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
-          border: Border.all(color: AppColors.cardBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.attendanceCardShadowLightColor,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: responsive.isTablet ? 18 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

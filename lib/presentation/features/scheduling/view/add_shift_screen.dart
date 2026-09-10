@@ -20,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Add Shift form. All form state, validation and the create flow live in
 /// [AddShiftCubit]; this widget is a pure view over that state. It stays a
@@ -203,22 +204,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                       right: 16,
                       top: 8,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          offset: const Offset(0, -4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                      borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        topRight:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: CustomButtonLayout(
                       confirmButtonLabel: state.saving ? 'Saving…' : 'Confirm',
                       onPressedConfirm:

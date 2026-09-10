@@ -872,19 +872,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                             child: Container(
                               width: 32,
                               height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.whiteColor,
-                                borderRadius: AppRadius.allLg,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.blackColor.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
+                              decoration: AppSurfaces.card(radius: AppRadius.lg),
                               child: Container(
                                 margin: const EdgeInsets.all(AppSpacing.s2),
                                 decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.r14,),

@@ -135,13 +135,16 @@ class AppSurfaces {
   /// Anything raised off the tray: a card, a list row, a section panel.
   ///
   /// `radius 20 · #FBFCFF · hairline · lit top bevel · warm ambient shadow`
+  /// [borderRadius] overrides [radius] for a surface that is not rounded on
+  /// all four corners — a sheet header docked to the top of a screen, say.
   static SkeuDecoration card({
     double radius = AppRadius.xl,
     Color? color,
     bool bordered = true,
+    BorderRadius? borderRadius,
   }) => SkeuDecoration(
     color: color ?? AppPalette.surfaceCard,
-    borderRadius: BorderRadius.circular(radius),
+    borderRadius: borderRadius ?? BorderRadius.circular(radius),
     border: bordered ? _hairline : null,
     boxShadow: AppElevation.card,
     insets: AppElevation.bevelTop,
@@ -156,13 +159,15 @@ class AppSurfaces {
   /// a gloss bevel. **At most one per screen.**
   ///
   /// `radius 20 · #0A1C5D · inset gloss · warm ambient shadow`
-  static SkeuDecoration impact({double radius = AppRadius.xl}) =>
-      SkeuDecoration(
-        color: AppPalette.surfaceInverse,
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: AppElevation.impact,
-        insets: AppElevation.bevelGloss,
-      );
+  static SkeuDecoration impact({
+    double radius = AppRadius.xl,
+    BorderRadius? borderRadius,
+  }) => SkeuDecoration(
+    color: AppPalette.surfaceInverse,
+    borderRadius: borderRadius ?? BorderRadius.circular(radius),
+    boxShadow: AppElevation.impact,
+    insets: AppElevation.bevelGloss,
+  );
 
   /// A navy toast. Never a coloured slab: the tone is carried by a dot.
   static SkeuDecoration toast() => SkeuDecoration(
@@ -178,9 +183,10 @@ class AppSurfaces {
   static SkeuDecoration sub({
     double radius = AppRadius.r18,
     bool bordered = false,
+    BorderRadius? borderRadius,
   }) => SkeuDecoration(
     color: AppPalette.surfaceSunken,
-    borderRadius: BorderRadius.circular(radius),
+    borderRadius: borderRadius ?? BorderRadius.circular(radius),
     border: bordered ? _hairline : null,
   );
 
@@ -217,12 +223,15 @@ class AppSurfaces {
   /// A dropdown, a read-only value, an empty-state icon: the full well.
   ///
   /// `radius 16 · #E5EAF7 · inset shadow from the top · lit bottom edge`
-  static SkeuDecoration well({double radius = AppRadius.lg, Color? color}) =>
-      SkeuDecoration(
-        color: color ?? AppPalette.surfaceField,
-        borderRadius: BorderRadius.circular(radius),
-        insets: AppElevation.well,
-      );
+  static SkeuDecoration well({
+    double radius = AppRadius.lg,
+    Color? color,
+    BorderRadius? borderRadius,
+  }) => SkeuDecoration(
+    color: color ?? AppPalette.surfaceField,
+    borderRadius: borderRadius ?? BorderRadius.circular(radius),
+    insets: AppElevation.well,
+  );
 
   /// A text field or a search box — the shallower well, so the caret and the
   /// text do not sit in a hole.

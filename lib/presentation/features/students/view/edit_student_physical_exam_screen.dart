@@ -21,6 +21,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentPhysicalExamScreen extends StatefulWidget {
   const EditStudentPhysicalExamScreen({
@@ -315,20 +316,7 @@ class _EditStudentPhysicalExamScreenState
               right: AppSpacing.md,
               top: AppSpacing.xs,
             ),
-            decoration: const BoxDecoration(
-              color: AppColors.whiteColor,
-              boxShadow: [
-                BoxShadow(
-                  color: MaterialHues.black26,
-                  offset: Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
-            ),
+            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(24), topRight: Radius.circular(24), )),
             child: CustomButtonLayout(
               confirmButtonLabel: StudentStrings.save,
               onPressedConfirm: state.mutationInProgress ? null : _save,

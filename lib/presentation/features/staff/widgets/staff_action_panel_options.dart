@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The attendance sub-action fan-out (Sign-In/Sign-Out/Transfer/Absent) shown
 /// when [StaffActionPanel]'s Attendance button is expanded.
@@ -46,18 +47,7 @@ class AttendanceOptionsPanel extends StatelessWidget {
       width: 70,
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppPalette.borderStrong),
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.attendanceCardShadowColor,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -117,18 +107,7 @@ class ActivitiesOptionsPanel extends StatelessWidget {
       width: 70,
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppPalette.borderStrong),
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.attendanceCardShadowColor,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 10),
       child: SingleChildScrollView(
         controller: ScrollController(),
         child: Column(

@@ -86,22 +86,7 @@ class ViewShiftScreen extends StatelessWidget {
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.whiteColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blackColor.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: CustomButtonLayout(
                 cancelButtonLabel: 'Delete',
                 confirmButtonLabel: 'Edit',

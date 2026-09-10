@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddPhysicianScreen extends StatefulWidget {
   const AddPhysicianScreen({
@@ -209,19 +210,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -293,20 +282,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             right: AppSpacing.md,
             top: AppSpacing.xs,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
             bloc: _physicianCubit,
             buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,

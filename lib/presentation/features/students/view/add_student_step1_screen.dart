@@ -39,6 +39,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -879,23 +880,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                               padding: EdgeInsets.all(
                                 responsive.isTablet ? 32.0 : 16.0,
                               ),
-                              decoration: BoxDecoration(
-                                color: AppColors.whiteColor,
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(
-                                    responsive.isTablet ? 40.0 : 24.0,
-                                  ),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.blackColor.withValues(
-                                      alpha: 0.05,
-                                    ),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
+                              decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                               child: Column(
                                 children: [
                                   Expanded(
@@ -1000,24 +985,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                       right: AppSpacing.md,
                       top: AppSpacing.xs,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          offset: const Offset(0, -4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(
-                          responsive.isTablet ? 40.0 : 24.0,
-                        ),
-                        topRight: Radius.circular(
-                          responsive.isTablet ? 40.0 : 24.0,
-                        ),
-                      ),
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                     child: CustomButtonLayout(
                       confirmButtonLabel: StudentStrings.next,
                       onPressedConfirm: _createCubit.state.step1Submitting

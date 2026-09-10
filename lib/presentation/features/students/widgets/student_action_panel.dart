@@ -737,18 +737,7 @@ class _StudentSidePanel extends StatelessWidget {
         width: 70,
         constraints: const BoxConstraints(maxHeight: 400),
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.billingAccentBlue),
-          color: AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(AppRadius.r10),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: AppRadius.r10),
         child: _buildAttendanceColumn(context),
       );
     }

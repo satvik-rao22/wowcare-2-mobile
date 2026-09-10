@@ -9,6 +9,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_category_header.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_group_row.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 // The cubit is owned by the ancestor BlocProvider set up in the router's
 // GoRoute builder (which also kicks off .load()), and every read of it below
@@ -88,19 +89,7 @@ class _NotificationSettingsContent extends StatelessWidget {
                         padding: EdgeInsets.all(
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.blackColor.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 30.0 : 20.0), )),
                         child: _NotificationBody(state: state),
                       ),
                       const SizedBox(height: 24),

@@ -6,6 +6,7 @@ import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 export 'package:wowcare/presentation/features/reports/widgets/report_month_year_field.dart';
 
 class ReportFormLayout extends StatelessWidget {
@@ -78,19 +79,7 @@ class ReportFormLayout extends StatelessWidget {
                       ),
                     ),
                     padding: EdgeInsets.all(context.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(context.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(context.isTablet ? 40.0 : 24.0), )),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [child],
@@ -112,20 +101,7 @@ class ReportFormLayout extends StatelessWidget {
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blackColor.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(context.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(context.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(context.isTablet ? 40.0 : 24.0), topRight: Radius.circular(context.isTablet ? 40.0 : 24.0), )),
               child: CustomButtonLayout(
                 confirmButtonLabel: generateLabel,
                 onPressedConfirm: onGenerate,

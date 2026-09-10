@@ -18,6 +18,7 @@ import 'package:wowcare/data/features/staff/models/staff_important_dates_models.
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
@@ -559,20 +560,7 @@ class _EditImportantDatesScreenViewState
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.billingShadowColorLight,
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: CustomButtonLayout(
                 confirmButtonLabel: 'Save',
                 onPressedConfirm: isSubmitting ? null : _saveImportantDates,

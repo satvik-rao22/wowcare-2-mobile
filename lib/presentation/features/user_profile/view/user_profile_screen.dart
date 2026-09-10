@@ -696,25 +696,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               child: Container(
                                                 width: 32,
                                                 height: 32,
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.cardColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: AppColors
-                                                          .blackColor
-                                                          .withValues(
-                                                            alpha: 0.08,
-                                                          ),
-                                                      blurRadius: 6,
-                                                      offset: const Offset(
-                                                        0,
-                                                        2,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                                decoration: AppSurfaces.card(radius: 16),
                                                 child: Container(
                                                   margin: const EdgeInsets.all(
                                                     2,
@@ -863,19 +845,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                       child: Container(
                         margin: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.circular(9),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.blackColor.withValues(
-                                alpha: 0.06,
-                              ),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(radius: 9),
                         child: Column(
                           children: [
                             Padding(

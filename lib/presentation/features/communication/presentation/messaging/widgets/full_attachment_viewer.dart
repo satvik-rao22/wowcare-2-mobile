@@ -16,6 +16,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/attachm
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Resolves [att] and opens the full-screen media viewer route. Top-level so
 /// the extracted layout widgets can call it directly (Mandate 6 — the layout
@@ -349,21 +350,7 @@ class _DocumentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => AttachmentOpenHelper.open(context, document),
         child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.messagingSurfaceMuted,
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.card(radius: 12),
           child: Padding(
             padding: const EdgeInsets.all(AppSizes.sm),
             child: Row(

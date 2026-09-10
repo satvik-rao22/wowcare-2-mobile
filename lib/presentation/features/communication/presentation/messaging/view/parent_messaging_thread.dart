@@ -2183,19 +2183,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                 ).viewInsets.bottom,
                               ),
                               child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: AppColors.cardColor,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.blackColor.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, -2),
-                                    ),
-                                  ],
-                                ),
+                                decoration: AppSurfaces.card(radius: 12),
                                 // Only the composer rebuilds on quote/edit/
                                 // attachment changes — the list above is untouched.
                                 child: BlocBuilder<ComposerCubit<Message>, ComposerState<Message>>(
@@ -3282,17 +3270,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           SafeArea(
                             top: false,
                             child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: AppColors.cardColor,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.blackColor.withValues(alpha: 0.05),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, -2),
-                                  ),
-                                ],
-                              ),
+                              decoration: AppSurfaces.card(radius: 12),
                               child:
                                   BlocBuilder<
                                     ComposerCubit<Message>,

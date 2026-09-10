@@ -21,6 +21,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -290,20 +291,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           right: AppSpacing.md,
           top: AppSpacing.xs,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.whiteColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
         child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
           builder: (context, state) {
             return CustomButtonLayout(

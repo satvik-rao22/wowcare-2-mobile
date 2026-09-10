@@ -48,6 +48,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -1927,19 +1928,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           ),
                         ),
                         Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.cardColor,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(12),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.blackColor.withValues(alpha: 0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, -2),
-                              ),
-                            ],
-                          ),
+                          decoration: AppSurfaces.card(borderRadius: const BorderRadius.vertical( bottom: Radius.circular(12), )),
                           child: SafeArea(
                             top: false,
                             // Only the composer rebuilds on quote/edit/attachment

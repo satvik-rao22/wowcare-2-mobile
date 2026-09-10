@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'dart:io';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStaffScreen extends StatelessWidget {
   const AddStaffScreen({
@@ -765,21 +766,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                           padding: EdgeInsets.all(
                             responsive.isTablet ? 32.0 : 16.0,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardColor,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0,
-                              ),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.billingShadowColorLight,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
+                          decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                           child: Column(
                             children: [
                               if (_warningMessage != null)
@@ -1143,22 +1130,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                   right: 16,
                   top: 8,
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.cardColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.billingShadowColorLight,
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(
-                      responsive.isTablet ? 40.0 : 24.0,
-                    ),
-                  ),
-                ),
+                decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                 child:
                     BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
                       bloc: _createSchoolUserCubit,

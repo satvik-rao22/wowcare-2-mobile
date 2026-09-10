@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/student_atte
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -967,18 +968,7 @@ class _CustomStudentCardItem extends StatelessWidget {
           horizontal: AppSpacing.sm,
           vertical: AppSpacing.s10,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: AppRadius.allLg,
-          border: Border.all(color: AppColors.cardBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.attendanceCardShadowLightColor,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: AppRadius.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

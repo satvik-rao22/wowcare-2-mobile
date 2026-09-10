@@ -590,20 +590,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
           right: 16,
           top: 8,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.billingShadowColorLight,
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
         child: Container(
           height: responsive.buttonHeight,
           decoration: AppSurfaces.key(KeyVariant.primary, radius: responsive.isTablet ? 16.0 : 8.0,),

@@ -20,6 +20,7 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_document_up
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddDocumentScreen extends StatelessWidget {
   const AddDocumentScreen({
@@ -402,20 +403,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
             right: 16,
             top: 8,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.billingShadowColorLight,
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
             builder: (context, state) {
               return BlocBuilder<

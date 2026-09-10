@@ -263,17 +263,7 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
 
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.12),
-            blurRadius: 5,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 12),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

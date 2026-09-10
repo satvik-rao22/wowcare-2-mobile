@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffFormLayout extends StatelessWidget {
   const StaffFormLayout({
@@ -156,19 +157,7 @@ class StaffFormLayout extends StatelessWidget {
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.billingShadowColorLight,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: child,
                   ),
                 ),

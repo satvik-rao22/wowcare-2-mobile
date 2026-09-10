@@ -91,17 +91,7 @@ class _UnexpectedSignInAttentionDialogBodyState
         color: AppColors.transparentColor,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: AppRadius.allLg,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryColor.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.card(radius: AppRadius.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

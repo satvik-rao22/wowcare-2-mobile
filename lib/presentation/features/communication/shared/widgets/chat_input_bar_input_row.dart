@@ -259,18 +259,7 @@ class _InputRow extends StatelessWidget {
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 48),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: AppColors.messagingInputBorder, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blackColor.withValues(alpha: 0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
+              decoration: AppSurfaces.card(radius: 26),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

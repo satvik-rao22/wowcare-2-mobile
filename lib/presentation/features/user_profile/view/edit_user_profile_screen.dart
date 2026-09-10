@@ -588,20 +588,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             right: 16,
             top: 8,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: Container(
             height: responsive.buttonHeight,
             decoration: AppSurfaces.key(!(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0,),
