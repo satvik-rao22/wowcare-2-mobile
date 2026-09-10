@@ -61,6 +61,28 @@ After the splits, 27 non-generated files remain >400 lines. They fall into three
 
 `StaffMessagingFilterCubit` + `StaffMessagingFilterState` (283 lines) were constructed nowhere in `lib` or `test` — deleted.
 
+### Util-folder / Mandate-3.3 + deeper Mandate-5 (batches 6–7)
+
+The `util/`/`utils/` folders under presentation (14 files) — pure-Dart helpers, authorization rules, mappers and controllers in the wrong layer.
+
+**Done (batch 6 — pure relocations, behaviour-preserving moves + import updates):**
+- Authorization/visibility rules → `domain/features/communication/policies/`: `room_chat_privacy_helper`, `role_aware_ownership`; derived display → `conversation_display`.
+- Mappers → `data/features/communication/mappers/`: `participant_mapper`, `message_entity_mapper`.
+- Time formatting → `core/extensions/`: `messaging_time_formatter`.
+- Controllers/behaviour → `shared/widgets/`: `html_aware_text_controller`, `chat_scroll_behavior`.
+
+**Done (batch 7 — the priority authorization rule, full Mandate-5 fix):**
+- `MessageDeletePermission` value → `domain/policies/`; `resolve()` → domain use-case `ResolveMessageDeletePermissionUseCase`; the 3 thread views now call it through `CommunicationCubit`/`ConversationThreadCubit` instead of invoking a use-case directly.
+- Deleted the dead duplicate presentation `pending_attachment_storage.dart` (live impl already in `data/services`; resolves the `path_provider`-in-presentation item and a duplicate class name).
+
+**Remaining (needs a dedicated pass — deep service-injection, not a move):**
+- `attachment_url_resolver.dart`, `attachment_open_helper.dart` — leaf widgets/helpers that call `resolveImageUploadService()` / `FileDownloadService` / `http` and import `app/di/messaging_resolvers`. Proper fix: inject the upload/download service (via the owning cubit or a provided service), not a relocation — cascades into parent widgets, so it needs careful per-widget work.
+- `messaging_shortcut.dart` (200) — invokes `CreateOrOpenConversationUseCase` **and** does `context.push` routing from a helper (Mandate 1 + 5). Fix: the use-case call moves to a cubit; the routing moves to the caller.
+- `message_content_processor.dart` (285) — mixes pure URL/email/phone detection (→ domain) with `url_launcher` platform calls (→ injected service). Split by concern.
+- **Then** collapse the (now nearly-empty) `util/`/`utils/` folders and **flatten the double-nested `communication/presentation/`** (~40 files) — messaging-local, but a large mechanical move best done once develop-refactor's folder migration settles, or it re-conflicts.
+
+These four are the deep-restructure tail; they were deliberately not rushed at the end of a long remediation, to avoid regressions in live attachment/URL/conversation flows.
+
 ## Also found during remediation (not in the original audit)
 
 - **Duplicate library-private class names** across screens — `_EmptyState`, `_ErrorBanner`, `_FullScreenError`, `_ConversationTileContent` appear in both `conversation_list_screen` and `admin_chat_host_screen`. Library-private, so no functional collision, but Mandate 6 says "no two classes share a name." A **shared-widget dedup** is the fix (a follow-up; extracting them to `part` files here preserved the status quo without collision).
