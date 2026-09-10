@@ -26,8 +26,8 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';

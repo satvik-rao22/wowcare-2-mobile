@@ -13,7 +13,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
 
 // ── Minimal fake base (satisfies interface without mockito) ───────────────────
 

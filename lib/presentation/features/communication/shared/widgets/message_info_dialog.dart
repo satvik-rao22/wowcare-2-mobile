@@ -4,7 +4,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// A single recipient's delivery/read state for [MessageInfoDialog] —

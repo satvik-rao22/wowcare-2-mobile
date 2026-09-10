@@ -19,7 +19,7 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
+import 'package:wowcare/data/features/communication/mappers/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
