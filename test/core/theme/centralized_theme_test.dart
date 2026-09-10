@@ -14,6 +14,12 @@ import 'package:wowcare/core/utils/app_themes.dart';
 /// If one of these fails, the fix is to add (or reuse) a token in the config
 /// file and reference it, not to relax the test.
 void main() {
+  /// `surfaceTint` is satisfied either by transparent or by not being set.
+  final Matcher isTransparent = anyOf(
+    isNull,
+    equals(AppColors.transparentColor),
+  );
+
   /// Every `.dart` file under `lib/`, paired with its source, with the theme
   /// definitions themselves excluded — those are where the values live.
   final List<({String path, String source})> sources =
@@ -431,6 +437,56 @@ void main() {
               'every call site that draws it renders a gradient.',
         );
       }
+    });
+  });
+
+  group("Material's own widgets follow the palette", () {
+    test('the scheme is read from AppPalette, not derived from a seed', () {
+      // ColorScheme.fromSeed(pink) made every Material surface a pink-tinted
+      // neutral: the date picker's ground, a dropdown's menu, an
+      // AlertDialog. None of it was reachable from app_theme_config.dart.
+      for (final ColorScheme scheme in <ColorScheme>[
+        lightTheme.colorScheme,
+        darkTheme.colorScheme,
+      ]) {
+        expect(scheme.primary, AppPalette.brand);
+        expect(scheme.onPrimary, AppPalette.onBrand);
+        expect(scheme.surface, AppPalette.surfaceCard);
+        expect(scheme.onSurface, AppPalette.textPrimary);
+        expect(scheme.error, AppPalette.statusError);
+        expect(scheme.outlineVariant, AppPalette.border);
+      }
+    });
+
+    test('elevation never stains a surface with the brand colour', () {
+      // Depth here is the bevel, the rim and the ambient shadow. Material 3
+      // would otherwise blend surfaceTint into anything it raises.
+      expect(lightTheme.colorScheme.surfaceTint, AppColors.transparentColor);
+      expect(darkTheme.colorScheme.surfaceTint, AppColors.transparentColor);
+      expect(lightTheme.cardTheme.surfaceTintColor, isTransparent);
+      expect(lightTheme.dialogTheme.surfaceTintColor, isTransparent);
+      expect(lightTheme.popupMenuTheme.surfaceTintColor, isTransparent);
+      expect(lightTheme.bottomSheetTheme.surfaceTintColor, isTransparent);
+      expect(lightTheme.datePickerTheme.surfaceTintColor, isTransparent);
+      expect(lightTheme.appBarTheme.surfaceTintColor, isTransparent);
+    });
+
+    test('the surfaces Material picks for itself are ours', () {
+      expect(lightTheme.scaffoldBackgroundColor, AppPalette.surfacePage);
+      expect(lightTheme.dialogTheme.backgroundColor, AppPalette.surfaceCard);
+      expect(
+        lightTheme.bottomSheetTheme.modalBackgroundColor,
+        AppPalette.surfaceSunken,
+      );
+      expect(lightTheme.popupMenuTheme.color, AppPalette.surfaceCard);
+      expect(
+        lightTheme.datePickerTheme.backgroundColor,
+        AppPalette.surfaceCard,
+      );
+      expect(
+        lightTheme.snackBarTheme.backgroundColor,
+        AppPalette.surfaceInverse,
+      );
     });
   });
 
