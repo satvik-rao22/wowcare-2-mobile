@@ -7,7 +7,6 @@ import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../presentation/features/classroom/view/classroom_tab_cards/classroom_notes_tab_card.dart';
 
 enum FieldType { text, dropdown, datePicker, fileUpload }
@@ -78,6 +77,7 @@ class DynamicModalBottomSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: AppPalette.surfaceSunken,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -346,7 +346,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.themeColor,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                   ),
@@ -359,8 +359,8 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                       }
                     },
                     style: TextButton.styleFrom(
-                      backgroundColor: AppColors.themeColor,
-                      foregroundColor: AppColors.whiteColor,
+                      backgroundColor: AppPalette.brand,
+                      foregroundColor: AppPalette.onBrand,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                       ),
@@ -384,7 +384,6 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
     );
   }
 }
-
 
 ///////////////////////////////////////////////////////////////// Original code (Working) //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -754,8 +753,6 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //     );
 //   }
 // }
-
-
 
 /////////////////////////////////////////////////////////////////Permission change New(don't know if it works)//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

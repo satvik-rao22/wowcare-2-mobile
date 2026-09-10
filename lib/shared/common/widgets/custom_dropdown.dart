@@ -125,6 +125,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomDropdown extends StatefulWidget {
@@ -240,11 +241,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     (widget.isField ? 40 : 30),
               ),
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppPalette.brandSoft.withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: AppSurfaces.well(radius: 10),
               // Ensure dropdown interactions never trigger the software keyboard.
               // On some screens, after selecting an item the focus returns to a text field,
               // which causes the keyboard to pop open unexpectedly (e.g., State/Country).

@@ -108,8 +108,8 @@ class SelectedStudentTile extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: useViewColors
-            ? AppColors.whiteColor
-            : AppPalette.brandSoft.withValues(alpha: 0.102),
+            ? AppPalette.surfaceCard
+            : AppPalette.surfaceSunken,
         borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
         border: Border.all(color: AppColors.themeColor, width: 1),
       ),

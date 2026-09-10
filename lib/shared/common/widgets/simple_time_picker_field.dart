@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -39,11 +39,14 @@ class SimpleTimePickerField extends StatelessWidget {
   Future<TimeOfDay> _defaultPickerTime() async {
     if (time != null) return time!;
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       return dt.$2;
     } catch (_) {
       return ServerTimeService.instance.timeOfDayNow();
@@ -73,17 +76,8 @@ class SimpleTimePickerField extends StatelessWidget {
     return InkWell(
       onTap: () => _pickTime(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: MaterialHues.grey300,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          color: AppPalette.surfaceSelected,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        decoration: AppSurfaces.well(radius: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -99,4 +93,3 @@ class SimpleTimePickerField extends StatelessWidget {
     );
   }
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../core/theme/app_colors.dart';
 
@@ -20,7 +21,7 @@ class PrimaryCircularLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor = color ?? AppColors.themeColor;
+    final resolvedColor = color ?? AppPalette.brand;
     return SizedBox(
       height: size,
       width: size,

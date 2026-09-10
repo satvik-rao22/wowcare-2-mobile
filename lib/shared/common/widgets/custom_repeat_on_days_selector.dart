@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
@@ -73,23 +74,18 @@ class _CustomRepeatOnDaysSelectorState
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF4B2E4C),
+                  color: AppPalette.textPrimary,
                 ),
               ),
               const Spacer(),
               GestureDetector(
                 onTap: _toggleSelectAll,
-                child: ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: AppColors.primaryGradientColors,
-                  ).createShader(bounds),
-                  child: const Text(
-                    'Select All',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.whiteColor,
-                    ),
+                child: const Text(
+                  'Select All',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppPalette.brand,
                   ),
                 ),
               ),
@@ -132,15 +128,13 @@ class _CustomRepeatOnDaysSelectorState
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: isSelected
-                    ? AppColors.themeColor
-                    : const Color(0xFFDDD6DD),
+                color: isSelected ? AppPalette.brand : AppPalette.borderStrong,
                 width: 2,
               ),
-              color: isSelected ? AppColors.themeColor : Colors.transparent,
+              color: isSelected ? AppPalette.brand : AppColors.transparentColor,
             ),
             child: isSelected
-                ? const Icon(Icons.check, size: 18, color: AppColors.whiteColor)
+                ? const Icon(Icons.check, size: 18, color: AppPalette.onBrand)
                 : null,
           ),
           const SizedBox(width: 10),

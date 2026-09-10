@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 
 /// Dark scrim + percentage pill shown over an avatar while a profile photo or
@@ -41,65 +42,71 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Container(
-            width: 72,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.primaryColor.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.whiteColor.withValues(alpha: 0.22)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${clamped.round()}%',
-                  style: const TextStyle(
-                    color: AppColors.whiteColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                width: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppPalette.textOnDark.withValues(alpha: 0.22),
                   ),
                 ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: (clamped / 100).clamp(0.0, 1.0),
-                    minHeight: 4,
-                    backgroundColor: AppColors.whiteColor.withValues(alpha: 0.22),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppColors.themeColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SvgPicture.asset(
-                      MediaRes.uploadIcon,
-                      height: 10,
-                      width: 10,
-                      colorFilter: ColorFilter.mode(
-                        AppColors.whiteColor.withValues(alpha: 0.92),
-                        BlendMode.srcIn,
+                    Text(
+                      '${clamped.round()}%',
+                      style: const TextStyle(
+                        color: AppPalette.textOnDark,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 3),
-                    Text(
-                      clamped >= 100 ? 'Finalizing' : 'Uploading',
-                      style: TextStyle(
-                        color: AppColors.whiteColor.withValues(alpha: 0.92),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: (clamped / 100).clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: AppPalette.textOnDark.withValues(
+                          alpha: 0.22,
+                        ),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.themeColor,
+                        ),
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          MediaRes.uploadIcon,
+                          height: 10,
+                          width: 10,
+                          colorFilter: ColorFilter.mode(
+                            AppPalette.textOnDark.withValues(alpha: 0.92),
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          clamped >= 100 ? 'Finalizing' : 'Uploading',
+                          style: TextStyle(
+                            color: AppPalette.textOnDark.withValues(
+                              alpha: 0.92,
+                            ),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
               ),
             ),
+          ),
         ),
       ),
     );

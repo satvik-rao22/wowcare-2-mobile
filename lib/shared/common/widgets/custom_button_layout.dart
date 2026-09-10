@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CustomButtonLayout extends StatelessWidget {
   const CustomButtonLayout({
@@ -28,23 +29,19 @@ class CustomButtonLayout extends StatelessWidget {
   final String? disabledConfirmTooltip;
   final bool showCancelButton;
   final bool isForm;
-  /// When true, shows a white loader on top of the confirm button
+
+  /// When true, shows a warm-white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;
 
-  /// When true, the cancel button's label text is painted with the primary
-  /// gradient instead of the flat primary color.
+  /// Kept for source compatibility; see [CustomCancelButton.gradientLabel].
+  /// There are no gradients any more, so this no longer changes anything.
   final bool gradientCancelLabel;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: isForm
-          ? BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: AppColors.cardColor,
-            )
-          : null,
+      decoration: isForm ? AppSurfaces.card() : null,
       padding: isForm ? const EdgeInsets.all(20) : null,
       child: IgnorePointer(
         ignoring: isLoading,
@@ -66,7 +63,8 @@ class CustomButtonLayout extends StatelessWidget {
                   Opacity(
                     opacity: isLoading ? 0.6 : 1,
                     child: Tooltip(
-                      message: (onPressedConfirm == null &&
+                      message:
+                          (onPressedConfirm == null &&
                               disabledConfirmTooltip != null)
                           ? disabledConfirmTooltip!
                           : '',
@@ -91,7 +89,9 @@ class CustomButtonLayout extends StatelessWidget {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppPalette.onBrand,
+                        ),
                       ),
                     ),
                 ],

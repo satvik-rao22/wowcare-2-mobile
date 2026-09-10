@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomConfirmButton extends StatefulWidget {
@@ -47,21 +48,20 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
     return Container(
       width: double.infinity,
       height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : MaterialHues.grey300,
+      decoration: AppSurfaces.key(
+        isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+        radius: 8,
       ),
       child: TextButton(
         onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? AppColors.whiteColor : MaterialHues.grey600,
-          disabledForegroundColor: MaterialHues.grey600,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+          backgroundColor: AppColors.transparentColor,
+          foregroundColor: AppSurfaces.keyInk(
+            isEnabled ? KeyVariant.primary : KeyVariant.disabled,
           ),
+          disabledForegroundColor: AppSurfaces.keyInk(KeyVariant.disabled),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -69,18 +69,20 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppPalette.onBrand),
                 ),
               )
             : widget.widget ??
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? AppColors.whiteColor : MaterialHues.grey600,
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppSurfaces.keyInk(
+                        isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+                      ),
+                    ),
                   ),
-                ),
       ),
     );
   }

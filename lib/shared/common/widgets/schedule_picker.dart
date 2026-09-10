@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -18,7 +17,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
     'Tuesday',
     'Wednesday',
     'Thursday',
-    'Friday'
+    'Friday',
   ];
 
   String _formatTimeSlot(TimeSlot slot) {
@@ -40,9 +39,9 @@ class _SchedulePickerState extends State<SchedulePicker> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.whiteColor,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MaterialHues.grey300),
+        border: Border.all(color: AppPalette.borderHairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +84,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
               );
             }).toList(),
           ),
-
         ],
       ),
     );
@@ -100,7 +98,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
         initialSlot: existing,
         openTime: const TimeOfDay(hour: 8, minute: 30),
         closeTime: const TimeOfDay(hour: 15, minute: 30),
-      )//TimeSlotDialog(initialSlot: existing),
+      ), //TimeSlotDialog(initialSlot: existing),
     );
 
     if (result is TimeSlot) {
@@ -110,7 +108,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
     }
   }
 }
-
 
 class _ScheduleChip extends StatelessWidget {
   const _ScheduleChip({
@@ -230,6 +227,7 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
     final period = t.period == DayPeriod.am ? 'AM' : 'PM';
     return '$h:$m $period';
   }
+
   // replaced with warning text under the listtiles
   void _showWarningMessage(String message) {
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
@@ -274,7 +272,10 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.cardColor,
                   borderRadius: BorderRadius.circular(8),
@@ -282,11 +283,18 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.access_time, size: 16, color: AppColors.primaryColor),
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: AppColors.primaryColor,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Allowed: ${_format12(widget.openTime)} – ${_format12(widget.closeTime)}',
-                      style: TextStyle(fontSize: 13, color: AppColors.primaryColor),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.primaryColor,
+                      ),
                     ),
                   ],
                 ),
@@ -297,9 +305,16 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                 children: [
                   ListTile(
                     title: const Text('Start Time'),
-                    trailing: Text(_format12(start), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    trailing: Text(
+                      _format12(start),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onTap: () async {
-                      final clampedInitial = _clampTime(start, widget.openTime, widget.closeTime);
+                      final clampedInitial = _clampTime(
+                        start,
+                        widget.openTime,
+                        widget.closeTime,
+                      );
 
                       final picked = await showTimePicker(
                         context: context,
@@ -307,12 +322,14 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                         builder: (context, child) {
                           return Theme(
                             data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
+                              colorScheme: const ColorScheme.light(
+                                primary: const Color(0xFF7B7EFB),
+                              ),
                             ),
                             child: MediaQuery(
-                              data: MediaQuery.of(context).copyWith(
-                                alwaysUse24HourFormat: true,
-                              ),
+                              data: MediaQuery.of(
+                                context,
+                              ).copyWith(alwaysUse24HourFormat: true),
                               child: child!,
                             ),
                             //child: child!,
@@ -322,7 +339,8 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       if (picked == null) return;
                       setDialogState(() {
                         if (_toMinutes(picked) < _toMinutes(widget.openTime)) {
-                          startError = 'Cannot be earlier than ${_format12(widget.openTime)}';
+                          startError =
+                              'Cannot be earlier than ${_format12(widget.openTime)}';
                         } else if (!_isBefore(picked, widget.closeTime)) {
                           startError = 'Must be before closing time';
                         } else {
@@ -332,15 +350,14 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                           // Auto-adjust end time if it becomes invalid
                           if (!_isAfter(end, start)) {
                             end = _addMinutes(start, 60);
-                            if (_toMinutes(end) > _toMinutes(widget.closeTime)) {
+                            if (_toMinutes(end) >
+                                _toMinutes(widget.closeTime)) {
                               end = widget.closeTime;
                             }
                             endError = null;
                           }
                         }
                       });
-
-
 
                       // if (_toMinutes(picked) < _toMinutes(widget.openTime)) {
                       //   _showWarningMessage('Start time cannot be earlier than ${_format12(widget.openTime)}');
@@ -363,7 +380,6 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       //       }
                       //     }
                       //   });
-
                     },
                   ),
                   if (startError != null)
@@ -371,19 +387,25 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       padding: const EdgeInsets.only(left: 16, top: 4),
                       child: Text(
                         startError!,
-                        style: const TextStyle(color: MaterialHues.red, fontSize: 12.5),
+                        style: const TextStyle(
+                          color: MaterialHues.red,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 16,),
+              const SizedBox(height: 16),
 
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ListTile(
                     title: const Text('End Time'),
-                    trailing: Text(_format12(end), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    trailing: Text(
+                      _format12(end),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onTap: () async {
                       final picked = await showTimePicker(
                         context: context,
@@ -391,12 +413,14 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                         builder: (context, child) {
                           return Theme(
                             data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.light(primary: const Color(0xFF7B7EFB)),
+                              colorScheme: const ColorScheme.light(
+                                primary: const Color(0xFF7B7EFB),
+                              ),
                             ),
                             child: MediaQuery(
-                              data: MediaQuery.of(context).copyWith(
-                                alwaysUse24HourFormat: true,
-                              ),
+                              data: MediaQuery.of(
+                                context,
+                              ).copyWith(alwaysUse24HourFormat: true),
                               child: child!,
                             ),
                             //child: child!,
@@ -408,8 +432,10 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       setDialogState(() {
                         if (!_isAfter(picked, start)) {
                           endError = 'Must be after start time';
-                        } else if (_toMinutes(picked) > _toMinutes(widget.closeTime)) {
-                          endError = 'Cannot be later than ${_format12(widget.closeTime)}';
+                        } else if (_toMinutes(picked) >
+                            _toMinutes(widget.closeTime)) {
+                          endError =
+                              'Cannot be later than ${_format12(widget.closeTime)}';
                         } else {
                           endError = null;
                           end = picked;
@@ -436,7 +462,10 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                       padding: const EdgeInsets.only(left: 16, top: 4),
                       child: Text(
                         endError!,
-                        style: const TextStyle(color: MaterialHues.red, fontSize: 12.5),
+                        style: const TextStyle(
+                          color: MaterialHues.red,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ),
                 ],
@@ -444,7 +473,6 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
             ],
           );
         },
-
       ),
       actions: [
         if (isEditing)
@@ -452,7 +480,10 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
             onPressed: () => Navigator.pop(context, 'Remove'),
             child: const Text('Remove'),
           ),
-        TextButton(onPressed: () => Navigator.pop(context, 'Cancel'), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context, 'Cancel'),
+          child: const Text('Cancel'),
+        ),
         ElevatedButton(
           onPressed: _isAfter(end, start)
               ? () => Navigator.pop(context, TimeSlot(start: start, end: end))
@@ -463,4 +494,3 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
     );
   }
 }
-

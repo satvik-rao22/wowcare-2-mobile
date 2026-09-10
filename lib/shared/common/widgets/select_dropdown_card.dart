@@ -24,9 +24,9 @@ class SelectDropdownCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
+        color: AppPalette.surfaceField,
         borderRadius: borderRadius,
-        border: Border.all(color: AppColors.cardBorderColor),
+        border: Border.all(color: AppColors.transparentColor),
         boxShadow: const [
           BoxShadow(
             color: Color.fromRGBO(0, 0, 0, 0.04),

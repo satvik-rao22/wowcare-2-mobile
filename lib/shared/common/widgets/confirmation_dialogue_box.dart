@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ConfirmationDialog extends StatelessWidget {
   final String title;
@@ -20,9 +21,8 @@ class ConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    
     return AlertDialog(
+      backgroundColor: AppPalette.surfaceCard,
       title: Text(title),
       content: Text(content),
       actions: [
@@ -43,14 +43,11 @@ class ConfirmationDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(true), // Confirm action
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: Text(
               confirmText,
               style: const TextStyle(
-                color: AppColors.whiteColor,
+                color: AppPalette.onBrand,
                 fontWeight: FontWeight.w600,
               ),
             ),

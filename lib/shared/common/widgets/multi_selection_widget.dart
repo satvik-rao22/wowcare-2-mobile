@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -101,10 +102,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 320),
-                  decoration: BoxDecoration(
-                    color: AppColors.whiteColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: AppSurfaces.card(radius: 12),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
                       final responsive = ResponsiveHelper(context);
@@ -371,7 +369,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           decoration: BoxDecoration(
                             color: widget.colorfulSelection
                                 ? _getTagBackgroundColor(tag)
-                                : AppColors.whiteColor,
+                                : AppPalette.surfaceCard,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -452,13 +450,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : MaterialHues.grey500,
+          color: value ? AppColors.transparentColor : AppPalette.borderStrong,
           width: 2,
         ),
-        gradient: value ? AppColors.buildPrimaryGradient() : null,
+        color: value ? AppPalette.brand : AppColors.transparentColor,
       ),
       child: value
-          ? const Icon(Icons.check, size: 16, color: AppColors.whiteColor)
+          ? const Icon(Icons.check, size: 16, color: AppPalette.onBrand)
           : null,
     );
   }

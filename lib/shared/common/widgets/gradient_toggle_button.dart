@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/skeu_decoration.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
-/// Gradient switch used across the app for compact toggles.
+/// The compact switch used across the app.
+///
+/// The design's `.toggle`: the track is a well the knob slides along, and it
+/// fills green when on. Named for the gradient it used to paint; there is no
+/// gradient in it any more.
 class GradientToggleButton extends StatelessWidget {
   const GradientToggleButton({
     super.key,
@@ -21,10 +27,6 @@ class GradientToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trackGradient = value
-        ? AppColors.buildPrimaryGradient()
-        : AppColors.buildPrimaryGradient().withOpacity(0.45);
-
     final knobSize = height - 6;
 
     return IgnorePointer(
@@ -33,23 +35,24 @@ class GradientToggleButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () => onChanged(!value),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
+          duration: AppMotion.base,
+          curve: AppMotion.easeOut,
           width: width,
           height: height,
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: disabled ? null : trackGradient,
-            color: disabled ? MaterialHues.grey500.withValues(alpha: 0.25) : null,
-          ),
+          decoration: value && !disabled
+              ? SkeuDecoration(
+                  color: AppPalette.statusSuccess,
+                  borderRadius: AppRadius.allPill,
+                )
+              : AppSurfaces.trough(),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: knobSize,
-            height: knobSize,
-            decoration: const BoxDecoration(
-              color: AppColors.cardColor,
-              shape: BoxShape.circle,
+          child: Opacity(
+            opacity: disabled ? 0.5 : 1,
+            child: Container(
+              width: knobSize,
+              height: knobSize,
+              decoration: AppSurfaces.knob(),
             ),
           ),
         ),

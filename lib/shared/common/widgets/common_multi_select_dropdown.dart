@@ -19,7 +19,8 @@ class CommonMultiSelectDropdown extends StatefulWidget {
   final bool isRequired;
 
   @override
-  State<CommonMultiSelectDropdown> createState() => _CommonMultiSelectDropdownState();
+  State<CommonMultiSelectDropdown> createState() =>
+      _CommonMultiSelectDropdownState();
 }
 
 class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
@@ -94,7 +95,10 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
             children: [
               TextSpan(text: widget.label),
               if (widget.isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: MaterialHues.red),
+                ),
             ],
           ),
         ),
@@ -105,9 +109,9 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              border: Border.all(color: AppPalette.borderField),
+              border: Border.all(color: AppColors.transparentColor),
               borderRadius: BorderRadius.circular(12),
-              color: AppColors.whiteColor,
+              color: AppPalette.surfaceField,
             ),
             child: Row(
               children: [
@@ -118,7 +122,10 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.primaryColor,
+                ),
               ],
             ),
           ),
@@ -127,5 +134,3 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
     );
   }
 }
-
-

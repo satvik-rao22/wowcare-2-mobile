@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/login_persona_util.dart';
@@ -127,7 +128,9 @@ class _SignInScreenState extends State<SignInScreen>
       _saveCredentials();
 
       // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
-      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      AppLogger.d(
+        '[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}',
+      );
       if (loginResponseIsKioskUser(state.loginResponse.roles)) {
         AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
         if (context.mounted) {
@@ -312,8 +315,7 @@ class _SignInScreenState extends State<SignInScreen>
                                   emailController.text.trim().isNotEmpty &&
                                   passwordController.text.trim().isNotEmpty,
                               onPressed: () => _handleSignIn(context),
-                              gradient: AppColors.buildPrimaryGradient(),
-                              lableColor: AppColors.cardColor,
+                              lableColor: AppPalette.onBrand,
                             ),
                           ),
                   ),

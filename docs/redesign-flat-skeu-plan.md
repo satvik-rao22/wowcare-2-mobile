@@ -237,6 +237,44 @@ components specimen that governs them:
 The five `gradient_*` filenames keep their names through this work so the diff stays a restyle.
 Renaming them is a separate, mechanical commit at the end if you want it.
 
+### Phase 2 as landed
+
+Grouped by the `03 Components` specimen that governs each widget.
+
+| Specimen | What changed |
+|---|---|
+| `.key--primary` / `secondary` / `disabled` | `custom_confirm_button` is `key(primary)` with the disabled variant behind the same call; `custom_cancel_button` and `custom_floating_text_button` are `key(secondary)`; `rounded_button_new` is the pill primary key and lost its `gradient` parameter (one call site, the sign-in screen); `custom_button_layout` and `reusable_cancle_save_buttons` sit on a `card()`; `reusable_password_change_button` likewise. `rounded_button` lost its `AnimatedScale(0.80)`, which collapsed the button 20 percent, in favour of the 3px sink a key actually does |
+| `.fab` | `custom_floating_action_button` and `gradient_add_button` are `fab()`. The no-permission state is the design's dead FAB: recessed, rimless, `inkFaint` glyph, **still in place** |
+| `.field` / `.search` / `.dropdown` | `AppSurfaces.fieldDecoration()` gives every `TextField` the well's fill and radius with the focus and error rings; `custom_text_field`, `text_field`, `custom_search_bar` use it. The tappable wells that are not text fields (`custom_dropdown`, `custom_flexible_dropdown`, `custom_add_notes_field`, `custom_date_time_field`, `simple_time_picker_field`, `select_dropdown_card`, `common_single_select_dropdown`, `common_multi_select_dropdown`, `relation_selector`) take `well()` and keep the inset shadow |
+| `.card` | `custom_section_card`, `profile_info_card`, `custom_time_chip`, `expandable_info_card`, `schedule_picker`, `multi_selection_widget`'s panel |
+| `.sheet` | `confirmation_bottom_sheet`, `delete_confirmation_bottom_sheet`, `duplicate_student_bottom_sheet`, `post_add_staff_bottom_sheet`, `post_add_student_bottom_sheet`, `reusable_modal_bottom_sheet`, `reusable_log_out_model_sheet`, `confirmation_dialogue_box`, `calendar_dialog`: sheet ground `#EFF2FB`, pink circular badge with warm-white glyph, `key(secondary)` cancel and `key(primary)` confirm |
+| `.toggle`, `.chip`, `.segmented` | `custom_toggle` and `gradient_toggle_button` are the design's toggle: a **well** for the track, green when on, a raised knob. `custom_checkbox`, `custom_chip`, `custom_clear_all_chip`, `custom_repeat_on_days_selector`, and the three hand-rolled checkboxes in `classroom_selection_widget_exact`, `multi_selection_widget` and `custom_multi_select_dropdown` |
+| `.row`, `.avatar`, `.trough`, `.toast` | `student_tile`, `selected_student_tile`, `selection_list_item`, `custom_profile_avatar`, `profile_show_widget`, `custom_stat_bar_card`, `gradient_circular_progress`, `photo_upload_progress_overlay`, and `app_tooltip`, which was a near-black slab and is now the design's navy toast |
+| shimmer | `custom_shimmer_loader` and `simmer_loader`: 185 sites. Base is the well `#E5EAF7`, highlight the alt well `#EDF1FA`, and every placeholder block is a card face |
+
+**The one place the design could not be followed literally.** A Flutter
+`TextField` takes its fill and border from an `InputDecoration`, which has no
+inset shadow, and wrapping the field in a decorated box is wrong for a
+different reason: the error and counter text render *below* the input and
+would end up inside the well. So a text field gets the well's flat fill and
+radius and goes without the inset; the cool fill on the warm tray still reads
+as cut in. Everything you do not type into keeps the inset. This is written
+into `AppSurfaces` where the helper lives.
+
+**Also worth knowing:**
+
+* `custom_chip` and `gradient_background` still accept a `LinearGradient`
+  parameter, so both stay on the gradient allowlist. Neither paints one:
+  `custom_chip` takes the first stop as a flat fill. They come off the list
+  when the parameters go, which is a caller-side change.
+* `hls_web_player` keeps its white player chrome. It is a video surface, not
+  an app surface.
+
+**Verified:** analyze 139, one below the 140 baseline, because a dead
+`responsive` local in `confirmation_dialogue_box` went with the import that
+made it unused. Tests 1350 pass / 8 fail, the baseline 8. Theme suite 40.
+Allowlists: gradient files 116 to 97, colour-literal files 51 to 44.
+
 ## 5. Module order
 
 Chrome and the shared kit first, because they front every module. Then module by module, each

@@ -249,8 +249,8 @@ class RelationSelectorState extends State<RelationSelector> {
             minHeight: widget.fieldHeight ?? responsive.inputFieldHeight,
           ),
           decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            border: Border.all(color: AppPalette.borderField),
+            color: AppPalette.surfaceField,
+            border: Border.all(color: AppColors.transparentColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),

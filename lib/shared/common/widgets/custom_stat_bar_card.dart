@@ -130,7 +130,9 @@ class CustomStatBarCard extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           shape: BoxShape.rectangle,
-          color: isSelected ? AppColors.whiteColor : Colors.transparent,
+          color: isSelected
+              ? AppPalette.surfaceCard
+              : AppColors.transparentColor,
           border: Border(
             bottom: BorderSide(
               color: isSelected ? AppColors.themeColor : Colors.transparent,
@@ -269,7 +271,11 @@ class CustomStatBarCard extends StatelessWidget {
                 width: double.infinity,
                 child: Row(
                   children: percentTotal == 0
-                      ? [Expanded(child: Container(color: MaterialHues.grey300))]
+                      ? [
+                          Expanded(
+                            child: Container(color: MaterialHues.grey300),
+                          ),
+                        ]
                       : [
                           ...barItems.map(
                             (item) => Expanded(
@@ -397,7 +403,9 @@ class CustomStatBarCard extends StatelessWidget {
                                               .round();
                                       return computed <= 0 ? 1 : computed;
                                     })(),
-                                    child: Container(color: MaterialHues.grey300),
+                                    child: Container(
+                                      color: MaterialHues.grey300,
+                                    ),
                                   ),
                               ],
                       ),

@@ -289,7 +289,7 @@ void main() {
   }
 
   group('the app is flat: no gradients', () {
-    /// The 116 files outside `lib/core/theme/` that still draw a gradient,
+    /// The 97 files outside `lib/core/theme/` that still draw a gradient,
     /// either directly or through one of the `AppColors.build*Gradient()`
     /// helpers.
     ///
@@ -391,28 +391,8 @@ void main() {
       'lib/presentation/features/user_profile/view/user_profile_screen.dart',
       'lib/shared/common/view/coming_soon_screen.dart',
       'lib/shared/common/view/document_viewer_screen.dart',
-      'lib/shared/common/widgets/calendar_dialog.dart',
-      'lib/shared/common/widgets/classroom_selection_widget_exact.dart',
-      'lib/shared/common/widgets/confirmation_bottom_sheet.dart',
-      'lib/shared/common/widgets/confirmation_dialogue_box.dart',
-      'lib/shared/common/widgets/custom_cancel_button.dart',
       'lib/shared/common/widgets/custom_chip.dart',
-      'lib/shared/common/widgets/custom_clear_all_chip.dart',
-      'lib/shared/common/widgets/custom_confirm_button.dart',
-      'lib/shared/common/widgets/custom_floating_action_button.dart',
-      'lib/shared/common/widgets/custom_floating_text_button.dart',
-      'lib/shared/common/widgets/custom_horizontal_date_picker.dart',
-      'lib/shared/common/widgets/custom_repeat_on_days_selector.dart',
-      'lib/shared/common/widgets/custom_toggle.dart',
-      'lib/shared/common/widgets/gradient_add_button.dart',
       'lib/shared/common/widgets/gradient_background.dart',
-      'lib/shared/common/widgets/gradient_circular_progress.dart',
-      'lib/shared/common/widgets/gradient_toggle_button.dart',
-      'lib/shared/common/widgets/multi_selection_widget.dart',
-      'lib/shared/common/widgets/post_add_staff_bottom_sheet.dart',
-      'lib/shared/common/widgets/post_add_student_bottom_sheet.dart',
-      'lib/shared/common/widgets/profile_info_card.dart',
-      'lib/shared/common/widgets/text_field.dart',
     };
 
     test('no file outside the allowlist draws a gradient', () {
@@ -455,7 +435,7 @@ void main() {
   });
 
   group('colour literals live in app_theme_config.dart', () {
-    /// The 51 files that still declare a raw colour. Mostly the per-module
+    /// The 44 files that still declare a raw colour. Mostly the per-module
     /// decorative palettes `docs/theming.md` lists as a follow-up, plus
     /// `app_colors.dart`'s own feature-scoped one-offs.
     ///
@@ -491,23 +471,15 @@ void main() {
       'lib/presentation/features/staff/widgets/staff_action_panel_options.dart',
       'lib/presentation/features/staff/widgets/staff_dates_tab.dart',
       'lib/presentation/features/staff/widgets/staff_profile_tab.dart',
-      'lib/shared/common/widgets/app_tooltip.dart',
       'lib/shared/common/widgets/calendar_dialog.dart',
-      'lib/shared/common/widgets/classroom_selection_widget_exact.dart',
-      'lib/shared/common/widgets/custom_add_notes_field.dart',
-      'lib/shared/common/widgets/custom_date_time_field.dart',
-      'lib/shared/common/widgets/custom_flexible_dropdown.dart',
       'lib/shared/common/widgets/custom_multi_select_dropdown.dart',
       'lib/shared/common/widgets/custom_repeat_on_days_selector.dart',
       'lib/shared/common/widgets/custom_shimmer_loader.dart',
-      'lib/shared/common/widgets/custom_time_chip.dart',
       'lib/shared/common/widgets/delete_confirmation_bottom_sheet.dart',
       'lib/shared/common/widgets/duplicate_student_bottom_sheet.dart',
-      'lib/shared/common/widgets/expandable_info_card.dart',
       'lib/shared/common/widgets/hls_web_player.dart',
       'lib/shared/common/widgets/multi_selection_widget.dart',
       'lib/shared/common/widgets/photo_upload_progress_overlay.dart',
-      'lib/shared/common/widgets/rounded_button.dart',
       'lib/shared/common/widgets/schedule_picker.dart',
       'lib/shared/common/widgets/select_dropdown_card.dart',
       'lib/shared/common/widgets/select_step_layout.dart',

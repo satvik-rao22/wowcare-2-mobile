@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
@@ -12,8 +13,9 @@ class CustomCancelButton extends StatelessWidget {
   final String? cancelButtonLabel;
   final void Function()? onPressedCancel;
 
-  /// When true, the label text is painted with the primary gradient instead of
-  /// the flat [AppColors.primaryColor].
+  /// Kept for source compatibility. It used to paint the label with the
+  /// primary gradient; there are no gradients any more, so both states now
+  /// render the same flat navy label.
   final bool gradientLabel;
 
   @override
@@ -27,31 +29,16 @@ class CustomCancelButton extends StatelessWidget {
 
     return Container(
       height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildPrimaryGradient(), // gradient border
-      ),
+      decoration: AppSurfaces.key(KeyVariant.secondary, radius: 8),
       padding: const EdgeInsets.all(1),
       child: TextButton(
         onPressed: onPressedCancel ?? () => Navigator.pop(context),
         style: TextButton.styleFrom(
-          backgroundColor: AppColors.whiteColor,
+          backgroundColor: AppColors.transparentColor,
           padding: const EdgeInsets.symmetric(vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        child: gradientLabel
-            ? ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) =>
-                    AppColors.buildPrimaryGradient().createShader(
-                      Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                    ),
-                child: Text(
-                  cancelButtonLabel ?? 'Cancel',
-                  style: labelStyle.copyWith(color: AppColors.whiteColor),
-                ),
-              )
-            : label,
+        child: label,
       ),
     );
   }

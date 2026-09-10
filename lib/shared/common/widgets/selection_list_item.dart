@@ -46,10 +46,10 @@ class CommonSelectionItem extends StatelessWidget {
           border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(8),
           color: !isEnabled
-              ? MaterialHues.grey100
+              ? AppPalette.surfaceMuted
               : (isSelected
                     ? AppPalette.surfaceSelected
-                    : AppColors.whiteColor),
+                    : AppPalette.surfaceCard),
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: 4),

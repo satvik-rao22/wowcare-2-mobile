@@ -136,10 +136,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           width: 2,
         ),
         borderRadius: BorderRadius.circular(4),
-        color: isSelected ? AppColors.themeColor : Colors.transparent,
+        color: isSelected ? AppPalette.brand : AppColors.transparentColor,
       ),
       child: isSelected
-          ? const Icon(Icons.check, size: 14, color: AppColors.whiteColor)
+          ? const Icon(Icons.check, size: 14, color: AppPalette.onBrand)
           : null,
     );
   }
@@ -206,9 +206,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 120),
                   decoration: BoxDecoration(
-                    color: AppColors.whiteColor,
+                    color: AppPalette.surfaceCard,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: MaterialHues.grey300),
+                    border: Border.all(color: AppPalette.borderHairline),
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {

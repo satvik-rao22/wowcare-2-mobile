@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomClearAllChip extends StatelessWidget {
@@ -21,20 +22,14 @@ class CustomClearAllChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparentColor,
       child: InkWell(
         borderRadius: BorderRadius.circular(borderRadius ?? 4),
-        splashColor: AppColors.primaryColor.withValues(alpha: 0.2),
+        splashColor: AppPalette.brandDark.withValues(alpha: 0.2),
         onTap: onTap,
         child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary, radius: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Center(
             child: Text(
               label,
@@ -43,7 +38,7 @@ class CustomClearAllChip extends StatelessWidget {
               softWrap: true,
               style: TextStyle(
                 fontFamily: AppFonts.body,
-                color: AppColors.cardColor,
+                color: AppPalette.onBrand,
                 fontSize: fontSize ?? 13,
                 fontWeight: fontWeight ?? FontWeight.w500,
               ),

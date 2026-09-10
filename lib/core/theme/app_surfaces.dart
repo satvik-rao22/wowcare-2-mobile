@@ -24,7 +24,7 @@
 /// Rule 3: nothing here is ever a gradient.
 library;
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -238,6 +238,59 @@ class AppSurfaces {
         ? Border.all(color: AppPalette.statusError, width: 1.5)
         : null,
     insets: AppElevation.wellShallow,
+  );
+
+  // ── Fields, for Flutter's InputDecoration ────────────────────────────────
+  //
+  // A `TextField` cannot take a [SkeuDecoration]. Its fill and border come
+  // from an `InputDecoration`, which has no inset shadow, and wrapping the
+  // whole field in a decorated box is wrong for a different reason: the
+  // error and counter text render *below* the input and would end up inside
+  // the well. So a text field gets the well's flat fill and radius and goes
+  // without its inset shadow; the cool fill on the warm tray still reads as
+  // cut in. Everything you do not type into — dropdowns, search rows,
+  // troughs, empty-state icons — uses [well] or [field] and keeps the inset.
+
+  /// The fill behind anything you type into.
+  static Color get fieldFill => AppPalette.surfaceField;
+
+  /// The border of a text field. Edgeless by default, because the well is
+  /// told by its fill; pass a [colour] for the focused and error states.
+  static OutlineInputBorder fieldBorder({
+    double radius = AppRadius.lg,
+    Color? colour,
+  }) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(radius),
+    borderSide: colour == null
+        ? BorderSide.none
+        : BorderSide(color: colour, width: 1.5),
+  );
+
+  /// The full set of `InputDecoration` borders for a field: edgeless at
+  /// rest, the focus ring when focused, danger when invalid.
+  ///
+  /// ```dart
+  /// decoration: InputDecoration(
+  ///   hintText: 'Search a student',
+  ///   filled: true,
+  ///   fillColor: AppSurfaces.fieldFill,
+  /// ).copyWith(…AppSurfaces.fieldBorders()),
+  /// ```
+  static InputDecoration fieldDecoration({
+    double radius = AppRadius.lg,
+  }) => InputDecoration(
+    filled: true,
+    fillColor: fieldFill,
+    border: fieldBorder(radius: radius),
+    enabledBorder: fieldBorder(radius: radius),
+    disabledBorder: fieldBorder(radius: radius),
+    focusedBorder: fieldBorder(radius: radius, colour: AppPalette.focusRing),
+    errorBorder: fieldBorder(radius: radius, colour: AppPalette.statusError),
+    focusedErrorBorder: fieldBorder(
+      radius: radius,
+      colour: AppPalette.statusError,
+    ),
+    hintStyle: TextStyle(color: AppPalette.textMuted),
   );
 
   /// A progress trough, a toggle track, a ring track. Recessed, so the fill

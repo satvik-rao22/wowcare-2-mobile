@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
-/// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.
+/// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + edit key.
 class ProfileInfoCard extends StatelessWidget {
   const ProfileInfoCard({
     super.key,
@@ -50,11 +51,7 @@ class ProfileInfoCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: AppColors.whiteColor,
-          border: Border.all(color: AppColors.themeColor),
-          borderRadius: borderRadius,
-        ),
+        decoration: AppSurfaces.card().copyWith(borderRadius: borderRadius),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -77,15 +74,15 @@ class ProfileInfoCard extends StatelessWidget {
                       child: Container(
                         width: 38,
                         height: 38,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildPrimaryGradient(),
-                          borderRadius: BorderRadius.circular(8),
+                        decoration: AppSurfaces.key(
+                          KeyVariant.primary,
+                          radius: 8,
                         ),
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.edit,
                           size: 22,
-                          color: AppColors.whiteColor,
+                          color: AppPalette.onBrand,
                         ),
                       ),
                     ),
@@ -106,10 +103,12 @@ class ProfileInfoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ...children.map((child) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: child,
-                        )),
+                    ...children.map(
+                      (child) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: child,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -163,11 +162,7 @@ class ProfileField extends StatelessWidget {
       children: [
         Text(label, style: _labelStaff),
         const SizedBox(height: 6),
-        valueWidget ??
-            Text(
-              resolved,
-              style: _valueStaff,
-            ),
+        valueWidget ?? Text(resolved, style: _valueStaff),
       ],
     );
   }

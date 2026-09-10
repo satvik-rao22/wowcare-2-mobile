@@ -34,7 +34,10 @@ class CommonSingleSelectDropdown extends StatelessWidget {
             children: [
               TextSpan(text: label),
               if (isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: MaterialHues.red),
+                ),
             ],
           ),
         ),
@@ -43,22 +46,29 @@ class CommonSingleSelectDropdown extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            border: Border.all(color: AppPalette.borderField),
+            border: Border.all(color: AppColors.transparentColor),
             borderRadius: BorderRadius.circular(12),
-            color: AppColors.whiteColor,
+            color: AppPalette.surfaceField,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.primaryColor,
+              ),
               items: items
-                  .map((e) => DropdownMenuItem<String>(
-                        value: e,
-                        child: Text(e,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontFamily: AppFonts.body)),
-                      ))
+                  .map(
+                    (e) => DropdownMenuItem<String>(
+                      value: e,
+                      child: Text(
+                        e,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: AppFonts.body),
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: (v) {
                 if (v != null) onSelected(v);
@@ -70,5 +80,3 @@ class CommonSingleSelectDropdown extends StatelessWidget {
     );
   }
 }
-
-

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CustomSectionCard extends StatelessWidget {
   const CustomSectionCard({
@@ -22,16 +22,9 @@ class CustomSectionCard extends StatelessWidget {
     return Container(
       margin: margin,
       padding: padding,
-      constraints: BoxConstraints(
-        minHeight: minHeight ?? 0,
-      ),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor, width: 1.2),
-        borderRadius: BorderRadius.circular(12),
-        color: backgroundColor ?? AppColors.cardColor,
-      ),
+      constraints: BoxConstraints(minHeight: minHeight ?? 0),
+      decoration: AppSurfaces.card(radius: 12, color: backgroundColor),
       child: child,
     );
   }
 }
-

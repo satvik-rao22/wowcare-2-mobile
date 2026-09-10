@@ -893,11 +893,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withValues(alpha: 0.95),
+              color: AppPalette.surfaceInverse.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(
-              color: AppColors.whiteColor,
+              color: AppPalette.textOnDark,
               fontSize: 12,
               fontFamily: AppFonts.body,
               fontWeight: FontWeight.w600,
@@ -908,7 +908,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               decoration: BoxDecoration(
                 color: dotColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.whiteColor, width: 1),
+                border: Border.all(color: AppPalette.surfaceCard, width: 1),
               ),
             ),
           ),
@@ -960,7 +960,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: widget.fontSize,
-          color: AppColors.whiteColor,
+          color: AppPalette.textOnDark,
         ),
       ),
     );
@@ -1001,7 +1001,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: widget.fontSize,
-            color: AppColors.whiteColor,
+            color: AppPalette.textOnDark,
           ),
         ),
       );

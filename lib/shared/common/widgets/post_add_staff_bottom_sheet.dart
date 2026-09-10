@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class PostAddStaffBottomSheet extends StatelessWidget {
@@ -43,7 +44,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: AppColors.whiteColor,
+            color: AppPalette.surfaceSunken,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -57,13 +58,13 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                 child: Container(
                   width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                   height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
+                  decoration: const BoxDecoration(
+                    color: AppPalette.brand,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.person_add_alt_1,
-                    color: AppColors.whiteColor,
+                    color: AppPalette.onBrand,
                     size: 36,
                   ),
                 ),
@@ -102,15 +103,15 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                   Expanded(
                     child: Container(
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(borderRadius / 2),
+                      decoration: AppSurfaces.key(
+                        KeyVariant.secondary,
+                        radius: borderRadius / 2,
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppColors.whiteColor,
+                            color: AppColors.transparentColor,
                             borderRadius: BorderRadius.circular(
                               borderRadius / 2 - 1,
                             ),
@@ -143,9 +144,9 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                   Expanded(
                     child: Container(
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(borderRadius / 2),
-                        gradient: AppColors.buildPrimaryGradient(),
+                      decoration: AppSurfaces.key(
+                        KeyVariant.primary,
+                        radius: borderRadius / 2,
                       ),
                       child: TextButton(
                         onPressed: onYes,
@@ -162,7 +163,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                             fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.whiteColor,
+                            color: AppPalette.onBrand,
                             height: 1.0,
                           ),
                         ),

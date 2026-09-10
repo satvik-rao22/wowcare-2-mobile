@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class InfoRowItem {
@@ -61,7 +62,7 @@ class ExpandableInfoCard extends StatefulWidget {
     this.onTap,
     required this.rows,
     this.actions,
-    this.cardColor = AppColors.whiteColor,
+    this.cardColor = AppPalette.surfaceCard,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.border,
     this.boxShadow,
@@ -105,17 +106,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
               color: widget.cardColor,
               borderRadius: widget.borderRadius,
               border:
-                  widget.border ??
-                  Border.all(color: const Color(0x1A162831), width: 1),
-              boxShadow:
-                  widget.boxShadow ??
-                  [
-                    BoxShadow(
-                      color: AppColors.blackColor.withValues(alpha: 0.03),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  widget.border ?? Border.all(color: AppPalette.borderHairline),
+              boxShadow: widget.boxShadow ?? AppElevation.card,
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(

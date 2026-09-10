@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -8,6 +9,10 @@ class CustomTextField extends StatelessWidget {
   final Color? fillColor;
   final String? hintText;
   final String? Function(String?)? validator;
+
+  /// Kept for source compatibility. Every field is a well now, so it is
+  /// always filled: leaving one unfilled *and* edgeless would make it
+  /// invisible.
   final bool isFilled;
   final bool isPassword;
   final bool readOnly;
@@ -19,7 +24,8 @@ class CustomTextField extends StatelessWidget {
   /// Optional callback for value changes.
   final ValueChanged<String>? onChanged;
 
-  /// When true, uses primary gradient for entered text (like sign-in / forgot password).
+  /// Kept for source compatibility. It never actually painted a gradient —
+  /// see [_buildGradientTextStyle] — and now selects nothing different.
   final bool usePrimaryGradientText;
 
   /// Optional base font size for the input text.
@@ -28,7 +34,8 @@ class CustomTextField extends StatelessWidget {
   /// Optional font weight for the input text.
   final FontWeight? textFontWeight;
 
-  /// When true, the field is drawn with a gradient (primary) border.
+  /// When true, the field is drawn with a visible brand edge rather than the
+  /// edgeless well. Named for the gradient border it used to paint.
   final bool useGradientBorder;
 
   const CustomTextField({
@@ -70,20 +77,12 @@ class CustomTextField extends StatelessWidget {
         }
       },
       style: usePrimaryGradientText ? _buildGradientTextStyle() : null,
-      decoration: InputDecoration(
+      decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
         hintText: hintText,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
-        filled: useGradientBorder ? true : isFilled,
-        fillColor: useGradientBorder
-            ? (fillColor ?? AppColors.whiteColor)
-            : (fillColor ?? MaterialHues.grey100),
-        border: _border(useGradientBorder ? null : MaterialHues.grey300),
-        enabledBorder: _border(useGradientBorder ? null : MaterialHues.grey300),
-        focusedBorder:
-            _border(useGradientBorder ? null : AppColors.themeColor),
-        errorBorder: _border(useGradientBorder ? null : MaterialHues.red),
-        focusedErrorBorder: _border(useGradientBorder ? null : MaterialHues.red),
+        filled: true,
+        fillColor: fillColor ?? AppSurfaces.fieldFill,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
@@ -93,35 +92,25 @@ class CustomTextField extends StatelessWidget {
 
     if (!useGradientBorder) return field;
 
-    // Gradient border: an outer gradient container with a 1.5px inset reveals
-    // the gradient as the field's border.
+    // A brand edge instead of the edgeless well: a 1.5px inset on a pink
+    // container reveals the fill as the field's border.
     return Container(
       decoration: BoxDecoration(
-        gradient: AppColors.buildPrimaryGradient(),
+        color: AppPalette.brand,
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(1.5),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
-        child: field,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(7), child: field),
     );
   }
-
-  OutlineInputBorder _border(Color? color) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: color == null
-            ? BorderSide.none
-            : BorderSide(color: color),
-      );
 
   TextStyle _buildGradientTextStyle() {
     final baseSize = textFontSize ?? 14.0;
     final baseWeight = textFontWeight ?? FontWeight.w500;
 
-    // NOTE: A gradient via `foreground: Paint()..shader` breaks caret
+    // NOTE: a shader via `foreground: Paint()..shader` breaks caret
     // placement on editable fields (you can't tap to position the cursor —
-    // it jumps to the end). Use a solid themed color instead.
+    // it jumps to the end), which is why this was always a solid colour.
     return TextStyle(
       fontFamily: AppFonts.body,
       fontSize: baseSize,

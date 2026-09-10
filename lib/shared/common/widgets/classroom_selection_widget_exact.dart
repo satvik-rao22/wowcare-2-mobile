@@ -115,7 +115,7 @@ class _ClassroomSelectionWidgetExactState
           child: Container(
             constraints: const BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
-              color: AppColors.whiteColor,
+              color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.builder(
@@ -135,8 +135,8 @@ class _ClassroomSelectionWidgetExactState
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0x1A573353)
-                          : AppColors.whiteColor,
+                          ? AppPalette.surfaceSelected
+                          : AppPalette.surfaceCard,
                     ),
                     child: Row(
                       children: [
@@ -261,7 +261,7 @@ class _ClassroomSelectionWidgetExactState
                       return Container(
                         height: updatedHeight,
                         decoration: const BoxDecoration(
-                          color: AppColors.whiteColor,
+                          color: AppPalette.surfaceCard,
                           borderRadius: BorderRadius.all(Radius.circular(8)),
                         ),
                         child: Column(
@@ -338,7 +338,7 @@ class _ClassroomSelectionWidgetExactState
                                                     horizontal: 16,
                                                   ),
                                               decoration: const BoxDecoration(
-                                                color: AppColors.whiteColor,
+                                                color: AppPalette.surfaceCard,
                                               ),
                                               child: Row(
                                                 children: [
@@ -351,7 +351,8 @@ class _ClassroomSelectionWidgetExactState
                                                     child: Text(
                                                       classroom,
                                                       style: const TextStyle(
-                                                        fontFamily: AppFonts.body,
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.w500,
@@ -440,7 +441,9 @@ class _ClassroomSelectionWidgetExactState
                 borderRadius: BorderRadius.circular(
                   responsive.isTablet ? 12.0 : 8.0,
                 ),
-                color: widget.isEnabled ? AppColors.whiteColor : MaterialHues.grey200,
+                color: widget.isEnabled
+                    ? AppPalette.surfaceField
+                    : AppPalette.surfaceMuted,
               ),
               child: Row(
                 children: [
@@ -449,8 +452,8 @@ class _ClassroomSelectionWidgetExactState
                       widget.primaryClassroom ?? 'Select Primary Classroom',
                       style: TextStyle(
                         color: widget.primaryClassroom == null
-                            ? AppColors.primaryColor
-                            : AppColors.blackColor,
+                            ? AppPalette.textMuted
+                            : AppPalette.textPrimary,
                         fontSize: inputFontSize,
                         fontFamily: AppFonts.body,
                         fontWeight: FontWeight.w500,
@@ -557,8 +560,8 @@ class _ClassroomSelectionWidgetExactState
                       responsive.isTablet ? 12.0 : 8.0,
                     ),
                     color: widget.isEnabled
-                        ? AppColors.whiteColor
-                        : MaterialHues.grey200,
+                        ? AppPalette.surfaceField
+                        : AppPalette.surfaceMuted,
                   ),
                   child: Stack(
                     children: [
@@ -686,14 +689,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : MaterialHues.grey500,
+          color: value ? AppColors.transparentColor : AppPalette.borderStrong,
           width: 2,
         ),
-        gradient: value ? AppColors.buildPrimaryGradient() : null,
-        color: value ? null : Colors.transparent,
+        color: value ? AppPalette.brand : AppColors.transparentColor,
       ),
       child: value
-          ? const Icon(Icons.check, size: 18, color: AppColors.whiteColor)
+          ? const Icon(Icons.check, size: 18, color: AppPalette.onBrand)
           : null,
     );
   }

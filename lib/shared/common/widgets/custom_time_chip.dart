@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CustomTimeChip extends StatelessWidget {
-  const CustomTimeChip({
-    required this.label,
-    super.key,
-  });
+  const CustomTimeChip({required this.label, super.key});
 
   final String label;
 
@@ -13,22 +11,9 @@ class CustomTimeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(0),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ),
-      constraints: const BoxConstraints(
-        minHeight: 48,
-        minWidth: 90,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.whiteColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: const Color.fromRGBO(177, 175, 233, 0.4),
-          width: 1.5,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      constraints: const BoxConstraints(minHeight: 48, minWidth: 90),
+      decoration: AppSurfaces.card(radius: 6),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -37,7 +37,7 @@ class CustomTextField extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: AppColors.themeColor,
+              color: AppPalette.textSecondary,
             ),
           ),
         if (label != null) const SizedBox(height: 8),
@@ -59,20 +59,11 @@ class CustomTextField extends StatelessWidget {
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                 ]
               : null,
-          decoration: InputDecoration(
+          decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
             hintText: hintText,
-            hintStyle: TextStyle(color: MaterialHues.grey400, fontSize: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: MaterialHues.grey300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: MaterialHues.grey300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.themeColor),
+            hintStyle: const TextStyle(
+              color: AppPalette.textMuted,
+              fontSize: 14,
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,

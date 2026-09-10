@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class RoundedButton extends StatefulWidget {
   final String lable;
@@ -30,13 +31,16 @@ class _RoundedButtonState extends State<RoundedButton> {
       onTapDown: (_) => setState(() => isPressed = true),
       onTapUp: (_) => setState(() => isPressed = false),
       onTapCancel: () => setState(() => isPressed = false),
-      child: AnimatedScale(
-        scale: isPressed ? 0.80 : 1.0,
-        duration: const Duration(milliseconds: 50),
+      // A key sinks; it does not shrink. The 0.80 scale was a 20% collapse,
+      // which is a different physical idea from pressing a button down.
+      child: Transform.translate(
+        offset: Offset(0, isPressed ? AppMotion.pressTravel : 0),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 25),
             backgroundColor: widget.buttonColor,
+            elevation: 0,
+            shadowColor: AppColors.transparentColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
             ),
@@ -47,8 +51,8 @@ class _RoundedButtonState extends State<RoundedButton> {
                   height: 60,
                   width: 60,
                   child: RefreshProgressIndicator(
-                    color: AppColors.whiteColor,
-                    backgroundColor: Color(0xFFFE3541),
+                    color: AppPalette.onBrand,
+                    backgroundColor: AppPalette.brand,
                     strokeWidth: 4,
                     indicatorPadding: EdgeInsets.all(14),
                   ),
