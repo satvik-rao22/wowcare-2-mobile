@@ -6,7 +6,7 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_in_out_selection_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 
@@ -63,18 +63,15 @@ class _StudentSignInOutSelectionView extends StatelessWidget {
   final bool isQrScan;
   final String qrToken;
 
-  bool _isKioskMode() => KioskAccessControl.isKioskModeActiveDirect();
+  bool _isKioskMode() =>
+      serviceLocator<KioskAccessControl>().isKioskModeActiveDirect();
 
   Future<bool> _resolveIsKiosk() async {
     try {
       return await serviceLocator<KioskAccessControl>().isKioskModeActive();
     } catch (e) {
-      try {
-        return await KioskAccessControl(serviceLocator()).isKioskModeActive();
-      } catch (e2) {
-        AppLogger.d('[Attendance] Not in kiosk mode, using normal flow');
-        return false;
-      }
+      AppLogger.d('[Attendance] Not in kiosk mode, using normal flow');
+      return false;
     }
   }
 

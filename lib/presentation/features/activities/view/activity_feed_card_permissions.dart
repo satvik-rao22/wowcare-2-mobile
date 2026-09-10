@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
-import 'activity_item.dart';
+import '../model/activity_item.dart';
 
 /// True when the viewer's ACTIVE persona is an admin persona (not the staff
 /// persona). Reads the live RoleCubit so the current persona — not a once-read

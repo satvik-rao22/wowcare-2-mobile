@@ -150,7 +150,7 @@ import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/view_model/kiosk_attendance_cubit_v2.dart';
 import '../../presentation/features/kiosk/view_model/kiosk_logout_cubit.dart';
-import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
+import '../../core/auth/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/view_model/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/view_model/edit_shift_cubit.dart';
@@ -160,6 +160,7 @@ import '../../domain/features/staff/usecases/update_staff_document_usecase.dart'
 import '../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
@@ -658,7 +659,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
   );
-  // Kiosk Access Control - must be registered early since other cubits depend on it
+  // Kiosk session state. Registered early because the router redirect and
+  // several cubits depend on it. This singleton is the ONLY instance: it holds
+  // the in-memory kiosk cache as instance state, so a second instance would
+  // give its holder a private view of whether the device is kiosk-locked.
+  // Always resolve it from here — never construct it.
   serviceLocator.registerLazySingleton<KioskAccessControl>(
     () => KioskAccessControl(serviceLocator<StorageService>()),
   );
@@ -1143,6 +1148,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getGuardianProfileUseCase: serviceLocator(),
       imageUploadService: serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
+      resolveLoggedInStaffCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<GetStaffPageUseCase>(
@@ -1173,6 +1179,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffProfileUseCase>(
     () => GetStaffProfileUseCase(serviceLocator()),
+  );
+  // Staff-code / display-name resolution for the logged-in user. Registered
+  // here so every feature reaches the ONE domain implementation; this used to
+  // live as free functions in
+  // `presentation/features/activities/utils/resolve_logged_in_staff_code.dart`,
+  // which made students, communication and user_profile depend on the
+  // activities feature just to resolve a staff code.
+  serviceLocator.registerFactory<ResolveLoggedInStaffCodeUseCase>(
+    () => ResolveLoggedInStaffCodeUseCase(
+      serviceLocator<StorageService>(),
+      serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ResolveLoggedInStaffDisplayNameUseCase>(
+    () => ResolveLoggedInStaffDisplayNameUseCase(
+      serviceLocator<StaffRepository>(),
+      serviceLocator<ResolveLoggedInStaffCodeUseCase>(),
+    ),
   );
   serviceLocator.registerFactory<GetCachedStaffProfileUseCase>(
     () => GetCachedStaffProfileUseCase(serviceLocator()),

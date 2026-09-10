@@ -20,7 +20,7 @@ import '../../../../domain/features/staff/usecases/deactivate_organization_admin
 import '../../../../domain/features/staff/usecases/delete_school_user_usecase.dart';
 import '../../../../domain/features/staff/usecases/load_cached_staff_page_usecase.dart';
 import '../../../../domain/features/staff/usecases/invalidate_cached_staff_page_usecase.dart';
-import '../../scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/events/scheduling_events.dart';
 
 part 'staff_state.dart';
 
@@ -174,7 +174,7 @@ class StaffCubit extends Cubit<StaffState> {
     // Staff-side data may have just changed (profile edit, status toggle,
     // delete). Bump the scheduling cache gate so the classroom + staff
     // scheduling screens silently re-pull the staff list on their next view.
-    SchedulingCacheGate.invalidate();
+    SchedulingEvents.notifyChanged();
 
     final schoolCode = await _resolveSchoolCode();
 

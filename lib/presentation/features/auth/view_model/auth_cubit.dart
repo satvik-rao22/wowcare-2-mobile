@@ -23,7 +23,7 @@ import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -713,16 +713,16 @@ class AuthCubit extends Cubit<AuthState> {
         // storage. Clear both storage and static cache before any navigation
         // so the router never sees a stale kiosk flag for this user.
         try {
-          final kioskAccess = _kioskAccessControl;
-          await kioskAccess.deactivateKioskMode();
+          await _kioskAccessControl.deactivateKioskMode();
           AppLogger.d(
             '[AUTH ROLE CHECK] Non-kiosk login — kiosk state cleared. '
             'Role(s): ${response.roles.map((r) => r.role).join(', ')}. '
             'IsKiosk: false.',
           );
         } catch (_) {
-          // Fallback: force static cache clear even if DI lookup fails.
-          KioskAccessControl.clearCacheForNonKioskLogin();
+          // Storage clear failed; still drop the in-memory session so the
+          // router's synchronous check can't see a stale kiosk flag.
+          _kioskAccessControl.clearCacheForNonKioskLogin();
         }
 
         // Persist latest login response (tokens, user, roles) for future app launches.

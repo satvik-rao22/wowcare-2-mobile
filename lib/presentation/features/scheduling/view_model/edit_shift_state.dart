@@ -67,13 +67,13 @@ class EditShiftState extends Equatable {
     return result;
   }
 
-  (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime forDate) {
+  (ScheduleTime, ScheduleTime)? _schoolHoursForDate(DateTime forDate) {
     final hours = schoolHoursResolver?.hoursFor(forDate);
     if (hours == null) return null;
-    return (hours.startTimeOfDay, hours.endTimeOfDay);
+    return (hours.openTime, hours.closeTime);
   }
 
-  (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
+  (ScheduleTime, ScheduleTime)? _schoolHoursForWeekday(int weekday) {
     final anchor = date ?? schedulingSchoolToday();
     for (var i = 0; i < 7; i++) {
       final probe = anchor.add(Duration(days: i));

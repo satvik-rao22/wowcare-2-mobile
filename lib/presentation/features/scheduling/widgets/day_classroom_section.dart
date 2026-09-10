@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../shared/common/widgets/highlightable_card.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import '../model/scheduling_models.dart';
-import '../utils/scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 import 'scheduling_day_timeline.dart';
 import 'staff_schedule_tile.dart';
 

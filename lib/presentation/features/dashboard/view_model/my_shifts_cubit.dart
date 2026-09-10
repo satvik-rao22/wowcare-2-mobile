@@ -15,7 +15,7 @@ import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
 
 part 'my_shifts_state.dart';
 
