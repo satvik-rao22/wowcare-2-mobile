@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart' show RoleModel;
 
 /// True for parent/guardian API personas (not staff/teachers).
@@ -131,6 +133,48 @@ String derivePersonaFamilyFromRolesJson(String rolesJson) {
   if (u.contains('STAFF') || u.contains('TEACHER')) return 'staff';
   if (u.contains('GUARDIAN') || u.contains('PARENT')) return 'parent';
   return 'admin';
+}
+
+/// The coarse persona family (`kiosk` / `parent` / `staff` / `admin`) the
+/// signed-in user is currently in, derived purely from [storage].
+///
+/// This is `RoleCubit`'s persona-fallback rule, extracted so callers that run
+/// **without a widget tree** can reach the same answer — notably the cold-start
+/// notification tap handler, which resolves a deep link during bootstrap, long
+/// before any `RoleCubit` exists to read. A cold tap that guesses the persona
+/// wrong routes to the wrong screen (see the persona-routed billing and
+/// newsletter branches in `NotificationRouteResolver.resolve`), so both paths
+/// must derive it identically.
+///
+/// Resolution order: the persona actually in use ([StorageKeys.activeSchoolRole])
+/// → the durable last-used persona for THIS account → the login roles payload.
+Future<String> resolvePersonaFamilyFromStorage(StorageService storage) async {
+  // The persona the user is ACTUALLY in wins. Only guess when no active
+  // persona has been resolved/persisted yet (e.g. right after a fresh login,
+  // since logout clears activeSchoolRole).
+  final active =
+      (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+  if (active.isNotEmpty) return personaFamilyForRole(active);
+
+  // A multi-persona account should reopen on the persona it was last active
+  // as (durable across logout), not always admin/staff. Falls through when
+  // there's no record for THIS account (fresh install, first login, or a
+  // different user on a shared device) or that persona no longer applies.
+  final rolesJson = await storage.getString(StorageKeys.roles) ?? '';
+  final lastUsed = lastUsedPersonaFamily(
+    lastUsedPersonaRoleJson:
+        await storage.getString(StorageKeys.lastUsedPersonaRole) ?? '',
+    currentUserCode:
+        (await storage.getString(StorageKeys.userCode) ?? '').trim(),
+    currentRolesJson: rolesJson,
+  );
+  if (lastUsed != null) return lastUsed;
+
+  // Edge-case fallback: derive from API-provided roles only. A dual-role
+  // account (e.g. SCHOOL_ADMIN + GUARDIAN) must default to the admin/staff
+  // persona rather than being silently downgraded to parent — see
+  // [derivePersonaFamilyFromRolesJson] for the priority order.
+  return derivePersonaFamilyFromRolesJson(rolesJson);
 }
 
 /// True when [rolesJson] is the login roles payload and includes a parent/guardian role.

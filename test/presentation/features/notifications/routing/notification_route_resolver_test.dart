@@ -10,6 +10,21 @@ PushNotification _newMessage(Map<String, String> data) => PushNotification(
   data: data,
 );
 
+/// A newsletter push as the backend actually sends it: `module: NEWSLETTER`
+/// plus org/school, and no newsletter-identifying code.
+/// See `tools/NOTIFICATION_PAYLOADS.md`.
+PushNotification _newsletter({required String action}) => PushNotification(
+  title: 'title',
+  body: 'body',
+  action: action,
+  type: null,
+  data: const {
+    'module': 'NEWSLETTER',
+    'organizationCode': 'ORG_1',
+    'schoolCode': 'SCH_1',
+  },
+);
+
 void main() {
   group('NotificationRouteResolver: CLASSROOM_CHAT new-message routing', () {
     test(
@@ -62,6 +77,103 @@ void main() {
       expect(destination!.path, '/open-conversation');
       expect(destination.queryParameters['conversationCode'], 'CONV_1');
       expect(destination.queryParameters['conversationType'], 'ROOM_CHAT');
+    });
+  });
+
+  group('NotificationRouteResolver: newsletter routing', () {
+    // Guardians have no Newsletter tab — `MessagingScreen` builds the
+    // Messaging/Newsletter TabBar only for staff/admin and gives parents
+    // ParentDirectMessagingScreen (room chat). So `/messageFeed?tab=newsletter`
+    // silently dropped them on room chat; their list is its own screen.
+    const parentNewsletter = '/dashboard/parent-newsletter';
+
+    test('a NEWSLETTER_SENT tap by a guardian opens the parent newsletter '
+        'screen, NOT the messaging branch', () {
+      final destination = NotificationRouteResolver.resolve(
+        _newsletter(action: 'NEWSLETTER_SENT'),
+        isGuardian: true,
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, parentNewsletter);
+    });
+
+    test('the NEWSLETTER_RECEIVED alias routes a guardian the same way', () {
+      final destination = NotificationRouteResolver.resolve(
+        _newsletter(action: 'NEWSLETTER_RECEIVED'),
+        isGuardian: true,
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, parentNewsletter);
+    });
+
+    test('a guardian newsletter push with an UNKNOWN action still lands on the '
+        'parent newsletter screen via the NEWSLETTER module fallback', () {
+      final destination = NotificationRouteResolver.resolve(
+        _newsletter(action: 'NEWSLETTER_SOMETHING_NEW'),
+        isGuardian: true,
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, parentNewsletter);
+    });
+
+    test('staff still get the messaging branch Newsletter tab', () {
+      final destination = NotificationRouteResolver.resolve(
+        _newsletter(action: 'NEWSLETTER_SENT'),
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, '/messageFeed');
+      expect(destination.queryParameters['tab'], 'newsletter');
+    });
+
+    test('the NEWSLETTER module fallback carries tab=newsletter for staff — it '
+        'used to return a bare /messageFeed, opening the Messaging tab', () {
+      final destination = NotificationRouteResolver.resolve(
+        _newsletter(action: 'NEWSLETTER_SOMETHING_NEW'),
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, '/messageFeed');
+      expect(destination.queryParameters['tab'], 'newsletter');
+    });
+
+    test('a MESSAGING-module push is unaffected and stays on /messageFeed with '
+        'no tab override', () {
+      final destination = NotificationRouteResolver.resolve(
+        PushNotification(
+          title: 'title',
+          body: 'body',
+          action: 'SOMETHING_UNMAPPED',
+          type: null,
+          data: const {'module': 'MESSAGING'},
+        ),
+        isGuardian: true,
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, '/messageFeed');
+      expect(destination.queryParameters['tab'], isNull);
+    });
+
+    test('an admin with a newsletterCode still deep-links to that newsletter, '
+        'ahead of any list screen', () {
+      final destination = NotificationRouteResolver.resolve(
+        PushNotification(
+          title: 'title',
+          body: 'body',
+          action: 'NEWSLETTER_SENT',
+          type: null,
+          data: const {'module': 'NEWSLETTER', 'newsletterCode': 'NL_1'},
+        ),
+        isAdminPersona: true,
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, '/newsletter-preview-by-code');
+      expect(destination.queryParameters['code'], 'NL_1');
     });
   });
 }

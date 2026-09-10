@@ -1,3 +1,4 @@
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/src/app_router.dart';
@@ -91,6 +92,18 @@ class NotificationRouteResolver {
       );
     }
 
+    // Newsletter is persona-routed for the same reason billing is. Guardians
+    // have NO newsletter tab: `MessagingScreen` renders the Messaging/Newsletter
+    // `TabBar` only for staff/admin and hands parents
+    // `ParentDirectMessagingScreen` (Room Chats) instead — so
+    // `/messageFeed?tab=newsletter` silently dropped a guardian on room chat,
+    // with the `tab` query param going nowhere. Their newsletter list is its own
+    // dashboard screen. Kept ahead of [_table] / [_moduleFallback] so every
+    // newsletter route (exact action or MODULE fallback) agrees.
+    if (isGuardian && _isNewsletterAction(action)) {
+      return const NotificationDestination(path: NewsletterRoutes.parentList);
+    }
+
     if (isAdminPersona) {
       final adminDestination = _adminNewsletterOrApprovalDestination(n, action);
       if (adminDestination != null) return adminDestination;
@@ -175,8 +188,19 @@ class NotificationRouteResolver {
           queryParameters: {'msgTab': 'staff'},
         );
       case 'MESSAGING':
-      case 'NEWSLETTER':
         return const NotificationDestination(path: AppRoutes.messaging);
+      case 'NEWSLETTER':
+        // Persona-split, exactly as the NEWSLETTER_SENT action is in [resolve]:
+        // guardians get their own newsletter screen (the messaging branch has no
+        // Newsletter tab for them), staff/admin get the Newsletter tab. The bare
+        // `/messageFeed` this used to return landed BOTH personas on the
+        // Messaging tab — room chat for a parent.
+        return isGuardian
+            ? const NotificationDestination(path: NewsletterRoutes.parentList)
+            : const NotificationDestination(
+                path: AppRoutes.messaging,
+                queryParameters: {'tab': 'newsletter'},
+              );
       case 'NEW_MESSAGE':
       case 'NEW_CONVERSATION':
         // A real chat push (per new message / new conversation) — deep-link
@@ -341,6 +365,13 @@ class NotificationRouteResolver {
     }
     return null;
   }
+
+  /// True for any action that lands on a newsletter list. Routed by persona in
+  /// [resolve] (guardian → the parent newsletter screen, staff/admin → the
+  /// messaging branch's Newsletter tab) — see the [_table] row for
+  /// [NotificationAction.newsletterSent], which serves the non-guardian half.
+  static bool _isNewsletterAction(String action) =>
+      action == NotificationAction.newsletterSent;
 
   /// Billing actions are routed by the current user's persona in [resolve]
   /// (guardian → parent billing, staff/admin → dashboard billing) rather than by

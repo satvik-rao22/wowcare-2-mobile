@@ -9,6 +9,7 @@ import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
@@ -103,8 +104,15 @@ class SplashCubit extends Cubit<SplashState> {
     try {
       final launch = await FirebaseMessaging.instance.getInitialMessage();
       if (launch == null) return null;
+      // Persona comes from storage, not RoleCubit: this runs before the shell
+      // (and its RoleCubit) is up. Billing and newsletter destinations differ
+      // per persona, so guessing here would cold-start a parent onto the
+      // staff screen — e.g. a newsletter tap landing on room chat.
+      final persona = await resolvePersonaFamilyFromStorage(_storage);
       final dest = NotificationRouteResolver.resolve(
         PushNotificationModel.fromRemoteMessage(launch),
+        isGuardian: persona == 'parent',
+        isAdminPersona: persona == 'admin',
       );
       return dest?.location;
     } catch (_) {
