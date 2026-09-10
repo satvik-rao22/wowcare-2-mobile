@@ -39,13 +39,25 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         tools:replace="android:allowBackup"
         android:enableOnBackInvokedCallback="true">
+        <!-- PIP-DISABLED (App Review 2.5.4, Sept 2026): the MainActivity
+             attribute `android:supportsPictureInPicture="true"` is removed
+             below. PiP is switched off app-wide while the iOS build ships
+             without the `audio` UIBackgroundMode, so Android does not offer a
+             feature iOS cannot. Restoring means putting that attribute back
+             AND re-adding `audio` to UIBackgroundModes in
+             ios/Runner/Info.plist, submitted with a screen recording of the
+             PiP control for the review notes.
+             android:configChanges and android:resizeableActivity are
+             deliberately left untouched — Flutter needs configChanges
+             independently of PiP; removing it recreates the activity on
+             rotation. (XML has no way to comment out a single attribute
+             in place, hence this note.) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:enableOnBackInvokedCallback="true"
-            android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import 'package:wowcare/core/observability/media_upload_trace.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -31,6 +32,10 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
     onAssetUploaded,
     CancelToken? cancelToken,
   }) async {
+    // Every stage below is breadcrumbed on ENTRY. A process killed mid-upload
+    // (the Android OOM case the audit could not distinguish from a network
+    // failure) leaves the stage it died in as the last entry in the report.
+    MediaUploadTrace.stage(MediaUploadStage.uploadRequested);
     final session = await _uploadService.createActivityUploadSession(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
@@ -40,6 +45,7 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
       studentCodes: studentCodes,
       cancelToken: cancelToken,
     );
+    MediaUploadTrace.stage(MediaUploadStage.sessionCreated);
 
     final assetCodeByPath = <String, String>{};
     final newAssetCodes = <String>[];
@@ -47,9 +53,19 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
       final item = items[i];
       final itemIndex = i + 1;
       final totalItems = items.length;
+      // Position, size and type only — never the path or file name, both of
+      // which are user-controlled text.
+      MediaUploadTrace.itemPosition(itemIndex, totalItems);
+      MediaUploadTrace.mimeType(item.contentType);
       final contentLengthBytes = await item.file.length();
+      MediaUploadTrace.fileSizeBytes(contentLengthBytes);
+
+      MediaUploadTrace.stage(MediaUploadStage.checksumStarted);
       final checksumSha256 =
           await _uploadService.computeFileChecksumSha256(item.file);
+      MediaUploadTrace.stage(MediaUploadStage.checksumDone);
+
+      MediaUploadTrace.stage(MediaUploadStage.presignRequested);
       final presign = await _uploadService.createAssetPresign(
         sessionCode: session.sessionCode,
         documentApiBasePath: session.documentApiBasePath,
@@ -62,16 +78,20 @@ class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository
         ownerCode: ownerCode,
         cancelToken: cancelToken,
       );
+      MediaUploadTrace.stage(MediaUploadStage.presignDone);
+
       await _uploadService.uploadFileToPresignedUrl(
         file: item.file,
         presignedPutUrl: presign.presignedPutUrl,
         requiredHeaders: presign.requiredHeaders,
         fallbackContentType: item.contentType,
-        onProgress: (_, __, percent) {
+        onProgress: (sentBytes, totalBytes, percent) {
           onItemProgress?.call(itemIndex, totalItems, percent);
         },
         cancelToken: cancelToken,
       );
+
+      MediaUploadTrace.stage(MediaUploadStage.assetCompleted);
       await _uploadService.completeAssetUpload(
         sessionCode: session.sessionCode,
         assetCode: presign.assetCode,

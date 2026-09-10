@@ -117,7 +117,7 @@
 		     hls_web_player.dart then falls back to pausing on backgrounding
 		     and hides the PiP control (its support check returns false). Do
 		     NOT add any other background mode alongside it. -->
-		<string>audio</string>
+		<!-- <string>audio</string> -->
 		<!-- NO `location` mode, and no "Always" location usage descriptions
 		     above. App Review rejected background location under guideline
 		     2.5.4: continuous location is not justified by staff attendance

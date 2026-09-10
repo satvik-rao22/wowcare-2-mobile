@@ -195,7 +195,6 @@ import 'package:wowcare/presentation/features/students/view/add_document_screen.
 import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
-import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -203,8 +202,6 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view/edit_user_profile_screen.dart';
-import 'package:wowcare/presentation/features/user_profile/view/notification_settings_screen.dart';
-import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
@@ -2186,7 +2183,21 @@ final GoRouter appRouter = GoRouter(
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
                 final student = q['studentCode'] ?? '';
-                final extra = state.extra as Map<String, dynamic>?;
+                // The dashboard's "Incidents" attention card passes a typed
+                // [IncidentFeedNonce] (see dashboard_route_args.dart). This
+                // used to be `state.extra as Map<String, dynamic>?` — a
+                // leftover from before that navigation was migrated to typed
+                // args — so every tap on the incident card threw
+                // "type 'IncidentFeedNonce' is not a subtype of type
+                // 'Map<String, dynamic>?'" inside this builder and go_router
+                // rendered a blank/grey page instead of the feed.
+                //
+                // Matched with `is` rather than a nullable cast so an
+                // unexpected extra from some future caller degrades to "no
+                // reset key" instead of taking the whole branch down again.
+                final nonce = state.extra is IncidentFeedNonce
+                    ? state.extra! as IncidentFeedNonce
+                    : null;
                 return BlocProvider<ActivityFeedScreenCubit>(
                   create: (_) => serviceLocator<ActivityFeedScreenCubit>(),
                   child: ActivityFeedScreen(
@@ -2235,7 +2246,7 @@ final GoRouter appRouter = GoRouter(
                     initialClassrooms: q['classroom'] != null
                         ? [q['classroom']!]
                         : null,
-                    resetKey: extra?['timestamp']?.toString(),
+                    resetKey: nonce?.value.toString(),
                   ),
                 );
               },
