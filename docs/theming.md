@@ -184,13 +184,23 @@ Gradient SVGs are flattened at the call site with
 `BlendMode.dstIn` *masks* a glyph rather than recolouring it, which is not the
 same thing.
 
-### The two lists that ratchet
+### The four rules the guard test enforces
 
-`centralized_theme_test.dart` carries an allowlist of the files that still draw
-a gradient, and one of the files that still declare a colour literal. Both only
-ever shrink: a module is not finished while any of its files are still listed,
-and the test also fails if a file is listed but no longer offends. See
-`docs/redesign-flat-skeu-plan.md` for the module order.
+`centralized_theme_test.dart` checks four things about every `.dart` file under
+`lib/`. All four are absolute: the allowlists they started as reached zero.
+
+| Rule | Why |
+|---|---|
+| no `LinearGradient`, `RadialGradient`, `SweepGradient` or `ShaderMask` | rule 3: every fill is flat, depth is the bevel, the well, the rim and the ambient shadow |
+| no `Color(0x…)`, `Color.fromRGBO` or `Color.fromARGB` outside `app_theme_config.dart` | a literal is invisible to the skin switch |
+| no `Colors.*` except `transparent` | a Material swatch is not reachable from a palette either |
+| no bare `SvgPicture`; use `AppIcon` or `AppArtwork` | 45 of the icon assets carry a baked-in gradient, so an untinted glyph paints last season's brand |
+
+There is a fifth check with no rule attached: `material_specimen_test.dart`
+renders the material and the real widgets onto one sheet at
+`test/core/theme/goldens/material_specimen.png`. It is written, never
+compared (see its header for why), so it is a picture to look at rather than
+a regression test.
 
 ---
 
@@ -241,46 +251,80 @@ one-file edit rather than a thousand call-site edits.
 
 ## What the flat skeuomorphic pass covered
 
-Foundation only, so far. Every screen changed colour, but no widget changed
-shape, content or behaviour:
+Every screen changed colour and material. No widget changed the information
+it shows.
 
-- The **L4 surface ramp**, the L4 tints, the rims and the shadow bases were
-  added to `BrandRamps`.
-- The **semantic roles were re-pointed**: `brand` from teal to pink,
-  `surfacePage` to the warm tray, `surfaceCard` to the cool card face,
-  `surfaceField` to the well, `textOnDark` and `onBrand` to warm white, and
-  the status tints to their L4 values. `actionSecondary` is new.
-- The **gradient roles were flattened** to two identical stops, which took all
-  123 gradient-drawing files flat in one step without touching one of them.
-  The `AppColors.build*Gradient()` helpers keep their signatures and are
-  deleted per module as call sites move onto `AppSurfaces`.
-- **`AppElevation`, `SkeuDecoration`, `AppSurfaces`, `SkeuPressable`** and
-  `SkeuInnerShadow` were added: the material, and the two primitives ported
-  from the `wowcare-skeumorph` kit.
+### The foundation
 
-**Still to come**, per `docs/redesign-flat-skeu-plan.md`: the chrome (nav bar,
-drawer, tab strips, app bars), the 88 shared widgets, then the 15 feature
-modules one commit at a time. The two allowlists in the guard test are the
-progress bar.
+- The **L4 surface ramp**, the L4 tints, the rims and the shadow bases in
+  `BrandRamps`.
+- The **semantic roles re-pointed**: `brand` from teal to pink, `surfacePage`
+  to the warm tray, `surfaceCard` to the cool card face, `surfaceField` to the
+  well, `textOnDark` and `onBrand` to warm white.
+- **`AppElevation`, `SkeuDecoration`, `AppSurfaces`, `SkeuPressable`,
+  `SkeuKeyBox`** and `SkeuInnerShadow`: the material, and the primitives
+  ported from the `wowcare-skeumorph` kit.
+
+### Everything a colour can be, is a role
+
+`AppColors` was a directory with 287 hex values still in it. It is a directory
+now. Three groups of roles were added to reach zero:
+
+* **`domainStudent` / `domainStaff`** (+`Soft`, +`Ink`): rule 4's teal/sun
+  split. Not decoration and not status. It is how a child's row reads apart
+  from an adult's.
+* **`data*`**: `dataTeal`, `dataPink`, `dataSun`, `dataGreen`, `dataPurple`,
+  `dataOrange`, each with a `Soft`. A categorical series for charts, legends,
+  role chips and attachment glyphs. No status meaning, only "this one is not
+  that one".
+* **`onMediaHint` / `onMediaTrack` / `mediaScrim`**: chrome over a photo or a
+  video, where nothing in the L4 ramp is legible.
+
+Plus `statusSuccessStrong` and `statusWarningStrong` for ink that has to sit
+on the soft tints, and `iconDefault` / `iconMuted` / `iconOnBrand` /
+`iconAction` for glyphs.
+
+### Material's own widgets
+
+`ColorScheme.fromSeed(pink)` derived thirty-odd roles algorithmically from one
+colour, which made every Material-owned surface a pink-tinted neutral that
+this file could not reach: the date picker's ground, a dropdown's menu, an
+`AlertDialog`. The scheme is written out role by role from `AppPalette` now,
+`surfaceTint` is transparent everywhere, and component themes are set for the
+app bar, card, dialog, bottom sheet, popup and dropdown menus, date and time
+pickers, divider, list tile, chip, snackbar, tooltip, progress indicators,
+switch, checkbox, radio, text selection, tab bar and input fields.
+
+### Glyphs
+
+`AppIcon` paints every SVG through `ColorFilter.mode(token, BlendMode.srcIn)`,
+so an asset cannot carry a colour of its own. `AppArtwork` is the deliberate
+opt-out for a pictogram whose colours are the content. Two assets shipped a
+full-bleed opaque background rect from Figma that `srcIn` turned into a solid
+block; those rects are gone.
+
+### The press
+
+A key's rim is a shadow on the key's own decoration, so translating the widget
+carries the rim down with the face and nothing appears to move. `SkeuKeyBox`
+does both halves: the face travels down 3px while the decoration swaps to
+`keyPressed`, whose rim is 1px instead of 4. The key's bottom edge stays put
+and only the face descends, onto the rim. A rimless secondary key pulls its
+ambient shadow in close instead and travels 2px.
 
 **Deliberately not touched:**
 
-- **`lightTheme` / `darkTheme` still set only** `brightness`, `primaryColor`,
-  `colorScheme`, `useMaterial3`, `fontFamily` and `textTheme`. No
-  `appBarTheme`, `inputDecorationTheme` or button themes were added, because
-  those would restyle every widget that currently relies on Flutter's
-  defaults, silently and everywhere at once.
-- **Font sizes** were left at their call sites. `AppTypeScale` exists for new
-  text; migrating ~1,250 existing `fontSize:` values is a layout change, not a
+- **Font sizes** stay at their call sites. `AppTypeScale` exists for new text;
+  migrating ~1,250 existing `fontSize:` values is a layout change, not a
   colour or font change.
-- **53 files still declare a colour literal**, mostly already-named per-module
-  palettes: `scheduling_staff_shift_style.dart`,
-  `scheduling_block_status_style.dart`, `notification_category_style.dart`,
-  `enrollment_card.dart`'s breakdown-bar segments, and `app_colors.dart`'s own
-  feature-scoped one-offs. They are on the guard test's allowlist and come off
-  it module by module.
-- `newsletter_color_theme.dart` stays as it is on purpose: those colours arrive
-  with the newsletter record and are chosen by its author, so they are data, not
-  theming.
+- **`whiteColor` is the cool card face** at all 199 of its sites. Where one is
+  ink on a saturated face rather than a surface it wants `textOnDarkColor`
+  instead; that triage is per-module and still open.
+- **A text field gets the well's fill and radius but not its inset shadow.**
+  `InputDecoration` cannot paint one, and wrapping the field would put its
+  error and counter text inside the well. Everything you do not type into
+  keeps the inset.
+- **Five media-viewer scaffolds keep a black ground.** A photo on a warm tray
+  is worse, not better.
 
 Nothing moved between folders, and no file was renamed.

@@ -351,3 +351,41 @@ lives on `feature/events` and `feature/tasks`. It gets re-skinned when those mer
   `GradientBackground` on 9 screens. The design pages all sit on a plain ground. Proceeding on
   the assumption it goes, since a photographic ground fights the flat material. Say the word
   and it stays.
+
+---
+
+## 6. Where it finished
+
+The two ratchets both reached zero, so the four rules in
+`test/core/theme/centralized_theme_test.dart` are absolute rather than
+aspirational: no gradient, no colour literal, no `Colors.*` but transparent,
+no bare `SvgPicture`.
+
+| Phase | What landed |
+|---|---|
+| 3. Glyphs | `AppIcon` forces `ColorFilter.mode(token, BlendMode.srcIn)` over every SVG, so an asset cannot carry a colour of its own. `AppArtwork` is the opt-out for a pictogram whose colours are the content. All 165 call sites moved. Two assets shipped a full-bleed white rect from Figma that `srcIn` turned into a solid block; removed. |
+| 4. Material | `ColorScheme.fromSeed(pink)` was making every Material-owned surface a pink-tinted neutral the palette could not reach. The scheme is written out from `AppPalette` and `surfaceTint` is transparent; component themes set for the twenty-odd Material widgets the app uses directly. |
+| 5. The palette | 287 hex values and 118 Material-swatch references in `app_colors.dart`, then 141 literals across 41 other files, all resolve to a role. New role groups: domain coding (teal/sun), a categorical `data*` series, and the over-media set. |
+| 6. Flat | The last 86 gradient-drawing files. 19 page grounds, 66 keys, 19 `ShaderMask`es, 4 media scrims, 3 action panels, the stored-card faces, the analytics plumbing, the newsletter schemes and the scanner's sweep line. The four `build*Gradient()` helpers and the four gradient roles are deleted. |
+| 7. Surfaces | 62 hand-rolled cards onto `card()`, 12 flat field-toned boxes onto `well()`, 9 outlined text fields given the well's fill, 8 sheet roots onto `sheet()`, plus a central `inputDecorationTheme`. |
+| 8. The press | `SkeuKeyBox`: the face travels 3px while the rim collapses 4px to 1px, so the key's bottom edge stays put and only the face descends. 85 keys moved onto it. |
+| 9. Login | The Lottie and the pink hero replaced by the ground, the logo and the wordmark; the form a raised panel; the fields wells rather than pink-outlined boxes. |
+
+### Still open
+
+* **The `whiteColor` triage.** All 199 sites are the cool card face. The ones
+  that are ink on a pink or navy face want `textOnDarkColor` instead. It needs
+  eyes on each screen, which needs a reachable backend.
+* **305 card-toned boxes with no shadow.** Some are cards missing their depth,
+  some are nested panels that should stay flat. The decoration alone does not
+  say which, so this wants the running app rather than a script.
+* **Font sizes** are still at their call sites, by the original plan.
+
+### Verification
+
+`analyze` 72 issues in `lib/` against a 104 baseline, `flutter test` 1352 pass
+and 8 fail (the same 8 that fail on `develop`), the theme suite 44, and the
+debug APK builds and runs on `emulator-5554`. Only the login screen could be
+checked on device: the dev server is not reachable from this machine, so no
+authenticated screen could be opened. `test/core/theme/goldens/material_specimen.png`
+exists for that reason.
