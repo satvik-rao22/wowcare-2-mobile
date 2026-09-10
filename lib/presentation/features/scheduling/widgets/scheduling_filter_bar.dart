@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import '../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'scheduling_legend.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class SchedulingFilterBar extends StatelessWidget {
   const SchedulingFilterBar({
@@ -23,7 +24,7 @@ class SchedulingFilterBar extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.whiteColor,
-        border: Border.all(color: const Color(0x19162831)),
+        border: Border.all(color: AppPalette.borderHairline),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(

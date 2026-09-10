@@ -132,7 +132,7 @@ class NotificationCard extends StatelessWidget {
                       width: 10,
                       height: 10,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF3F6BFF),
+                        color: AppPalette.statusInfo,
                         shape: BoxShape.circle,
                       ),
                     )

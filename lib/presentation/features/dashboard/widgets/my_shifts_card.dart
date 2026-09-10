@@ -230,7 +230,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
 
                               // ── Hour Summary Tiles (exact match) ──────────────
                               ShiftHoursTile(
-                                bgColor: const Color.fromRGBO(255, 250, 234, 1),
+                                bgColor: AppPalette.statusWarningSoft,
                                 label: 'Available Hours',
                                 hours: formatSchedulingHours(
                                   state.availableHours.toDouble(),
@@ -239,7 +239,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                               ),
                               const SizedBox(height: 16),
                               ShiftHoursTile(
-                                bgColor: const Color.fromRGBO(234, 255, 250, 1),
+                                bgColor: AppPalette.statusSuccessSoft,
                                 label: 'Scheduled Hours',
                                 hours: formatSchedulingHours(
                                   state.scheduledHours.toDouble(),
@@ -248,7 +248,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                               ),
                               const SizedBox(height: 16),
                               ShiftHoursTile(
-                                bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                                bgColor: AppPalette.surfaceSunken,
                                 label: 'Unscheduled Hours',
                                 hours: formatSchedulingHours(
                                   state.unscheduledHours.toDouble(),

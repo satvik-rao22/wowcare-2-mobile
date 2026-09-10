@@ -248,17 +248,17 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
         _buildHeaderCell(
           mainText: 'Students',
           subText: 'Present',
-          bg: const Color.fromRGBO(234, 240, 253, 1),
+          bg: AppPalette.domainStudentSoft,
         ),
         _buildHeaderCell(
           mainText: 'Staff',
           subText: 'Present',
-          bg: const Color.fromRGBO(234, 251, 255, 1),
+          bg: AppPalette.domainStaffSoft,
         ),
         _buildHeaderCell(
           mainText: 'Ratio',
           subText: 'Current',
-          bg: const Color.fromRGBO(255, 245, 234, 1),
+          bg: AppPalette.statusWarningSoft,
         ),
       ],
     );
@@ -481,7 +481,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToStudentAttendance(context, room),
           child: Container(
             height: _cellH,
-            color: const Color.fromRGBO(234, 240, 253, 1),
+            color: AppPalette.domainStudentSoft,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
@@ -503,7 +503,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToStaffAttendance(context, room),
           child: Container(
             height: _cellH,
-            color: const Color.fromRGBO(234, 251, 255, 1),
+            color: AppPalette.domainStaffSoft,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
@@ -522,7 +522,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
         // ── Ratio indicator (thumb up / down) ───────────────────────────────
         Container(
           height: _cellH,
-          color: const Color.fromRGBO(255, 245, 234, 1),
+          color: AppPalette.statusWarningSoft,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
             child: Center(

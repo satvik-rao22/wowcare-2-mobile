@@ -265,18 +265,18 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
     if (status == null || status.isEmpty) return AppColors.billingGrey;
     final upperStatus = status.trim().toUpperCase();
     if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
-      return const Color.fromRGBO(56, 200, 32, 1);
+      return AppPalette.statusSuccess;
     }
     if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
-      return const Color.fromRGBO(250, 65, 65, 1);
+      return AppPalette.statusError;
     }
     if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
-      return const Color.fromRGBO(221, 164, 55, 1);
+      return AppPalette.statusWarning;
     }
     if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
       return MaterialHues.grey600;
     }
-    return const Color.fromARGB(255, 238, 223, 8);
+    return AppPalette.statusWarning;
   }
 
   Color _getStatusBgColor(String? status) {
@@ -284,18 +284,18 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
       return AppColors.billingGrey.withValues(alpha: 0.1);
     final upperStatus = status.trim().toUpperCase();
     if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
-      return const Color.fromRGBO(56, 200, 32, 0.1);
+      return AppPalette.statusSuccessSoft;
     }
     if (upperStatus == 'INACTIVE' || upperStatus == 'I') {
-      return const Color.fromRGBO(250, 65, 65, 0.1);
+      return AppPalette.statusErrorSoft;
     }
     if (upperStatus == 'UPCOMING' || upperStatus == 'U') {
-      return const Color.fromRGBO(221, 164, 55, 0.16);
+      return AppPalette.statusWarningSoft;
     }
     if (upperStatus == 'ARCHIVE' || upperStatus == 'ARCHIVED') {
-      return const Color.fromRGBO(117, 117, 117, 0.14);
+      return AppPalette.surfaceMuted;
     }
-    return const Color.fromARGB(255, 242, 238, 176);
+    return AppPalette.statusWarningSoft;
   }
 
   /// Formats enum-style strings from the API into human readable labels.
@@ -326,9 +326,9 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
   @override
   Widget build(BuildContext context) {
     final chipColors = <Color>[
-      const Color.fromRGBO(177, 175, 233, 0.3),
-      const Color.fromRGBO(203, 246, 255, 0.4),
-      const Color.fromRGBO(217, 255, 203, 0.4),
+      AppPalette.surfaceSunken,
+      AppPalette.domainStaffSoft,
+      AppPalette.statusSuccessSoft,
     ];
 
     return BlocListener<StaffProfileCubit, StaffProfileState>(

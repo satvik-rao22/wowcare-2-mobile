@@ -14,7 +14,7 @@ class UpcomingMoveWidget extends StatelessWidget {
     required this.day,
     required this.currentClass,
     required this.nextClass,
-    this.dividerColor = const Color(0xFFA1DA79)
+    this.dividerColor = AppPalette.statusSuccess
   });
 
   @override
@@ -41,7 +41,7 @@ class UpcomingMoveWidget extends StatelessWidget {
                   month,
                   style: TextStyle(
                     fontFamily: AppFonts.body,
-                    color: Color(0x8041414E),
+                    color: AppPalette.textSecondary,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -51,7 +51,7 @@ class UpcomingMoveWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF41414E),
+                    color: AppPalette.textPrimary,
                     fontFamily: AppFonts.body
                   ),
 
@@ -73,13 +73,13 @@ class UpcomingMoveWidget extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
                 letterSpacing: -0.03 * 16,
-                color: Color(0xFF41414E)
+                color: AppPalette.textPrimary
               ),
             ),
             const SizedBox(width: 16,),
             Icon(
               Icons.arrow_forward,
-              color: const Color(0xFF1D1B20),
+              color: AppPalette.textPrimary,
               size: 20,
             ),
             const SizedBox(width: 16,),
@@ -90,7 +90,7 @@ class UpcomingMoveWidget extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                   letterSpacing: -0.03 * 16,
-                  color: Color(0xFF41414E)
+                  color: AppPalette.textPrimary
               ),
             ),
           ],

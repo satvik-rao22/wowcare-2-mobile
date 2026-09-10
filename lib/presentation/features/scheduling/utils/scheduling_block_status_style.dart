@@ -21,9 +21,9 @@ class SchedulingBlockStatusStyle {
 
 
 
-  static const Color dayUnderRatioColor = Color(0xFFF38D8D);
+  static const Color dayUnderRatioColor = AppPalette.statusErrorSoft;
 
-  static const Color dayInRatioColor = Color(0xFFACF3AA);
+  static const Color dayInRatioColor = AppPalette.statusSuccessSoft;
 
   static const Color dayExtraStaffColor = AppColors.themeColor;
 
@@ -33,7 +33,7 @@ class SchedulingBlockStatusStyle {
 
   static const Color badgeUnderRatioColor = AppColors.errorColor;
 
-  static const Color badgeInRatioColor = Color(0xFF3D9A4A);
+  static const Color badgeInRatioColor = AppPalette.statusSuccessStrong;
 
   static const Color badgeExtraStaffColor = dayExtraStaffColor;
 

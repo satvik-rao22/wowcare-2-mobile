@@ -166,7 +166,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                             vertical: 14,
                                           ),
                                           color: hasSelections
-                                              ? Color(0xFFF8F7FA)
+                                              ? AppPalette.surfaceSunken
                                               : Colors.transparent,
                                           child: Row(
                                             children: [
@@ -318,13 +318,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               // decoration: BoxDecoration(
               //   color: Colors.white,
               //   border: Border.all(
-              //     color: widget.errorText != null ? Colors.red : const Color(0x66573353),
+              //     color: widget.errorText != null ? Colors.red : AppPalette.textMuted,
               //   ),
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
               decoration: BoxDecoration(
                 color: AppPalette.brandSoft.withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
+                //color: AppPalette.surfaceSunken,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Stack(

@@ -1119,12 +1119,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
-                                          color: const Color.fromRGBO(
-                                            177,
-                                            175,
-                                            233,
-                                            0.3,
-                                          ),
+                                          color: AppPalette.surfaceSunken,
                                         ),
                                         const SizedBox(width: 8),
                                         CustomClearAllChip(

@@ -258,41 +258,6 @@ void main() {
               (path: e.path, source: e.readAsStringSync()),
       ];
 
-  /// `path` for every file with a line of code matching [pattern].
-  Set<String> filesMatching(
-    RegExp pattern,
-    List<({String path, String source})> from,
-  ) => <String>{
-    for (final ({String path, String source}) f in from)
-      if (stripComments(f.source).split('\n').any(pattern.hasMatch)) f.path,
-  };
-
-  /// Reports an allowlist that is out of date in either direction: files that
-  /// still offend but are not listed (a regression), and files that no longer
-  /// offend but are still listed (a module finished — delete its entries).
-  void expectAllowlist({
-    required Set<String> offending,
-    required Set<String> allowed,
-    required String rule,
-    required String fix,
-  }) {
-    final List<String> unlisted = (offending.difference(allowed)).toList()
-      ..sort();
-    final List<String> stale = (allowed.difference(offending)).toList()..sort();
-    expect(
-      unlisted,
-      isEmpty,
-      reason: '$rule\n$fix\nNot on the allowlist:\n${unlisted.join('\n')}',
-    );
-    expect(
-      stale,
-      isEmpty,
-      reason:
-          'These files are clean now. Delete them from the allowlist so it '
-          'keeps ratcheting:\n${stale.join('\n')}',
-    );
-  }
-
   group('the app is flat: no gradients', () {
     test('nothing under lib/ draws a gradient', () {
       // Rule 3 of the design language. This started as an allowlist of 119
@@ -391,71 +356,33 @@ void main() {
   });
 
   group('colour literals live in app_theme_config.dart', () {
-    /// The files that still declare a raw colour: per-module decorative
-    /// palettes that have not had their module's commit yet.
-    ///
-    /// `app_colors.dart` is no longer among them. Every one of its 287
-    /// feature-scoped literals now resolves to an [AppPalette] role, which
-    /// is what makes a second skin a single-file change.
-    ///
-    /// **This list only ever shrinks.**
-    const Set<String> knownColourLiteralFiles = <String>{
-      'lib/core/utils/core_utils.dart',
-      'lib/presentation/features/dashboard/widgets/availability_card.dart',
-      'lib/presentation/features/dashboard/widgets/classroom_shifts_card.dart',
-      'lib/presentation/features/dashboard/widgets/enrollment_card.dart',
-      'lib/presentation/features/dashboard/widgets/my_attendance_card.dart',
-      'lib/presentation/features/dashboard/widgets/my_shifts_card.dart',
-      'lib/presentation/features/dashboard/widgets/ratio_monitoring_card.dart',
-      'lib/presentation/features/dashboard/widgets/student_attendance_summary_card.dart',
-      'lib/presentation/features/dashboard/widgets/student_billing_card.dart',
-      'lib/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart',
-      'lib/presentation/features/notifications/widgets/notification_card.dart',
-      'lib/presentation/features/notifications/widgets/notification_category_style.dart',
-      'lib/presentation/features/scheduling/model/scheduling_staff_shift_style.dart',
-      'lib/presentation/features/scheduling/utils/scheduling_block_status_style.dart',
-      'lib/presentation/features/scheduling/view/scheduling_screen.dart',
-      'lib/presentation/features/scheduling/view/staff_scheduling_screen.dart',
-      'lib/presentation/features/scheduling/view/view_shift_screen.dart',
-      'lib/presentation/features/scheduling/widgets/day_classroom_section.dart',
-      'lib/presentation/features/scheduling/widgets/day_gantt_table.dart',
-      'lib/presentation/features/scheduling/widgets/scheduling_filter_bar.dart',
-      'lib/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart',
-      'lib/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart',
-      'lib/presentation/features/scheduling/widgets/staff_schedule_tile.dart',
-      'lib/presentation/features/staff/view/staff_screen.dart',
-      'lib/presentation/features/staff/widgets/staff_action_panel.dart',
-      'lib/presentation/features/staff/widgets/staff_action_panel_options.dart',
-      'lib/presentation/features/staff/widgets/staff_dates_tab.dart',
-      'lib/presentation/features/staff/widgets/staff_profile_tab.dart',
-      'lib/shared/common/widgets/calendar_dialog.dart',
-      'lib/shared/common/widgets/custom_multi_select_dropdown.dart',
-      'lib/shared/common/widgets/custom_repeat_on_days_selector.dart',
-      'lib/shared/common/widgets/custom_shimmer_loader.dart',
-      'lib/shared/common/widgets/delete_confirmation_bottom_sheet.dart',
-      'lib/shared/common/widgets/duplicate_student_bottom_sheet.dart',
-      'lib/shared/common/widgets/hls_web_player.dart',
-      'lib/shared/common/widgets/multi_selection_widget.dart',
-      'lib/shared/common/widgets/photo_upload_progress_overlay.dart',
-      'lib/shared/common/widgets/schedule_picker.dart',
-      'lib/shared/common/widgets/select_dropdown_card.dart',
-      'lib/shared/common/widgets/select_step_layout.dart',
-      'lib/shared/common/widgets/upcoming_move_widget.dart',
-       };
-
-    test('no new file declares a colour of its own', () {
-      expectAllowlist(
-        offending: filesMatching(
-          RegExp(r'Color\(0x|Color\.fromRGBO|Color\.fromARGB'),
-          allSources,
-        ),
-        allowed: knownColourLiteralFiles,
-        rule:
+    test('no file outside the token file declares a colour', () {
+      // This started as an allowlist of 58 files and ratcheted to zero.
+      // Every colour the app paints — including the feature-scoped ones in
+      // app_colors.dart, the categorical chart palettes and the
+      // author-chosen newsletter schemes — resolves to an AppPalette role,
+      // which is what makes a second skin a single-file change.
+      final List<String> found = <String>[
+        for (final ({String path, String source}) f in allSources)
+          ...() {
+            final List<String> lines = stripComments(f.source).split('\n');
+            return <String>[
+              for (int i = 0; i < lines.length; i++)
+                if (RegExp(
+                  r'Color\(0x|Color\.fromRGBO|Color\.fromARGB',
+                ).hasMatch(lines[i]))
+                  '${f.path}:${i + 1}',
+            ];
+          }(),
+      ];
+      expect(
+        found,
+        isEmpty,
+        reason:
             'Colours are defined once, in '
-            'lib/core/theme/app_theme_config.dart.',
-        fix:
-            'Add a role to AppPalette (or a feature token to AppColors that '
-            'points at one) and reference it.',
+            'lib/core/theme/app_theme_config.dart. Add a role to AppPalette '
+            '(or a feature token in AppColors that points at one) and '
+            'reference it, at:\n${found.join('\n')}',
       );
     });
   });

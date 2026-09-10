@@ -160,14 +160,14 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
       return const SizedBox.shrink();
     }
 
-    const completedColor = Color.fromRGBO(56, 200, 32, 1);
-    const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
-    const dueColor = Color.fromRGBO(234, 186, 0, 1);
-    const dueBg = Color.fromRGBO(234, 186, 0, 0.12);
-    const overdueColor = Color.fromRGBO(232, 45, 45, 1);
-    const overdueBg = Color.fromRGBO(232, 45, 45, 0.12);
-    const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
-    const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
+    const completedColor = AppPalette.statusSuccess;
+    const completedBg = AppPalette.statusSuccessSoft;
+    const dueColor = AppPalette.statusWarning;
+    const dueBg = AppPalette.statusWarningSoft;
+    const overdueColor = AppPalette.statusError;
+    const overdueBg = AppPalette.statusErrorSoft;
+    const scheduledColor = AppPalette.statusInfo;
+    const scheduledBg = AppPalette.statusInfoSoft;
 
     final statusUpper = (physical.status ?? '').toUpperCase();
     final dueDate = physical.dueDate.trim();

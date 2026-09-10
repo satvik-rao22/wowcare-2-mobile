@@ -30,7 +30,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xB3241631),
+          color: AppPalette.mediaScrim,
           borderRadius: borderRadius,
         ),
         child: Center(

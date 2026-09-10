@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class BillingStudentCard extends StatefulWidget {
   const BillingStudentCard({
@@ -273,8 +274,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
                                                               FontWeight.w700,
-                                                          color: const Color(
-                                                              0xff573353),
+                                                          color: AppPalette.textPrimary,
                                                           height: 16 / 12,
                                                         ),
                                                         overflow: TextOverflow
@@ -310,8 +310,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                           isTablet ? 16 : 14,
                                                       fontWeight:
                                                           FontWeight.w500,
-                                                      color: const Color(
-                                                          0xff573353),
+                                                      color: AppPalette.textPrimary,
                                                       height: 19 / 14,
                                                     ),
                                                     overflow:

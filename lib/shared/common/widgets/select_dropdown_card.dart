@@ -29,7 +29,7 @@ class SelectDropdownCard extends StatelessWidget {
         border: Border.all(color: AppColors.transparentColor),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.04),
+            color: AppPalette.shadowAmbient,
             blurRadius: 8,
             offset: Offset(0, 4),
           ),

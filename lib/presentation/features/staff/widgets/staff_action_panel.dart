@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_act
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel_options.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 enum StaffPanelType { attendance, activities, none }
 
@@ -176,7 +177,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color.fromRGBO(156, 132, 255, 1),
+                      color: AppPalette.dataPurple,
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.blackColor.withValues(alpha: 0.2),

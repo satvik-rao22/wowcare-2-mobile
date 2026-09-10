@@ -16,10 +16,10 @@ const double kSchedulingStatusColumnWidth = 140;
 const Color kSchedulingGridColor = AppPalette.borderHairline;
 
 /// Blue border colour used to set the header row apart from the body.
-const Color kSchedulingHeaderBorderColor = Color(0x332C62E2);
+const Color kSchedulingHeaderBorderColor = AppPalette.border;
 
 /// Pinkish background colour for the table's header row.
-const Color kSchedulingHeaderBackground = Color(0xB2F9F5FA);
+const Color kSchedulingHeaderBackground = AppPalette.surfaceSunken;
 
 /// A single row of the schedule table: [left] cell + vertical divider +
 /// fixed-width [right] cell, followed by a horizontal divider unless [isLast].

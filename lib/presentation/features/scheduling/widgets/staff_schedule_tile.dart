@@ -157,7 +157,7 @@ Color? schedulingAttendanceDotColor(String? status) {
   final normalized = (status ?? '').trim().toUpperCase();
   if (normalized.isEmpty) return null;
   if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') {
-    return const Color.fromRGBO(0, 177, 21, 1);
+    return AppPalette.statusSuccess;
   }
   if (normalized == 'ABSENT') return MaterialHues.red;
   return null;
@@ -281,7 +281,7 @@ class StaffTimeRangePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const borderColor = Color(0xFF89A0FF);
+    const borderColor = AppPalette.borderStrong;
     const radius = 8.0;
     final inner = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

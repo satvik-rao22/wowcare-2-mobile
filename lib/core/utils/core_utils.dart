@@ -344,8 +344,8 @@ class CoreUtils {
   }) {
     if (context is Element && !context.mounted) return;
 
-    const Color successColor = Color.fromRGBO(21, 133, 49, 1);
-    const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
+    const Color successColor = AppPalette.statusSuccess;
+    const Color successBackgroundColor = AppPalette.statusSuccessSoft;
 
     final backgroundColor = isError
         ? MaterialHues.red50

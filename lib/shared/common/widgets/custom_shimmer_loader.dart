@@ -658,7 +658,7 @@ class StaffSchedulingShimmer extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.surfaceCard,
         border: Border.all(
-          color: const Color.fromARGB(255, 232, 234, 234),
+          color: AppPalette.border,
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(12),
@@ -803,7 +803,7 @@ class ClassroomSchedulingShimmer extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppPalette.surfaceCard,
-        border: Border.all(color: const Color(0x33162831)),
+        border: Border.all(color: AppPalette.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
@@ -880,7 +880,7 @@ class _ShimmerTableRow extends StatelessWidget {
       children: [
         ColoredBox(
           color: headerBackground
-              ? const Color(0xB2F9F5FA)
+              ? AppPalette.surfaceSunken
               : Colors.transparent,
           child: IntrinsicHeight(
             child: Row(
@@ -1031,7 +1031,7 @@ class ClassroomProfileShimmer extends StatelessWidget {
               color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color.fromARGB(255, 232, 234, 234),
+                color: AppPalette.border,
                 width: 1.5,
               ),
             ),
@@ -1131,7 +1131,7 @@ class ClassroomProfileShimmer extends StatelessWidget {
               color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color.fromARGB(255, 232, 234, 234),
+                color: AppPalette.border,
                 width: 1.5,
               ),
             ),
@@ -1979,7 +1979,7 @@ class StudentProfileInfoShimmer extends StatelessWidget {
         top: Radius.circular(12),
         bottom: Radius.circular(16),
       ),
-      borderColor: const Color.fromARGB(255, 232, 234, 234),
+      borderColor: AppPalette.border,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2314,7 +2314,7 @@ class StudentDocumentsListShimmer extends StatelessWidget {
         for (int i = 0; i < rowCount; i++) ...[
           _ShimmerCard(
             borderRadius: BorderRadius.circular(14),
-            borderColor: const Color(0x33162831),
+            borderColor: AppPalette.border,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             child: Row(
               children: const [
@@ -2412,7 +2412,7 @@ class StaffProfileInfoShimmer extends StatelessWidget {
         top: Radius.circular(12),
         bottom: Radius.circular(16),
       ),
-      borderColor: const Color.fromARGB(255, 232, 234, 234),
+      borderColor: AppPalette.border,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2450,7 +2450,7 @@ class StaffDocumentsListShimmer extends StatelessWidget {
         for (int i = 0; i < rowCount; i++) ...[
           _ShimmerCard(
             borderRadius: BorderRadius.circular(14),
-            borderColor: const Color(0x33162831),
+            borderColor: AppPalette.border,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             child: Row(
               children: const [
@@ -2488,7 +2488,7 @@ class StaffImportantDatesShimmer extends StatelessWidget {
             margin: EdgeInsets.only(top: i == 0 ? 16 : 12),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x33162831)),
+              border: Border.all(color: AppPalette.border),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Shimmer.fromColors(
@@ -2731,7 +2731,7 @@ class GeneratedReportsListShimmer extends StatelessWidget {
         for (int i = 0; i < rowCount; i++) ...[
           _ShimmerCard(
             borderRadius: BorderRadius.circular(12),
-            borderColor: const Color(0x33162831),
+            borderColor: AppPalette.border,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: const SizedBox(
               height: 64,

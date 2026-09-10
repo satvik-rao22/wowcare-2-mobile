@@ -284,7 +284,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: AppPalette.border,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -381,7 +381,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: AppPalette.border,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -511,7 +511,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              side: const BorderSide(color: AppPalette.brand),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -523,7 +523,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                 fontFamily: AppFonts.body,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF6C7FD8),
+                                color: AppPalette.brand,
                                 height: 1,
                               ),
                             ),

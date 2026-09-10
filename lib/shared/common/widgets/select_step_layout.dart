@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class SelectStepLayout extends StatelessWidget {
   const SelectStepLayout({
@@ -69,7 +70,7 @@ class SelectStepLayout extends StatelessWidget {
                   Center(
                     child: SizedBox(
                       width: double.infinity,
-                      child: const Divider(height: 1, color: Color(0xFFE8E8E8)),
+                      child: const Divider(height: 1, color: AppPalette.divider),
                     ),
                   ),
                   const SizedBox(height: 16),

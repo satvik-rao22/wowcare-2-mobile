@@ -242,7 +242,7 @@ class _DeleteConfirmationBottomSheetState
                                 ? 80.0
                                 : (isTablet ? 70.0 : 60.0),
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF85A5A),
+                              color: AppPalette.statusError,
                               shape: BoxShape.circle,
                             ),
                             child: Padding(

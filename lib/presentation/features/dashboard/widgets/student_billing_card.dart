@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_h
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 // ---------------------------------------------------------------------------
 // StudentBillingCard (parent dashboard)
@@ -322,7 +323,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               'Refund',
               style: TextStyle(
                 fontSize: 16,
-                color: Color.fromRGBO(55, 65, 88, 1),
+                color: AppPalette.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -568,7 +569,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                                   'Current\nBalance',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: Color.fromRGBO(65, 65, 76, 0.8),
+                                    color: AppPalette.textSecondary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),

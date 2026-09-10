@@ -111,9 +111,9 @@ class CustomProfileAvatar extends StatelessWidget {
           //         color: context.currentStaff!.profileStatus == 'Upcoming'
           //             ? const Color.fromARGB(255, 253, 205, 22)
           //             : context.currentStaff!.isSignedIn
-          //                 ? const Color.fromRGBO(0, 177, 21, 1)
+          //                 ? AppPalette.statusSuccess
           //                 : context.currentStaff!.isAbsent
-          //                     ? const Color.fromRGBO(200, 32, 32, 1)
+          //                     ? AppPalette.statusErrorStrong
           //                     : null,
           //         borderRadius: BorderRadius.circular(100),
           //         border: Border.all(

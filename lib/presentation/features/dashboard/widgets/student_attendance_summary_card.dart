@@ -339,7 +339,7 @@ class _StudentAttendanceSummaryCardState
           label: 'Attended Hours',
           hours: hours,
           minutes: minutes,
-          valueColor: const Color(0xFF4285F4),
+          valueColor: AppPalette.statusInfo,
         ),
         const SizedBox(height: 16),
         _buildStatItem(

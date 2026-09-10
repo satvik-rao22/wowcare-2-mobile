@@ -23,7 +23,7 @@
 //       decoration: BoxDecoration(
 //         border: Border.all(color: AppColors.themeColor),
 //         borderRadius: BorderRadius.circular(10),
-//         color: const Color.fromRGBO(249, 245, 250, 1),
+//         color: AppPalette.surfaceSunken,
 //       ),
 //       child: Row(
 //         mainAxisAlignment: MainAxisAlignment.spaceBetween,

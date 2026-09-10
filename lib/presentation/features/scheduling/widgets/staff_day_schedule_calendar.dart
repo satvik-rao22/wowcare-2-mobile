@@ -358,7 +358,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     return Container(
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: const Color.fromRGBO(254, 241, 199, 1),
+      color: AppPalette.statusWarningSoft,
       child: Text.rich(
         TextSpan(
           children: [
@@ -419,7 +419,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     final shiftWidget = Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(234, 244, 255, 1),
+        color: AppPalette.statusInfoSoft,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.themeColor.withValues(alpha: 0.15),

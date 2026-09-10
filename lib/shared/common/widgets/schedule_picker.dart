@@ -65,8 +65,8 @@ class _SchedulePickerState extends State<SchedulePicker> {
                           ? AppColors.secondaryColor
                           : MaterialHues.grey700,
                       color: isAvailable
-                          ? const Color(0x4DB1AFE9)
-                          : const Color(0xFFF3F4FB),
+                          ? AppPalette.brandSoft
+                          : AppPalette.surfaceMuted,
                     ),
 
                     if (isAvailable) ...[
@@ -133,7 +133,7 @@ class _ScheduleChip extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(12),
         border: isTimeChip
-            ? Border.all(color: const Color(0x4DB1AFE9), width: 2)
+            ? Border.all(color: AppPalette.brandSoft, width: 2)
             : null,
       ),
       alignment: Alignment.center,
@@ -323,7 +323,7 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                           return Theme(
                             data: Theme.of(context).copyWith(
                               colorScheme: const ColorScheme.light(
-                                primary: const Color(0xFF7B7EFB),
+                                primary: AppPalette.brand,
                               ),
                             ),
                             child: MediaQuery(
@@ -414,7 +414,7 @@ class _TimeSlotDialogState extends State<TimeSlotDialog> {
                           return Theme(
                             data: Theme.of(context).copyWith(
                               colorScheme: const ColorScheme.light(
-                                primary: const Color(0xFF7B7EFB),
+                                primary: AppPalette.brand,
                               ),
                             ),
                             child: MediaQuery(

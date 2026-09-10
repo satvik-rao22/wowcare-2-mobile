@@ -32,6 +32,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Staff Scheduling — single-day view with staff picker, profile summary,
 /// hour totals, and day timeline. Staff dropdown is fed by [StaffCubit] (with
@@ -760,7 +761,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppColors.whiteColor,
-                      border: Border.all(color: const Color(0x19162831)),
+                      border: Border.all(color: AppPalette.borderHairline),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: StaffSchedulingStaffDropdown(
@@ -808,7 +809,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                             const StaffShiftsBodyShimmer()
                           else ...[
                             ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(255, 250, 234, 1),
+                              bgColor: AppPalette.statusWarningSoft,
                               label: 'Available Hours',
                               hours: formatSchedulingHours(
                                 state.shiftSummary.availableHours,
@@ -817,7 +818,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                             ),
                             const SizedBox(height: 16),
                             ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(234, 255, 250, 1),
+                              bgColor: AppPalette.statusSuccessSoft,
                               label: 'Scheduled Hours',
                               hours: formatSchedulingHours(
                                 state.shiftSummary.scheduledHours,
@@ -826,7 +827,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                             ),
                             const SizedBox(height: 16),
                             ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                              bgColor: AppPalette.surfaceSunken,
                               label: 'Unscheduled Hours',
                               hours: formatSchedulingHours(
                                 state.shiftSummary.unscheduledHours,

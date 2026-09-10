@@ -16,8 +16,8 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
 /// Colours for the breakdown bar segments that have no exact theme constant.
-const Color _signedOutColor = Color(0xFF8BB4EF);
-const Color _notMarkedColor = Color(0xFFEBC398);
+const Color _signedOutColor = AppPalette.statusInfo;
+const Color _notMarkedColor = AppPalette.statusWarningSoft;
 
 /// One labelled segment of a breakdown bar (name + count + colour + filter).
 class _Seg {

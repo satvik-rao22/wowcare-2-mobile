@@ -269,7 +269,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           icon: MediaRes.calenderClockIcon,
           label: 'Attended Days',
           text: attendedDays.toString(),
-          valueColor: const Color.fromRGBO(52, 199, 89, 1),
+          valueColor: AppPalette.statusSuccess,
         ),
         const SizedBox(height: 16),
         _AttendanceHoursTile(hours: attendedHours, minutes: attendedMinutes),
@@ -278,7 +278,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           icon: MediaRes.calenderClockIcon,
           label: 'Absent Days',
           text: absentDays.toString(),
-          valueColor: const Color.fromRGBO(255, 117, 110, 1),
+          valueColor: AppPalette.statusError,
         ),
       ],
     );
@@ -406,13 +406,13 @@ class _ValueCircle extends StatelessWidget {
       width: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(color: Color(0xFF4285F4), width: 1.5),
+        border: Border.all(color: AppPalette.statusInfo, width: 1.5),
         shape: BoxShape.circle,
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: Color(0xFF4285F4),
+          color: AppPalette.statusInfo,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),

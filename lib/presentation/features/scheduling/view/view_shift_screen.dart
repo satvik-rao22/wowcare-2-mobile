@@ -441,7 +441,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF8B7B89),
+            color: AppPalette.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -508,7 +508,7 @@ class _ScopeRadioTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF8B7B89),
+                      color: AppPalette.textSecondary,
                       height: 1.35,
                     ),
                   ),

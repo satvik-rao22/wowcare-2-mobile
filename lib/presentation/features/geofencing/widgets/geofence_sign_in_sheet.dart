@@ -126,10 +126,10 @@ class GeofenceSignInSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+              color: AppPalette.statusSuccess.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF22C55E).withValues(alpha: 0.4),
+                color: AppPalette.statusSuccess.withValues(alpha: 0.4),
               ),
             ),
             child: Row(
@@ -139,7 +139,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                   width: 8,
                   height: 8,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF22C55E),
+                    color: AppPalette.statusSuccess,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -148,7 +148,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                   'Inside School Radius',
                   style: TextStyle(
                     fontFamily: AppFonts.body,
-                    color: Color(0xFF16A34A),
+                    color: AppPalette.statusSuccessStrong,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),

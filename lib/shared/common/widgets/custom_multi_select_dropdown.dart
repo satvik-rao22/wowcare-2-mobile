@@ -234,7 +234,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: 14,
-                                color: Color(0x99573353),
+                                color: AppPalette.textSecondary,
                               ),
                             ),
                           ),

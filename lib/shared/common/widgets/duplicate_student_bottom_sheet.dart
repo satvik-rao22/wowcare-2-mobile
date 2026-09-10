@@ -90,7 +90,7 @@ class _DuplicateStudentBottomSheetState
                   width: isLargeTablet ? 80 : (isTablet ? 70 : 60),
                   height: isLargeTablet ? 80 : (isTablet ? 70 : 60),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFFF1E8),
+                    color: AppPalette.statusWarningSoft,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(

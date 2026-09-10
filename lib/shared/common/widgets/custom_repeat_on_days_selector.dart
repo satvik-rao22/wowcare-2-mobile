@@ -143,8 +143,8 @@ class _CustomRepeatOnDaysSelectorState
             child: Container(
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFE9E6EC) // selected background
-                    : const Color(0xFFF8F7FA), // unselected background
+                    ? AppPalette.surfaceField // selected background
+                    : AppPalette.surfaceSunken, // unselected background
                 borderRadius: BorderRadius.circular(
                   8,
                 ), // rectangular with slight curve
@@ -157,7 +157,7 @@ class _CustomRepeatOnDaysSelectorState
                   fontWeight: FontWeight.w500,
                   color: isSelected
                       ? AppColors.primaryColor
-                      : const Color(0xFF7C94C1),
+                      : AppPalette.textSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

@@ -393,11 +393,11 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         ),
         _buildHeaderCell(
           mainText: 'Morning',
-          backgroundColor: const Color.fromRGBO(249, 241, 255, 1),
+          backgroundColor: AppPalette.surfaceSunken,
         ),
         _buildHeaderCell(
           mainText: 'Afternoon',
-          backgroundColor: const Color.fromRGBO(249, 241, 255, 1),
+          backgroundColor: AppPalette.surfaceSunken,
         ),
       ],
     );
@@ -483,7 +483,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         // Morning shift count cell
         Container(
           height: cellHeightRow,
-          color: const Color.fromRGBO(249, 241, 255, 1),
+          color: AppPalette.surfaceSunken,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
@@ -505,7 +505,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         Container(
           height: cellHeightRow,
           decoration: BoxDecoration(
-            color: const Color.fromRGBO(249, 241, 255, 1),
+            color: AppPalette.surfaceSunken,
             borderRadius: isLast
                 ? const BorderRadius.only(bottomRight: Radius.circular(8))
                 : BorderRadius.zero,

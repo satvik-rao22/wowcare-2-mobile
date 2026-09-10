@@ -47,7 +47,7 @@ class AttendanceOptionsPanel extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        border: Border.all(color: AppPalette.borderStrong),
         color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
@@ -118,7 +118,7 @@ class ActivitiesOptionsPanel extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        border: Border.all(color: AppPalette.borderStrong),
         color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [

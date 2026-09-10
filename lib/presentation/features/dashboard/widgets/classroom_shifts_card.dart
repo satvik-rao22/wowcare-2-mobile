@@ -254,7 +254,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                               decoration: BoxDecoration(
                                 color: AppColors.whiteColor,
                                 border: Border.all(
-                                  color: const Color(0x33162831),
+                                  color: AppPalette.border,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
