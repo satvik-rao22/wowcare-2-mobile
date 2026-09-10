@@ -38,6 +38,8 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/new_m
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -533,17 +535,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.sm, AppSizes.md),
           //height: 60,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                AppColors.messagingQuoteGradientStart,
-                AppColors.messagingQuoteGradientEnd,
-              ],
-            ),
-          ),
+          decoration: AppSurfaces.sub(radius: AppRadius.xl),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -609,10 +601,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             width: double.infinity,
             height: 60,
             //padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.sm, AppSizes.md),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary),
             child: TextButton(
               onPressed: () {
                 final newText = editingController.text.trim();
@@ -1628,9 +1617,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   horizontal: 28,
                   vertical: AppSizes.sm,
                 ),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(24),
+                decoration: AppSurfaces.key(
+                  KeyVariant.primary,
+                  radius: AppRadius.pill,
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,

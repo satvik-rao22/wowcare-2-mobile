@@ -17,6 +17,7 @@ import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
@@ -372,15 +373,8 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             child: SafeArea(
               bottom: false,
               child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.blackColor.withValues(alpha: 0.75),
-                      AppColors.transparentColor,
-                    ],
-                  ),
+                decoration: const BoxDecoration(
+                  color: AppPalette.mediaScrim,
                 ),
                 padding: const EdgeInsets.only(bottom: AppSizes.lg),
                 child: Row(

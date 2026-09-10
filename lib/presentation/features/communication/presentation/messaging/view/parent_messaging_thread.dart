@@ -48,6 +48,8 @@ import 'package:wowcare/presentation/features/communication/view_model/private_m
 import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
 import 'package:wowcare/data/features/communication/mappers/participant_mapper.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -3483,9 +3485,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   horizontal: 28,
                   vertical: AppSizes.sm,
                 ),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(24),
+                decoration: AppSurfaces.key(
+                  KeyVariant.primary,
+                  radius: AppRadius.pill,
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,

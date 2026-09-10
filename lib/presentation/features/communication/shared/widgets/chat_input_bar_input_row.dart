@@ -322,24 +322,7 @@ class _InputRow extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(
-                  gradient: hasText ? AppColors.buildPrimaryGradient() : null,
-                  color: hasText
-                      ? null
-                      : AppColors.primaryColor.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  boxShadow: hasText
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.30,
-                            ),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
+                decoration: AppSurfaces.fab(enabled: hasText),
                 child: isSending
                     ? const Padding(
                         padding: EdgeInsets.all(13),

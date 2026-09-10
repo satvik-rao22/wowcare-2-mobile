@@ -8,6 +8,8 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 class MessagingInputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -49,17 +51,7 @@ class MessagingInputArea extends StatelessWidget {
                   horizontal: AppSizes.sm,
                   vertical: AppSizes.xs,
                 ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppColors.messagingQuoteGradientStart,
-                      AppColors.messagingQuoteGradientEnd,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: AppSurfaces.sub(radius: AppRadius.md),
                 child: Row(
                   children: [
                     Expanded(
@@ -196,10 +188,7 @@ class MessagingInputArea extends StatelessWidget {
                 GestureDetector(
                   onTap: onSend,
                   child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    decoration: AppSurfaces.key(KeyVariant.primary),
                     padding: const EdgeInsets.all(AppSizes.sm),
                     child: const Icon(
                       Icons.send,

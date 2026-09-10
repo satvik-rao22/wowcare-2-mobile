@@ -295,7 +295,7 @@ void main() {
   }
 
   group('the app is flat: no gradients', () {
-    /// The 97 files outside `lib/core/theme/` that still draw a gradient,
+    /// The files outside `lib/core/theme/` that still draw a gradient,
     /// either directly or through one of the `AppColors.build*Gradient()`
     /// helpers.
     ///
@@ -338,16 +338,6 @@ void main() {
       'lib/presentation/features/billing/widgets/transactions/billing_transaction_card.dart',
       'lib/presentation/features/classroom/view/classroom_tab_cards/classroom_staff_tab_card.dart',
       'lib/presentation/features/classroom/view/classroom_tab_cards/classroom_students_tab_card.dart',
-      'lib/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart',
-      'lib/presentation/features/communication/bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart',
-      'lib/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart',
-      'lib/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart',
-      'lib/presentation/features/communication/presentation/messaging/widgets/communication_launcher_button.dart',
-      'lib/presentation/features/communication/presentation/messaging/widgets/messaging_input_area.dart',
-      'lib/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart',
-      'lib/presentation/features/communication/shared/widgets/chat_input_bar_input_row.dart',
-      'lib/presentation/features/communication/shared/widgets/message_bubble_widget.dart',
-      'lib/presentation/features/communication/shared/widgets/new_messages_indicator.dart',
       'lib/presentation/features/dashboard/view/qr_code_scanner.dart',
       'lib/presentation/features/dashboard/widgets/billing_card.dart',
       'lib/presentation/features/dashboard/widgets/dashboard_card_toggle.dart',
@@ -514,13 +504,15 @@ void main() {
   });
 
   group('colour literals live in app_theme_config.dart', () {
-    /// The 44 files that still declare a raw colour. Mostly the per-module
-    /// decorative palettes `docs/theming.md` lists as a follow-up, plus
-    /// `app_colors.dart`'s own feature-scoped one-offs.
+    /// The files that still declare a raw colour: per-module decorative
+    /// palettes that have not had their module's commit yet.
+    ///
+    /// `app_colors.dart` is no longer among them. Every one of its 287
+    /// feature-scoped literals now resolves to an [AppPalette] role, which
+    /// is what makes a second skin a single-file change.
     ///
     /// **This list only ever shrinks.**
     const Set<String> knownColourLiteralFiles = <String>{
-      'lib/core/theme/app_colors.dart',
       'lib/core/utils/core_utils.dart',
       'lib/presentation/features/dashboard/widgets/availability_card.dart',
       'lib/presentation/features/dashboard/widgets/classroom_shifts_card.dart',

@@ -3,6 +3,8 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 /// Gradient pill button used by [MessagingEntryScreen] to launch a
 /// communication module (Staff Messaging / Admin Chat / Room Chat).
@@ -78,16 +80,9 @@ class _CommunicationLauncherButtonState
                 vertical: widget.verticalPadding,
                 horizontal: widget.horizontalPadding,
               ),
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryColor.withValues(alpha: 0.18),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+              decoration: AppSurfaces.key(
+                KeyVariant.primary,
+                radius: AppRadius.pill,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

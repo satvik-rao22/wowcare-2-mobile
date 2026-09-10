@@ -734,6 +734,111 @@ class AppPalette {
       ? BrandRamps.tealTint
       : Color(0xFFE3F2FD);
 
+  /// A stronger success tone, for ink that has to sit on [statusSuccessSoft].
+  static const Color statusSuccessStrong = _brand
+      ? BrandRamps.green700
+      : Color(0xFF1B5E20);
+
+  /// A stronger warning tone, for ink that has to sit on [statusWarningSoft].
+  static const Color statusWarningStrong = _brand
+      ? BrandRamps.sun600
+      : Color(0xFFC05621);
+
+  // ── Domain coding ────────────────────────────────────────────────────────
+  //
+  // Rule 4 of the design language: teal is anything about a child, sun is
+  // anything about a member of staff. Neither is decoration and neither is a
+  // status — on an attendance, classroom or scheduling screen this split is
+  // how a child's row reads apart from an adult's at a glance.
+
+  /// Anything about a child: avatars, capacity troughs, student-scoped tiles.
+  static const Color domainStudent = _brand
+      ? BrandRamps.teal600
+      : LegacyHues.blue;
+
+  /// The tint [domainStudent] sits on.
+  static const Color domainStudentSoft = _brand
+      ? BrandRamps.tealTint
+      : LegacyHues.grey100;
+
+  /// Readable ink on [domainStudentSoft].
+  static const Color domainStudentInk = _brand
+      ? BrandRamps.teal700
+      : LegacyHues.blue;
+
+  /// Anything about a member of staff.
+  static const Color domainStaff = _brand
+      ? BrandRamps.sun400
+      : LegacyHues.amber;
+
+  /// The tint [domainStaff] sits on.
+  static const Color domainStaffSoft = _brand
+      ? BrandRamps.sunTint
+      : LegacyHues.grey100;
+
+  /// Readable ink on [domainStaffSoft]. `sun600` is too light to sit on it.
+  static const Color domainStaffInk = _brand
+      ? BrandRamps.sunText
+      : LegacyHues.orange;
+
+  // ── Categorical data ─────────────────────────────────────────────────────
+  //
+  // A rotating series palette: chart bands, legend swatches, conversation
+  // role chips, attachment-type glyphs. These carry no status meaning, only
+  // "this one is not that one", so the only rule is that neighbours read
+  // apart. `*Soft` is the fill; the plain step is the ink or the solid.
+
+  static const Color dataTeal = _brand ? BrandRamps.teal500 : LegacyHues.blue;
+  static const Color dataTealSoft = _brand
+      ? BrandRamps.teal200
+      : LegacyHues.lavender;
+  static const Color dataPink = _brand ? BrandRamps.pink500 : LegacyHues.pink;
+  static const Color dataPinkSoft = _brand
+      ? BrandRamps.pink200
+      : LegacyHues.pinkLight;
+  static const Color dataSun = _brand ? BrandRamps.sun400 : LegacyHues.amber;
+  static const Color dataSunSoft = _brand
+      ? BrandRamps.sun200
+      : LegacyHues.grey200;
+  static const Color dataGreen = _brand
+      ? BrandRamps.green500
+      : LegacyHues.green;
+  static const Color dataGreenSoft = _brand
+      ? BrandRamps.green200
+      : LegacyHues.grey200;
+  static const Color dataPurple = _brand
+      ? BrandRamps.purple400
+      : LegacyHues.violet;
+  static const Color dataPurpleSoft = _brand
+      ? BrandRamps.purple200
+      : LegacyHues.lavender;
+  static const Color dataOrange = _brand
+      ? BrandRamps.orange400
+      : LegacyHues.orange;
+  static const Color dataOrangeSoft = _brand
+      ? BrandRamps.orange200
+      : LegacyHues.grey200;
+
+  // ── Over media ───────────────────────────────────────────────────────────
+  //
+  // A photo or a video is not an app surface: chrome laid over one needs its
+  // own translucent set, because nothing in the L4 ramp is legible there.
+
+  /// A caption or hint over media.
+  static const Color onMediaHint = _brand
+      ? Color(0x8AFFFAF2)
+      : Color(0x8AFFFFFF);
+
+  /// The rest state of a scrubber track over media.
+  static const Color onMediaTrack = _brand
+      ? Color(0x3DFFFAF2)
+      : Color(0x3DFFFFFF);
+
+  /// The wash that puts controls in front of a photo.
+  static const Color mediaScrim = _brand
+      ? Color(0xB3061240)
+      : Color(0xB3000000);
+
   // ── Gradients ────────────────────────────────────────────────────────────
   //
   // **There are no gradients under the brand skin.** Rule 3 of the design
