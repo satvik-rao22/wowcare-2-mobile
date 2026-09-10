@@ -41,6 +41,7 @@ ConversationThreadCubit buildConversationThreadCubit({
     session: serviceLocator(),
     conversationRepository: serviceLocator(),
     getClassroomRosterUseCase: serviceLocator(),
+    resolveMessageDeletePermissionUseCase: serviceLocator(),
     isDraft: isDraft,
     onResolveConversation: onResolveConversation,
   );

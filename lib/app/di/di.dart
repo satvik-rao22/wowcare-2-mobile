@@ -436,6 +436,7 @@ import 'package:wowcare/data/features/communication/services/messaging_session_i
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import '../../domain/features/communication/repositories/communication_settings_repository.dart';
 import '../../domain/features/communication/usecases/get_communication_settings_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import '../../data/features/communication/datasources/communication_settings_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_settings_repository_impl.dart';
 // Communication v2.1 — Phase 1B
@@ -868,6 +869,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   serviceLocator.registerLazySingleton<CommunicationSettingsRepository>(
     () => CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
+  );
+
+  serviceLocator.registerLazySingleton<ResolveMessageDeletePermissionUseCase>(
+    () => ResolveMessageDeletePermissionUseCase(serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<GetCommunicationSettingsUseCase>(
@@ -2716,6 +2721,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
       getConversationEntityUseCase:
           serviceLocator<GetConversationEntityUseCase>(),
+      resolveMessageDeletePermissionUseCase: serviceLocator(),
     ),
   );
 

@@ -22,7 +22,7 @@ import 'package:wowcare/presentation/features/communication/view_model/communica
 import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/view_model/composer_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/composer_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
@@ -96,7 +96,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
     if (!mounted) return;
     final isAdminViewer = context.read<RoleCubit>().role == 'admin';
-    final permission = await MessageDeletePermission.resolve(
+    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
       schoolCode: schoolCode,
       isAdminViewer: isAdminViewer,
     );

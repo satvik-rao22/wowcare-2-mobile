@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/domain/features/communication/policies/role_aware_ownership.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
@@ -169,7 +169,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     // views) — same underlying storage read.
     final schoolCode =
         (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
-    final permission = await MessageDeletePermission.resolve(
+    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
       schoolCode: schoolCode,
       isAdminViewer: false,
     );

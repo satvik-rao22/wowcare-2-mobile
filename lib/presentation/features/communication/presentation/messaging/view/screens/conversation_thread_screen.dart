@@ -13,7 +13,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
@@ -163,7 +163,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   Future<void> _loadDeletePermission() async {
     final isAdminViewer = context.read<RoleCubit>().role == 'admin';
-    final permission = await MessageDeletePermission.resolve(
+    final permission = await _cubit.resolveDeletePermission(
       schoolCode: widget.conversation.schoolCode,
       isAdminViewer: isAdminViewer,
     );
