@@ -900,10 +900,14 @@ class AppFontFamilies {
   /// Manrope — the family the app has shipped with. Weights 200–800.
   static const String manrope = 'Manrope';
 
-  /// Inter — used by a handful of legacy screens. Weights 100–900.
+  /// Inter. **No longer bundled** — nothing renders in it, so its nine
+  /// faces were dropped from `pubspec.yaml`. Naming it here would fall back
+  /// to the platform font; re-add the `fonts:` block first.
   static const String inter = 'Inter';
 
-  /// Imperial Script — decorative script, used for rendered signatures.
+  /// Imperial Script. **No longer bundled** — `AppFonts` no longer names it: the role had no call
+  /// site. [mervaleScript] is the decorative face the app actually renders,
+  /// on the incident-activity signature band.
   static const String imperialScript = 'Imperial_Script';
 
   /// Mervale Script — the second decorative script.
@@ -932,10 +936,10 @@ class AppFonts {
       ? AppFontFamilies.poppins
       : AppFontFamilies.manrope;
 
-  /// Rendered signatures and other decorative script.
-  static const String script = AppFontFamilies.imperialScript;
-
-  /// The alternate decorative script.
+  /// The decorative script, on the incident-activity signature band. Named
+  /// `scriptAlt` because there used to be two; the other pointed at
+  /// [AppFontFamilies.imperialScript], had no call site, and its face is no
+  /// longer bundled.
   static const String scriptAlt = AppFontFamilies.mervaleScript;
 
   /// Code and fixed-width values.

@@ -13,23 +13,6 @@ class MediaRes {
   // static const loginLottie = '$_baseLottie/login_lottie.json';
   static const loginLottie = '$_baseLottie/wow_care.gif';
 
-  static const onboardingimage1 = '$_baseVectors/onboarding_1.webp';
-  static const onboardingimage2 = '$_baseVectors/onboarding_2.webp';
-  static const onboardingimage3 = '$_baseVectors/onboarding_3.webp';
-  static const onboardingimage4 = '$_baseVectors/onboarding_4.png';
-  static const onboardingimage5 = '$_baseVectors/onboarding_5.jpg';
-  static const onboardingimage6 = '$_baseVectors/onboarding_6.jpg';
-  static const onboardingimage7 = '$_baseVectors/onboarding_7.jpg';
-  static const onboardingimage8 = '$_baseVectors/onboarding_8.jpg';
-  static const onboardingimage9 = '$_baseVectors/onboarding_9.jpg';
-  static const onboardingimage10 = '$_baseVectors/onboarding_10.jpg';
-  static const onboardingimage11 = '$_baseVectors/onboarding_11.webp';
-  static const onboardingimage12 = '$_baseVectors/onboarding_12.webp';
-  static const onboardingimage13 = '$_baseVectors/onboarding_13.webp';
-  static const onboardingimage14 = '$_baseVectors/onboarding_14.webp';
-  static const onboardingimage15 = '$_baseVectors/onboarding_15.webp';
-  static const onboardingimage16 = '$_baseVectors/onboarding_16.webp';
-
   static const backgroundImage1 = '$_baseBackgroundImage/abc.jpeg';
   static const backgroundImage2 = '$_baseBackgroundImage/def.jpeg';
   static const backgroundImage3 = '$_baseBackgroundImage/ghi.webp';

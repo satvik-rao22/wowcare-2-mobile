@@ -4,7 +4,6 @@ part of 'splash_cubit.dart';
 /// still deciding.
 enum SplashRoute {
   pending,
-  firstScreen,
   kiosk,
   schoolSelection,
   orgSelection,

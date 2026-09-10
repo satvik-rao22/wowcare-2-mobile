@@ -150,8 +150,6 @@ import 'package:wowcare/presentation/features/dashboard/view_model/student_newsl
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/view_model/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
-import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
-import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_attendance_summary_cubit.dart';
@@ -225,8 +223,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 /// existing call sites that read those constants keep working.
 class AppRoutes {
   static const String splash = '/';
-  static const String firstScreen = '/first-screen';
-  static const String onboarding = '/onboarding';
   static const String signIn = SignInScreen.routeName;
   static const String signOut = SignOutScreen.routeName;
   static const String forgotPassword = ForgotPasswordScreen.routeName;
@@ -573,20 +569,6 @@ final GoRouter appRouter = GoRouter(
           authCubit: context.read<AuthCubit>(),
         )..resolve(),
         child: const SplashScreenWrapper(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.firstScreen,
-      builder: (context, state) => BlocProvider(
-        create: (_) => serviceLocator<OnboardingCubit>(),
-        child: const OnboardingScreen(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.onboarding,
-      builder: (context, state) => BlocProvider(
-        create: (_) => serviceLocator<OnboardingCubit>(),
-        child: const OnboardingScreen(),
       ),
     ),
     GoRoute(

@@ -831,10 +831,6 @@ class AppColors {
   static const Color userProfileDisabledCheckboxBorderColor =
       AppPalette.borderStrong;
 
-  // Onboarding module colors — Mandate 4 sweep
-  //
-  // Inactive page-indicator dot (was `Colors.grey.shade300`).
-  static const Color onboardingInactiveDotColor = AppPalette.borderStrong;
   // ── Reports (Mandate M4) ────────────────────────────────────────────────
   /// Error-state icon on the Generated-reports failure panel. This is the
   /// exact value of the `Colors.red` it replaced (#F44336), NOT

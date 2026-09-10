@@ -111,41 +111,37 @@ dependency_overrides:
 #   uses-material-design: true
 flutter:
   uses-material-design: true
+  # Only what the app actually loads is bundled. Files still on disk but not
+  # listed here are deliberately excluded from the APK; nothing has been
+  # deleted from the repo. Re-add an entry when a screen starts using one.
+  #
+  # `assets/fonts/` is NOT listed: those files reach the app through the
+  # `fonts:` block below, and listing them here as well would bundle a second
+  # copy of every weight.
+  #
+  # `assets/vectors/` (41 files) and `assets/languages/` (3) are gone: the
+  # first held the onboarding artwork, the second is unread because the app
+  # has no localisation delegate.
   assets:
-    - assets/vectors/
-    - assets/fonts/
-    - assets/images/
-    - assets/bgImages/
-    - assets/lottie/
-    - assets/images/icons/
     - assets/icons/
-    - assets/languages/
     - assets/forte_auto_pay.html
+    - assets/images/WowCarePNG.png
+    - assets/images/defaultNewsletter.jpg
+    - assets/images/logout_image.png
+    - assets/images/upload-photo-video-image.png
+    - assets/images/icons/sleep.png
+    - assets/bgImages/WowCare_2.png
+    - assets/bgImages/def.jpeg
+    - assets/bgImages/wowcare_mobile_bg.png
+    - assets/lottie/coming-soon-lottie.json
   fonts:
     - family: MervaleScript
       fonts:
         - asset: assets/fonts/mervale_script/MervaleScript-Regular.ttf
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/inter/Inter-Thin.ttf
-          weight: 100
-        - asset: assets/fonts/inter/Inter-ExtraLight.ttf
-          weight: 200
-        - asset: assets/fonts/inter/Inter-Light.ttf
-          weight: 300
-        - asset: assets/fonts/inter/Inter-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/inter/Inter-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/inter/Inter-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/inter/Inter-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/inter/Inter-ExtraBold.ttf
-          weight: 800
-        - asset: assets/fonts/inter/Inter-Black.ttf
-          weight: 900
-
+    # Manrope stays even though nothing renders in it today: it is the family
+    # `AppSkin.legacy` declares, and the guard test only asserts that the
+    # *active* skin's faces are bundled. Dropping it would let a skin flip
+    # fall back to the platform font without anything failing.
     - family: Manrope
       fonts:
         - asset: assets/fonts/manrope/Manrope-ExtraLight.ttf
@@ -162,11 +158,6 @@ flutter:
           weight: 700
         - asset: assets/fonts/manrope/Manrope-ExtraBold.ttf
           weight: 800
-
-    - family: Imperial_Script
-      fonts:
-        - asset: assets/fonts/Imperial_Script/ImperialScript-Regular.ttf
-          weight: 200
 
     # Poppins is the ChildcareWow brand typeface (the brand guide substitutes
     # this geometric sans for Modulus Pro, and the production website ships

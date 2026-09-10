@@ -47,10 +47,8 @@ import '../../core/cache/isar_cache_service.dart';
 import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
-import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
 import '../../data/features/classroom/datasources/classroom_remote_datasource.dart';
 import '../../data/features/classroom/repositories/classroom_repository_impl.dart';
-import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
@@ -88,10 +86,7 @@ import '../../domain/features/classroom/usecases/finalize_classroom_logo_usecase
 import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
 import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
-import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
-import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/view_model/parent_billing_cubit.dart';
-import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
 import '../../presentation/features/reports/view_model/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
@@ -791,18 +786,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Onboarding Data Sources
-  serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
-    () => OnboardingRemoteDataSourceMock(),
-  );
-
   // Communication Data Sources
   serviceLocator.registerLazySingleton<CommunicationRemoteDataSource>(
     () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationSettingsRemoteDataSource>(
-    () => CommunicationSettingsRemoteDataSourceImpl(apiClient: serviceLocator()),
+    () =>
+        CommunicationSettingsRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<NewsletterRemoteDataSource>(
@@ -816,9 +807,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
       serviceLocator(),
     ),
-  );
-  serviceLocator.registerLazySingleton<OnboardingRepository>(
-    () => OnboardingRepositoryImpl(serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffRepository>(
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -917,7 +905,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerLazySingleton<CommunicationSettingsRepository>(
-    () => CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
+    () =>
+        CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<ResolveMessageDeletePermissionUseCase>(
@@ -1024,12 +1013,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<SwitchActiveSchoolPersonaUseCase>(
     () => SwitchActiveSchoolPersonaUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<GetOnboardingContent>(
-    () => GetOnboardingContent(serviceLocator()),
-  );
-  serviceLocator.registerFactory<OnboardingCubit>(
-    () => OnboardingCubit(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
     () => ProfileMenuHeaderCubit(serviceLocator()),
@@ -1852,14 +1835,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffTodaySignInStatusUseCase:
           serviceLocator<GetStaffTodaySignInStatusUseCase>(),
       storageService: serviceLocator<StorageService>(),
-      uploadActivityAssetsUseCase: serviceLocator<UploadActivityAssetsUseCase>(),
+      uploadActivityAssetsUseCase:
+          serviceLocator<UploadActivityAssetsUseCase>(),
       getActivityUploadAssetStatusesUseCase:
           serviceLocator<GetActivityUploadAssetStatusesUseCase>(),
       waitActivityAssetsReadyUseCase:
           serviceLocator<WaitActivityAssetsReadyUseCase>(),
       retrieveLostMediaUseCase: serviceLocator<RetrieveLostMediaUseCase>(),
-      stageMediaForUploadUseCase:
-          serviceLocator<StageMediaForUploadUseCase>(),
+      stageMediaForUploadUseCase: serviceLocator<StageMediaForUploadUseCase>(),
       validateVideoForUploadUseCase:
           serviceLocator<ValidateVideoForUploadUseCase>(),
       discardStagedMediaUseCase: serviceLocator<DiscardStagedMediaUseCase>(),

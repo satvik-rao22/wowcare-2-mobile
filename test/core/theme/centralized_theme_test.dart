@@ -119,7 +119,6 @@ void main() {
         AppFonts.body,
         AppFonts.display,
         AppFonts.numeric,
-        AppFonts.script,
         AppFonts.scriptAlt,
       ]) {
         expect(

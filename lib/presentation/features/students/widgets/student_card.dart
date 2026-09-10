@@ -406,8 +406,7 @@ class _StudentCardState extends State<StudentCard> {
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily:
-                                                      AppFontFamilies.inter,
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
                                                   color:

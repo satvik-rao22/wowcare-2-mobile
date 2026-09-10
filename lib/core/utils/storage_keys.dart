@@ -121,6 +121,10 @@ class StorageKeys {
   static const String organizationsAndSchools = 'organizationsAndSchools';
 
   static const String loginCompleted = 'loginCompleted';
+
+  /// First launch has been dealt with. Kept under its original key so no
+  /// existing install is mistaken for a new one; it no longer gates a
+  /// screen, only the fresh-install cache wipe in `SplashCubit.resolve`.
   static const String onboardingSeen = 'onboardingSeen';
   static const String loginContext = 'loginContext';
   static const String userAccessDetails = 'userAccessDetails';
