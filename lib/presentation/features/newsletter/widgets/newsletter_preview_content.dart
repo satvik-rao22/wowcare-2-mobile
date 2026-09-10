@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachmen
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_attachment_grid.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_component_view.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_html_normalizer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_rich_html_text.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_themed_title_bar.dart';
 
@@ -46,10 +47,21 @@ class NewsletterPreviewContent extends StatelessWidget {
     final NewsletterThemeColors theme =
         NewsletterThemeColors.fromKey(newsletter.colorTheme);
     final String rawSubtitle = newsletter.subtitle.trim();
-    final String subtitle =
-        _looksLikeStructuredPayload(rawSubtitle) ? '' : rawSubtitle;
+    // Normalized for the emptiness decisions below, not just for display: a
+    // subtitle or body made entirely of editor filler is non-empty as a string
+    // but renders nothing, which would otherwise leave the subtitle's trailing
+    // 14px spacer behind and let an empty body suppress the "no content"
+    // fallback. See [normalizeNewsletterHtml].
+    final String subtitle = _looksLikeStructuredPayload(rawSubtitle)
+        ? ''
+        : normalizeNewsletterHtml(rawSubtitle);
+    final String bodyHtml = normalizeNewsletterHtml(newsletter.bodyHtml);
     final List<NewsletterAttachment> attachments = _sortedAttachments();
-    final bool hasComponents = newsletter.components.isNotEmpty;
+    // "Has components worth rendering", not merely "has components": a
+    // newsletter whose components are all filler must fall through to the body
+    // / no-content branches rather than render an empty card.
+    final bool hasComponents =
+        NewsletterComponentList.hasRenderableContent(newsletter.components);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xsPlus, AppSizes.md, AppSizes.xl),
@@ -86,9 +98,9 @@ class NewsletterPreviewContent extends StatelessWidget {
                     components: newsletter.components,
                     colorThemeKey: newsletter.colorTheme,
                   )
-                else if (newsletter.bodyHtml.trim().isNotEmpty)
+                else if (bodyHtml.isNotEmpty)
                   NewsletterRichHtmlText(
-                    htmlData: newsletter.bodyHtml,
+                    htmlData: bodyHtml,
                     theme: theme,
                   )
                 else
