@@ -21,7 +21,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/utils/profile_photo_background.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -538,7 +537,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               final editFile = _createCubit.state.step2ProfilePhoto;
               if (editFile != null) {
                 unawaited(
-                  uploadGuardianPhotoInBackground(
+                  _createCubit.uploadGuardianPhotoInBackground(
                     file: editFile,
                     guardianCode: guardianCode,
                     studentCode: studentCode,
@@ -572,7 +571,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               final createFile = _createCubit.state.step2ProfilePhoto;
               if (createFile != null) {
                 unawaited(
-                  uploadGuardianPhotoInBackground(
+                  _createCubit.uploadGuardianPhotoInBackground(
                     file: createFile,
                     guardianCode: (created.guardianCode ?? '').trim(),
                     studentCode: studentCode,
