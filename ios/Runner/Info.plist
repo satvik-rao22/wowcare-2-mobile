@@ -94,9 +94,16 @@
 	     the app can only ever hold When-In-Use — geofencing runs foreground
 	     only. Do NOT re-add them without a user-facing feature Apple accepts
 	     as needing background location; they must be restored together with
-	     the `location` UIBackgroundMode below to have any effect. -->
+	     the `location` UIBackgroundMode below to have any effect.
+
+	     Omitting them makes App Store upload validation warn ITMS-90683
+	     ("Missing purpose string"), because that check scans the compiled
+	     binary for requestAlwaysAuthorization rather than reading our code.
+	     The fix is in ios/Podfile, which strips that selector out of
+	     geolocator_apple and permission_handler_apple — see the preprocessor
+	     flag comment there before touching either side. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>WowCare uses your location to enable attendance within the school premises.</string>
+	<string>WowCare checks your location only while the app is open, to confirm you are at the school when signing a child or staff member in or out. Your location is never tracked in the background.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<!-- `audio` is Xcode's "Audio, AirPlay, and Picture in Picture"
@@ -128,7 +135,7 @@
 		     requires "Always", which this app can no longer be granted.
 		     Do NOT re-add either without a user-facing feature that Apple
 		     accepts as needing background location. -->
-		<string>fetch</string>
+		<!-- <string>fetch</string> -->
 		<string>remote-notification</string>
 	</array>
 	<key>UIMainStoryboardFile</key>
