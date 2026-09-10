@@ -356,6 +356,20 @@ import '../../domain/features/activity/usecases/reject_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_upload_sessions_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_asset_presign_usecase.dart';
 import '../../domain/features/activity/repositories/activity_media_upload_repository.dart';
+import '../../domain/features/activity/repositories/lost_media_repository.dart';
+import '../../domain/features/activity/repositories/media_staging_repository.dart';
+import '../../domain/features/activity/repositories/video_probe_repository.dart';
+import '../../domain/features/activity/usecases/validate_video_for_upload_usecase.dart';
+import '../../data/features/activity/datasources/video_probe_local_datasource.dart';
+import '../../data/features/activity/repositories/video_probe_repository_impl.dart';
+import '../../domain/features/activity/usecases/stage_media_for_upload_usecase.dart';
+import '../../domain/features/activity/usecases/discard_staged_media_usecase.dart';
+import '../../domain/features/activity/usecases/sweep_orphaned_staged_media_usecase.dart';
+import '../../data/features/activity/datasources/media_staging_local_datasource.dart';
+import '../../data/features/activity/repositories/media_staging_repository_impl.dart';
+import '../../domain/features/activity/usecases/retrieve_lost_media_usecase.dart';
+import '../../data/features/activity/datasources/lost_media_local_datasource.dart';
+import '../../data/features/activity/repositories/lost_media_repository_impl.dart';
 import '../../domain/features/activity/usecases/upload_activity_assets_usecase.dart';
 import '../../domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
 import '../../domain/features/activity/usecases/get_activity_upload_asset_statuses_usecase.dart';
@@ -852,6 +866,33 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
     () =>
         ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
+  );
+  // Recovery of camera captures Android completed but could not deliver
+  // (activity destroyed while the camera app was in the foreground). Singleton
+  // because the underlying platform cache is app-global and each cached result
+  // is handed back exactly once.
+  serviceLocator.registerLazySingleton<LostMediaLocalDataSource>(
+    () => ImagePickerLostMediaLocalDataSource(),
+  );
+  serviceLocator.registerLazySingleton<LostMediaRepository>(
+    () => LostMediaRepositoryImpl(serviceLocator<LostMediaLocalDataSource>()),
+  );
+  // Persistent staging area for captures awaiting upload. Both pickers hand
+  // back a file in CACHE storage, which Android may evict mid-upload; every
+  // capture is copied here first so the PUT reads a file the OS cannot reclaim.
+  serviceLocator.registerLazySingleton<MediaStagingLocalDataSource>(
+    () => FileMediaStagingLocalDataSource(),
+  );
+  serviceLocator.registerLazySingleton<VideoProbeLocalDataSource>(
+    () => const VideoPlayerProbeLocalDataSource(),
+  );
+  serviceLocator.registerLazySingleton<VideoProbeRepository>(
+    () => VideoProbeRepositoryImpl(serviceLocator<VideoProbeLocalDataSource>()),
+  );
+  serviceLocator.registerLazySingleton<MediaStagingRepository>(
+    () => MediaStagingRepositoryImpl(
+      serviceLocator<MediaStagingLocalDataSource>(),
+    ),
   );
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
@@ -1840,6 +1881,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GetActivityUploadAssetStatusesUseCase>(),
       waitActivityAssetsReadyUseCase:
           serviceLocator<WaitActivityAssetsReadyUseCase>(),
+      retrieveLostMediaUseCase: serviceLocator<RetrieveLostMediaUseCase>(),
+      stageMediaForUploadUseCase:
+          serviceLocator<StageMediaForUploadUseCase>(),
+      validateVideoForUploadUseCase:
+          serviceLocator<ValidateVideoForUploadUseCase>(),
+      discardStagedMediaUseCase: serviceLocator<DiscardStagedMediaUseCase>(),
       apiClient: serviceLocator<ApiClient>(),
       staffRepository: serviceLocator<StaffRepository>(),
       getStaffPageUseCase: serviceLocator<GetStaffPageUseCase>(),
@@ -1963,6 +2010,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<WaitActivityAssetsReadyUseCase>(
     () => WaitActivityAssetsReadyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RetrieveLostMediaUseCase>(
+    () => RetrieveLostMediaUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ValidateVideoForUploadUseCase>(
+    () => ValidateVideoForUploadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<StageMediaForUploadUseCase>(
+    () => StageMediaForUploadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DiscardStagedMediaUseCase>(
+    () => DiscardStagedMediaUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SweepOrphanedStagedMediaUseCase>(
+    () => SweepOrphanedStagedMediaUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetActivityUploadAssetStatusesUseCase>(
     () => GetActivityUploadAssetStatusesUseCase(serviceLocator()),

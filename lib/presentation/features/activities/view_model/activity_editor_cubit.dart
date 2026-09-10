@@ -34,6 +34,13 @@ import 'package:wowcare/domain/features/activity/usecases/guardian_parent_signat
 import 'package:wowcare/domain/features/activity/usecases/upload_activity_assets_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/wait_activity_assets_ready_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/retrieve_lost_media_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/stage_media_for_upload_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/discard_staged_media_usecase.dart';
+import 'package:wowcare/domain/features/activity/entities/recovered_media.dart';
+import 'package:wowcare/domain/features/activity/entities/staged_media.dart';
+import 'package:wowcare/domain/features/activity/entities/video_validation_result.dart';
+import 'package:wowcare/domain/features/activity/usecases/validate_video_for_upload_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/update_activity_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_status_at_time_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
@@ -73,6 +80,10 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required GetActivityUploadAssetStatusesUseCase
     getActivityUploadAssetStatusesUseCase,
     required WaitActivityAssetsReadyUseCase waitActivityAssetsReadyUseCase,
+    required RetrieveLostMediaUseCase retrieveLostMediaUseCase,
+    required StageMediaForUploadUseCase stageMediaForUploadUseCase,
+    required ValidateVideoForUploadUseCase validateVideoForUploadUseCase,
+    required DiscardStagedMediaUseCase discardStagedMediaUseCase,
     required ApiClient apiClient,
     required StaffRepository staffRepository,
     required GetStaffPageUseCase getStaffPageUseCase,
@@ -90,6 +101,10 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
        _getClassroomActivitySettingsUseCase =
            getClassroomActivitySettingsUseCase,
        _waitActivityAssetsReadyUseCase = waitActivityAssetsReadyUseCase,
+       _retrieveLostMediaUseCase = retrieveLostMediaUseCase,
+       _stageMediaForUploadUseCase = stageMediaForUploadUseCase,
+       _validateVideoForUploadUseCase = validateVideoForUploadUseCase,
+       _discardStagedMediaUseCase = discardStagedMediaUseCase,
        _getActivityTypeDetailsUseCase = getActivityTypeDetailsUseCase,
        _createActivityUseCase = createActivityUseCase,
        _getActivityUseCase = getActivityUseCase,
@@ -126,6 +141,10 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   final StorageService _storage;
   final UploadActivityAssetsUseCase _uploadActivityAssetsUseCase;
   final WaitActivityAssetsReadyUseCase _waitActivityAssetsReadyUseCase;
+  final RetrieveLostMediaUseCase _retrieveLostMediaUseCase;
+  final StageMediaForUploadUseCase _stageMediaForUploadUseCase;
+  final ValidateVideoForUploadUseCase _validateVideoForUploadUseCase;
+  final DiscardStagedMediaUseCase _discardStagedMediaUseCase;
   final GetStaffSignInStatusAtTimeUseCase _getStaffSignInStatusAtTimeUseCase;
   final GetStudentSignInStatusAtTimeUseCase
   _getStudentSignInStatusAtTimeUseCase;
@@ -354,6 +373,40 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     sessionCode: sessionCode,
     assetCodes: assetCodes,
   );
+
+  /// Claims a camera capture that Android completed but could not deliver,
+  /// because it destroyed the host activity while the camera app was open —
+  /// the "recorded a video and the app restarted with nothing to show for it"
+  /// case. Returns [RecoveredMedia.none] when there is nothing pending, which
+  /// is the normal result on every run and the only result on iOS.
+  ///
+  /// DESTRUCTIVE: the platform hands each cached capture back exactly once, so
+  /// this must have a single caller per screen (today: `MediaUploader`).
+  /// Never throws — see [RetrieveLostMediaUseCase].
+  Future<RecoveredMedia> retrieveLostMedia() => _retrieveLostMediaUseCase();
+
+  /// Copies a freshly captured/picked file out of cache into persistent
+  /// storage, so an upload cannot be killed by Android reclaiming the cache
+  /// directory mid-flight. Everything downstream reads the returned path.
+  ///
+  /// Throws [MediaStagingException] — and only that — when the copy fails, so
+  /// the caller has one thing to catch and can turn it into a message.
+  Future<StagedMedia> stageMediaForUpload(String sourcePath) =>
+      _stageMediaForUploadUseCase(sourcePath);
+
+  /// Deletes a staged copy. Call ONLY once the server has confirmed the upload
+  /// or the user has explicitly discarded the capture — earlier throws away the
+  /// only copy of something that may still need retrying. Never throws.
+  Future<void> discardStagedMedia(String stagedPath) =>
+      _discardStagedMediaUseCase(stagedPath);
+
+  /// Runs every pre-upload rule against the STAGED video and returns a typed
+  /// verdict, so the caller can show the specific reason it failed.
+  ///
+  /// Must run before the checksum: the bytes validated here are the bytes that
+  /// get hashed and uploaded.
+  Future<VideoValidationResult> validateVideoForUpload(String path) =>
+      _validateVideoForUploadUseCase(path);
 
   /// One-shot status read — the photo/video form's background-poll strategy
   /// for assets still processing after upload.

@@ -1188,7 +1188,7 @@ PODS:
     - abseil/meta/type_traits
     - abseil/xcprivacy
   - abseil/xcprivacy (1.20240722.0)
-  - app_links (6.4.1):
+  - app_links (7.0.0):
     - Flutter
   - better_player_plus (1.1.2):
     - Cache (~> 6.0.0)
@@ -1203,8 +1203,6 @@ PODS:
     - BoringSSL-GRPC/Interface (= 0.0.37)
   - BoringSSL-GRPC/Interface (0.0.37)
   - Cache (6.0.0)
-  - clipboard (3.0.9):
-    - Flutter
   - cloud_firestore (6.8.0):
     - Firebase/Firestore (= 12.17.0)
     - firebase_core
@@ -1249,8 +1247,6 @@ PODS:
   - file_picker (0.0.1):
     - DKImagePickerController/PhotoGallery
     - Flutter
-  - file_saver (0.0.1):
-    - Flutter
   - Firebase/Auth (12.17.0):
     - Firebase/CoreOnly
     - FirebaseAuth (~> 12.17.0)
@@ -1268,9 +1264,6 @@ PODS:
   - Firebase/Performance (12.17.0):
     - Firebase/CoreOnly
     - FirebasePerformance (~> 12.17.0)
-  - Firebase/Storage (12.17.0):
-    - Firebase/CoreOnly
-    - FirebaseStorage (~> 12.17.0)
   - firebase_analytics (12.4.6):
     - firebase_core
     - FirebaseAnalytics (= 12.17.0)
@@ -1292,10 +1285,6 @@ PODS:
     - Flutter
   - firebase_performance (0.11.4-6):
     - Firebase/Performance (= 12.17.0)
-    - firebase_core
-    - Flutter
-  - firebase_storage (13.4.6):
-    - Firebase/Storage (= 12.17.0)
     - firebase_core
     - Flutter
   - FirebaseABTesting (12.17.0):
@@ -1409,13 +1398,6 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - FirebaseSharedSwift (12.17.0)
-  - FirebaseStorage (12.17.0):
-    - FirebaseAppCheckInterop (~> 12.17.0)
-    - FirebaseAuthInterop (~> 12.17.0)
-    - FirebaseCore (~> 12.17.0)
-    - FirebaseCoreExtension (~> 12.17.0)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
   - Flutter (1.0.0)
   - flutter_inappwebview_ios (0.0.1):
     - Flutter
@@ -1436,8 +1418,6 @@ PODS:
   - GCDWebServer (3.5.4):
     - GCDWebServer/Core (= 3.5.4)
   - GCDWebServer/Core (3.5.4)
-  - geocoding_ios (1.0.5):
-    - Flutter
   - geolocator_apple (1.2.0):
     - Flutter
     - FlutterMacOS
@@ -1614,9 +1594,6 @@ PODS:
   - local_auth_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
-  - mobile_scanner (7.0.0):
-    - Flutter
-    - FlutterMacOS
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
     - nanopb/encode (= 3.30910.0)
@@ -1662,41 +1639,33 @@ PODS:
     - libwebp
   - wakelock_plus (0.0.1):
     - Flutter
-  - webview_flutter_wkwebview (0.0.1):
-    - Flutter
-    - FlutterMacOS
   - workmanager_apple (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
   - better_player_plus (from `.symlinks/plugins/better_player_plus/ios`)
-  - clipboard (from `.symlinks/plugins/clipboard/ios`)
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - emoji_picker_flutter (from `.symlinks/plugins/emoji_picker_flutter/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
-  - file_saver (from `.symlinks/plugins/file_saver/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - firebase_performance (from `.symlinks/plugins/firebase_performance/ios`)
-  - firebase_storage (from `.symlinks/plugins/firebase_storage/ios`)
   - Flutter (from `Flutter`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_pdfview (from `.symlinks/plugins/flutter_pdfview/ios`)
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - gal (from `.symlinks/plugins/gal/darwin`)
-  - geocoding_ios (from `.symlinks/plugins/geocoding_ios/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - isar_flutter_libs (from `.symlinks/plugins/isar_flutter_libs/ios`)
   - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
-  - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
   - open_filex (from `.symlinks/plugins/open_filex/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - pdfx (from `.symlinks/plugins/pdfx/ios`)
@@ -1707,7 +1676,6 @@ DEPENDENCIES:
   - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
   - video_thumbnail (from `.symlinks/plugins/video_thumbnail/ios`)
   - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
-  - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
   - workmanager_apple (from `.symlinks/plugins/workmanager_apple/ios`)
 
 SPEC REPOS:
@@ -1736,7 +1704,6 @@ SPEC REPOS:
     - FirebaseRemoteConfigInterop
     - FirebaseSessions
     - FirebaseSharedSwift
-    - FirebaseStorage
     - GCDWebServer
     - GoogleAdsOnDeviceConversion
     - GoogleAppMeasurement
@@ -1763,8 +1730,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/app_links/ios"
   better_player_plus:
     :path: ".symlinks/plugins/better_player_plus/ios"
-  clipboard:
-    :path: ".symlinks/plugins/clipboard/ios"
   cloud_firestore:
     :path: ".symlinks/plugins/cloud_firestore/ios"
   connectivity_plus:
@@ -1775,8 +1740,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/emoji_picker_flutter/ios"
   file_picker:
     :path: ".symlinks/plugins/file_picker/ios"
-  file_saver:
-    :path: ".symlinks/plugins/file_saver/ios"
   firebase_analytics:
     :path: ".symlinks/plugins/firebase_analytics/ios"
   firebase_auth:
@@ -1789,8 +1752,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_messaging/ios"
   firebase_performance:
     :path: ".symlinks/plugins/firebase_performance/ios"
-  firebase_storage:
-    :path: ".symlinks/plugins/firebase_storage/ios"
   Flutter:
     :path: Flutter
   flutter_inappwebview_ios:
@@ -1803,8 +1764,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage/ios"
   gal:
     :path: ".symlinks/plugins/gal/darwin"
-  geocoding_ios:
-    :path: ".symlinks/plugins/geocoding_ios/ios"
   geolocator_apple:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   image_picker_ios:
@@ -1813,8 +1772,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/isar_flutter_libs/ios"
   local_auth_darwin:
     :path: ".symlinks/plugins/local_auth_darwin/darwin"
-  mobile_scanner:
-    :path: ".symlinks/plugins/mobile_scanner/darwin"
   open_filex:
     :path: ".symlinks/plugins/open_filex/ios"
   package_info_plus:
@@ -1835,18 +1792,15 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/video_thumbnail/ios"
   wakelock_plus:
     :path: ".symlinks/plugins/wakelock_plus/ios"
-  webview_flutter_wkwebview:
-    :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
   workmanager_apple:
     :path: ".symlinks/plugins/workmanager_apple/ios"
 
 SPEC CHECKSUMS:
   abseil: a05cc83bf02079535e17169a73c5be5ba47f714b
-  app_links: 3dbc685f76b1693c66a6d9dd1e9ab6f73d97dc0a
+  app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
   better_player_plus: 3d40145c650bb83dde08f0d593b21a144196769f
   BoringSSL-GRPC: dded2a44897e45f28f08ae87a55ee4bcd19bc508
   Cache: 4ca7e00363fca5455f26534e5607634c820ffc2d
-  clipboard: 85f02e190f24debf05943aff98c26644b2a90245
   cloud_firestore: 511375ce1aea4e819e2df382fb1a141015cb8c60
   connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
@@ -1854,7 +1808,6 @@ SPEC CHECKSUMS:
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   emoji_picker_flutter: ece213fc274bdddefb77d502d33080dc54e616cc
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
-  file_saver: 6cdbcddd690cb02b0c1a0c225b37cd805c2bf8b6
   Firebase: e8400c058702940d53f31fc0653e4e7a06332326
   firebase_analytics: 4dc4986181e6f58d24f879716f175a53e837c914
   firebase_auth: 3e82fa3e632856cd5a8e2bedf458d682740c8168
@@ -1862,7 +1815,6 @@ SPEC CHECKSUMS:
   firebase_crashlytics: 36d85edffd4bfd025c13025b0009f63754983536
   firebase_messaging: 00bcc97454f71d0dbe0a8adc6f2abf952320cfb2
   firebase_performance: 06a9a473add8e95da498333409db2f037af2f3f1
-  firebase_storage: cfd99be7642a3d9bf36d45ff234c1987dafb811c
   FirebaseABTesting: 51e55872b92243f3ef45c0bc157897a86ec60be4
   FirebaseAnalytics: 652858a1424ca8c549b62261876814ff56dff650
   FirebaseAppCheckInterop: 6d4cd7b9df8047da8cfc98c3fef4618bab2a8e0d
@@ -1881,7 +1833,6 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 785e617ae4cbc778eea97dde952b88fb934e11ff
   FirebaseSessions: 83cf567ddcef20303eb85e003dfdbe030343ef8d
   FirebaseSharedSwift: 983820e9aa55d2acd6af77f9a1f252ba0afb3150
-  FirebaseStorage: 27f85a11050be78601509cb450a12823dc9f5764
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   flutter_local_notifications: 643a3eda1ce1c0599413ca31672536d423dee214
@@ -1889,7 +1840,6 @@ SPEC CHECKSUMS:
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   gal: baecd024ebfd13c441269ca7404792a7152fde89
   GCDWebServer: 2c156a56c8226e2d5c0c3f208a3621ccffbe3ce4
-  geocoding_ios: 33776c9ebb98d037b5e025bb0e7537f6dd19646e
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
   GoogleAdsOnDeviceConversion: e3b71da24ff4cf01cf520756ac1c2b93c07b86ff
   GoogleAppMeasurement: 2234668e2451f9da37b93dad7830e457600c008f
@@ -1904,7 +1854,6 @@ SPEC CHECKSUMS:
   leveldb-library: cc8b8f8e013647a295ad3f8cd2ddf49a6f19be19
   libwebp: af5937a13536ef73f3784d69cc342b98961acf33
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
-  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   open_filex: 432f3cd11432da3e39f47fcc0df2b1603854eff1
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
@@ -1924,9 +1873,8 @@ SPEC CHECKSUMS:
   video_player_avfoundation: 3453f792138786248960ca029747fcd9f318ef52
   video_thumbnail: b637e0ad5f588ca9945f6e2c927f73a69a661140
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
-  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
   workmanager_apple: 904529ae31e97fc5be632cf628507652294a0778
 
-PODFILE CHECKSUM: 0875585bf7e8a156fa62242865e43d277bd318be
+PODFILE CHECKSUM: 22d2600a0a71c7179a26289684bfbb699cdc59c7
 
 COCOAPODS: 1.16.2

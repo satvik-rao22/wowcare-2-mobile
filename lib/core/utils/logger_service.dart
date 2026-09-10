@@ -86,4 +86,92 @@ class AppLogger {
       } catch (_) {}
     }
   }
+
+  /// Records a **breadcrumb that survives release builds**.
+  ///
+  /// [d]/[i]/[w] are deliberately release no-ops because callers hand them raw
+  /// API bodies, tokens and PII. That safety rule left flows whose breadcrumbs
+  /// were written with [d] completely dark in production: a crash arrives with
+  /// no trace of the stage it died in. This is the opposite contract — the
+  /// caller guarantees the message is a short, PII-free stage marker, and in
+  /// exchange it reaches Crashlytics.
+  ///
+  /// **Never interpolate a file path, user/student/staff code, name, email or
+  /// any API payload into [message].** Facts belong in [setKey], which is held
+  /// to the same rule. Prefer a fixed vocabulary over free text.
+  ///
+  /// Unlike [c] this is not styled as an error, so a normal stage transition is
+  /// not mislabelled in the Crashlytics timeline.
+  ///
+  /// Crashlytics retains only the most recent ~64 log entries per report, so
+  /// this is for stage transitions — anything high-frequency (upload progress,
+  /// poll ticks) belongs in [setKey], which overwrites instead of accumulating.
+  static void trail(String message) {
+    if (kDebugMode) {
+      print('$_cyan[TRAIL] $message$_reset');
+      return;
+    }
+    try {
+      FirebaseCrashlytics.instance.log(message);
+    } catch (_) {}
+  }
+
+  /// Attaches a fact to any crash report produced from here on, in release.
+  ///
+  /// Overwrites on repeat, so it is safe to call at high frequency (upload
+  /// progress) where [trail] would blow the breadcrumb budget. Crashlytics
+  /// caps custom keys at 64 per report.
+  ///
+  /// Same PII rule as [trail]: sizes, counts, durations, enum-ish labels and
+  /// booleans only — never a path, identifier or name. [value] must be a
+  /// String, num or bool; anything else is stringified, so do not pass an
+  /// object whose `toString()` could carry user data.
+  static void setKey(String key, Object? value) {
+    if (value == null) return;
+    if (kDebugMode) {
+      print('$_cyan[KEY] $key=$value$_reset');
+      return;
+    }
+    try {
+      final crashlytics = FirebaseCrashlytics.instance;
+      if (value is String || value is num || value is bool) {
+        crashlytics.setCustomKey(key, value);
+      } else {
+        crashlytics.setCustomKey(key, value.toString());
+      }
+    } catch (_) {}
+  }
+
+  /// Reports a caught exception with an explicit [fatal] flag.
+  ///
+  /// [e] hardcodes `fatal: false`, which is right for a handled error but wrong
+  /// for one that leaves the feature unusable. Use this where the distinction
+  /// matters; `fatal: true` marks the report as crash-equivalent and counts
+  /// against the crash-free-users metric, so reserve it for genuinely
+  /// unrecoverable states.
+  ///
+  /// [reason] follows the same PII rule as [trail].
+  static void recordError(
+    Object error,
+    StackTrace? stackTrace, {
+    required String reason,
+    bool fatal = false,
+  }) {
+    if (kDebugMode) {
+      print('$_red[${fatal ? 'FATAL' : 'NON-FATAL'}] $reason$_reset');
+      print('$_red[Error Detail] $error$_reset');
+      if (stackTrace != null) {
+        print('$_red[Stack Trace]\n$stackTrace$_reset');
+      }
+      return;
+    }
+    try {
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        reason: reason,
+        fatal: fatal,
+      );
+    } catch (_) {}
+  }
 }

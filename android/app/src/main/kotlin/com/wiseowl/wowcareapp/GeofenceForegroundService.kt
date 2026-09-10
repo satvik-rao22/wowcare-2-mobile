@@ -32,7 +32,31 @@ class GeofenceForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification())
+        // Keep the existing permission checks. The service must continue checking
+        // the existing location permission before attempting startForeground().
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            android.util.Log.w("GeofenceService", "Missing background location permission, stopping service")
+            stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
+
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (e: Exception) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                e is android.app.ForegroundServiceStartNotAllowedException
+            ) {
+                android.util.Log.e("GeofenceService", "ForegroundServiceStartNotAllowedException: ${e.message}")
+                stopSelfResult(startId)
+                return START_NOT_STICKY
+            }
+            throw e
+        }
         // START_STICKY: if the OS kills the service, restart it automatically
         // (without re-delivering the last intent, which is fine — we don't use
         // the intent for anything).
@@ -88,7 +112,17 @@ class GeofenceForegroundService : Service() {
         fun start(context: Context) {
             val intent = Intent(context, GeofenceForegroundService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
+                try {
+                    context.startForegroundService(intent)
+                } catch (e: Exception) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        e is android.app.ForegroundServiceStartNotAllowedException
+                    ) {
+                        android.util.Log.e("GeofenceService", "ForegroundServiceStartNotAllowedException on start: ${e.message}")
+                    } else {
+                        throw e
+                    }
+                }
             } else {
                 context.startService(intent)
             }

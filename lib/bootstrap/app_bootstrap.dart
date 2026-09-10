@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/core/firebase/firebase_initializer.dart';
 import 'package:wowcare/core/notifications/notification_channel_service.dart';
 import 'package:wowcare/core/notifications/notification_launch_handler.dart';
 import 'package:wowcare/core/security/fresh_install_reset_service.dart';
+import 'package:wowcare/domain/features/activity/usecases/sweep_orphaned_staged_media_usecase.dart';
 
 /// Orchestrates all app startup steps, in the exact order the app previously
 /// ran them from `main()`, before the widget tree is built with `runApp`.
@@ -56,5 +58,38 @@ class AppBootstrap {
     setPreferredOrientations();
 
     await resolvePendingLaunchNotification();
+
+    _sweepOrphanedStagedMedia();
+  }
+
+  /// Deletes staged upload copies left behind by previous runs.
+  ///
+  /// Captures are copied into the app's documents directory before upload so
+  /// Android cannot evict them mid-flight; the copy is deleted once the server
+  /// confirms the upload. A process killed before that — the exact failure this
+  /// staging exists to survive — leaves its copy behind with nothing left to
+  /// remove it, so they are swept here.
+  ///
+  /// **Age is the only discriminator, and deliberately so.** The app keeps no
+  /// per-file record of which staged copies belong to a live upload: the one
+  /// persisted upload record (`pendingUploadPoll`) stores a session code and
+  /// asset codes, carries no local path, and is a single overwritten slot
+  /// rather than a set — so it cannot answer "is this file still needed?".
+  /// Seven days is far longer than any upload can plausibly stay in flight,
+  /// which makes deleting past it safe without such a record. If a persisted
+  /// upload queue is added later, this should consult it and sweep on identity
+  /// rather than age.
+  ///
+  /// Fire-and-forget: it touches only the app's own directory and must never
+  /// delay first frame. Failures are swallowed inside the repository.
+  static void _sweepOrphanedStagedMedia() {
+    unawaited(
+      serviceLocator<SweepOrphanedStagedMediaUseCase>()().catchError((
+        Object _,
+      ) {
+        // Cleanup is never worth failing app start over.
+        return 0;
+      }),
+    );
   }
 }
