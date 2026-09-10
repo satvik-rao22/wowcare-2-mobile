@@ -30,16 +30,12 @@ class PublishShiftsCubit extends Cubit<PublishShiftsState> {
   final BootstrapSchedulingSchoolTimezoneUseCase
       _bootstrapSchedulingSchoolTimezoneUseCase;
 
-  void init({
-    List<String> initialStaffCodes = const <String>[],
-    DateTime? initialUntilDate,
-  }) {
-    emit(
-      state.copyWith(
-        selectedStaffCodes: initialStaffCodes,
-        untilDate: initialUntilDate,
-      ),
-    );
+  /// Seeds the form. The staff selection is intentionally NOT seeded — the
+  /// Publish screen always opens with no staff picked so the user makes that
+  /// choice explicitly (this cubit is registered as a factory, so each screen
+  /// entry starts from the empty [PublishShiftsState]).
+  void init({DateTime? initialUntilDate}) {
+    emit(state.copyWith(untilDate: initialUntilDate));
     // ignore: discarded_futures
     _bootstrapSchedulingSchoolTimezoneUseCase();
   }

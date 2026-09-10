@@ -913,6 +913,7 @@ final GoRouter appRouter = GoRouter(
           StaffSignInForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -926,6 +927,7 @@ final GoRouter appRouter = GoRouter(
           StaffSignOutForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -939,6 +941,7 @@ final GoRouter appRouter = GoRouter(
           StaffTransferForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -952,6 +955,7 @@ final GoRouter appRouter = GoRouter(
           StaffMarkAbsentForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -1630,7 +1634,6 @@ final GoRouter appRouter = GoRouter(
                         staff: args.staff,
                         dateRangeStart: args.dateRangeStart,
                         initialUntilDate: args.initialUntilDate,
-                        initialStaffCodes: args.initialStaffCodes,
                       ),
                     );
                   },

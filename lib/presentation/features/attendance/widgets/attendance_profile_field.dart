@@ -46,6 +46,9 @@ class AttendanceProfileField extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              // Web shows exactly one indicator per row. On a transfer row the
+              // transfer icon wins and [methodIcon] is suppressed, instead of
+              // stacking both.
               if (showTransferIcon) ...[
                 Tooltip(
                   message: 'Transfer',
@@ -60,8 +63,7 @@ class AttendanceProfileField extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s6),
-              ],
-              if (methodIcon != null) ...[
+              ] else if (methodIcon != null) ...[
                 methodIcon!,
                 const SizedBox(width: AppSpacing.s6),
               ],

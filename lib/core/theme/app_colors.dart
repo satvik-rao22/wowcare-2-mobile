@@ -1094,6 +1094,7 @@ class AppColors {
   static const Color futureAvailabilityToggleTrackBg = Color.fromRGBO(246, 244, 248, 1);
   static const Color futureAvailabilityNegativeCountColor = Color.fromRGBO(236, 99, 99, 1);
   static const Color futureAvailabilityPositiveCountColor = Color.fromRGBO(0, 145, 94, 1);
+  static const Color futureAvailabilityZeroCountColor = Color.fromRGBO(234, 186, 0, 1);
 
   // ── Dashboard: geofence attendance state (SEMANTIC) ────────────────────────
   // Mandate 4: these encode whether GPS self-attendance is currently possible,

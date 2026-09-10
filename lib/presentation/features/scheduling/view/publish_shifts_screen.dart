@@ -35,13 +35,17 @@ class PublishShiftsResult {
 /// [EditShiftScreen] in the same feature. Submits to
 /// `POST /api/v1/staff-shifts/publish` and pops with a [PublishShiftsResult]
 /// on success so the caller can refresh.
+///
+/// The Staff multi-select deliberately opens EMPTY — publishing is a bulk,
+/// hard-to-undo action, so who it applies to is always an explicit choice by
+/// the user rather than something inherited from whatever row the scheduling
+/// screen happened to have selected.
 class PublishShiftsScreen extends StatelessWidget {
   const PublishShiftsScreen({
     super.key,
     required this.dateRangeStart,
     this.staff = const <StaffMember>[],
     this.initialUntilDate,
-    this.initialStaffCodes = const <String>[],
   });
 
   static const String routeName = '/publish-shifts-screen';
@@ -54,16 +58,12 @@ class PublishShiftsScreen extends StatelessWidget {
   final DateTime dateRangeStart;
 
   final DateTime? initialUntilDate;
-  final List<String> initialStaffCodes;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<PublishShiftsCubit>(
       create: (_) => serviceLocator<PublishShiftsCubit>()
-        ..init(
-          initialStaffCodes: initialStaffCodes,
-          initialUntilDate: initialUntilDate,
-        ),
+        ..init(initialUntilDate: initialUntilDate),
       child: _PublishShiftsView(
         staff: staff,
         dateRangeStart: dateRangeStart,

@@ -5546,13 +5546,10 @@ ActivityItem activityItemFromFeedRow(
       ? pickBathroomDiaperSizeFromParams()
       : null;
 
-  final desc = row.description.trim();
-  final napDescription = (name == 'Nap End')
-      ? 'Nap Ended'
-      : (name == 'Nap Start' ? 'Nap Started' : '');
-  final effectiveDescription = desc.isNotEmpty
-      ? desc
-      : (napDescription.isNotEmpty ? napDescription : '');
+  // No synthesized fallback for Nap Start/Nap End: web renders an empty
+  // description as empty, so substituting "Nap Started"/"Nap Ended" here made
+  // the same activity read differently on the two platforms.
+  final effectiveDescription = row.description.trim();
   final studentNamesFromApi = row.students
       .map((s) => (s['name'] ?? '').trim())
       .where((s) => s.isNotEmpty)

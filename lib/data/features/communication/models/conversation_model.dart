@@ -33,6 +33,29 @@ Object? _readParticipantRole(Map<dynamic, dynamic> json, String key) {
       'STAFF';
 }
 
+/// First non-empty (trimmed) value, or null when there is none.
+String? _firstNonEmpty(List<String?> values) {
+  for (final v in values) {
+    if (v != null && v.trim().isNotEmpty) return v;
+  }
+  return null;
+}
+
+/// The participant's profile photo — a resolved URL or a raw media-asset code,
+/// depending on which field the backend populates. Same field precedence the
+/// v2 `ParticipantEntityDto` already reads; this parser dropped the photo
+/// altogether, which is why the staff-messaging inbox could only ever render
+/// initials even when the payload carried one.
+Object? _readParticipantAvatar(Map<dynamic, dynamic> json, String key) =>
+    _firstNonEmpty([
+      json['photoUrl'] as String?,
+      json['avatarUrl'] as String?,
+      json['profilePhotoUrl'] as String?,
+      (json['user'] as Map<String, dynamic>?)?['photoUrl'] as String?,
+      json['profileAssetCode'] as String?,
+      json['profilePhotoAssetCode'] as String?,
+    ]);
+
 /// `DateTime.parse` with a fallback to now when the value is absent — matches
 /// the old parser's `!= null ? DateTime.parse(...) : AppTime.nowUtc()`.
 DateTime _dateOrNow(Object? value) =>
@@ -186,6 +209,8 @@ class ConversationParticipantModel {
     this.unreadCount = 0,
     this.active = true,
     this.staffStatus,
+    this.avatarUrl,
+    this.staffCode,
   });
 
   @JsonKey(defaultValue: 0)
@@ -225,6 +250,16 @@ class ConversationParticipantModel {
   @JsonKey(includeIfNull: false)
   final String? staffStatus;
 
+  /// Resolved URL or raw media-asset code — see [_readParticipantAvatar].
+  @JsonKey(readValue: _readParticipantAvatar, includeIfNull: false)
+  final String? avatarUrl;
+
+  /// `STF_*` for a staff participant. Not sent by every backend build; parsed
+  /// defensively so the avatar can use it the moment it appears (until then
+  /// the photo is resolved from [userCode] instead).
+  @JsonKey(includeIfNull: false)
+  final String? staffCode;
+
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) =>
       _$ConversationParticipantModelFromJson(json);
 
@@ -247,5 +282,7 @@ class ConversationParticipantModel {
     unreadCount: unreadCount,
     active: active,
     staffStatus: staffStatus,
+    avatarUrl: avatarUrl,
+    staffCode: staffCode,
   );
 }

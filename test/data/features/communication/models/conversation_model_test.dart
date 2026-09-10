@@ -232,6 +232,62 @@ void main() {
       expect(m.status, 'ACTIVE');
     });
 
+    group('participant profile photo', () {
+      test('reads photoUrl / avatarUrl / asset-code fields, in that order', () {
+        String? avatarOf(Map<String, dynamic> participant) =>
+            ConversationParticipantModel.fromJson({
+              ...dates,
+              'id': 1,
+              ...participant,
+            }).avatarUrl;
+
+        expect(
+          avatarOf({
+            'photoUrl': 'https://cdn/photo.jpg',
+            'avatarUrl': 'https://cdn/avatar.jpg',
+          }),
+          'https://cdn/photo.jpg',
+        );
+        expect(avatarOf({'avatarUrl': 'https://cdn/avatar.jpg'}),
+            'https://cdn/avatar.jpg');
+        expect(avatarOf({'profilePhotoUrl': 'https://cdn/profile.jpg'}),
+            'https://cdn/profile.jpg');
+        expect(
+          avatarOf({
+            'user': <String, dynamic>{'photoUrl': 'https://cdn/nested.jpg'},
+          }),
+          'https://cdn/nested.jpg',
+        );
+        // Raw asset codes are accepted too — the avatar widget resolves them.
+        expect(avatarOf({'profilePhotoAssetCode': 'AST_1'}), 'AST_1');
+        // Blank values are skipped rather than winning over a later field.
+        expect(avatarOf({'photoUrl': '   ', 'avatarUrl': 'AST_2'}), 'AST_2');
+      });
+
+      test('is null when the payload carries no photo at all', () {
+        final participant = ConversationParticipantModel.fromJson({
+          ...dates,
+          'id': 1,
+          'userCode': 'USR_1',
+        });
+        expect(participant.avatarUrl, isNull);
+        expect(participant.staffCode, isNull);
+        expect(participant.toEntity().avatarUrl, isNull);
+      });
+
+      test('carries photo and staffCode through to the entity', () {
+        final entity = ConversationParticipantModel.fromJson({
+          ...dates,
+          'id': 1,
+          'userCode': 'USR_1',
+          'staffCode': 'STF_1',
+          'photoUrl': 'https://cdn/photo.jpg',
+        }).toEntity();
+        expect(entity.avatarUrl, 'https://cdn/photo.jpg');
+        expect(entity.staffCode, 'STF_1');
+      });
+    });
+
     test('toJson omits null studentStatus/classroomCode', () {
       final m = ConversationModel.fromJson({...dates, 'id': 1});
       final json = m.toJson();
