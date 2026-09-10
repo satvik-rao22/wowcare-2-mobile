@@ -35,7 +35,6 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_delete_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_daily_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_edit_attendance_form.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -1258,26 +1257,32 @@ class _StaffAttendanceDailyViewScreenState
     _isFilterScreenOpen = true;
 
     try {
-      // GoRouter holdout (documented): StaffFilterScreen is a SHARED screen
-      // (staff feature, used by non-attendance callers) that returns a consumed
-      // Map via Navigator.pop(result). Converting this caller to context.push
-      // would force the shared screen's pop semantics to change, risking the
-      // other callers — so this stays Navigator. It also carries the live
-      // _classroomCubit via BlocProvider.value, which must not be recreated.
-      final result = await Navigator.push<StaffFilterResult?>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: _classroomCubit,
-            child: StaffFilterScreen(
-              initialFilters: _staffFilters,
-              selectedDate: _selectedDate,
-              sections: const [
-                StaffFilterSection.classroom,
-                StaffFilterSection.designation,
-              ],
-            ),
-          ),
+      // The shared staff-filter ROUTE, the same way the staff roster opens it
+      // (staff_screen.dart) — not an imperative `Navigator.push` of the screen.
+      //
+      // That push is what made every apply feel like a new page: go_router
+      // never saw it, so its match list still said we were on the attendance
+      // tabbed view while the filter sat on top of the navigator. The two
+      // stacks disagreed, and the filter page could survive the pop that was
+      // meant to dismiss it — so the next apply layered another one on top.
+      // Pushing the route keeps push and pop symmetric: the filter is a real
+      // page while it's open, and popping it lands back on THIS page, which
+      // then just reloads with the new filters.
+      //
+      // The route builds its own ClassroomCubit (a DI factory, so it's a
+      // separate instance) and StaffFilterScreen reloads classrooms on open
+      // regardless — so handing it this screen's `_classroomCubit` bought
+      // nothing, and no longer lets the filter overwrite this screen's
+      // classroom list on the way past.
+      final result = await context.push<StaffFilterResult?>(
+        StaffRoutes.filter,
+        extra: StaffFilterArgs(
+          initialFilters: _staffFilters,
+          selectedDate: _selectedDate,
+          sections: const [
+            StaffFilterSection.classroom,
+            StaffFilterSection.designation,
+          ],
         ),
       );
 

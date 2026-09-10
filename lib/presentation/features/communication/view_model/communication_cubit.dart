@@ -3,6 +3,8 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
@@ -72,6 +74,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final CommunicationRepository communicationRepository;
   final GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapUseCase;
   final GetConversationEntityUseCase getConversationEntityUseCase;
+  final ResolveMessageDeletePermissionUseCase
+  resolveMessageDeletePermissionUseCase;
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -99,6 +103,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.communicationRepository,
     required this.getTagNameCodeMapUseCase,
     required this.getConversationEntityUseCase,
+    required this.resolveMessageDeletePermissionUseCase,
     this.pendingAttachmentStore = const PendingAttachmentStoreImpl(),
   }) : _session = session,
        super(CommunicationInitial());
@@ -131,6 +136,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
   Future<String?> readStaffCode() =>
       _session.staffCode();
+
+  /// Resolves the message-delete permission for a school through the use-case
+  /// (Mandate 5: views don't invoke use-cases). Same result the view's inline
+  /// `MessageDeletePermission.resolve` produced — settings-driven, with the
+  /// safe `.none` fallback.
+  Future<MessageDeletePermission> resolveDeletePermission({
+    required String schoolCode,
+    required bool isAdminViewer,
+  }) => resolveMessageDeletePermissionUseCase(
+    schoolCode: schoolCode,
+    isAdminViewer: isAdminViewer,
+  );
 
   /// Use-case/repository access exposed so views go through their (ambient)
   /// cubit rather than resolving these directly (Mandate 5). Each forwards to

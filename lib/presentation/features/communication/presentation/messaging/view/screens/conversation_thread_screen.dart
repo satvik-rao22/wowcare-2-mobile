@@ -10,10 +10,10 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/message_delete_permission.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
@@ -38,8 +38,8 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
 import 'package:wowcare/app/di/private_mode_toggle_cubit_factory.dart';
 import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/utils/message_entity_mapper.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
+import 'package:wowcare/data/features/communication/mappers/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
@@ -163,7 +163,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   Future<void> _loadDeletePermission() async {
     final isAdminViewer = context.read<RoleCubit>().role == 'admin';
-    final permission = await MessageDeletePermission.resolve(
+    final permission = await _cubit.resolveDeletePermission(
       schoolCode: widget.conversation.schoolCode,
       isAdminViewer: isAdminViewer,
     );

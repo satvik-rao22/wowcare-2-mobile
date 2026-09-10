@@ -1711,13 +1711,26 @@ final GoRouter appRouter = GoRouter(
                   path: StaffRoutes.filterSegment,
                   pageBuilder: (context, state) {
                     final args = state.extra as StaffFilterArgs?;
+                    final sections = args?.sections;
                     return _fastPage(
                       state,
                       BlocProvider<ClassroomCubit>(
                         create: (_) => serviceLocator<ClassroomCubit>(),
-                        child: StaffFilterScreen(
-                          initialFilters: args?.initialFilters,
-                        ),
+                        // `sections`/`selectedDate` are what the staff
+                        // attendance Daily view needs from this shared screen
+                        // (Classroom + Designation only, for a given day).
+                        // Omitting them keeps StaffFilterScreen's own default
+                        // set, which is what the staff roster caller uses.
+                        child: sections == null
+                            ? StaffFilterScreen(
+                                initialFilters: args?.initialFilters,
+                                selectedDate: args?.selectedDate,
+                              )
+                            : StaffFilterScreen(
+                                initialFilters: args?.initialFilters,
+                                selectedDate: args?.selectedDate,
+                                sections: sections,
+                              ),
                       ),
                     );
                   },
@@ -2951,15 +2964,31 @@ final GoRouter appRouter = GoRouter(
       path: StudentFilterScreen.routeName,
       pageBuilder: (context, state) {
         final args = state.extra as Map<String, dynamic>? ?? const {};
+        // `sections`/`allowCrossClassAttendance` are what the student
+        // attendance Daily view needs from this shared screen (Classroom + Tags
+        // only, scoped by the school's cross-class setting). Absent — the
+        // students roster caller — the screen keeps its own default facet set
+        // and its legacy designation-based classroom scoping.
+        final sections = args['sections'] as List<StudentFilterSection>?;
+        final allowCrossClassAttendance =
+            args['allowCrossClassAttendance'] as bool?;
         return _fastPage(
           state,
           BlocProvider<ClassroomCubit>(
             create: (_) =>
                 serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-            child: StudentFilterScreen(
-              initialFilters:
-                  args['initialFilters'] as Map<String, List<String>>?,
-            ),
+            child: sections == null
+                ? StudentFilterScreen(
+                    initialFilters:
+                        args['initialFilters'] as Map<String, List<String>>?,
+                    allowCrossClassAttendance: allowCrossClassAttendance,
+                  )
+                : StudentFilterScreen(
+                    initialFilters:
+                        args['initialFilters'] as Map<String, List<String>>?,
+                    sections: sections,
+                    allowCrossClassAttendance: allowCrossClassAttendance,
+                  ),
           ),
         );
       },

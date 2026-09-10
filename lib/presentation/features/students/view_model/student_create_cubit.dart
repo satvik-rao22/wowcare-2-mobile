@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -31,6 +32,7 @@ part 'student_create_state.dart';
 /// targets.
 class StudentCreateCubit extends Cubit<StudentCreateState> {
   StudentCreateCubit({
+    required ProfilePhotoBackgroundUploader profilePhotoBackgroundUploader,
     required GetStudentPageUseCase getStudentPageUseCase,
     required GetStudentProfileUseCase getStudentProfileUseCase,
     required GetGuardianNameCodeMapForSchoolUseCase
@@ -42,7 +44,8 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
     required UpdateGuardianUseCase updateGuardianUseCase,
     required UpdateStudentRegularSchedulesUseCase
     updateStudentRegularSchedulesUseCase,
-  }) : _getStudentPageUseCase = getStudentPageUseCase,
+  }) : _profilePhotoBackgroundUploader = profilePhotoBackgroundUploader,
+       _getStudentPageUseCase = getStudentPageUseCase,
        _getStudentProfileUseCase = getStudentProfileUseCase,
        _getGuardianNameCodeMapForSchoolUseCase =
            getGuardianNameCodeMapForSchoolUseCase,
@@ -55,6 +58,7 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
            updateStudentRegularSchedulesUseCase,
        super(const StudentCreateState.initial());
 
+  final ProfilePhotoBackgroundUploader _profilePhotoBackgroundUploader;
   final GetStudentPageUseCase _getStudentPageUseCase;
   final GetStudentProfileUseCase _getStudentProfileUseCase;
   final GetGuardianNameCodeMapForSchoolUseCase
@@ -418,4 +422,45 @@ class StudentCreateCubit extends Cubit<StudentCreateState> {
       }
     });
   }
+
+  // ── Background profile-photo uploads (Mandate 5: views call the cubit, the
+  // cubit calls the DI-registered ProfilePhotoBackgroundUploader) ─────────────
+
+  /// Fire-and-forget student photo upload. Returns the future so the caller may
+  /// `unawaited()` it; it runs on the injected singleton service and finishes
+  /// even after this cubit/screen is gone.
+  Future<void> uploadStudentPhotoInBackground({
+    required String studentCode,
+    required File file,
+    required String schoolCode,
+    required String organizationCode,
+  }) => _profilePhotoBackgroundUploader.uploadStudentPhoto(
+    studentCode: studentCode,
+    file: file,
+    schoolCode: schoolCode,
+    organizationCode: organizationCode,
+  );
+
+  /// Fire-and-forget guardian photo upload (resolves the guardian code from the
+  /// student's guardian list when the create response didn't echo it).
+  Future<void> uploadGuardianPhotoInBackground({
+    required File file,
+    required String guardianCode,
+    required String studentCode,
+    required String email,
+    required String mobile,
+    required String schoolCode,
+    required String organizationCode,
+    required String userCode,
+  }) => _profilePhotoBackgroundUploader.uploadGuardianPhoto(
+    file: file,
+    guardianCode: guardianCode,
+    studentCode: studentCode,
+    email: email,
+    mobile: mobile,
+    schoolCode: schoolCode,
+    organizationCode: organizationCode,
+    userCode: userCode,
+  );
+
 }

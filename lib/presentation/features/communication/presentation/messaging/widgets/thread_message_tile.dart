@@ -6,7 +6,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation.dart
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
+import 'package:wowcare/domain/features/communication/policies/role_aware_ownership.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 
 /// Renders a single [MessageBubble] driven by its own [BlocSelector] over

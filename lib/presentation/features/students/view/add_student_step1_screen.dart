@@ -24,7 +24,6 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/utils/profile_photo_background.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
@@ -575,7 +574,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final pickedPhoto = _createCubit.state.step1ProfilePhoto;
       if (pickedPhoto != null && student.code.trim().isNotEmpty) {
         unawaited(
-          uploadStudentPhotoInBackground(
+          _createCubit.uploadStudentPhotoInBackground(
             studentCode: student.code.trim(),
             file: pickedPhoto,
             schoolCode: schoolCode.trim(),
