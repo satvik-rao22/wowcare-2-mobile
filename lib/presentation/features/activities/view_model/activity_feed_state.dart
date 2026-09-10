@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 
 /// Observable state for [ActivityFeedCubit] — the grouped/deduped daily feed
 /// plus the load/pagination/generation bookkeeping the View used to hold in

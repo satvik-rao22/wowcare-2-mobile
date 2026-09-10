@@ -4,7 +4,7 @@ import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_filter_metadata_cache.dart';
+import 'package:wowcare/data/features/activity/datasources/activity_filter_metadata_cache.dart';
 
 enum ActivityFilterStatus { loading, loaded, error }
 

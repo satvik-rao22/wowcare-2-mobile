@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 
 /// Typed route argument payloads for the activity GoRouter routes.
 ///

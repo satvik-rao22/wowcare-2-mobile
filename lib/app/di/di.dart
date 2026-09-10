@@ -160,6 +160,7 @@ import '../../domain/features/staff/usecases/update_staff_document_usecase.dart'
 import '../../domain/features/staff/usecases/delete_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_documents_usecase.dart';
 import '../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
+import '../../domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import '../../domain/features/staff/usecases/get_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/update_important_dates_usecase.dart';
 import '../../domain/features/staff/usecases/get_school_regular_schedules_usecase.dart';
@@ -1098,6 +1099,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getGuardianProfileUseCase: serviceLocator(),
       imageUploadService: serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
+      resolveLoggedInStaffCodeUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<GetStaffPageUseCase>(
@@ -1128,6 +1130,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStaffProfileUseCase>(
     () => GetStaffProfileUseCase(serviceLocator()),
+  );
+  // Staff-code / display-name resolution for the logged-in user. Registered
+  // here so every feature reaches the ONE domain implementation; this used to
+  // live as free functions in
+  // `presentation/features/activities/utils/resolve_logged_in_staff_code.dart`,
+  // which made students, communication and user_profile depend on the
+  // activities feature just to resolve a staff code.
+  serviceLocator.registerFactory<ResolveLoggedInStaffCodeUseCase>(
+    () => ResolveLoggedInStaffCodeUseCase(
+      serviceLocator<StorageService>(),
+      serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ResolveLoggedInStaffDisplayNameUseCase>(
+    () => ResolveLoggedInStaffDisplayNameUseCase(
+      serviceLocator<StaffRepository>(),
+      serviceLocator<ResolveLoggedInStaffCodeUseCase>(),
+    ),
   );
   serviceLocator.registerFactory<GetCachedStaffProfileUseCase>(
     () => GetCachedStaffProfileUseCase(serviceLocator()),

@@ -12,7 +12,7 @@ import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_filter_screen.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/bathroom_activity.dart';

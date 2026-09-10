@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 
@@ -16,13 +15,4 @@ DateTime activityDateTimeForDisplayFromIso(String iso) {
     parsed,
     SchoolTimezoneResolver.lastKnownTimeZone,
   );
-}
-
-/// Placeholder kept so activity screens can keep `const ActivitySchoolTimeZoneHint()`
-/// without churn; timezone hint was removed from the UI per product request.
-class ActivitySchoolTimeZoneHint extends StatelessWidget {
-  const ActivitySchoolTimeZoneHint({super.key});
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
 }

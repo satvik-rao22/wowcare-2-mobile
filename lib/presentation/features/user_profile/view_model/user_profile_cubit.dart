@@ -20,8 +20,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_cached_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart'
-    as staff_code_resolver;
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -57,6 +56,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     required GetGuardianProfileUseCase getGuardianProfileUseCase,
     required ImageUploadService imageUploadService,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
+    required ResolveLoggedInStaffCodeUseCase resolveLoggedInStaffCodeUseCase,
   }) : _storage = storageService,
        _getStaffProfileUseCase = getStaffProfileUseCase,
        _getCachedStaffProfileUseCase = getCachedStaffProfileUseCase,
@@ -65,6 +65,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
        _getGuardianProfileUseCase = getGuardianProfileUseCase,
        _imageUploadService = imageUploadService,
        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _resolveLoggedInStaffCodeUseCase = resolveLoggedInStaffCodeUseCase,
        super(const UserProfileState.initial());
 
   final StorageService _storage;
@@ -75,6 +76,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   final GetGuardianProfileUseCase _getGuardianProfileUseCase;
   final ImageUploadService _imageUploadService;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+  final ResolveLoggedInStaffCodeUseCase _resolveLoggedInStaffCodeUseCase;
 
   String _directStaffCode = '';
   bool _hasShownProfileLoadError = false;
@@ -207,8 +209,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   /// schools under different codes, so matching on user alone would serve the
   /// previously selected school's profile after an org/school switch.
   ///
-  /// Falls back to the shared [staff_code_resolver.resolveLoggedInStaffCode]
-  /// (already used by the activities/communication/students features) when
+  /// Falls back to the shared [ResolveLoggedInStaffCodeUseCase]
+  /// (used by the activities/communication/students features too) when
   /// that strict cache check misses — that resolver also tries a live
   /// `/api/v1/staff/code` lookup and persists the result, so a genuinely
   /// staff user whose cache just hasn't been (re)populated for the CURRENT
@@ -242,7 +244,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         return cachedStaffCode;
       }
       final resolved =
-          (await staff_code_resolver.resolveLoggedInStaffCode() ?? '').trim();
+          (await _resolveLoggedInStaffCodeUseCase() ?? '').trim();
       return resolved;
     } catch (_) {
       return '';
