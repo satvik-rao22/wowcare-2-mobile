@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/communication/view_model/conversat
 import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 /// Filter bottom sheet for STAFF_DIRECT conversations.
 ///
@@ -87,10 +88,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
           maxChildSize: 0.9,
           builder: (BuildContext context, ScrollController scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: AppColors.cardColor,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
+              decoration: AppSurfaces.sheet(topRadius: AppRadius.xl),
               child: Column(
                 children: [
                   // Header

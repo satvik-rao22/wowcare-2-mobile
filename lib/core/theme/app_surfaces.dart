@@ -210,13 +210,18 @@ class AppSurfaces {
     boxShadow: AppElevation.bar,
   );
 
-  /// A bottom sheet: the sub ground, 28 at the top and 42 at the bottom so it
-  /// meets the device's own corners, shadow thrown upward.
-  static SkeuDecoration sheet() => SkeuDecoration(
-    color: AppPalette.surfaceSunken,
-    borderRadius: AppRadius.sheet,
-    boxShadow: AppElevation.sheet,
-  );
+  /// A bottom sheet: the sub ground with its shadow thrown upward onto the
+  /// screen it covers.
+  ///
+  /// [topRadius] because every sheet in this app is flush to the bottom of
+  /// the device, so the design's 42 at the bottom would never be seen. A
+  /// sheet that floats clear of the edge wants `AppRadius.sheet` instead.
+  static SkeuDecoration sheet({double topRadius = AppRadius.r28}) =>
+      SkeuDecoration(
+        color: AppPalette.surfaceSunken,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(topRadius)),
+        boxShadow: AppElevation.sheet,
+      );
 
   // ── Recessed ─────────────────────────────────────────────────────────────
 

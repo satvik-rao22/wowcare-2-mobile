@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class DuplicateStudentBottomSheet extends StatefulWidget {
   const DuplicateStudentBottomSheet({
@@ -74,13 +75,7 @@ class _DuplicateStudentBottomSheetState
             top: verticalPadding,
             bottom: verticalPadding + bottomSafe,
           ),
-          decoration: BoxDecoration(
-            color: AppPalette.surfaceSunken,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
-            ),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: borderRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -74,7 +74,7 @@ class GeofenceSignInSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: MaterialHues.grey300,
+              color: AppPalette.borderStrong,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

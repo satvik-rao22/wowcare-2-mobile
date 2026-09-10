@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/responsive/app_breakpoints.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Shared bottom-sheet frame for scheduling's confirmation/info sheets.
 ///
@@ -47,13 +47,7 @@ class SchedulingBottomSheetScaffold extends StatelessWidget {
             top: verticalPadding,
             bottom: verticalPadding + bottomSafe,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
-            ),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: borderRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

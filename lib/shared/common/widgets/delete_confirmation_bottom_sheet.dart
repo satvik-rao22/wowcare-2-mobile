@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
@@ -201,13 +202,7 @@ class _DeleteConfirmationBottomSheetState
             top: verticalPadding,
             bottom: verticalPadding + bottomSafe,
           ),
-          decoration: BoxDecoration(
-            color: AppPalette.surfaceSunken,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
-            ),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: borderRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
