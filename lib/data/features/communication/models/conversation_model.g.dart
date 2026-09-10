@@ -104,6 +104,8 @@ ConversationParticipantModel _$ConversationParticipantModelFromJson(
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
       active: json['active'] as bool? ?? true,
       staffStatus: json['staffStatus'] as String?,
+      avatarUrl: _readParticipantAvatar(json, 'avatarUrl') as String?,
+      staffCode: json['staffCode'] as String?,
     );
 
 Map<String, dynamic> _$ConversationParticipantModelToJson(
@@ -133,5 +135,7 @@ Map<String, dynamic> _$ConversationParticipantModelToJson(
   }
 
   writeNotNull('staffStatus', instance.staffStatus);
+  writeNotNull('avatarUrl', instance.avatarUrl);
+  writeNotNull('staffCode', instance.staffCode);
   return val;
 }

@@ -736,10 +736,6 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   _DateHeaderRow(
                     selectedDay: state.selectedDay,
                     staff: state.staffList,
-                    initialPublishStaffCodes:
-                        state.selectedStaffCode == null
-                            ? const <String>[]
-                            : <String>[state.selectedStaffCode!],
                     onDatePicked: cubit.selectDay,
                     onAddTap: () {
                       // ignore: discarded_futures
@@ -914,7 +910,6 @@ class _DateHeaderRow extends StatelessWidget {
     required this.onDatePicked,
     required this.onAddTap,
     this.staff = const <StaffMember>[],
-    this.initialPublishStaffCodes = const <String>[],
     this.onPublished,
     this.showActions = true,
   });
@@ -923,7 +918,6 @@ class _DateHeaderRow extends StatelessWidget {
   final ValueChanged<DateTime> onDatePicked;
   final VoidCallback onAddTap;
   final List<StaffMember> staff;
-  final List<String> initialPublishStaffCodes;
 
   /// Fired after a successful publish so the caller can refresh the
   /// scheduling view — published shifts flip their isPublished flag and the
@@ -940,7 +934,6 @@ class _DateHeaderRow extends StatelessWidget {
       extra: PublishShiftsRouteArgs(
         staff: staff,
         dateRangeStart: selectedDay,
-        initialStaffCodes: initialPublishStaffCodes,
         initialUntilDate: selectedDay,
       ),
     );
