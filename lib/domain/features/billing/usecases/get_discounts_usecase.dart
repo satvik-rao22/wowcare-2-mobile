@@ -11,7 +11,7 @@ class GetDiscountsUseCase {
     String? name,
     String? status,
     int page = 0,
-    int size = 10,
+    int size = 200,
   }) =>
       _repository.getDiscounts(
         school: school,

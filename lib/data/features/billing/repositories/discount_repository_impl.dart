@@ -14,7 +14,7 @@ class DiscountRepositoryImpl implements DiscountRepository {
     String? name,
     String? status,
     int page = 0,
-    int size = 50,
+    int size = 200,
   }) async {
     final model = await _dataSource.getDiscounts(
       school: school,
