@@ -586,10 +586,6 @@ class _NapActivityViewState extends State<_NapActivityView> {
     return _isNapEndContextForUi() ? 'Nap End' : 'Description';
   }
 
-  String _descriptionHintForContext() {
-    return _isNapEndContextForUi() ? 'Nap Ended' : 'Enter Description';
-  }
-
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
@@ -615,8 +611,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
           );
       if (!isWithinAttendanceWindow) return;
 
-      final enteredDescription = _descriptionController.text.trim();
-      var description = enteredDescription;
+      final description = _descriptionController.text.trim();
       if (description.length > ActivityDescriptionLimits.maxLength) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -764,9 +759,6 @@ class _NapActivityViewState extends State<_NapActivityView> {
         studentCodes: studentCodes,
       );
       if (isNapEnd == null) return;
-      if (description.isEmpty) {
-        description = isNapEnd ? 'Nap Ended' : 'Nap Started';
-      }
       _appendNapStartEndBooleans(details, parameterValues, isNapEnd);
       _appendRemindNap15IfNapStart(details, parameterValues, isNapEnd);
 
@@ -1266,7 +1258,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
                 controller: _descriptionController,
                 height: 100,
                 label: _descriptionLabelForContext(),
-                hint: _descriptionHintForContext(),
+                hint: 'Enter Description',
                 isRequired: false,
                 readOnly: !_canInteract,
                 maxLength: ActivityDescriptionLimits.maxLength,

@@ -38,11 +38,18 @@ class StaffSignOutForm extends StatefulWidget {
     this.staffCode,
     this.staffName,
     this.pin,
+    this.popOnSuccess = false,
   });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
   final String qrToken;
+
+  /// When true, pops back to the caller after a successful submission instead
+  /// of redirecting to the Attendance daily tab. Set by callers that live
+  /// outside the Attendance tab (e.g. the Staff attendance profile) so the
+  /// user stays on the screen they started from.
+  final bool popOnSuccess;
 
   /// True when called from kiosk flow.
   final bool isKiosk;
@@ -517,7 +524,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       return;
     }
 
-    if (isSelfSignOut || !isStaffAdmin) {
+    if (widget.popOnSuccess || isSelfSignOut || !isStaffAdmin) {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       } else if (context.canPop()) {

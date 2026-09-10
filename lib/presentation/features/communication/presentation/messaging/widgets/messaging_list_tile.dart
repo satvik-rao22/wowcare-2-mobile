@@ -64,6 +64,12 @@ class MessagingListTile extends StatelessWidget {
       conversation,
       currentUserCode,
     );
+    // 1:1 (STAFF_DIRECT) only — null for room/admin chats, whose avatar is
+    // the conversation's own (the student's photo).
+    final counterpart = ConversationDisplay.otherParticipant(
+      conversation,
+      currentUserCode,
+    );
     return InkWell(
       onTap: onTap,
       splashColor: AppColors.messagingTileSplash, // Subtle theme splash
@@ -107,7 +113,17 @@ class MessagingListTile extends StatelessWidget {
               imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
               mediaAssetCode: displayAvatar.startsWith('http')
                   ? null
-                  : displayAvatar,
+                  : (displayAvatar.isEmpty ? null : displayAvatar),
+              // The conversation payload carries no photo for most staff
+              // counterparts (and no `staffCode` either — the backend
+              // doesn't send one yet), which is why every staff-messaging
+              // row rendered initials. These let the avatar resolve the
+              // real profile photo itself, the same way the "Start new
+              // chat" rows below the list already do.
+              staffCode: counterpart?.staffCode,
+              userCode: (counterpart?.staffCode ?? '').trim().isEmpty
+                  ? counterpart?.userCode
+                  : null,
               name: displayName,
               size: 52,
             ),

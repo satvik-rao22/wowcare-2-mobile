@@ -8,7 +8,7 @@ abstract class DiscountRemoteDataSource {
     String? name,
     String? status,
     int page = 0,
-    int size = 10,
+    int size = 200,
   });
 
   Future<DiscountModel> createDiscount(DiscountRequestModel request);
@@ -34,7 +34,7 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
     String? name,
     String? status,
     int page = 0,
-    int size = 10,
+    int size = 200,
   }) async {
     // Flat param names, NOT the `criteria.`/`pageable.` nested convention
     // other endpoints (attendance, student) use — this endpoint's backend

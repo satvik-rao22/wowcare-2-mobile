@@ -583,9 +583,11 @@ class _ValueCell extends StatelessWidget {
   final int value;
   final double height;
 
-  Color get _countColor => value < 0
-      ? AppColors.futureAvailabilityNegativeCountColor
-      : AppColors.futureAvailabilityPositiveCountColor;
+  Color get _countColor {
+    if (value < 0) return AppColors.futureAvailabilityNegativeCountColor;
+    if (value == 0) return AppColors.futureAvailabilityZeroCountColor;
+    return AppColors.futureAvailabilityPositiveCountColor;
+  }
 
   @override
   Widget build(BuildContext context) {

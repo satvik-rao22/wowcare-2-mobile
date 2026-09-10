@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart'
     as sched;
@@ -19,6 +18,7 @@ import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_hour
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/domain/features/classroom/services/classroom_name_resolver.dart';
 import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
 import 'scheduling_school_scope_mixin.dart';
@@ -113,9 +113,42 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
   /// When true, the screen only shows the logged-in staff member (no roster).
   /// Resolved from active-school role + cached staffCode in storage.
   bool _isStaffPersonaScope = false;
+
+  /// The logged-in user's own `staffCode`, resolved once per cubit lifetime.
+  /// Used for two things: narrowing the roster under a STAFF persona, and —
+  /// for every persona — picking the default dropdown selection so the screen
+  /// opens on the logged-in user's own schedule rather than whoever happens to
+  /// sort first in the roster. Null when the user has no staff mapping in the
+  /// active org/school (e.g. a guardian, or an admin without a staff record).
   String? _loggedInStaffCode;
+  bool _hasResolvedLoggedInStaffCode = false;
+
+  late final ResolveLoggedInStaffCodeUseCase _resolveLoggedInStaffCodeUseCase =
+      ResolveLoggedInStaffCodeUseCase(_storageService, _staffRepository);
 
   bool get isStaffPersonaScope => _isStaffPersonaScope;
+
+  /// Resolves (and memoises) the logged-in user's `staffCode`. Prefers the
+  /// validated storage cache and falls back to `/api/v1/staff/code`, so a
+  /// session that hasn't visited an attendance screen yet still gets a code.
+  /// Never throws — an unresolved code just means "no preferred default".
+  Future<String?> _ensureLoggedInStaffCode() async {
+    if (_hasResolvedLoggedInStaffCode) return _loggedInStaffCode;
+    final resolved = (await _resolveLoggedInStaffCodeUseCase() ?? '').trim();
+    _hasResolvedLoggedInStaffCode = true;
+    _loggedInStaffCode = resolved.isNotEmpty ? resolved : null;
+    return _loggedInStaffCode;
+  }
+
+  /// The staff row the screen should land on: the logged-in user's own row
+  /// when they are in [visibleStaff], otherwise the first row (previous
+  /// behavior). Returns null for an empty roster.
+  String? _defaultStaffCodeFor(List<StaffMember> visibleStaff) {
+    if (visibleStaff.isEmpty) return null;
+    final own = _loggedInStaffCode;
+    if (own != null && visibleStaff.any((s) => s.code == own)) return own;
+    return visibleStaff.first.code;
+  }
 
   /// Caller-driven persona scope. The screen reads [RoleCubit.isStaff] (the
   /// single source of truth used across the app) and feeds it in here; the
@@ -123,16 +156,12 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
   /// Re-filters the roster + re-emits state whenever the scope flips so the
   /// UI reacts even if scope is set after the initial load.
   Future<void> applyPersonaScope({required bool isStaffPersona}) async {
-    final code = isStaffPersona
-        ? (await _storageService.getString(StorageKeys.staffCode) ?? '').trim()
-        : '';
-    final nextLoggedInStaffCode = code.isNotEmpty ? code : null;
-    final scopeChanged =
-        _isStaffPersonaScope != isStaffPersona ||
-        _loggedInStaffCode != nextLoggedInStaffCode;
+    // Resolved for every persona (not just STAFF) — an admin's own staffCode
+    // is what makes their own row the default dropdown selection.
+    await _ensureLoggedInStaffCode();
+    final scopeChanged = _isStaffPersonaScope != isStaffPersona;
 
     _isStaffPersonaScope = isStaffPersona;
-    _loggedInStaffCode = nextLoggedInStaffCode;
 
     if (!scopeChanged || isClosed) return;
 
@@ -160,9 +189,9 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
     String? nextCode = previousCode;
     if (_isStaffPersonaScope) {
       nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
-    } else if (nextCode != null &&
+    } else if (nextCode == null ||
         !visibleStaff.any((s) => s.code == nextCode)) {
-      nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
+      nextCode = _defaultStaffCodeFor(visibleStaff);
     }
 
     emit(
@@ -373,6 +402,11 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
     }
 
     try {
+      // Resolved before the roster is narrowed/selected so the default
+      // selection below can prefer the logged-in user's own row. Memoised —
+      // only the first load pays for it.
+      await _ensureLoggedInStaffCode();
+
       // Delegated to SchedulingStaffListCubit which calls the staff API once
       // with `status=ACTIVE&status=UPCOMING` and no pagination. Singleton —
       // returns cached data on repeat calls unless [force] is set.
@@ -400,11 +434,12 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState>
       String? nextCode = state.selectedStaffCode;
       if (_isStaffPersonaScope) {
         nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
-      } else if (selectFirst && visibleStaff.isNotEmpty) {
-        nextCode = visibleStaff.first.code;
-      } else if (nextCode != null &&
-          !visibleStaff.any((s) => s.code == nextCode)) {
-        nextCode = visibleStaff.isNotEmpty ? visibleStaff.first.code : null;
+      } else if (selectFirst || nextCode == null) {
+        // Initial entry: land on the logged-in user's own schedule when they
+        // have a row in the roster, else the first row.
+        nextCode = _defaultStaffCodeFor(visibleStaff);
+      } else if (!visibleStaff.any((s) => s.code == nextCode)) {
+        nextCode = _defaultStaffCodeFor(visibleStaff);
       }
 
       emit(

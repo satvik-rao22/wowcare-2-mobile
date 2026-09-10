@@ -128,11 +128,9 @@ class PublishShiftsRouteArgs {
     required this.dateRangeStart,
     this.staff = const <StaffMember>[],
     this.initialUntilDate,
-    this.initialStaffCodes = const <String>[],
   });
 
   final DateTime dateRangeStart;
   final List<StaffMember> staff;
   final DateTime? initialUntilDate;
-  final List<String> initialStaffCodes;
 }
