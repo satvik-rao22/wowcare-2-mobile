@@ -28,10 +28,6 @@ import 'package:wowcare/domain/features/attendance/entities/attendance_profile_a
 import 'package:wowcare/core/utils/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';

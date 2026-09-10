@@ -29,6 +29,7 @@ import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -718,14 +719,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                   margin: const EdgeInsets.all(
                                                     2,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    gradient:
-                                                        AppColors.buildPrimaryGradient(),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
-                                                  ),
+                                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 14,),
                                                   child: const Icon(
                                                     Icons.camera_alt,
                                                     color: AppColors.cardColor,
@@ -786,13 +780,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     Expanded(
                                       child: Container(
                                         height: 48,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          gradient:
-                                              AppColors.buildPrimaryGradient(),
-                                        ),
+                                        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                         child: ValueListenableBuilder<bool>(
                                           valueListenable: _openingProfile,
                                           builder: (context, openingProfile, _) => TextButton(
@@ -872,10 +860,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     // "My Profile" card with 4px gap from screen edge and gradient border
                     Container(
                       margin: const EdgeInsets.fromLTRB(4, 6, 4, 12),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                       child: Container(
                         margin: const EdgeInsets.all(1),
                         decoration: BoxDecoration(
@@ -998,12 +983,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                           child: Container(
                                             width: 38,
                                             height: 38,
-                                            decoration: BoxDecoration(
-                                              gradient:
-                                                  AppColors.buildPrimaryGradient(),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
+                                            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                                             alignment: Alignment.center,
                                             child: const Icon(
                                               Icons.edit,

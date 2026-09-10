@@ -9,21 +9,17 @@ import 'package:wowcare/core/theme/skeu_decoration.dart';
 /// photographic backdrop, because a picture behind the content fights the
 /// flat material that everything on top of it is built from.
 ///
-/// Both escape hatches survive for the call sites that want them. [image]
-/// still stamps a backdrop (only `page_under_construction` asks for one), and
-/// [gradient] still overrides the fill, though nothing passes it today and
-/// nothing should.
+/// One escape hatch survives: [image] still stamps a backdrop, and only
+/// `page_under_construction` asks for one.
 class GradientBackground extends StatelessWidget {
   const GradientBackground({
     super.key,
     required this.child,
     this.image,
-    this.gradient,
   });
 
   final Widget child;
   final String? image;
-  final LinearGradient? gradient;
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +29,7 @@ class GradientBackground extends StatelessWidget {
       decoration: image == null
           ? ground
           : BoxDecoration(
-              color: gradient == null ? ground.color : null,
-              gradient: gradient,
+              color: ground.color,
               image: DecorationImage(
                 image: AssetImage(image!),
                 fit: BoxFit.cover,

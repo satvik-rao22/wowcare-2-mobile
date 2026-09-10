@@ -323,51 +323,57 @@ class AppSurfaces {
   ///
   /// Pair with `SkeuPressable.key`, which sinks the 3px the rim collapses by,
   /// and with [keyPressed] for the sunk state.
+  /// [borderRadius] overrides [radius] for the handful of keys that are not
+  /// rounded on all four corners — one docked to the bottom of a card, say.
   static SkeuDecoration key(
     KeyVariant variant, {
     double radius = AppRadius.lg,
-  }) => switch (variant) {
-    KeyVariant.primary => SkeuDecoration(
-      color: AppPalette.brand,
-      borderRadius: BorderRadius.circular(radius),
-      boxShadow: <BoxShadow>[
-        ...AppElevation.rim(AppPalette.rimAction),
-        ...AppElevation.keyGlow(AppPalette.brand),
-      ],
-    ),
-    KeyVariant.secondary => SkeuDecoration(
-      color: AppPalette.surfaceCard,
-      borderRadius: BorderRadius.circular(radius),
-      border: _edge,
-      boxShadow: AppElevation.card,
-      insets: AppElevation.bevelTop,
-    ),
-    KeyVariant.tertiary => SkeuDecoration(
-      color: AppPalette.actionSecondary,
-      borderRadius: BorderRadius.circular(radius),
-      boxShadow: <BoxShadow>[
-        ...AppElevation.rim(AppPalette.rimSecondary),
-        ...AppElevation.keyGlow(AppPalette.actionSecondary),
-      ],
-    ),
-    KeyVariant.destructive => SkeuDecoration(
-      color: AppPalette.statusError,
-      borderRadius: BorderRadius.circular(radius),
-      boxShadow: AppElevation.rim(AppPalette.rimDestructive),
-    ),
-    KeyVariant.neutral => SkeuDecoration(
-      color: AppPalette.surfaceCard,
-      borderRadius: BorderRadius.circular(radius),
-      border: _edge,
-      boxShadow: AppElevation.rim(AppPalette.rimNeutral),
-      insets: AppElevation.bevelTop,
-    ),
-    KeyVariant.disabled => SkeuDecoration(
-      color: AppPalette.surfaceField,
-      borderRadius: BorderRadius.circular(radius),
-      insets: AppElevation.keyDisabled,
-    ),
-  };
+    BorderRadius? borderRadius,
+  }) {
+    final BorderRadius shape = borderRadius ?? BorderRadius.circular(radius);
+    return switch (variant) {
+      KeyVariant.primary => SkeuDecoration(
+        color: AppPalette.brand,
+        borderRadius: shape,
+        boxShadow: <BoxShadow>[
+          ...AppElevation.rim(AppPalette.rimAction),
+          ...AppElevation.keyGlow(AppPalette.brand),
+        ],
+      ),
+      KeyVariant.secondary => SkeuDecoration(
+        color: AppPalette.surfaceCard,
+        borderRadius: shape,
+        border: _edge,
+        boxShadow: AppElevation.card,
+        insets: AppElevation.bevelTop,
+      ),
+      KeyVariant.tertiary => SkeuDecoration(
+        color: AppPalette.actionSecondary,
+        borderRadius: shape,
+        boxShadow: <BoxShadow>[
+          ...AppElevation.rim(AppPalette.rimSecondary),
+          ...AppElevation.keyGlow(AppPalette.actionSecondary),
+        ],
+      ),
+      KeyVariant.destructive => SkeuDecoration(
+        color: AppPalette.statusError,
+        borderRadius: shape,
+        boxShadow: AppElevation.rim(AppPalette.rimDestructive),
+      ),
+      KeyVariant.neutral => SkeuDecoration(
+        color: AppPalette.surfaceCard,
+        borderRadius: shape,
+        border: _edge,
+        boxShadow: AppElevation.rim(AppPalette.rimNeutral),
+        insets: AppElevation.bevelTop,
+      ),
+      KeyVariant.disabled => SkeuDecoration(
+        color: AppPalette.surfaceField,
+        borderRadius: shape,
+        insets: AppElevation.keyDisabled,
+      ),
+    };
+  }
 
   /// The same key with its rim collapsed to 1px — what you paint while the
   /// face is translated down by [AppMotion.pressTravel].
@@ -378,8 +384,13 @@ class AppSurfaces {
   static SkeuDecoration keyPressed(
     KeyVariant variant, {
     double radius = AppRadius.lg,
+    BorderRadius? borderRadius,
   }) {
-    final SkeuDecoration rest = key(variant, radius: radius);
+    final SkeuDecoration rest = key(
+      variant,
+      radius: radius,
+      borderRadius: borderRadius,
+    );
     return switch (variant) {
       KeyVariant.secondary || KeyVariant.disabled => rest,
       _ => rest.copyWith(

@@ -172,8 +172,8 @@ class AppTextStyles {
         color: AppColors.primaryColor,
       );
 
-  /// Attendance popup "View Attendance" gradient button label. No color of
-  /// its own — painted via ShaderMask, which overrides paint regardless.
+  /// Attendance popup "View Attendance" key label. No colour of its own: the
+  /// call site takes it from `AppSurfaces.keyInk` for the key it sits on.
   static TextStyle attendancePopupViewButton({required bool isTablet}) =>
       TextStyle(
         fontFamily: AppFonts.body,
@@ -999,7 +999,9 @@ class AppTextStyles {
 
   /// The clock-in PIN, rendered on the primary gradient.
   static const TextStyle myDayClockInPin = TextStyle(
-    color: AppColors.cardColor,
+    // The pin used to be painted over by a gradient, so this was the light
+    // colour underneath it. It is the brand colour itself now.
+    color: AppColors.themeColor,
     fontSize: 17,
     fontWeight: FontWeight.bold,
     letterSpacing: 17 * (-3 / 100),

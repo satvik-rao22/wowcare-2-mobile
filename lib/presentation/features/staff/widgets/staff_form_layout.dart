@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -127,16 +126,7 @@ class StaffFormLayout extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
+              child: ColoredBox(color: AppColors.pageBackgroundColor),
             ),
             Column(
               children: [

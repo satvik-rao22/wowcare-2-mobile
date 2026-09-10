@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -32,6 +31,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Staff Scheduling — single-day view with staff picker, profile summary,
 /// hour totals, and day timeline. Staff dropdown is fed by [StaffCubit] (with
@@ -325,10 +325,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   width: double.infinity,
                   height: 44,
                   child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                     child: TextButton(
                       onPressed: () => Navigator.of(sheetContext).pop(true),
                       child: const Text(
@@ -987,17 +984,7 @@ class _GradientPublishButton extends StatelessWidget {
     final child = Container(
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        gradient: AppColors.buildPrimaryGradient(),
-        borderRadius: BorderRadius.circular(borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.key(KeyVariant.primary, radius: borderRadius),
       alignment: Alignment.center,
       child: const Text(
         'Publish',

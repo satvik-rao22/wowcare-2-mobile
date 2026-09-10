@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/core/utils/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Locally-derived invoice header shown on the Send Invoice form (not parsed
 /// from any API response — built from [SendInvoiceScreen.transaction]).
@@ -451,10 +452,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
           child: TextButton(
             onPressed: isSending ? null : _sendInvoice,
             style: TextButton.styleFrom(

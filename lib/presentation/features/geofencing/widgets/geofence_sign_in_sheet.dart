@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Bottom sheet shown to ALL roles (parent, staff, admin) when they enter
 /// the school geofence zone.
@@ -80,30 +81,16 @@ class GeofenceSignInSheet extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── icon ──────────────────────────────────────────────────────
-          // Soft gradient-tinted circle with the pin painted in the same
-          // primary gradient (via ShaderMask) so it matches the buttons.
+          // The pin sits in the empty-state well: recessed, brand glyph.
           Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: AppColors.buildPrimaryGradient(
-                colors: AppColors.primaryGradientColors
-                    .map((c) => c.withValues(alpha: 0.12))
-                    .toList(),
-              ),
-            ),
-            child: ShaderMask(
-              blendMode: BlendMode.srcIn,
-              shaderCallback: (bounds) =>
-                  AppColors.buildPrimaryGradient().createShader(
-                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                  ),
-              child: const Icon(
-                Icons.location_on_rounded,
-                color: AppColors.whiteColor, // painted over by the gradient
-                size: 36,
-              ),
+            alignment: Alignment.center,
+            decoration: AppSurfaces.emptyIcon(),
+            child: const Icon(
+              Icons.location_on_rounded,
+              color: AppColors.themeColor,
+              size: 36,
             ),
           ),
           const SizedBox(height: 16),
@@ -176,10 +163,7 @@ class GeofenceSignInSheet extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(14),
-              ),
+              decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
@@ -217,10 +201,7 @@ class GeofenceSignInSheet extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(14),
-              ),
+              decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
               child: Padding(
                 padding: const EdgeInsets.all(1.5),
                 child: TextButton(
@@ -231,22 +212,15 @@ class GeofenceSignInSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(13),
                     ),
                   ),
-                  child: ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (bounds) =>
-                        AppColors.buildPrimaryGradient().createShader(
-                          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                        ),
-                    child: const Text(
+                  child: const Text(
                       'Dismiss',
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.whiteColor, // painted over by the gradient
+                        color: AppColors.themeColor,
                       ),
                     ),
-                  ),
                 ),
               ),
             ),

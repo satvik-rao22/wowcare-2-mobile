@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Shared by [StaffAttendanceCard] and [StudentAttendanceCard] — the two
 /// mirror each other's sign-in/sign-out display exactly.
@@ -262,10 +263,7 @@ Widget attendanceOutlinedButton(String label, VoidCallback? onPressed) {
 
 Widget attendanceGradientButton(String label, VoidCallback? onPressed) {
   return Container(
-    decoration: BoxDecoration(
-      borderRadius: AppRadius.allSm,
-      gradient: AppColors.buildPrimaryGradient(),
-    ),
+    decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
     child: TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(

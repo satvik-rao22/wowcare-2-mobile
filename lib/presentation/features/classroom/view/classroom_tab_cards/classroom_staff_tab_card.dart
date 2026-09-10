@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.da
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -900,10 +901,7 @@ class _ClassroomStaffTabCardViewState
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
                                   ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: AppColors.buildPrimaryGradient(),
-                                  ),
+                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 6),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.cardColor,

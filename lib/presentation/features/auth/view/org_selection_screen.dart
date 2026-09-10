@@ -164,21 +164,14 @@ class _OrganizationSelectionScreenState
                                 width: screenHeight * 0.12,
                               ),
                               SizedBox(height: screenHeight * 0.01),
-                              ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return AppColors.buildPrimaryGradient()
-                                      .createShader(bounds);
-                                },
-                                blendMode: BlendMode.srcIn,
-                                child: Text(
+                              Text(
                                   'WowCare',
                                   style: TextStyle(
                                     fontSize: screenHeight * 0.03,
                                     fontWeight: FontWeight.w500,
-                                    color: AppColors.cardColor,
+                                    color: AppColors.themeColor,
                                   ),
                                 ),
-                              ),
                               SizedBox(height: screenHeight * 0.03),
                               // Profile avatar + name/role in a row (like design)
                               Row(

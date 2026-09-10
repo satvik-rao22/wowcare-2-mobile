@@ -282,16 +282,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Stack(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                'assets/bgImages/wowcare_mobile_bg.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            ColoredBox(color: AppColors.pageBackgroundColor),
             SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

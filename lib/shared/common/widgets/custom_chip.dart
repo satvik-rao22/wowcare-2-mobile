@@ -7,7 +7,6 @@ class CustomChip extends StatefulWidget {
     required this.labelStyle,
     this.widget,
     this.color,
-    this.gradient,
     super.key,
   });
 
@@ -15,11 +14,6 @@ class CustomChip extends StatefulWidget {
   final TextStyle labelStyle;
   final Widget? widget;
   final Color? color;
-
-  /// Kept for source compatibility. Rule 3 of the design language forbids a
-  /// gradient, so a caller that still passes one gets its first stop as a
-  /// flat fill.
-  final LinearGradient? gradient;
 
   @override
   State<CustomChip> createState() => _CustomChipState();
@@ -33,11 +27,7 @@ class _CustomChipState extends State<CustomChip> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        color:
-            widget.color ??
-            (widget.gradient != null
-                ? widget.gradient!.colors.first
-                : AppPalette.surfaceCard),
+        color: widget.color ?? AppPalette.surfaceCard,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

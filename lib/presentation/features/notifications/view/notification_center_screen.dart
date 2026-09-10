@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/active_school_switcher.dart';
 import 'package:wowcare/core/utils/notification_events.dart';
@@ -24,6 +23,7 @@ import '../../../../domain/features/notifications/entities/push_notification.dar
 import '../view_model/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The notification center opened from the app-bar bell.
 ///
@@ -71,16 +71,7 @@ class NotificationCenterScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           SafeArea(
             top: false,
@@ -221,10 +212,7 @@ class _ActionsRow extends StatelessWidget {
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                   child: const Text(
                     'Mark all as read',
                     style: TextStyle(

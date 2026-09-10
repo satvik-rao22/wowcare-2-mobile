@@ -49,11 +49,9 @@ void main() {
         i++;
         continue;
       }
-      if (ch == "'" || ch == '"') {
-        quote = ch;
-        i++;
-        continue;
-      }
+      // Comments are recognised *before* quotes. The other way round, an
+      // apostrophe in a comment ("// don't") opens a string that swallows
+      // the rest of the file and the scan goes blind.
       if (ch == '/' && i + 1 < text.length && text[i + 1] == '/') {
         int j = text.indexOf('\n', i);
         if (j == -1) j = text.length;
@@ -70,6 +68,11 @@ void main() {
           if (out[k] != '\n') out[k] = ' ';
         }
         i = j;
+        continue;
+      }
+      if (ch == "'" || ch == '"') {
+        quote = ch;
+        i++;
         continue;
       }
       i++;
@@ -167,10 +170,6 @@ void main() {
       expect(AppColors.accentColor, AppPalette.actionHighlight);
       expect(AppColors.dividerColor, AppPalette.divider);
       expect(AppColors.fieldBackgroundColor, AppPalette.surfaceField);
-      expect(AppColors.primaryGradientColors, AppPalette.gradientPrimary);
-      expect(AppColors.secondaryGradientColors, AppPalette.gradientSecondary);
-      expect(AppColors.scaffoldGradientColors, AppPalette.gradientPage);
-      expect(AppColors.pinkGradientColors, AppPalette.gradientPink);
     });
 
     test('generated themes are driven by the palette', () {
@@ -295,137 +294,26 @@ void main() {
   }
 
   group('the app is flat: no gradients', () {
-    /// The files outside `lib/core/theme/` that still draw a gradient,
-    /// either directly or through one of the `AppColors.build*Gradient()`
-    /// helpers.
-    ///
-    /// **This list only ever shrinks.** A module is not done while any of its
-    /// files are still on it; the last module to land deletes the helpers in
-    /// `app_colors.dart` and this list with them.
-    const Set<String> knownGradientFiles = <String>{
-      'lib/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart',
-      'lib/presentation/features/activities/widgets/avtivity_media_preview.dart',
-      'lib/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart',
-      'lib/presentation/features/activities/widgets/upload_photo_video.dart',
-      'lib/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart',
-      'lib/presentation/features/attendance/view/staff_attendance_tabbed_view.dart',
-      'lib/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart',
-      'lib/presentation/features/auth/view/change_password_screen.dart',
-      'lib/presentation/features/auth/view/forgot_password_screen.dart',
-      'lib/presentation/features/auth/view/org_selection_screen.dart',
-      'lib/presentation/features/auth/view/school_selection_screen.dart',
-      'lib/presentation/features/auth/view/sign_in_screen.dart',
-      'lib/presentation/features/billing/view/auto_pay_payment_methods_screen.dart',
-      'lib/presentation/features/billing/view/create_invoice_screen.dart',
-      'lib/presentation/features/billing/view/parent_billing_screen.dart',
-      'lib/presentation/features/billing/view/pay_now_amount_screen.dart',
-      'lib/presentation/features/billing/view/pay_now_authorize_screen.dart',
-      'lib/presentation/features/billing/view/select_students_screen.dart',
-      'lib/presentation/features/billing/view/selected_students_receipt_screen.dart',
-      'lib/presentation/features/billing/view/transactions/add_credit_screen.dart',
-      'lib/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart',
-      'lib/presentation/features/billing/view/transactions/send_invoice_screen.dart',
-      'lib/presentation/features/billing/view/transactions/view_invoice_screen.dart',
-      'lib/presentation/features/billing/widgets/analytics/analytics_section.dart',
-      'lib/presentation/features/billing/widgets/auto_pay_token_webview.dart',
-      'lib/presentation/features/billing/widgets/billing_settings/discount_card.dart',
-      'lib/presentation/features/billing/widgets/billing_settings/discounts_section.dart',
-      'lib/presentation/features/billing/widgets/billing_student_card.dart',
-      'lib/presentation/features/billing/widgets/billing_student_vertical_popup.dart',
-      'lib/presentation/features/billing/widgets/general_ledger/ledger_card.dart',
-      'lib/presentation/features/billing/widgets/staff_style_card.dart',
-      'lib/presentation/features/billing/widgets/transactions/billing_transaction_card.dart',
-      'lib/presentation/features/classroom/view/classroom_tab_cards/classroom_staff_tab_card.dart',
-      'lib/presentation/features/classroom/view/classroom_tab_cards/classroom_students_tab_card.dart',
-      'lib/presentation/features/dashboard/view/qr_code_scanner.dart',
-      'lib/presentation/features/dashboard/widgets/billing_card.dart',
-      'lib/presentation/features/dashboard/widgets/dashboard_card_toggle.dart',
-      'lib/presentation/features/dashboard/widgets/my_childs_day_card.dart',
-      'lib/presentation/features/dashboard/widgets/my_day_card.dart',
-      'lib/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart',
-      'lib/presentation/features/kiosk/view/kiosk_dashboard_screen.dart',
-      'lib/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart',
-      'lib/presentation/features/newsletter/widgets/newsletter_color_theme.dart',
-      'lib/presentation/features/newsletter/widgets/newsletter_media_preview_overlay.dart',
-      'lib/presentation/features/newsletter/widgets/newsletter_recipient_badge.dart',
-      'lib/presentation/features/notifications/view/notification_center_screen.dart',
-      'lib/presentation/features/reports/view/generated_reports_screen.dart',
-      'lib/presentation/features/reports/widgets/generated_report_card.dart',
-      'lib/presentation/features/reports/widgets/report_card.dart',
-      'lib/presentation/features/reports/widgets/report_form_layout.dart',
-      'lib/presentation/features/scheduling/view/add_shift_screen.dart',
-      'lib/presentation/features/scheduling/view/edit_shift_screen.dart',
-      'lib/presentation/features/scheduling/view/staff_scheduling_screen.dart',
-      'lib/presentation/features/staff/view/add_staff_screen.dart',
-      'lib/presentation/features/staff/view/edit_profile_details_screen.dart',
-      'lib/presentation/features/staff/view/edit_schedule_screen.dart',
-      'lib/presentation/features/staff/view/staff_profile_screen.dart',
-      'lib/presentation/features/staff/widgets/staff_action_panel.dart',
-      'lib/presentation/features/staff/widgets/staff_card.dart',
-      'lib/presentation/features/staff/widgets/staff_dates_tab.dart',
-      'lib/presentation/features/staff/widgets/staff_documents_tab.dart',
-      'lib/presentation/features/staff/widgets/staff_form_layout.dart',
-      'lib/presentation/features/staff/widgets/staff_profile_tab.dart',
-      'lib/presentation/features/students/view/add_physician_screen.dart',
-      'lib/presentation/features/students/view/add_pickup_screen.dart',
-      'lib/presentation/features/students/view/add_student_step1_screen.dart',
-      'lib/presentation/features/students/view/add_student_step2_screen.dart',
-      'lib/presentation/features/students/view/add_student_step3_screen.dart',
-      'lib/presentation/features/students/view/edit_student_profile_details_screen.dart',
-      'lib/presentation/features/students/view/student_health_tab_cards/student_dates_tab_card.dart',
-      'lib/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart',
-      'lib/presentation/features/students/view/student_profile_screen.dart',
-      'lib/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart',
-      'lib/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart',
-      'lib/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart',
-      'lib/presentation/features/students/widgets/same_last_name_siblings_dialog.dart',
-      'lib/presentation/features/students/widgets/student_action_panel.dart',
-      'lib/presentation/features/students/widgets/student_card.dart',
-      'lib/presentation/features/user_profile/view/edit_user_profile_screen.dart',
-      'lib/presentation/features/user_profile/view/notification_settings_screen.dart',
-      'lib/presentation/features/user_profile/view/user_profile_screen.dart',
-      'lib/shared/common/view/coming_soon_screen.dart',
-      'lib/shared/common/view/document_viewer_screen.dart',
-      'lib/shared/common/widgets/custom_chip.dart',
-      'lib/shared/common/widgets/gradient_background.dart',
-    };
-
-    test('no file outside the allowlist draws a gradient', () {
-      expectAllowlist(
-        offending: filesMatching(
-          RegExp(
-            r'(?<![A-Za-z0-9_])(LinearGradient|RadialGradient|SweepGradient'
-            r'|ShaderMask|build(Scaffold|Primary|Secondary|Pink|Staff)Gradient'
-            r'|[a-zA-Z]*GradientColors)(?![A-Za-z0-9_])',
-          ),
-          sources,
+    test('nothing under lib/ draws a gradient', () {
+      // Rule 3 of the design language. This started as an allowlist of 119
+      // files that shrank module by module; it reached zero, so the rule is
+      // absolute now and the AppColors.build*Gradient() helpers are gone.
+      // Depth comes from the bevel, the well, the rim and the ambient
+      // shadow — see AppSurfaces.
+      final List<String> found = offenders(
+        RegExp(
+          r'(?<![A-Za-z0-9_])(LinearGradient|RadialGradient|SweepGradient'
+          r'|ShaderMask)(?![A-Za-z0-9_])',
         ),
-        allowed: knownGradientFiles,
-        rule:
-            'Rule 3 of the design language: no gradients anywhere. Depth '
-            'comes from the bevel, the well, the rim and the ambient '
-            'shadow.',
-        fix:
-            'Swap the decoration for an AppSurfaces builder — card(), '
-            'well(), key(), impact() — rather than adding a file here.',
       );
-    });
-
-    test('the gradient roles themselves are two identical stops', () {
-      for (final MapEntry<String, List<Color>> role in <String, List<Color>>{
-        'gradientPage': AppPalette.gradientPage,
-        'gradientPrimary': AppPalette.gradientPrimary,
-        'gradientSecondary': AppPalette.gradientSecondary,
-        'gradientPink': AppPalette.gradientPink,
-      }.entries) {
-        expect(
-          role.value.toSet(),
-          hasLength(1),
-          reason:
-              'AppPalette.${role.key} has more than one distinct stop, so '
-              'every call site that draws it renders a gradient.',
-        );
-      }
+      expect(
+        found,
+        isEmpty,
+        reason:
+            'Swap the decoration for an AppSurfaces builder — card(), '
+            'well(), key(), impact(), fab(), sheet(). A wash over a photo '
+            'is AppPalette.mediaScrim, flat.\n${found.join('\n')}',
+      );
     });
   });
 
@@ -522,7 +410,6 @@ void main() {
       'lib/presentation/features/dashboard/widgets/student_attendance_summary_card.dart',
       'lib/presentation/features/dashboard/widgets/student_billing_card.dart',
       'lib/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart',
-      'lib/presentation/features/newsletter/widgets/newsletter_color_theme.dart',
       'lib/presentation/features/notifications/widgets/notification_card.dart',
       'lib/presentation/features/notifications/widgets/notification_category_style.dart',
       'lib/presentation/features/scheduling/model/scheduling_staff_shift_style.dart',
@@ -554,7 +441,7 @@ void main() {
       'lib/shared/common/widgets/select_dropdown_card.dart',
       'lib/shared/common/widgets/select_step_layout.dart',
       'lib/shared/common/widgets/upcoming_move_widget.dart',
-    };
+       };
 
     test('no new file declares a colour of its own', () {
       expectAllowlist(

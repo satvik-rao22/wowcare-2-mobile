@@ -22,6 +22,8 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class DiscountsSection extends StatefulWidget {
   const DiscountsSection({
@@ -352,13 +354,7 @@ class _AddDiscountButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   const CreateInvoiceScreen({
@@ -269,12 +270,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           // Send finalize the invoice.
           return Container(
             height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient:
-                  isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: isSubmitting ? AppColors.billingButtonDisabled : null,
-              borderRadius: radius,
-            ),
+            decoration: AppSurfaces.key(!(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, borderRadius: radius),
             child: TextButton(
               onPressed: isSubmitting ? null : _openPreview,
               child: Text(
@@ -595,11 +591,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Widget _buildAddItemButton(bool isTablet) {
     final borderRadius = BorderRadius.circular(isTablet ? 14.0 : 10.0);
     return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        gradient: _isFormLocked ? null : AppColors.buildPrimaryGradient(),
-        color: _isFormLocked ? AppColors.billingInputBackgroundDisabled : null,
-      ),
+      decoration: AppSurfaces.key(!(_isFormLocked) ? KeyVariant.primary : KeyVariant.disabled, borderRadius: borderRadius),
       child: TextButton.icon(
         onPressed: _isFormLocked ? null : _addInvoiceItem,
         icon: Icon(Icons.add,

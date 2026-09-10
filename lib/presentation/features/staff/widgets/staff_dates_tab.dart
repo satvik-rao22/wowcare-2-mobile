@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab_widg
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -826,10 +827,7 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                       child: Container(
                         width: 38,
                         height: 38,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildPrimaryGradient(),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.edit,

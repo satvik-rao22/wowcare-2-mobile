@@ -59,6 +59,13 @@ class AppColors {
   /// The highlight/attention colour. Not a status — see [warningColor].
   static const Color accentColor = AppPalette.actionHighlight;
 
+  /// The soft brand wash a badge, banner or selected row sits on.
+  static const Color brandSoftColor = AppPalette.brandSoft;
+
+  /// Ink and glyphs on a saturated or dark face. Warm white — the only white
+  /// the brand skin has.
+  static const Color textOnDarkColor = AppPalette.textOnDark;
+
   static const Color errorColor = AppPalette.statusError;
   static const Color warningColor = AppPalette.statusWarning;
   static const Color successColor = AppPalette.statusSuccess;
@@ -76,58 +83,6 @@ class AppColors {
   static const Color colorBox = AppPalette.dataGreenSoft;
   static const Color colorBox2 = AppPalette.dataOrangeSoft;
   static const Color colorBox3 = AppPalette.dataPurple;
-
-  static const List<Color> scaffoldGradientColors = AppPalette.gradientPage;
-
-  static const List<Color> primaryGradientColors = AppPalette.gradientPrimary;
-
-  static const List<Color> secondaryGradientColors =
-      AppPalette.gradientSecondary;
-
-  /// Messaging: every staff/admin/teacher/director message renders with
-  /// this gradient, on whichever side the canonical role-based alignment
-  /// rule puts it (see docs/messaging/06-ui-standards.md). This is a
-  /// semantic alias for the existing [primaryGradientColors] — reusing it
-  /// rather than introducing a second, visually-identical token.
-  static const List<Color> staffGradientColors = primaryGradientColors;
-
-  /// Messaging: every guardian/parent message renders with this gradient,
-  /// on whichever side the canonical role-based alignment rule puts it.
-  /// Placeholder tone pending design confirmation — same two-stop,
-  /// similar-saturation style as [primaryGradientColors].
-  static const List<Color> pinkGradientColors = AppPalette.gradientPink;
-
-  static var chipBackground;
-
-  static LinearGradient buildScaffoldGradient() => const LinearGradient(
-    colors: scaffoldGradientColors,
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  static LinearGradient buildPrimaryGradient({
-    List<Color> colors = primaryGradientColors,
-    Alignment begin = Alignment.centerLeft,
-    Alignment end = Alignment.centerRight,
-  }) => LinearGradient(colors: colors, begin: begin, end: end);
-
-  static LinearGradient buildSecondaryGradient({
-    List<Color> colors = secondaryGradientColors,
-    Alignment begin = Alignment.centerLeft,
-    Alignment end = Alignment.centerRight,
-  }) => LinearGradient(colors: colors, begin: begin, end: end);
-
-  /// Semantic alias for [buildPrimaryGradient] — see [staffGradientColors].
-  static LinearGradient buildStaffGradient({
-    Alignment begin = Alignment.centerLeft,
-    Alignment end = Alignment.centerRight,
-  }) => buildPrimaryGradient(begin: begin, end: end);
-
-  static LinearGradient buildPinkGradient({
-    List<Color> colors = pinkGradientColors,
-    Alignment begin = Alignment.centerLeft,
-    Alignment end = Alignment.centerRight,
-  }) => LinearGradient(colors: colors, begin: begin, end: end);
 
   // Avatar color palette used exclusively by profile initials widgets
   static const List<Color> profileAvatarColors = <Color>[
@@ -251,26 +206,11 @@ class AppColors {
   static const Color billingEcheckCardBackground = AppPalette.statusInfoSoft;
   static const Color billingEcheckCardBorder = AppPalette.dataTealSoft;
   static const Color billingEcheckTitleColor = AppPalette.textSecondary;
-  static const List<Color> billingVisaGradientColors = <Color>[
-    AppPalette.surfaceInverse,
-    AppPalette.surfaceInverse,
-  ];
-  static const List<Color> billingMastercardGradientColors = <Color>[
-    AppPalette.surfaceInverse,
-    AppPalette.surfaceInverse,
-  ];
-  static const List<Color> billingDiscoverGradientColors = <Color>[
-    AppPalette.surfaceInverse,
-    AppPalette.surfaceInverse,
-  ];
-  static const List<Color> billingGenericCardGradientColors = <Color>[
-    AppPalette.surfaceInverse,
-    AppPalette.surfaceInverse,
-  ];
-  static const List<Color> billingCardChipGradientColors = <Color>[
-    AppPalette.actionHighlight,
-    AppPalette.actionHighlight,
-  ];
+  static const Color billingVisaCardFace = AppPalette.surfaceInverse;
+  static const Color billingMastercardCardFace = AppPalette.surfaceInverse;
+  static const Color billingDiscoverCardFace = AppPalette.surfaceInverse;
+  static const Color billingGenericCardFace = AppPalette.surfaceInverse;
+  static const Color billingCardChipColor = AppPalette.actionHighlight;
   static const Color billingAddMethodButtonBackground =
       AppPalette.surfaceSunken;
 
@@ -305,30 +245,12 @@ class AppColors {
       AppPalette.dataOrange; // Transaction user-info initials avatar
 
   // Analytics section — Mandate 4 sweep
-  static const List<Color> billingRevenueGradientColors = <Color>[
-    AppPalette.statusSuccess,
-    AppPalette.statusSuccess,
-  ];
-  static const List<Color> billingInvoicedGradientColors = <Color>[
-    AppPalette.statusInfo,
-    AppPalette.statusInfo,
-  ];
-  static const List<Color> billingRefundsGradientColors = <Color>[
-    AppPalette.statusError,
-    AppPalette.statusError,
-  ];
-  static const List<Color> billingSubsidyBalanceGradientColors = <Color>[
-    AppPalette.statusWarning,
-    AppPalette.statusWarning,
-  ];
-  static const List<Color> billingSubsidyInvoicedGradientColors = <Color>[
-    AppPalette.dataPurple,
-    AppPalette.dataPurple,
-  ];
-  static const List<Color> billingSubsidyReceivedGradientColors = <Color>[
-    AppPalette.dataTeal,
-    AppPalette.dataTeal,
-  ];
+  static const Color billingRevenueSeriesColor = AppPalette.statusSuccess;
+  static const Color billingInvoicedSeriesColor = AppPalette.statusInfo;
+  static const Color billingRefundsSeriesColor = AppPalette.statusError;
+  static const Color billingSubsidyBalanceSeriesColor = AppPalette.statusWarning;
+  static const Color billingSubsidyInvoicedSeriesColor = AppPalette.dataPurple;
+  static const Color billingSubsidyReceivedSeriesColor = AppPalette.dataTeal;
   static const Color billingChartGridLineColor = AppPalette.surfaceField;
   static const Color billingChartZeroLineColor = AppPalette.borderStrong;
 

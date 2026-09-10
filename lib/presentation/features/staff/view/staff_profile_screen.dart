@@ -21,6 +21,7 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_profile_pho
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -639,10 +640,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                               ),
                               child: Container(
                                 margin: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.buildPrimaryGradient(),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                                decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
                                 child: const Icon(
                                   Icons.camera_alt,
                                   color: AppColors.cardColor,
@@ -717,10 +715,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-        gradient: AppColors.buildPrimaryGradient(),
-      ),
+      decoration: AppSurfaces.key(KeyVariant.primary, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [

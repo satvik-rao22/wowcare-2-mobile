@@ -42,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
 /// "Assign Students to Classroom" sheet). The Students-tab card listens and
@@ -1299,10 +1300,7 @@ class _ClassroomStudentsTabCardViewState
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
                                   ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: AppColors.buildPrimaryGradient(),
-                                  ),
+                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 6),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.cardColor,

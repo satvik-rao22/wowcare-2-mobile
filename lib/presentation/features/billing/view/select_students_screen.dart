@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/billing/view/create_invoice_screen
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
@@ -234,10 +235,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       ),
       child: Container(
         height: 48.0,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8.0),
         child: TextButton(
           onPressed: () async {
             final selectedStudents = _cubit.selectedStudents;

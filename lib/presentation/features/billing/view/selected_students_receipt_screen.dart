@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/model/student_models.dart'
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class SelectedStudentsReceiptScreen extends StatefulWidget {
   const SelectedStudentsReceiptScreen({
@@ -399,10 +400,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
       return Opacity(
         opacity: onPressed == null ? 0.6 : 1,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
           child: TextButton(
             onPressed: onPressed,
             style: TextButton.styleFrom(

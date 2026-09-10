@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Bottom sheet to pick existing students with the same surname as siblings.
 /// Returns selected student codes (may be empty). Null if dismissed without action.
@@ -110,10 +111,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 child: Container(
                   width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                   height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: AppSurfaces.fab(),
                   child: Icon(
                     Icons.groups_outlined,
                     color: AppColors.whiteColor,
@@ -198,15 +196,10 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(top: AppSpacing.s2),
-                                child: ShaderMask(
-                                  blendMode: BlendMode.srcIn,
-                                  shaderCallback: (bounds) =>
-                                      AppColors.buildPrimaryGradient()
-                                          .createShader(bounds),
-                                  child: Radio<String>(
+                                child: Radio<String>(
                                     value: code,
                                     groupValue: _selectedCode,
-                                    activeColor: AppColors.primaryColor,
+                                    activeColor: AppColors.themeColor,
                                     visualDensity: VisualDensity.compact,
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
@@ -216,7 +209,6 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                       });
                                     },
                                   ),
-                                ),
                               ),
                               SizedBox(width: horizontalPadding / 4),
                               DocumentImageWidget(
@@ -266,11 +258,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                   Expanded(
                     child: Container(
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
-                      ),
+                      decoration: AppSurfaces.key(KeyVariant.primary, radius: borderRadius / 2),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
                         child: Container(
@@ -307,11 +295,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                   Expanded(
                     child: Container(
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
-                        gradient: AppColors.buildPrimaryGradient(),
-                      ),
+                      decoration: AppSurfaces.key(KeyVariant.primary, radius: borderRadius / 2),
                       child: TextButton(
                         onPressed: () => Navigator.of(context)
                             .pop(_selectedCodes.toList()),

@@ -6,7 +6,6 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -109,16 +108,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
     return Stack(
       children: [
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildScaffoldGradient(),
-            ),
-            child: Image.asset(
-              MediaRes.wowcareMobileBg,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-            ),
-          ),
+          child: ColoredBox(color: AppColors.pageBackgroundColor),
         ),
         Column(
           children: [

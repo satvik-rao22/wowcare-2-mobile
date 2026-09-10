@@ -167,9 +167,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               ytdAmount: revenueYtd,
               data: revenue,
               months: _months,
-              gradient: AppColors.buildPrimaryGradient(
-                colors: AppColors.billingRevenueGradientColors,
-              ),
+              color: AppColors.billingRevenueSeriesColor,
               legendLabel: BillingStrings.revenue,
             ),
             SizedBox(height: sectionGap),
@@ -179,9 +177,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               ytdAmount: invoicedYtd,
               data: invoiced,
               months: _months,
-              gradient: AppColors.buildPrimaryGradient(
-                colors: AppColors.billingInvoicedGradientColors,
-              ),
+              color: AppColors.billingInvoicedSeriesColor,
               legendLabel: BillingStrings.invoiced,
             ),
             SizedBox(height: sectionGap),
@@ -191,9 +187,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
               ytdAmount: refundsYtd,
               data: refunds,
               months: _months,
-              gradient: AppColors.buildPrimaryGradient(
-                colors: AppColors.billingRefundsGradientColors,
-              ),
+              color: AppColors.billingRefundsSeriesColor,
               legendLabel: BillingStrings.refunds,
             ),
             SizedBox(height: sectionGap),
@@ -434,7 +428,7 @@ class _AnalyticsBarCard extends StatelessWidget {
     required this.ytdAmount,
     required this.data,
     required this.months,
-    required this.gradient,
+    required this.color,
     required this.legendLabel,
   });
 
@@ -443,7 +437,7 @@ class _AnalyticsBarCard extends StatelessWidget {
   final double ytdAmount;
   final List<double> data;
   final List<String> months;
-  final Gradient gradient;
+  final Color color;
   final String legendLabel;
 
   @override
@@ -502,7 +496,7 @@ class _AnalyticsBarCard extends StatelessWidget {
             data: data,
             months: months,
             maxY: maxY,
-            gradient: gradient,
+            color: color,
           ),
           const SizedBox(height: 10),
           Row(
@@ -512,7 +506,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  gradient: gradient,
+                  color: color,
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
@@ -610,17 +604,17 @@ class _SubsidiesOverviewCard extends StatelessWidget {
               _ChartSeries(
                 label: BillingStrings.balance,
                 data: balance,
-                gradientColors: AppColors.billingSubsidyBalanceGradientColors,
+                color: AppColors.billingSubsidyBalanceSeriesColor,
               ),
               _ChartSeries(
                 label: BillingStrings.invoiced,
                 data: invoiced,
-                gradientColors: AppColors.billingSubsidyInvoicedGradientColors,
+                color: AppColors.billingSubsidyInvoicedSeriesColor,
               ),
               _ChartSeries(
                 label: BillingStrings.received,
                 data: received,
-                gradientColors: AppColors.billingSubsidyReceivedGradientColors,
+                color: AppColors.billingSubsidyReceivedSeriesColor,
               ),
             ],
           ),
@@ -637,13 +631,13 @@ class _SimpleBarChart extends StatelessWidget {
     required this.data,
     required this.months,
     required this.maxY,
-    required this.gradient,
+    required this.color,
   });
 
   final List<double> data;
   final List<String> months;
   final double maxY;
-  final Gradient gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -684,7 +678,7 @@ class _SimpleBarChart extends StatelessWidget {
                             month: months[index],
                             value: data[index],
                             maxY: maxY,
-                            gradient: gradient,
+                            color: color,
                           ),
                         ),
                       );
@@ -773,10 +767,7 @@ class _GroupedBarChart extends StatelessWidget {
                                         value: s.data[mi],
                                         maxY: maxAbsY,
                                         negativeMin: -maxAbsY * 0.4,
-                                        gradient:
-                                            AppColors.buildPrimaryGradient(
-                                              colors: s.gradientColors,
-                                            ),
+                                        color: s.color,
                                       ),
                                     ),
                                   );
@@ -802,9 +793,7 @@ class _GroupedBarChart extends StatelessWidget {
               .map(
                 (item) => _LegendDot(
                   label: item.label,
-                  gradient: AppColors.buildPrimaryGradient(
-                    colors: item.gradientColors,
-                  ),
+                  color: item.color,
                 ),
               )
               .toList(),
@@ -899,13 +888,13 @@ class _SingleBar extends StatelessWidget {
     required this.month,
     required this.value,
     required this.maxY,
-    required this.gradient,
+    required this.color,
   });
 
   final String month;
   final double value;
   final double maxY;
-  final Gradient gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -923,7 +912,7 @@ class _SingleBar extends StatelessWidget {
               child: Container(
                 height: h < 2 && value > 0 ? 2 : h,
                 decoration: BoxDecoration(
-                  gradient: gradient,
+                  color: color,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -942,7 +931,7 @@ class _SignedBar extends StatelessWidget {
     required this.value,
     required this.maxY,
     required this.negativeMin,
-    required this.gradient,
+    required this.color,
   });
 
   final String month;
@@ -950,7 +939,7 @@ class _SignedBar extends StatelessWidget {
   final double value;
   final double maxY;
   final double negativeMin;
-  final Gradient gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -975,7 +964,7 @@ class _SignedBar extends StatelessWidget {
                 right: 0,
                 bottom: bottomArea,
                 height: height < 2 && value > 0 ? 2 : height,
-                child: _GradientBar(gradient: gradient),
+                child: _SeriesBar(color: color),
               ),
             ],
           );
@@ -991,7 +980,7 @@ class _SignedBar extends StatelessWidget {
                 right: 0,
                 top: topArea,
                 height: height < 2 && value.abs() > 0 ? 2 : height,
-                child: _GradientBar(gradient: gradient),
+                child: _SeriesBar(color: color),
               ),
             ],
           );
@@ -1009,16 +998,16 @@ class _SignedBar extends StatelessWidget {
   }
 }
 
-class _GradientBar extends StatelessWidget {
-  const _GradientBar({required this.gradient});
+class _SeriesBar extends StatelessWidget {
+  const _SeriesBar({required this.color});
 
-  final Gradient gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: gradient,
+        color: color,
         borderRadius: BorderRadius.circular(4),
       ),
     );
@@ -1064,10 +1053,10 @@ class _YAxisLabels extends StatelessWidget {
 }
 
 class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.label, required this.gradient});
+  const _LegendDot({required this.label, required this.color});
 
   final String label;
-  final Gradient gradient;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -1079,7 +1068,7 @@ class _LegendDot extends StatelessWidget {
           width: 10,
           height: 10,
           decoration: BoxDecoration(
-            gradient: gradient,
+            color: color,
             borderRadius: BorderRadius.circular(20),
           ),
         ),
@@ -1102,12 +1091,12 @@ class _ChartSeries {
   const _ChartSeries({
     required this.label,
     required this.data,
-    required this.gradientColors,
+    required this.color,
   });
 
   final String label;
   final List<double> data;
-  final List<Color> gradientColors;
+  final Color color;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

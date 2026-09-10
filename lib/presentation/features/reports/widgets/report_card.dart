@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ReportItem {
   const ReportItem({
@@ -200,11 +201,7 @@ class _GenerateButton extends StatelessWidget {
     if (!isPrimary) {
       return Container(
         height: 44,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-          color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
-        ),
+        decoration: AppSurfaces.key(isEnabled ? KeyVariant.primary : KeyVariant.disabled, radius: 8),
         padding: const EdgeInsets.all(1),
         child: TextButton(
           onPressed: onPressed,
@@ -220,16 +217,11 @@ class _GenerateButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               isEnabled
-                  ? ShaderMask(
-                      shaderCallback: (bounds) =>
-                          AppColors.buildPrimaryGradient().createShader(bounds),
-                      blendMode: BlendMode.srcIn,
-                      child: _ReportFormatIcon(
+                  ? _ReportFormatIcon(
                         format: format,
-                        color: AppColors.cardColor,
+                        color: AppColors.themeColor,
                         size: 18,
-                      ),
-                    )
+                      )
                   : _ReportFormatIcon(
                       format: format,
                       color: AppColors.reportsDisabledForegroundColor,
@@ -252,11 +244,7 @@ class _GenerateButton extends StatelessWidget {
 
     return Container(
       height: 44,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
-      ),
+      decoration: AppSurfaces.key(isEnabled ? KeyVariant.primary : KeyVariant.disabled, radius: 8),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(

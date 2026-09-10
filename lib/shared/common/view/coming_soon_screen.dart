@@ -2,6 +2,7 @@
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ComingSoonScreen extends StatelessWidget {
   const ComingSoonScreen({super.key});
@@ -27,10 +28,7 @@ class ComingSoonScreen extends StatelessWidget {
                   horizontal: 24,
                   vertical: 12,
                 ),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                decoration: AppSurfaces.key(KeyVariant.primary, radius: 16),
                 child: const Text(
                   'Go Back',
                   style: TextStyle(

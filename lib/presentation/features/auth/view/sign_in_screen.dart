@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -200,9 +201,7 @@ class _SignInScreenState extends State<SignInScreen>
             behavior: HitTestBehavior.translucent,
             onTap: () => FocusScope.of(context).unfocus(),
             child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-              ),
+              decoration: AppSurfaces.key(KeyVariant.primary),
               child: Stack(
                 children: [
                   const _LottieAnimation(),
@@ -290,10 +289,7 @@ class _SignInScreenState extends State<SignInScreen>
                             child: Container(
                               height: 50,
                               width: 50,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                shape: BoxShape.circle,
-                              ),
+                              decoration: AppSurfaces.fab(),
                               child: const RefreshProgressIndicator(
                                 color: AppColors.cardColor,
                                 elevation: 0,

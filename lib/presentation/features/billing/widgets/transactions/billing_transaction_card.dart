@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
@@ -607,10 +608,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         Expanded(
           child: Container(
             height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildPrimaryGradient(),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: TextButton(
               onPressed: onPressed,
               style: TextButton.styleFrom(

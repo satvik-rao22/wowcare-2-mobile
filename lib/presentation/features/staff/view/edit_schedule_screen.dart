@@ -13,6 +13,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditScheduleScreen extends StatelessWidget {
   const EditScheduleScreen({
@@ -605,12 +606,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
         ),
         child: Container(
           height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 16.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary, radius: responsive.isTablet ? 16.0 : 8.0,),
           child: ValueListenableBuilder<bool>(
             valueListenable: _isSubmitting,
             builder: (context, isSubmitting, _) {

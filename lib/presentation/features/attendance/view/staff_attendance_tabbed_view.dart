@@ -20,14 +20,6 @@ import 'package:wowcare/presentation/features/attendance/view/screens/staff_atte
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
@@ -36,6 +28,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -391,17 +384,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           ),
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.s2),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.allMd,
-              gradient: AppColors.buildPrimaryGradient(),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.attendanceCardShadowColor,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.md),
             child: Container(
               width: 50,
               constraints: const BoxConstraints(maxHeight: 400),

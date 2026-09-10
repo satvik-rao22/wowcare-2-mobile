@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -120,16 +120,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
           body: Stack(
             children: [
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildScaffoldGradient(),
-                  ),
-                  child: Image.asset(
-                    MediaRes.wowcareMobileBg,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  ),
-                ),
+                child: ColoredBox(color: AppColors.pageBackgroundColor),
               ),
               Column(
                 children: [
@@ -299,12 +290,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 Expanded(
                   child: Container(
                     height: responsive.buttonHeight,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(
-                        responsive.isTablet ? 16.0 : 8.0,
-                      ),
-                    ),
+                    decoration: AppSurfaces.key(KeyVariant.primary, radius: responsive.isTablet ? 16.0 : 8.0,),
                     child: TextButton(
                       onPressed: _onNext,
                       child: Text(

@@ -3,6 +3,8 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 /// Themed floating overlay for newsletter image preview (replaces full-screen black viewer).
 Future<void> showNewsletterImagePreview(
@@ -58,20 +60,7 @@ class _NewsletterImagePreviewOverlay extends StatelessWidget {
                 maxHeight: maxHeight,
               ),
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primaryColor.withValues(alpha: 0.12),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryColor.withValues(alpha: 0.18),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
+                decoration: AppSurfaces.card(radius: AppRadius.lg),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Stack(

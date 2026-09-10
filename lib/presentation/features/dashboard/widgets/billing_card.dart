@@ -497,7 +497,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                   barRods: [
                     BarChartRodData(
                       toY: value,
-                      gradient: AppColors.buildPrimaryGradient(),
+                      color: AppColors.themeColor,
                       width: 10,
                       borderRadius: BorderRadius.circular(0),
                     ),

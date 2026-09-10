@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Isolated PIN pad widget with local state management.
 /// Prevents PIN input changes from triggering QR widget rebuilds.
@@ -270,10 +271,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
         Expanded(
           child: Container(
             height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildSecondaryGradient(),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             padding: const EdgeInsets.all(1),
             child: TextButton(
               onPressed: _isSubmitting
@@ -294,11 +292,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) =>
-                    AppColors.buildSecondaryGradient().createShader(bounds),
-                blendMode: BlendMode.srcIn,
-                child: const Text(
+              child: const Text(
                   'Cancel',
                   style: TextStyle(
                     fontSize: 16,
@@ -306,17 +300,13 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                     letterSpacing: 16 * (-3 / 100),
                   ),
                 ),
-              ),
             ),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildSecondaryGradient(),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,

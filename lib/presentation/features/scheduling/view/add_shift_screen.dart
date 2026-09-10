@@ -470,21 +470,16 @@ class _AddShiftViewState extends State<_AddShiftView> {
         if (state.repeatOn)
           GestureDetector(
             onTap: cubit.toggleSelectAll,
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: AppColors.primaryGradientColors,
-              ).createShader(bounds),
-              child: Text(
+            child: Text(
                 state.selectedDays.length == state.availableWeekDays.length
                     ? 'Clear All'
                     : 'Select All',
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.whiteColor,
+                  color: AppColors.themeColor,
                 ),
               ),
-            ),
           ),
       ],
     );

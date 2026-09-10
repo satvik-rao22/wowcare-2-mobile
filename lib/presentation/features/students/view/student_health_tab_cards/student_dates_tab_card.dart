@@ -22,6 +22,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentDatesTabCard extends StatefulWidget {
   const StudentDatesTabCard({
@@ -515,22 +516,21 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             Container(
                               width: 38,
                               height: 38,
-                              decoration: BoxDecoration(
-                                gradient: _disableAddPhysicalExam
-                                    ? const LinearGradient(
-                                        colors: [
-                                          AppColors.studentBorderGrey,
-                                          AppColors.studentDisabledGrey,
-                                        ],
-                                      )
-                                    : AppColors.buildPrimaryGradient(),
-                                borderRadius: AppRadius.allSm,
+                              decoration: AppSurfaces.key(
+                                _disableAddPhysicalExam
+                                    ? KeyVariant.disabled
+                                    : KeyVariant.primary,
+                                radius: AppRadius.sm,
                               ),
                               alignment: Alignment.center,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: AppColors.whiteColor,
+                                color: AppSurfaces.keyInk(
+                                  _disableAddPhysicalExam
+                                      ? KeyVariant.disabled
+                                      : KeyVariant.primary,
+                                ),
                               ),
                             ),
                           ],

@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -665,11 +666,7 @@ class _StudentCardState extends State<StudentCard> {
                                   Expanded(
                                     child: Container(
                                       height: 40,
-                                      decoration: BoxDecoration(
-                                        borderRadius: AppRadius.allSm,
-                                        gradient:
-                                            AppColors.buildPrimaryGradient(),
-                                      ),
+                                      decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                                       child: TextButton(
                                         onPressed: widget.onEdit,
                                         style: TextButton.styleFrom(

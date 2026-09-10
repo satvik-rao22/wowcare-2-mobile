@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Hosts `assets/forte_auto_pay.html` to collect card / ACH details and
 /// tokenize them with the Forte JS SDK (which has no native Dart equivalent and
@@ -86,9 +87,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
         foregroundColor: AppColors.billingCardOnColorText,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary),
         ),
         leading: IconButton(
           icon: const Icon(Icons.close),

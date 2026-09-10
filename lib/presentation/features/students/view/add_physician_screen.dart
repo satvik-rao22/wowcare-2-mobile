@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -178,16 +177,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
+              child: ColoredBox(color: AppColors.pageBackgroundColor),
             ),
             Column(
               children: [

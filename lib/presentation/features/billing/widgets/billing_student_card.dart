@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class BillingStudentCard extends StatefulWidget {
   const BillingStudentCard({
@@ -370,12 +371,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                       width: double.infinity,
                                       height: 40,
                                       child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          gradient:
-                                              AppColors.buildPrimaryGradient(),
-                                        ),
+                                        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                                         child: TextButton(
                                           onPressed: widget.onBillingProfile,
                                           style: TextButton.styleFrom(

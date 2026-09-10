@@ -13,6 +13,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The [EditUserProfileCubit] is provided by the router's GoRoute builder
 /// (which also kicks off the profile load), so this screen just renders
@@ -603,13 +604,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
           ),
           child: Container(
             height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: isSubmitting ? AppColors.userProfileDisabledButtonColor : null,
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 16.0 : 8.0,
-              ),
-            ),
+            decoration: AppSurfaces.key(!(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0,),
             child: TextButton(
               onPressed: isSubmitting ? null : () => _saveProfileDetails(),
               child: Text(

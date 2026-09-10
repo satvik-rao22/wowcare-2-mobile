@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
@@ -156,10 +157,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                           Container(
                             width: 38,
                             height: 38,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildPrimaryGradient(),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
                             alignment: Alignment.center,
                             child: const Icon(
                               Icons.edit,

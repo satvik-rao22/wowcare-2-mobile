@@ -7,7 +7,6 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -140,16 +140,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       return Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           MediaQuery.removePadding(
             context: context,
@@ -196,16 +187,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     return Stack(
       children: [
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildScaffoldGradient(),
-            ),
-            child: Image.asset(
-              MediaRes.wowcareMobileBg,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-            ),
-          ),
+          child: ColoredBox(color: AppColors.pageBackgroundColor),
         ),
         MediaQuery.removePadding(
           context: context,
@@ -253,10 +235,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                             child: Container(
                               width: 38,
                               height: 38,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: AppRadius.allSm,
-                              ),
+                              decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.edit,

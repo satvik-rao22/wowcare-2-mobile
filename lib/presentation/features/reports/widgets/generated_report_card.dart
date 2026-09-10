@@ -9,6 +9,8 @@ import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class GeneratedReportCard extends StatefulWidget {
   const GeneratedReportCard({
@@ -113,17 +115,11 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                                   builder: (context, downloading, _) => SizedBox(
                                     width: double.infinity,
                                     child: Container(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: downloading
-                                              ? [
-                                                  AppColors.reportsMutedColor,
-                                                  AppColors
-                                                      .reportsDisabledForegroundColor,
-                                                ]
-                                              : AppColors.primaryGradientColors,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
+                                      decoration: AppSurfaces.key(
+                                        downloading
+                                            ? KeyVariant.disabled
+                                            : KeyVariant.primary,
+                                        radius: AppRadius.sm,
                                       ),
                                       child: ElevatedButton(
                                         onPressed: downloading

@@ -21,6 +21,7 @@ import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_scr
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Pay Now — step 1: choose how much to pay (full family balance or a custom
 /// per-owner allocation). Continues to the saved-method picker.
@@ -408,10 +409,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           child: Container(
             height: 54,
             width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 16),
             child: const Center(
               child: Text(
                 BillingStrings.confirm,

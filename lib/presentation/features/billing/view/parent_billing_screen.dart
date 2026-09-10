@@ -398,8 +398,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                   controller: _tabController,
                   dividerColor: AppColors.transparentColor,
                   indicatorSize: TabBarIndicatorSize.label,
-                  indicator: _GradientTabIndicator(
-                    gradient: AppColors.buildPrimaryGradient(),
+                  indicator: const _TabUnderlineIndicator(
+                    color: AppColors.themeColor,
                   ),
                   tabs: const [
                     Tab(text: BillingStrings.billing),
@@ -427,24 +427,23 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
 // ─── Gradient tab indicator ───────────────────────────────────────────────────
 
-class _GradientTabIndicator extends Decoration {
-  const _GradientTabIndicator({
-    required this.gradient,
-    this.height = 2.5,
-  });
+/// The selected tab's underline: a flat rule in the brand colour, drawn only
+/// under the label rather than the whole tab.
+class _TabUnderlineIndicator extends Decoration {
+  const _TabUnderlineIndicator({required this.color, this.height = 2.5});
 
-  final Gradient gradient;
+  final Color color;
   final double height;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _GradientTabPainter(gradient: gradient, height: height);
+      _TabUnderlinePainter(color: color, height: height);
 }
 
-class _GradientTabPainter extends BoxPainter {
-  _GradientTabPainter({required this.gradient, required this.height});
+class _TabUnderlinePainter extends BoxPainter {
+  _TabUnderlinePainter({required this.color, required this.height});
 
-  final Gradient gradient;
+  final Color color;
   final double height;
 
   @override
@@ -456,6 +455,6 @@ class _GradientTabPainter extends BoxPainter {
       size.width,
       height,
     );
-    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
+    canvas.drawRect(rect, Paint()..color = color);
   }
 }

@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/validators/app_validators.dart';
 import 'package:wowcare/presentation/features/auth/view_model/change_password_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -288,10 +289,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       child: InkWell(
                         onTap: isLoading ? null : _handleSubmit,
                         child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: AppColors.buildPrimaryGradient(),
-                          ),
+                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
                           child: Center(
                             child: isLoading
                                 ? SizedBox(

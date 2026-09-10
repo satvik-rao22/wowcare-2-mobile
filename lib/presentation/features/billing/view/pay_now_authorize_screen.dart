@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/billing/entities/payment_settings_entity
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Pay Now — step 3: review + authorize. Charges the selected saved method via
 /// `POST /payment-gateway/guardian/pay`, using the idempotency key created on
@@ -189,10 +190,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
                 child: Icon(
                   _isEcheck ? Icons.account_balance : Icons.credit_card,
                   color: AppColors.billingCardOnColorText,
@@ -301,17 +299,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 15),
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: _accent.withValues(alpha: 0.3),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
         child: _authorizing
             ? const SizedBox(
                 height: 20,

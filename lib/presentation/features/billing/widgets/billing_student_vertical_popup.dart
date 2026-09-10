@@ -8,6 +8,8 @@ import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
 
@@ -66,17 +68,12 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       children: [
         Material(
-          borderRadius: BorderRadius.circular(10),
-          elevation: 3,
+          borderRadius: BorderRadius.circular(AppRadius.r10),
+          elevation: 0,
+          color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: AppSurfaces.card(radius: AppRadius.r10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -547,26 +544,18 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return AppColors.buildPrimaryGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(bounds);
-      },
-      child: iconPath != null
+    return iconPath != null
           ? AppIcon(
             iconPath!,
             height: size,
             width: size,
-            color: AppColors.billingCardOnColorText,
+            color: AppColors.themeColor,
           )
           : Icon(
               iconData,
               size: size,
-              color: AppColors.billingCardOnColorText,
-            ),
-    );
+              color: AppColors.themeColor,
+            );
   }
 }
 

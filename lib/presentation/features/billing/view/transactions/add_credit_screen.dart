@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/add_credit_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Captures an account credit for a family/owner and posts it via
 /// `POST /api/v1/invoices/credits`. Styled to match the Receive Payment screen.
@@ -253,9 +254,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
         const SizedBox(height: 12),
         Container(
           height: 1.5,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildSecondaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary),
         ),
       ],
     );
@@ -448,11 +447,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
       ),
       child: Container(
         height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-          color: _isSubmitting ? AppColors.billingGreyLight : null,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
+        decoration: AppSurfaces.key(!(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
           child: _isSubmitting

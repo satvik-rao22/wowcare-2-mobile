@@ -15,6 +15,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffCard extends StatefulWidget {
   const StaffCard({
@@ -713,13 +714,7 @@ class _StaffCardState extends State<StaffCard> {
                                       Expanded(
                                         child: Container(
                                           height: 40,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            gradient:
-                                                AppColors.buildPrimaryGradient(),
-                                          ),
+                                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                           child: TextButton(
                                             onPressed: () {
                                               // Invoke external handler if provided

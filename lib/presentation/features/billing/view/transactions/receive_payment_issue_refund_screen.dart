@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
   const ReceivePaymentIssueRefundScreen({
@@ -833,11 +834,7 @@ class _ReceivePaymentIssueRefundScreenState
       ),
       child: Container(
         height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-          color: _isSubmitting ? AppColors.billingGreyLight : null,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
+        decoration: AppSurfaces.key(!(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled, radius: responsive.isTablet ? 16.0 : 8.0),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
           child: _isSubmitting
@@ -956,9 +953,7 @@ class _ReceivePaymentIssueRefundScreenState
         const SizedBox(height: 12),
         Container(
           height: 1.5,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildSecondaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary),
         ),
       ],
     );

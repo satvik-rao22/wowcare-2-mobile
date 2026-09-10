@@ -1168,26 +1168,14 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    AppColors.buildPrimaryGradient()
-                                        .createShader(
-                                          Rect.fromLTWH(
-                                            0,
-                                            0,
-                                            bounds.width,
-                                            bounds.height,
-                                          ),
-                                        ),
-                                // Depends on exactly one field of MyDayState,
-                                // so it is selected rather than rebuilt with
-                                // the card (§2.2's BlocSelector rule).
-                                child: BlocSelector<MyDayCubit, MyDayState, String>(
-                                  selector: (state) => state.clockInPin,
-                                  builder: (context, clockInPin) => Text(
-                                    '${AppStrings.myDaySignInPinPrefix}${clockInPin.trim().isNotEmpty ? clockInPin : AppStrings.myDaySignInPinPlaceholder}',
-                                    style: AppTextStyles.myDayClockInPin,
-                                  ),
+                              // Depends on exactly one field of MyDayState,
+                              // so it is selected rather than rebuilt with
+                              // the card (§2.2's BlocSelector rule).
+                              BlocSelector<MyDayCubit, MyDayState, String>(
+                                selector: (state) => state.clockInPin,
+                                builder: (context, clockInPin) => Text(
+                                  '${AppStrings.myDaySignInPinPrefix}${clockInPin.trim().isNotEmpty ? clockInPin : AppStrings.myDaySignInPinPlaceholder}',
+                                  style: AppTextStyles.myDayClockInPin,
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -1774,27 +1762,20 @@ class _ReminderToggleButtonView extends StatelessWidget {
                     children: [
                       AppIcon(MediaRes.notificationsGradientIcon),
                       const SizedBox(width: 8),
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.buildPrimaryGradient().createShader(
-                              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                            ),
-                        child:
-                            BlocSelector<
-                              WorkBreakReminderCubit,
-                              WorkBreakReminderState,
-                              bool
-                            >(
-                              selector: (state) => state.enabled,
-                              builder: (context, enabled) => Text(
-                                enabled
-                                    ? AppStrings.reminderTurnOff
-                                    : AppStrings.reminderSend,
-                                style: AppTextStyles.mediumWeight.copyWith(
-                                  color: AppColors.cardColor,
-                                ),
-                              ),
-                            ),
+                      BlocSelector<
+                        WorkBreakReminderCubit,
+                        WorkBreakReminderState,
+                        bool
+                      >(
+                        selector: (state) => state.enabled,
+                        builder: (context, enabled) => Text(
+                          enabled
+                              ? AppStrings.reminderTurnOff
+                              : AppStrings.reminderSend,
+                          style: AppTextStyles.mediumWeight.copyWith(
+                            color: AppColors.themeColor,
+                          ),
+                        ),
                       ),
                     ],
                   ),

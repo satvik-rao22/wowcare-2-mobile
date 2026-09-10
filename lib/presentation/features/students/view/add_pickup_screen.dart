@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -345,16 +344,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           body: Stack(
             children: [
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildScaffoldGradient(),
-                  ),
-                  child: Image.asset(
-                    MediaRes.wowcareMobileBg,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  ),
-                ),
+                child: ColoredBox(color: AppColors.pageBackgroundColor),
               ),
               Column(
                 children: [

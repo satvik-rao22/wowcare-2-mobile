@@ -27,7 +27,6 @@ import 'package:wowcare/presentation/features/students/view_model/student_cubit.
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_out_form.dart'

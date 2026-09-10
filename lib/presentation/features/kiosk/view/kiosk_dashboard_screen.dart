@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_qr_section_wid
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// OPTIMIZED: Kiosk dashboard screen with isolated rendering.
 ///
@@ -277,9 +278,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
               child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
                 builder: (context, state) {
                   return Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildScaffoldGradient(),
-                    ),
+                    decoration: AppSurfaces.tray(),
                     child: _buildContent(context, state, isTablet),
                   );
                 },

@@ -21,10 +21,10 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_attendan
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
-import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -484,19 +484,14 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
           children: [
             Material(
               borderRadius: BorderRadius.circular(AppRadius.r10),
-              elevation: 3,
+              elevation: 0,
+              color: AppColors.transparentColor,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xs,
                   vertical: AppSpacing.sm,
                 ),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadius.r10),
-                ),
+                decoration: AppSurfaces.card(radius: AppRadius.r10),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

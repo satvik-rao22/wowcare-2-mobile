@@ -26,6 +26,7 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class StaffDocumentsTab extends StatelessWidget {
   const StaffDocumentsTab({
@@ -641,14 +642,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                 Expanded(
                                                   child: Container(
                                                     height: 40,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                      gradient:
-                                                          AppColors.buildPrimaryGradient(),
-                                                    ),
+                                                    decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                                     child: TextButton(
                                                       onPressed: () =>
                                                           _handleEdit(
@@ -789,14 +783,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                               Expanded(
                                                 child: Container(
                                                   height: 40,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    gradient:
-                                                        AppColors.buildPrimaryGradient(),
-                                                  ),
+                                                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 8,),
                                                   child: TextButton(
                                                     onPressed: () =>
                                                         _handleDownload(

@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -92,21 +93,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               width: screenHeight * 0.12,
                             ),
                             SizedBox(height: screenHeight * 0.01),
-                            ShaderMask(
-                              shaderCallback: (Rect bounds) {
-                                return AppColors.buildPrimaryGradient()
-                                    .createShader(bounds);
-                              },
-                              blendMode: BlendMode.srcIn,
-                              child: Text(
+                            Text(
                                 'WowCare',
                                 style: TextStyle(
                                   fontSize: screenHeight * 0.03,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.cardColor,
+                                  color: AppColors.themeColor,
                                 ),
                               ),
-                            ),
                             SizedBox(height: screenHeight * 0.05),
                             Align(
                               alignment: Alignment.centerLeft,
@@ -226,10 +220,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 _emailController.text,
                               ),
                         child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: AppColors.buildPrimaryGradient(),
-                          ),
+                          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
                           child: Center(
                             child: isLoading
                                 ? SizedBox(

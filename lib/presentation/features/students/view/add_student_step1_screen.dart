@@ -847,16 +847,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                   body: Stack(
                     children: [
                       Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.buildScaffoldGradient(),
-                          ),
-                          child: Image.asset(
-                            MediaRes.wowcareMobileBg,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.topCenter,
-                          ),
-                        ),
+                        child: ColoredBox(color: AppColors.pageBackgroundColor),
                       ),
                       Column(
                         children: [

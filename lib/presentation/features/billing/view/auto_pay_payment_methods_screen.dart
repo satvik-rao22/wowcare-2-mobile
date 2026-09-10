@@ -21,6 +21,8 @@ import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
 
 class AutoPayPaymentMethodsScreen extends StatefulWidget {
   const AutoPayPaymentMethodsScreen({super.key, this.isPicker = false});
@@ -563,7 +565,7 @@ class _AutoPayPaymentMethodsScreenState
     final card = m.card;
     final last4 = card?.last4 ?? m.last4 ?? '••••';
     final type = (card?.cardType ?? m.methodType.apiValue).toUpperCase();
-    final gradient = _cardGradient(type);
+    final Color face = _cardFace(type);
     final exp = (card?.expireMonth != null && card?.expireYear != null)
         ? '${card!.expireMonth.toString().padLeft(2, '0')}/${card.expireYear}'
         : '--/--';
@@ -571,17 +573,7 @@ class _AutoPayPaymentMethodsScreenState
       width: double.infinity,
       constraints: const BoxConstraints(maxWidth: 480),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.impact().copyWith(color: face),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -741,34 +733,17 @@ class _AutoPayPaymentMethodsScreenState
     return accountType ?? BillingStrings.bankAccount;
   }
 
-  LinearGradient _cardGradient(String cardType) {
+  /// The face of a stored card. All four are the navy impact face: the brand
+  /// is carried by the card's own logo and label, not by tinting the whole
+  /// card, and four saturated washes in one list read as decoration.
+  Color _cardFace(String cardType) {
     final type = cardType.toLowerCase();
-    if (type.contains('visa')) {
-      return const LinearGradient(
-        colors: AppColors.billingVisaGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
+    if (type.contains('visa')) return AppColors.billingVisaCardFace;
     if (type.contains('mast') || type.contains('master')) {
-      return const LinearGradient(
-        colors: AppColors.billingMastercardGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
+      return AppColors.billingMastercardCardFace;
     }
-    if (type.contains('disc')) {
-      return const LinearGradient(
-        colors: AppColors.billingDiscoverGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    return const LinearGradient(
-      colors: AppColors.billingGenericCardGradientColors,
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
+    if (type.contains('disc')) return AppColors.billingDiscoverCardFace;
+    return AppColors.billingGenericCardFace;
   }
 
   Widget _buildChip() {
@@ -777,18 +752,8 @@ class _AutoPayPaymentMethodsScreenState
       height: 28,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        gradient: const LinearGradient(
-          colors: AppColors.billingCardChipGradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.billingCardChipColor,
+        boxShadow: AppElevation.card,
       ),
     );
   }
@@ -937,10 +902,7 @@ class _AutoPayPaymentMethodsScreenState
               child: Container(
                 height: 54,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                decoration: AppSurfaces.key(KeyVariant.primary, radius: 16),
                 child: Center(
                   child: state.isSettingPrimary
                       ? const SizedBox(
@@ -1357,10 +1319,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 width: double.infinity,
                 height: 50,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
                   child: BlocBuilder<AutoPayMethodsCubit, AutoPayMethodsState>(
                     bloc: widget.cubit,
                     buildWhen: (prev, curr) => prev.isSaving != curr.isSaving,

@@ -6,13 +6,12 @@ import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 
-/// Gradient pill button used by [MessagingEntryScreen] to launch a
-/// communication module (Staff Messaging / Admin Chat / Room Chat).
+/// Pill key used by [MessagingEntryScreen] to launch a communication module
+/// (Staff Messaging / Admin Chat / Room Chat).
 ///
-/// Reuses [AppColors.buildPrimaryGradient] (the app's existing gradient
-/// token) and the same tap-scale feedback convention as [RoundedButton] —
-/// neither existing button widget supports an icon + label gradient pill,
-/// so this is the one new widget this feature requires.
+/// A primary key at pill radius, with the same tap-scale feedback convention
+/// as [RoundedButton] — neither existing button widget supports an icon and
+/// a label on one pill, so this is the one new widget this feature needs.
 ///
 /// Sizing is parameterised (not hardcoded) so callers can scale it per
 /// breakpoint, e.g. via the app's existing [ResponsiveHelper], instead of

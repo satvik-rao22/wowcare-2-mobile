@@ -16,6 +16,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 enum _DocKind { image, video, pdf, office }
 
@@ -194,7 +195,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         foregroundColor: AppColors.whiteColor,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+          decoration: AppSurfaces.key(KeyVariant.primary),
         ),
         actions: [
           if (_isBusy)

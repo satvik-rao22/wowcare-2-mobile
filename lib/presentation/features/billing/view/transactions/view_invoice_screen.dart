@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/billing_school_hea
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ViewInvoiceScreen extends StatelessWidget {
   const ViewInvoiceScreen({super.key, required this.transaction});
@@ -282,10 +283,7 @@ class _ViewInvoiceView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: AppSurfaces.key(KeyVariant.primary, radius: 12),
           child: TextButton(
             onPressed: () => Navigator.of(context).pop(),
             style: TextButton.styleFrom(

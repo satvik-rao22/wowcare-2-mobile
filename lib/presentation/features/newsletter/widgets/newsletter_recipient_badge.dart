@@ -86,20 +86,9 @@ class NewsletterRecipientCountBadge extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.sm, AppSizes.sm, AppSizes.md),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primaryGradientColors.first.withValues(
-                          alpha: 0.12,
-                        ),
-                        AppColors.primaryGradientColors.last.withValues(
-                          alpha: 0.08,
-                        ),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: const BorderRadius.vertical(
+                  decoration: const BoxDecoration(
+                    color: AppColors.brandSoftColor,
+                    borderRadius: BorderRadius.vertical(
                       top: Radius.circular(24),
                     ),
                   ),

@@ -519,14 +519,7 @@ class _FramePainter extends CustomPainter {
 
     // Animated scan line
     final lineY = scanProgress * h;
-    final linePaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          color.withValues(alpha: 0),
-          color.withValues(alpha: 0.9),
-          color.withValues(alpha: 0),
-        ],
-      ).createShader(Rect.fromLTWH(0, lineY - 1, w, 2));
+    final linePaint = Paint()..color = color.withValues(alpha: 0.9);
     canvas.drawLine(
       Offset(8, lineY),
       Offset(w - 8, lineY),

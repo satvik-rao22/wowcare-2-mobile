@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).
@@ -260,13 +262,7 @@ class FilledActionButton extends StatelessWidget {
       height: 40,
       width: double.infinity,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.sm),
         child: TextButton(
           onPressed: onTap,
           style: TextButton.styleFrom(
@@ -379,10 +375,7 @@ class StaffCardActions extends StatelessWidget {
         Expanded(
           child: Container(
             height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildPrimaryGradient(),
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: 8),
             child: TextButton(
               onPressed: onPrimary,
               style: TextButton.styleFrom(padding: EdgeInsets.zero),

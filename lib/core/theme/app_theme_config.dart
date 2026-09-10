@@ -839,46 +839,6 @@ class AppPalette {
       ? Color(0xB3061240)
       : Color(0xB3000000);
 
-  // ── Gradients ────────────────────────────────────────────────────────────
-  //
-  // **There are no gradients under the brand skin.** Rule 3 of the design
-  // language is that every fill is flat and depth comes from the bevel, the
-  // well, the rim and the ambient shadow instead. Each list below is
-  // therefore two *identical* stops: the roles keep their names and their
-  // `List<Color>` shape so the 123 call sites that draw them keep compiling
-  // and go flat in one step, and each one is retired as its module moves
-  // onto an [AppSurfaces] decoration.
-  //
-  // Do not reintroduce a second stop here. The guard test in
-  // `test/core/theme/centralized_theme_test.dart` fails if one appears.
-
-  /// The scaffold ground. Flat warm tray.
-  static const List<Color> gradientPage = _brand
-      ? <Color>[BrandRamps.tray, BrandRamps.tray]
-      : <Color>[LegacyHues.white, LegacyHues.blush];
-
-  /// The primary action, and the "my message" bubble. Flat brand pink —
-  /// which is what the design's own `mine` bubble and `.key--primary` are.
-  static const List<Color> gradientPrimary = _brand
-      ? <Color>[BrandRamps.pink600, BrandRamps.pink600]
-      : <Color>[LegacyHues.indigoLight, LegacyHues.violet];
-
-  /// The secondary fill, one step darker than [gradientPrimary] so the two
-  /// still read apart where a screen shows both.
-  static const List<Color> gradientSecondary = _brand
-      ? <Color>[BrandRamps.pink700, BrandRamps.pink700]
-      : <Color>[LegacyHues.indigo, LegacyHues.violet];
-
-  /// The guardian message bubble.
-  ///
-  /// Deep pink rather than the design's `#FBDEE9`: the bubble's text colour
-  /// is chosen at the call site and is currently light, so the tint would be
-  /// unreadable. This stays dark — distinct from [gradientPrimary], legible
-  /// under the existing ink — until the Communication module re-skins the
-  /// bubble and its ink together.
-  static const List<Color> gradientPink = _brand
-      ? <Color>[BrandRamps.pink800, BrandRamps.pink800]
-      : <Color>[LegacyHues.pinkLight, LegacyHues.pink];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

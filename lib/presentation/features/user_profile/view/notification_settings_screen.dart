@@ -6,7 +6,6 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_category_header.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_group_row.dart';
@@ -53,16 +52,7 @@ class _NotificationSettingsContent extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           Column(
             children: [

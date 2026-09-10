@@ -12,6 +12,7 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
   static const String routeName = '/activity-fullscreen-media';
@@ -238,15 +239,8 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
             child: SafeArea(
               bottom: false,
               child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.blackColor.withValues(alpha: 0.75),
-                      AppColors.transparentColor,
-                    ],
-                  ),
+                decoration: const BoxDecoration(
+                  color: AppPalette.mediaScrim,
                 ),
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Row(

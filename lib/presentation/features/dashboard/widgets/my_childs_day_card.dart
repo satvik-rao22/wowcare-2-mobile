@@ -42,6 +42,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_cached_conver
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -905,16 +906,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         children: [
           AppIcon(MediaRes.notificationsGradientIcon),
           const SizedBox(width: 8),
-          ShaderMask(
-            shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-            child: Text(
+          Text(
               _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: AppColors.whiteColor),
+              style: const TextStyle(color: AppColors.themeColor),
             ),
-          ),
         ],
       ),
     );
@@ -927,41 +922,29 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        ShaderMask(
-          shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-          child: const Text(
+        const Text(
             'Your Sign-In Pin : ',
             style: TextStyle(
-              color: AppColors.whiteColor,
+              color: AppColors.themeColor,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-        ),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
           buildWhen: (prev, curr) =>
               prev.guardianClockPin != curr.guardianClockPin ||
               prev.status != curr.status,
           builder: (context, state) {
             final pin = state.guardianClockPin.trim();
-            return ShaderMask(
-              shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-              child: Text(
+            return Text(
                 pin.isEmpty ? '—' : pin,
                 style: const TextStyle(
-                  color: AppColors.whiteColor,
+                  color: AppColors.themeColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
-              ),
-            );
+              );
           },
         ),
         const SizedBox(width: 16),
@@ -1659,10 +1642,7 @@ class _ChatActionButton extends StatelessWidget {
       child: Container(
         width: 44,
         height: 44,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(14),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
         alignment: Alignment.center,
         child: AppIcon(
           MediaRes.communicationIcon,

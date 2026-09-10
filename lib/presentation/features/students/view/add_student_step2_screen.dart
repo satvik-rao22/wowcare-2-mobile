@@ -10,7 +10,6 @@ import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
@@ -655,16 +654,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
           body: Stack(
             children: [
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildScaffoldGradient(),
-                  ),
-                  child: Image.asset(
-                    MediaRes.wowcareMobileBg,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  ),
-                ),
+                child: ColoredBox(color: AppColors.pageBackgroundColor),
               ),
               Column(
                 children: [
