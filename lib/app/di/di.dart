@@ -150,7 +150,7 @@ import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/view_model/kiosk_attendance_cubit_v2.dart';
 import '../../presentation/features/kiosk/view_model/kiosk_logout_cubit.dart';
-import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
+import '../../core/auth/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/view_model/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/view_model/edit_shift_cubit.dart';
@@ -643,7 +643,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
   );
-  // Kiosk Access Control - must be registered early since other cubits depend on it
+  // Kiosk session state. Registered early because the router redirect and
+  // several cubits depend on it. This singleton is the ONLY instance: it holds
+  // the in-memory kiosk cache as instance state, so a second instance would
+  // give its holder a private view of whether the device is kiosk-locked.
+  // Always resolve it from here — never construct it.
   serviceLocator.registerLazySingleton<KioskAccessControl>(
     () => KioskAccessControl(serviceLocator<StorageService>()),
   );

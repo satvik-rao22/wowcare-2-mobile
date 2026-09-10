@@ -17,7 +17,7 @@ import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -282,12 +282,12 @@ class SplashCubit extends Cubit<SplashState> {
       }
 
       // Non-kiosk cached session: clear any stale kiosk flag from storage and
-      // the static in-memory cache so GoRouter never sees a false positive.
+      // the in-memory cache so GoRouter never sees a false positive.
       try {
         await _kioskAccessControl.deactivateKioskMode();
         AppLogger.d('[Splash] Non-kiosk cached session — kiosk state cleared');
       } catch (_) {
-        KioskAccessControl.clearCacheForNonKioskLogin();
+        _kioskAccessControl.clearCacheForNonKioskLogin();
       }
 
       await _roleCubit.refreshAccessFromServer(force: true);

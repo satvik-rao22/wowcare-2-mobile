@@ -221,7 +221,7 @@ import 'package:wowcare/presentation/features/classroom/view/screens/classroom_o
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
@@ -453,39 +453,35 @@ final GoRouter appRouter = GoRouter(
     );
 
     // CRITICAL SECURITY: Check if user is in kiosk mode and block non-kiosk routes
-    // Use synchronous cache check to avoid race conditions from multiple redirect() calls
-    bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
+    // Use the singleton's synchronous cache to avoid race conditions from
+    // multiple redirect() calls.
+    bool isKioskMode;
+    try {
+      final kioskAccess = serviceLocator<KioskAccessControl>();
+      isKioskMode = kioskAccess.isKioskModeActiveDirect();
 
-    // Storage fallback, but only until the flag has been read once this
-    // process. Previously the negative result was never remembered, so every
-    // navigation by every non-kiosk user awaited a storage read on the critical
-    // path for the whole session; `isKioskModeResolved` makes it once.
-    if (!isKioskMode && !KioskAccessControl.isKioskModeResolved) {
-      try {
-        isKioskMode = await serviceLocator<KioskAccessControl>()
-            .isKioskModeActive();
-      } catch (e) {
-        // If KioskAccessControl is not registered, try to create it on demand
-        try {
-          AppLogger.w(
-            '[KioskAccess] KioskAccessControl not in DI, creating on demand',
-          );
-          final kioskAccess = KioskAccessControl(
-            serviceLocator<StorageService>(),
-          );
-          isKioskMode = await kioskAccess.isKioskModeActive();
-        } catch (e2) {
-          // FAIL CLOSED. This is a containment control on a shared device: if
-          // we cannot establish whether this is a kiosk, the safe answer is
-          // "assume it is" and confine the session to /kiosk, not "assume it
-          // isn't" and open the whole app. Previously both catches swallowed
-          // and left `isKioskMode` false, i.e. the guard failed open.
-          AppLogger.e(
-            '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e2',
-          );
-          isKioskMode = true;
-        }
+      // Storage fallback, but only until the flag has been read once this
+      // process. Previously the negative result was never remembered, so every
+      // navigation by every non-kiosk user awaited a storage read on the
+      // critical path for the whole session; `isKioskModeResolved` makes it
+      // once.
+      //
+      // Resolved from DI, never constructed here: a second instance would keep
+      // its own cache, so the router and the kiosk feature would disagree about
+      // whether the device is locked.
+      if (!isKioskMode && !kioskAccess.isKioskModeResolved) {
+        isKioskMode = await kioskAccess.isKioskModeActive();
       }
+    } catch (e) {
+      // FAIL CLOSED. This is a containment control on a shared device: if we
+      // cannot establish whether this is a kiosk, the safe answer is "assume it
+      // is" and confine the session to /kiosk, not "assume it isn't" and open
+      // the whole app. The guard used to swallow this and leave `isKioskMode`
+      // false, i.e. fail open.
+      AppLogger.e(
+        '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e',
+      );
+      isKioskMode = true;
     }
 
     if (isKioskMode) {
