@@ -309,7 +309,6 @@ void main() {
       'lib/presentation/features/activities/widgets/upload_photo_video.dart',
       'lib/presentation/features/attendance/view/screens/widgets/attendance_card_shared.dart',
       'lib/presentation/features/attendance/view/staff_attendance_tabbed_view.dart',
-      'lib/presentation/features/attendance/widgets/attendance_popup.dart',
       'lib/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart',
       'lib/presentation/features/auth/view/change_password_screen.dart',
       'lib/presentation/features/auth/view/forgot_password_screen.dart',

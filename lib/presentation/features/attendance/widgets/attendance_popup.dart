@@ -27,6 +27,7 @@ import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_profile_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Resolves the parent persona's selected child and builds the
 /// [StudentAttendanceProfile] widget to open for them — shared by
@@ -1545,8 +1546,14 @@ class AttendancePopupActionButton extends StatelessWidget {
   final String icon;
   final String label;
   final VoidCallback? onTap;
+
+  /// The edge of the tile, not of the glyph — see [build].
   final double iconSize;
   final double fontSize;
+
+  /// How much of the tile the glyph fills, leaving the tile's bevel and rim
+  /// visible all the way round at every size the popup uses.
+  static const double _glyphRatio = 0.56;
 
   @override
   Widget build(BuildContext context) {
@@ -1555,7 +1562,7 @@ class AttendancePopupActionButton extends StatelessWidget {
       opacity: isDisabled ? 0.4 : 1.0,
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.allSm,
+        borderRadius: AppRadius.allLg,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.xxs,
@@ -1565,11 +1572,21 @@ class AttendancePopupActionButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AppIcon(
-                icon,
-                height: iconSize,
+              // Each glyph sits in a tile of exactly the same size, because
+              // the four assets do not agree on one: two are a disc with an
+              // arrow cut out of it, one is a pair of thin arrows and one is
+              // a calendar. Left to their own bounds they line up at four
+              // different widths and read at four different weights.
+              Container(
                 width: iconSize,
-                tone: IconTone.action,
+                height: iconSize,
+                alignment: Alignment.center,
+                decoration: AppSurfaces.iconKey(),
+                child: AppIcon(
+                  icon,
+                  size: iconSize * _glyphRatio,
+                  tone: IconTone.action,
+                ),
               ),
               const SizedBox(height: AppSpacing.xxs),
               Flexible(
@@ -1591,7 +1608,7 @@ class AttendancePopupActionButton extends StatelessWidget {
   }
 }
 
-/// The gradient-bordered "View Attendance" button shown at the bottom of
+/// The "View Attendance" key shown at the bottom of
 /// both the student and staff tab bodies. Was a private
 /// `_buildViewAttendanceButton` method — the async navigation logic it used
 /// to build inline now lives in `_handleViewAttendanceTap`, passed in here
@@ -1617,33 +1634,18 @@ class AttendancePopupViewButton extends StatelessWidget {
         height: isTablet ? 56 : 48,
         width: double.infinity,
         margin: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 20),
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.allSm,
-          gradient: AppColors.buildSecondaryGradient(),
-        ),
-        padding: const EdgeInsets.all(1),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: BorderRadius.circular(AppRadius.r7),
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) =>
-                    AppColors.buildSecondaryGradient().createShader(bounds),
-                blendMode: BlendMode.srcIn,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.attendancePopupViewButton(
-                    isTablet: isTablet,
-                  ),
-                ),
-              ),
+        decoration: AppSurfaces.key(KeyVariant.secondary),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.attendancePopupViewButton(
+                isTablet: isTablet,
+              ).copyWith(color: AppSurfaces.keyInk(KeyVariant.secondary)),
             ),
           ),
         ),
