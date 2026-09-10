@@ -359,10 +359,12 @@ class _Brandmark extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            AppArtwork(
-              MediaRes.logoMark,
-              height: screen.height * 0.14,
-              width: screen.height * 0.14,
+            // The same mark the launcher icon and the splash are generated
+            // from. Its canvas is 1000x1240, so it is sized by height only.
+            Image.asset(
+              MediaRes.appLogo,
+              height: screen.height * 0.16,
+              fit: BoxFit.contain,
             ),
             SizedBox(height: screen.height * 0.012),
             Text(

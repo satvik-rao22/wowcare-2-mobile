@@ -320,10 +320,11 @@ ambient shadow in close instead and travels 2px.
 - **`whiteColor` is the cool card face** at all 199 of its sites. Where one is
   ink on a saturated face rather than a surface it wants `textOnDarkColor`
   instead; that triage is per-module and still open.
-- **A text field gets the well's fill and radius but not its inset shadow.**
-  `InputDecoration` cannot paint one, and wrapping the field would put its
-  error and counter text inside the well. Everything you do not type into
-  keeps the inset.
+- **A text field gets the well's inset from `SkeuFieldWell`**, which paints
+  it over the field rather than replacing the field's decoration. That was
+  the way round the problem: an `InputDecoration` cannot carry an inset, and
+  wrapping the field in a decorated box would have put its error and counter
+  text inside the well.
 - **Five media-viewer scaffolds keep a black ground.** A photo on a warm tray
   is worse, not better.
 

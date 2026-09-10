@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -56,31 +57,34 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      focusNode: focusNode,
-      readOnly: readOnly,
-      obscureText: isPassword,
-      validator: validator,
-      onFieldSubmitted: nextFocusNode != null
-          ? (_) => nextFocusNode!.requestFocus()
-          : null,
-      onChanged: (value) {
-        if (onChanged != null) {
-          onChanged!(value);
-        }
-      },
-      style: usePrimaryGradientText ? _buildGradientTextStyle() : null,
-      decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
-        hintText: hintText,
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: fillColor ?? AppSurfaces.fieldFill,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+    return SkeuFieldWell(
+      radius: 8,
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        focusNode: focusNode,
+        readOnly: readOnly,
+        obscureText: isPassword,
+        validator: validator,
+        onFieldSubmitted: nextFocusNode != null
+            ? (_) => nextFocusNode!.requestFocus()
+            : null,
+        onChanged: (value) {
+          if (onChanged != null) {
+            onChanged!(value);
+          }
+        },
+        style: usePrimaryGradientText ? _buildGradientTextStyle() : null,
+        decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
+          hintText: hintText,
+          prefixIcon: prefixIcon,
+          suffixIcon: suffixIcon,
+          filled: true,
+          fillColor: fillColor ?? AppSurfaces.fieldFill,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
         ),
       ),
     );

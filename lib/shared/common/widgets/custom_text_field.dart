@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 
 class CustomTextField extends StatelessWidget {
   const CustomTextField({
@@ -41,35 +42,38 @@ class CustomTextField extends StatelessWidget {
             ),
           ),
         if (label != null) const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          onChanged: onChanged,
-          maxLength: maxLength,
-          maxLines: isTextArea ? 4 : 1,
-          keyboardType: isNumeric
-              ? (allowDecimal
-                    ? const TextInputType.numberWithOptions(decimal: true)
-                    : TextInputType.number)
-              : TextInputType.text,
-          inputFormatters: isNumeric
-              ? [
-                  if (!allowDecimal)
-                    FilteringTextInputFormatter.digitsOnly
-                  else
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ]
-              : null,
-          decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
-            hintText: hintText,
-            hintStyle: const TextStyle(
-              color: AppPalette.textMuted,
-              fontSize: 14,
+        SkeuFieldWell(
+          radius: 8,
+          child: TextField(
+            controller: controller,
+            onChanged: onChanged,
+            maxLength: maxLength,
+            maxLines: isTextArea ? 4 : 1,
+            keyboardType: isNumeric
+                ? (allowDecimal
+                      ? const TextInputType.numberWithOptions(decimal: true)
+                      : TextInputType.number)
+                : TextInputType.text,
+            inputFormatters: isNumeric
+                ? [
+                    if (!allowDecimal)
+                      FilteringTextInputFormatter.digitsOnly
+                    else
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  ]
+                : null,
+            decoration: AppSurfaces.fieldDecoration(radius: 8).copyWith(
+              hintText: hintText,
+              hintStyle: const TextStyle(
+                color: AppPalette.textMuted,
+                fontSize: 14,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              counterText: '', // Hide character counter
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            counterText: '', // Hide character counter
           ),
         ),
       ],

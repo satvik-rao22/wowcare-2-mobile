@@ -632,9 +632,10 @@ class AppPalette {
       ? Color(0x290A1C5D)
       : LegacyHues.grey400;
 
-  /// The focus ring.
+  /// The focus ring. Pink: the field you are typing into is the thing you
+  /// are acting on, and pink is what the app uses to say so.
   static const Color focusRing = _brand
-      ? BrandRamps.teal500
+      ? BrandRamps.pink600
       : LegacyHues.indigo;
 
   /// A divider between sections.

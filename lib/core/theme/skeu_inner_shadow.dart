@@ -19,6 +19,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 
 /// Wraps [child] and paints [shadows] inside [borderRadius], over the child's
 /// own background but under its content — exactly where CSS orders them.
@@ -95,4 +96,46 @@ class SkeuInsetPainter extends CustomPainter {
   @override
   bool shouldRepaint(SkeuInsetPainter old) =>
       old.shadows != shadows || old.borderRadius != borderRadius;
+}
+
+/// The recess a text field sits in.
+///
+/// An `InputDecoration` paints its own fill and border and has no way to add
+/// an inset shadow, so a field on its own is a flat cool rectangle: the right
+/// colour with none of the depth. This paints the well's inset over the
+/// field's fill, which is the whole difference between a box laid on the
+/// surface and one cut into it.
+///
+/// Wraps rather than replaces, so the field keeps its own hint, prefix,
+/// suffix, focus ring and error border, and its validation message still
+/// renders where the framework puts it.
+///
+/// ```dart
+/// SkeuFieldWell(
+///   radius: 8,
+///   child: TextFormField(decoration: AppSurfaces.fieldDecoration(radius: 8)),
+/// )
+/// ```
+class SkeuFieldWell extends StatelessWidget {
+  const SkeuFieldWell({
+    required this.child,
+    this.radius = AppRadius.lg,
+    super.key,
+  });
+
+  final Widget child;
+
+  /// Must match the radius the field's own decoration uses, or the inset
+  /// will not follow its corners.
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => SkeuInnerShadow(
+    // The full well, not the shallow one: the shadow from the top edge is
+    // only half of it. The lit line along the bottom is what reads as an
+    // edge you are looking *into* rather than a patch of shading.
+    shadows: AppElevation.well,
+    borderRadius: BorderRadius.circular(radius),
+    child: child,
+  );
 }
