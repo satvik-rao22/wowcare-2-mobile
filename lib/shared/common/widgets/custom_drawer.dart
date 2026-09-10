@@ -53,6 +53,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -908,8 +909,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Room Chat',
-                                  leading: AppIcon(
-                                    MediaRes.classroom_drawer_icon,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.classroom_drawer_icon,
                                     color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
@@ -927,8 +928,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showAdminChatDrawer)
                                 DrawerListTile(
                                   title: 'Admin Chat',
-                                  leading: AppIcon(
-                                    MediaRes.parentMessaging,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.parentMessaging,
                                     color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
@@ -944,8 +945,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: AppIcon(
-                                    MediaRes.newsletter,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.newsletter,
                                     color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
@@ -1032,8 +1033,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStudentAttendance)
                                 DrawerListTile(
                                   title: 'Student Attendance',
-                                  leading: AppIcon(
-                                    MediaRes.studentAttendanceDrawer,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.studentAttendanceDrawer,
                                     color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
@@ -1045,8 +1046,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: isStaff
                                       ? 'My Attendance'
                                       : 'Staff Attendance',
-                                  leading: AppIcon(
-                                    MediaRes.staffAttendanceDrawer,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staffAttendanceDrawer,
                                     color: AppPalette.textPrimary,
                                   ),
                                   onTap: () {
@@ -1137,8 +1138,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Staff Messaging',
-                                  leading: AppIcon(
-                                    MediaRes.staffMessaging,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staffMessaging,
                                     color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
@@ -1162,8 +1163,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showParentMessagingDrawer)
                                       DrawerListTile(
                                         title: 'Room Chat',
-                                        leading: AppIcon(
-                                          MediaRes.parentMessaging,
+                                        leading: _DrawerGlyph(
+                                          asset: MediaRes.parentMessaging,
                                           color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
@@ -1182,8 +1183,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showAdminChatDrawer)
                                       DrawerListTile(
                                         title: 'Admin Chat',
-                                        leading: AppIcon(
-                                          MediaRes.parentMessaging,
+                                        leading: _DrawerGlyph(
+                                          asset: MediaRes.parentMessaging,
                                           color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
@@ -1203,8 +1204,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: AppIcon(
-                                    MediaRes.newsletter,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.newsletter,
                                     color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
@@ -1230,8 +1231,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showClassroomScheduling)
                                 DrawerListTile(
                                   title: 'Classroom Scheduling',
-                                  leading: AppIcon(
-                                    MediaRes.classroom_Schedule_drawer_icon,
+                                  leading: _DrawerGlyph(
+                                    asset:
+                                        MediaRes.classroom_Schedule_drawer_icon,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () =>
                                       _navigate(SchedulingScreen.routeName),
@@ -1239,8 +1242,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffScheduling)
                                 DrawerListTile(
                                   title: 'Staff Scheduling',
-                                  leading: AppIcon(
-                                    MediaRes.staff_Schedule_drawer_icon,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staff_Schedule_drawer_icon,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     StaffSchedulingScreen.routeName,
@@ -1258,7 +1262,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Reports',
                             icon: MediaRes.documents_drawer_Icon,
-                            preserveIconColors: true,
                             isCurrentRoute:
                                 _currentRoute == ReportsScreen.routeName,
                             suppressRouteHighlight:
@@ -1280,16 +1283,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             children: [
                               DrawerListTile(
                                 title: 'Privacy Policy',
-                                leading: AppIcon(
-                                  MediaRes.settings_drawer_Blue,
+                                leading: _DrawerGlyph(
+                                  asset: MediaRes.settings_drawer_Blue,
                                   color: AppPalette.textPrimary,
                                 ),
                                 onTap: () {},
                               ),
                               DrawerListTile(
                                 title: 'Terms & Conditions',
-                                leading: AppIcon(
-                                  MediaRes.settings_drawer_Blue,
+                                leading: _DrawerGlyph(
+                                  asset: MediaRes.settings_drawer_Blue,
                                   color: AppPalette.textPrimary,
                                 ),
                                 onTap: () {},
@@ -1331,6 +1334,33 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 }
 
+/// One drawer destination's glyph, in a box the same size on every row.
+///
+/// The drawer's assets do not agree on a size: most are 24x25, billing is
+/// 17x25, the classroom one 24x26, the calendar 26x26 and logout 18x18. Drawn
+/// at their intrinsic size no two rows put the glyph in the same place, and a
+/// narrow one pulls its label left with it, because a `ListTile` sizes its
+/// leading slot to whatever it is given. A fixed box fixes both.
+class _DrawerGlyph extends StatelessWidget {
+  const _DrawerGlyph({required this.asset, required this.color});
+
+  final String asset;
+  final Color color;
+
+  /// Matches `AppDimensions.iconMd`, which is what the bottom bar uses, so
+  /// the two pieces of chrome agree.
+  static const double _box = AppDimensions.iconMd;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: _box,
+    height: _box,
+    child: Center(
+      child: AppIcon(asset, size: _box, color: color),
+    ),
+  );
+}
+
 class _CustomExpansionTile extends StatefulWidget {
   final String title;
   final String icon;
@@ -1339,12 +1369,6 @@ class _CustomExpansionTile extends StatefulWidget {
   final bool isCurrentRoute;
   final VoidCallback? onTap;
   final bool isDashboard;
-
-  /// When true, the icon's native colors (e.g. gradient fills, multi-color
-  /// strokes) are preserved instead of being flattened by a single
-  /// [ColorFilter]. Use for SVGs that ship their own gradient like the
-  /// Reports/Documents drawer icon.
-  final bool preserveIconColors;
 
   /// When non-null, this tile's expanded/collapsed state is driven by the
   /// parent (accordion behavior — only one top-level drawer section open at
@@ -1372,7 +1396,6 @@ class _CustomExpansionTile extends StatefulWidget {
     this.isCurrentRoute = false,
     this.onTap,
     this.isDashboard = false,
-    this.preserveIconColors = false,
     this.expandedOverride,
     this.onExpansionChanged,
     this.suppressRouteHighlight = false,
@@ -1467,9 +1490,10 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                     _isExpanded = expanded;
                   });
                 },
-                leading: widget.preserveIconColors
-                    ? AppArtwork(widget.icon)
-                    : AppIcon(widget.icon, color: _getIconColor()),
+                leading: _DrawerGlyph(
+                  asset: widget.icon,
+                  color: _getIconColor(),
+                ),
                 iconColor: AppPalette.textPrimary,
                 collapsedIconColor: _getIconColor(),
                 title: Text(
@@ -1481,9 +1505,10 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 trailing: const Icon(Icons.keyboard_arrow_down),
               )
             : ListTile(
-                leading: widget.preserveIconColors
-                    ? AppArtwork(widget.icon)
-                    : AppIcon(widget.icon, color: _getIconColor()),
+                leading: _DrawerGlyph(
+                  asset: widget.icon,
+                  color: _getIconColor(),
+                ),
                 title: Text(
                   widget.title,
                   maxLines: 1,
@@ -1586,7 +1611,7 @@ class _NestedExpansionTile extends StatelessWidget {
       collapsedShape: const Border(),
       iconColor: AppPalette.textPrimary,
       collapsedIconColor: AppPalette.textPrimary,
-      leading: AppIcon(icon, color: AppPalette.textPrimary),
+      leading: _DrawerGlyph(asset: icon, color: AppPalette.textPrimary),
       title: Text(
         title,
         maxLines: 1,
