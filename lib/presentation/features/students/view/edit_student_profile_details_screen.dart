@@ -932,7 +932,7 @@ class _EditStudentProfileDetailsScreenState
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: AppColors.whiteColor,
+        backgroundColor: AppColors.pageBackgroundColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [

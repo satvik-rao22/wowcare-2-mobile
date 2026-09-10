@@ -842,7 +842,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               return GestureDetector(
                 onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
                 child: Scaffold(
-                  backgroundColor: AppColors.whiteColor,
+                  backgroundColor: AppColors.pageBackgroundColor,
                   appBar: const CustomAppBar(hasBackButton: true),
                   body: Stack(
                     children: [

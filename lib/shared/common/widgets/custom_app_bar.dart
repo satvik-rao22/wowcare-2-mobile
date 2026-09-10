@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -104,10 +105,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     return AppBar(
-      backgroundColor: AppColors.whiteColor,
+      backgroundColor: AppPalette.surfacePage,
       elevation: 0,
       scrolledUnderElevation: 0,
-      foregroundColor: AppColors.blackColor,
+      foregroundColor: AppPalette.textPrimary,
       titleSpacing: 0,
       title: isParent
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
@@ -273,7 +274,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                             child: Text(
                               unreadCount > 99 ? '99+' : '$unreadCount',
                               style: const TextStyle(
-                                color: AppColors.whiteColor,
+                                color: AppPalette.textOnDark,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -341,7 +342,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                               child: Text(
                                 unreadCount > 99 ? '99+' : '$unreadCount',
                                 style: const TextStyle(
-                                  color: AppColors.whiteColor,
+                                  color: AppPalette.textOnDark,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -375,11 +376,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
               child: Column(
                 children: [
-                  Container(
+                  const Divider(
                     height: 1.5,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildSecondaryGradient(),
-                    ),
+                    thickness: 1.5,
+                    color: AppPalette.borderHairline,
                   ),
                   TabBar(
                     controller: tabController,
@@ -390,9 +390,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     indicatorPadding:
                         tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
                     isScrollable: tabBarStyle?.isScrollable ?? false,
-                    labelColor: tabBarStyle?.labelColor ?? MaterialHues.black87,
+                    labelColor:
+                        tabBarStyle?.labelColor ?? AppPalette.textPrimary,
                     unselectedLabelColor:
-                        tabBarStyle?.unselectedLabelColor ?? MaterialHues.black54,
+                        tabBarStyle?.unselectedLabelColor ??
+                        AppPalette.textMuted,
+                    // Ignored when tabBarStyle supplies its own `indicator`.
+                    indicatorColor: AppPalette.brand,
                     indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
                     indicatorSize: tabBarStyle?.indicatorSize,
                     splashFactory: NoSplash.splashFactory,
@@ -403,13 +407,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
             )
-          : PreferredSize(
-              preferredSize: const Size.fromHeight(1.5),
-              child: Container(
+          : const PreferredSize(
+              preferredSize: Size.fromHeight(1.5),
+              child: Divider(
                 height: 1.5,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildSecondaryGradient(),
-                ),
+                thickness: 1.5,
+                color: AppPalette.borderHairline,
               ),
             ),
     );
@@ -495,7 +498,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
       constraints: const BoxConstraints(maxWidth: 240),
       icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
       offset: const Offset(0, 48),
-      color: AppColors.whiteColor,
+      color: AppPalette.surfaceCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       itemBuilder: (context) => [
         PopupMenuItem<int>(
@@ -886,7 +889,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                 bottom: verticalPadding + bottomSafe,
               ),
               decoration: BoxDecoration(
-                color: AppColors.whiteColor,
+                color: AppPalette.surfaceSunken,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(borderRadius),
                   topRight: Radius.circular(borderRadius),
@@ -925,7 +928,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                         fontFamily: AppFonts.body,
                         fontSize: buttonFontSize,
                         fontWeight: FontWeight.w400,
-                        color: MaterialHues.grey500,
+                        color: AppPalette.textSecondary,
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
@@ -943,13 +946,13 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                               Navigator.pop(context);
                             },
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              side: const BorderSide(color: AppPalette.border),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
                                   borderRadius / 2,
                                 ),
                               ),
-                              backgroundColor: AppColors.whiteColor,
+                              backgroundColor: AppPalette.surfaceCard,
                             ),
                             child: Text(
                               "Cancel",
@@ -969,11 +972,9 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                       Expanded(
                         child: Container(
                           height: buttonHeight,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              borderRadius / 2,
-                            ),
-                            gradient: AppColors.buildPrimaryGradient(),
+                          decoration: AppSurfaces.key(
+                            KeyVariant.primary,
+                            radius: borderRadius / 2,
                           ),
                           child: TextButton(
                             onPressed: () async {
@@ -999,7 +1000,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                                 fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.whiteColor,
+                                color: AppPalette.onBrand,
                                 height: 1.0,
                               ),
                               textAlign: TextAlign.center,

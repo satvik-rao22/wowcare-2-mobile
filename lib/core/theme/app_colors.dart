@@ -31,6 +31,11 @@ class AppColors {
 
   // ── Surfaces, borders, dividers ───────────────────────────────────────────
 
+  /// The page ground: the warm tray every scaffold, drawer and bar sits on.
+  /// Distinct from [cardColor], which is the cooler face of anything *raised*
+  /// off that tray.
+  static const Color pageBackgroundColor = AppPalette.surfacePage;
+
   /// A card, sheet or dialog surface.
   static const Color cardColor = AppPalette.surfaceCard;
 

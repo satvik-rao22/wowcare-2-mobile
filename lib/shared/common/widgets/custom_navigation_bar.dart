@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
@@ -44,6 +45,11 @@ class _NavSizes {
       activeRadius = 12;
     }
 
+    // The pink squircle behind an active glyph. 38x38 round a 22px glyph on
+    // a phone, which is the design's `.tabbar__glyph`, and it grows with the
+    // glyph on a tablet so the ring of colour round it stays the same width.
+    activeTileSize = iconSize + 16;
+
     // Bug 2 fix — Samsung & all Android gesture-nav:
     // viewPadding is the raw inset before system consumption; it reports the
     // correct bottom inset in every Android navigation mode (gesture, 2-button,
@@ -64,6 +70,7 @@ class _NavSizes {
   late final double itemPaddingV;
   late final EdgeInsets barPadding;
   late final double activeRadius;
+  late final double activeTileSize;
 }
 
 /// Fixed on-screen slot order per persona — kept as 5 equal-width columns
@@ -349,18 +356,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         onTap: () => context.read<BottomNavigationCubit>().selectItem(item),
         borderRadius: BorderRadius.circular(sizes.activeRadius),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
+          duration: AppMotion.base,
+          curve: AppMotion.easeInOut,
           padding: EdgeInsets.symmetric(
             horizontal: sizes.itemPaddingH,
             vertical: sizes.itemPaddingV,
           ),
-          decoration: isActive
-              ? BoxDecoration(
-                  color: AppColors.blackColor.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(sizes.activeRadius),
-                )
-              : const BoxDecoration(),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
@@ -368,12 +369,29 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  SvgPicture.asset(
-                    _iconFor(item),
-                    height: sizes.iconSize,
-                    colorFilter: isActive
-                        ? const ColorFilter.mode(AppColors.whiteColor, BlendMode.dstIn)
-                        : null,
+                  // The active slot is a solid pink squircle behind the glyph
+                  // alone, not behind the whole column: the label sits below
+                  // it and carries the colour itself.
+                  AnimatedContainer(
+                    duration: AppMotion.base,
+                    curve: AppMotion.easeInOut,
+                    width: sizes.activeTileSize,
+                    height: sizes.activeTileSize,
+                    alignment: Alignment.center,
+                    decoration: isActive
+                        ? AppSurfaces.navActive(radius: sizes.activeRadius)
+                        : const SkeuDecoration(),
+                    child: SvgPicture.asset(
+                      _iconFor(item),
+                      height: sizes.iconSize,
+                      // srcIn, not dstIn: dstIn uses the glyph as a mask and
+                      // leaves its baked-in gradient showing. srcIn is what
+                      // actually flattens these SVGs to one colour.
+                      colorFilter: ColorFilter.mode(
+                        isActive ? AppPalette.onBrand : AppPalette.textPrimary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                   ),
                   if (badgeCount > 0)
                     Positioned(
@@ -385,9 +403,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: MaterialHues.red,
+                          color: AppPalette.brand,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.whiteColor, width: 1.2),
+                          border: Border.all(
+                            color: AppPalette.textOnDark,
+                            width: 1.2,
+                          ),
                         ),
                         constraints: const BoxConstraints(
                           minWidth: 16,
@@ -396,7 +417,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                         child: Text(
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: const TextStyle(
-                            color: AppColors.whiteColor,
+                            color: AppPalette.textOnDark,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             height: 1,
@@ -413,10 +434,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                 child: Text(
                   _labelFor(item, isParent),
                   style: TextStyle(
-                    color: AppColors.whiteColor,
-                    fontFamily: AppFontFamilies.inter,
+                    color: isActive
+                        ? AppPalette.brand
+                        : AppPalette.textSecondary,
+                    fontFamily: AppFonts.body,
                     fontSize: sizes.fontSize,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: isActive
+                        ? AppTypeScale.bold
+                        : AppTypeScale.semiBold,
                   ),
                   maxLines: 1,
                   softWrap: false,
@@ -462,16 +487,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         child: Container(
           key: _containerKey,
           padding: sizes.barPadding,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.12),
-                blurRadius: 12,
-                offset: const Offset(0, -6),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.bar(topRadius: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: slotOrder.map((item) {

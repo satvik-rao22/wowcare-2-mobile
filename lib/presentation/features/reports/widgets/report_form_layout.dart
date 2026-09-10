@@ -35,7 +35,7 @@ class ReportFormLayout extends StatelessWidget {
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,

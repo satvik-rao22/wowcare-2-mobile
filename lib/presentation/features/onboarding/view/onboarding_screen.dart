@@ -28,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.cardColor,
+        backgroundColor: AppColors.pageBackgroundColor,
         body: Stack(
         children: [
           PageView(

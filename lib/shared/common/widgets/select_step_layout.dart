@@ -30,7 +30,7 @@ class SelectStepLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.whiteColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [

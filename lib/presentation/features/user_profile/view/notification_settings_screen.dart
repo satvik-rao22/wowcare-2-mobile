@@ -48,7 +48,7 @@ class _NotificationSettingsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: Stack(
         children: [

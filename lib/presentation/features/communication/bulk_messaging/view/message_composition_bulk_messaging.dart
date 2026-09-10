@@ -162,7 +162,7 @@ class _MessageCompositionBulkMessagingState
       child: BlocBuilder<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
         builder: (context, compositionState) {
           return Scaffold(
-            backgroundColor: AppColors.cardColor,
+            backgroundColor: AppColors.pageBackgroundColor,
             resizeToAvoidBottomInset: true,
             appBar: const CustomAppBar(hasBackButton: true),
             body: GestureDetector(

@@ -340,7 +340,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       builder: (context, state) => GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: AppColors.whiteColor,
+          backgroundColor: AppColors.pageBackgroundColor,
           appBar: const CustomAppBar(hasBackButton: true),
           body: Stack(
             children: [

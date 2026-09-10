@@ -35,7 +35,7 @@ class StaffFormLayout extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: isKiosk
           ? PreferredSize(
               preferredSize: const Size.fromHeight(kToolbarHeight + 1),

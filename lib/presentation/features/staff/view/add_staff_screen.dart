@@ -729,7 +729,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
             },
             child: Scaffold(
               key: _scaffoldKey,
-              backgroundColor: AppColors.cardColor,
+              backgroundColor: AppColors.pageBackgroundColor,
               appBar: const CustomAppBar(hasBackButton: true),
               body: Stack(
                 children: [

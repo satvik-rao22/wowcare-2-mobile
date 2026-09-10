@@ -183,6 +183,38 @@ signing in.
 
 One note on the existing nav code: it tints glyphs with `ColorFilter.mode(colour, BlendMode.dstIn)`, which uses the glyph as a mask rather than recolouring it. `srcIn` is the mode that actually flattens a gradient-filled SVG to one colour, and that is what the pink-squircle-with-white-glyph state needs.
 
+### Phase 1 as landed
+
+| Surface | What changed |
+|---|---|
+| Bottom navigation | ground is the tray with a hairline top edge and the ambient shadow thrown upward. The active slot is a solid pink squircle behind the **glyph alone** (the design's `.tabbar__glyph`, sized `iconSize + 16` so it stays 38x38 on a phone and grows with the glyph on a tablet), warm-white glyph, pink label at 700. Inactive: no tile, navy glyph, `inkSoft` label. Every glyph now goes through `BlendMode.srcIn`, which was the actual bug: `dstIn` was using the glyph as a mask and leaving its baked-in gradient showing. Badge is pink with a warm-white ring. Nothing about the slot order, the hidden-slot `Expanded`, the height measurement or the navigation logic moved |
+| Drawer | ground is the tray, ink is navy. Header logo sits on the card face, the school switcher's panel is a `sub()` well and its selected row the pink tint. The active item is the pink squircle with warm-white content; an **expanded** section is a `sub()` well with navy ink, because it is a container for its children rather than a destination. Every child tile and nested panel dropped to navy: the 13 `themeColor` glyph filters in this file were labels on the panel, not actions, and `themeColor` is pink now. Badge is pink |
+| App bar | flat tray ground, navy foreground, no elevation. The 1.5px coloured rule under it is a hairline. Tab strips default to a navy selected label, `inkFaint` unselected and a pink indicator, still overridable per screen through `TabBarStyle`. The kebab menu's sheet is the card face; the change-password sheet inside this file took the sheet ground, a `key(primary)` for its confirm and lost a hard-coded `#6C7FD8` |
+| Curved app bar | tray ground, navy title. Lost its own `Color.fromRGBO` literal |
+| Page ground | `gradient_background.dart` keeps its name and all 9 call sites and paints the flat tray. **The photographic backdrop is gone** (open question in section 7, resolved as assumed): the `image:` parameter survives and still works, and the one call site that passes one deliberately, `page_under_construction`, still gets it. 19 scaffolds that set their own white or card ground moved to the new `AppColors.pageBackgroundColor` role |
+
+**Deliberately left to the module commits:**
+
+* The **per-screen tab strips** (students, staff, communication, newsletter,
+  billing, reports). Each picks its colours from a module token
+  (`studentDarkPlum`, `messagingTabLabel`, `newsletterTabUnselectedLabel`,
+  `billingTextColor`), so re-pointing them here would do six modules' work
+  half-way and take none of them off the allowlist. `CustomAppBar` now gives
+  the right default to every strip that does not override it.
+* The **back and action keys as `.iconkey`**. `CustomAppBar` does not set
+  `leading`, so `AppBar` picks the back arrow or the drawer hamburger itself
+  depending on context. Overriding `leading` centrally to wrap it in a key
+  would break that choice, so the icon keys land per screen.
+* The **five media-viewer scaffolds** (document viewer, QR scanner, three
+  full-screen media views) keep their black ground. A photo on a warm tray is
+  worse, not better, and pure black behind media is not the "pure black is
+  retired" rule's target.
+
+**Verified:** analyze 140, tests 1350 pass / 8 fail (baseline), theme suite 40.
+Built and ran on `emulator-5554`. The bottom bar and drawer only appear behind
+the sign-in, so those two are verified by their code and the guard test rather
+than by a screenshot.
+
 ## 4. Phase 2, the shared widget kit. Your item 3, and the multiplier
 
 88 widgets in `lib/shared/common/widgets` carry 251 of the 442 `whiteColor` sites and are what

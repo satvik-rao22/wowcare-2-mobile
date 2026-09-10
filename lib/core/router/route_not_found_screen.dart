@@ -25,7 +25,7 @@ class RouteNotFoundScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       body: SafeArea(
         child: Center(
           child: Padding(

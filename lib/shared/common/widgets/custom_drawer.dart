@@ -4,6 +4,8 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -206,7 +208,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(
-              backgroundColor: AppColors.whiteColor,
+              backgroundColor: AppPalette.surfaceCard,
               radius: 28,
               backgroundImage: AssetImage(MediaRes.appLogo),
             ),
@@ -219,7 +221,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   const Text(
                     'WowCare',
                     style: TextStyle(
-                      color: AppColors.whiteColor,
+                      color: AppPalette.textPrimary,
                       fontSize: 19,
                       fontWeight: FontWeight.w900,
                     ),
@@ -292,7 +294,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.whiteColor,
+                    color: AppPalette.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -302,7 +304,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 _isSchoolDropdownOpen
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down,
-                color: AppColors.whiteColor,
+                color: AppPalette.textSecondary,
                 size: 18,
               ),
             ],
@@ -311,14 +313,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         if (_isSchoolDropdownOpen) ...[
           const SizedBox(height: 8),
           Container(
-            decoration: BoxDecoration(
-              color: AppColors.whiteColor.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.whiteColor.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
+            decoration: AppSurfaces.sub(radius: 12, bordered: true),
             child: ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -338,8 +333,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.whiteColor.withValues(alpha: 0.15)
-                          : Colors.transparent,
+                          ? AppPalette.surfaceSelected
+                          : AppColors.transparentColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -350,7 +345,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: AppColors.whiteColor,
+                              color: isSelected
+                                  ? AppPalette.brandDark
+                                  : AppPalette.textPrimary,
                               fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.w600
@@ -362,7 +359,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           const Icon(
                             Icons.check,
                             size: 16,
-                            color: AppColors.whiteColor,
+                            color: AppPalette.brandDark,
                           ),
                       ],
                     ),
@@ -803,13 +800,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       width: MediaQuery.of(context).size.width * 2 / 3,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+        decoration: AppSurfaces.tray(),
         child: Column(
           children: [
             _header(),
             const Divider(
-              color: AppColors.whiteColor,
-              thickness: 0.3,
+              color: AppPalette.borderHairline,
+              thickness: 1,
               indent: 8,
               endIndent: 8,
             ),
@@ -914,7 +911,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.classroom_drawer_icon,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -936,7 +933,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.parentMessaging,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -956,7 +953,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.newsletter,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -1047,7 +1044,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.studentAttendanceDrawer,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -1063,7 +1060,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.staffAttendanceDrawer,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -1106,7 +1103,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: 'Individual Movement',
                                   leading: const Icon(
                                     Icons.directions_walk,
-                                    color: AppColors.themeColor,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     IndividualMovementScreen.routeName,
@@ -1117,7 +1114,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: 'Future Availability',
                                   leading: const Icon(
                                     Icons.calendar_month,
-                                    color: AppColors.themeColor,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     FutureAvailabilityScreen.routeName,
@@ -1158,7 +1155,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.staffMessaging,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -1186,7 +1183,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                         leading: SvgPicture.asset(
                                           MediaRes.parentMessaging,
                                           colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
+                                            AppPalette.textPrimary,
                                             BlendMode.srcIn,
                                           ),
                                         ),
@@ -1209,7 +1206,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                         leading: SvgPicture.asset(
                                           MediaRes.parentMessaging,
                                           colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
+                                            AppPalette.textPrimary,
                                             BlendMode.srcIn,
                                           ),
                                         ),
@@ -1233,7 +1230,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.newsletter,
                                     colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
+                                      AppPalette.textPrimary,
                                       BlendMode.srcIn,
                                     ),
                                   ),
@@ -1313,7 +1310,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 leading: SvgPicture.asset(
                                   MediaRes.settings_drawer_Blue,
                                   colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
+                                    AppPalette.textPrimary,
                                     BlendMode.srcIn,
                                   ),
                                 ),
@@ -1324,7 +1321,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 leading: SvgPicture.asset(
                                   MediaRes.settings_drawer_Blue,
                                   colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
+                                    AppPalette.textPrimary,
                                     BlendMode.srcIn,
                                   ),
                                 ),
@@ -1351,7 +1348,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           return Text(
                             version.isNotEmpty ? "Version : $version" : "",
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.whiteColor),
+                            style: const TextStyle(color: AppPalette.textMuted),
                           );
                         },
                       ),
@@ -1463,19 +1460,16 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
     }
   }
 
-  Color _getIconColor() {
-    if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
-    }
-    return _isExpanded ? AppColors.themeColor : AppColors.whiteColor;
-  }
+  /// True when this tile is the solid pink squircle: the route you are on,
+  /// and not opened out into a panel. An expanded section is a well holding
+  /// its children, so it takes navy ink like the tray does.
+  bool get _isActiveTile => _effectiveIsCurrentRoute && !_isExpanded;
 
-  Color _getTextColor() {
-    if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
-    }
-    return _isExpanded ? AppColors.themeColor : AppColors.whiteColor;
-  }
+  Color _getIconColor() =>
+      _isActiveTile ? AppPalette.onBrand : AppPalette.textPrimary;
+
+  Color _getTextColor() =>
+      _isActiveTile ? AppPalette.onBrand : AppPalette.textPrimary;
 
   @override
   Widget build(BuildContext context) {
@@ -1483,25 +1477,16 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
       onTap: _handleTap,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
-        decoration: BoxDecoration(
-          color: _effectiveIsCurrentRoute || _isExpanded
-              ? AppColors.whiteColor
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            if (_effectiveIsCurrentRoute || _isExpanded)
-              const BoxShadow(
-                blurRadius: 4,
-                color: MaterialHues.black26,
-                offset: Offset(0, 4),
-              ),
-          ],
-        ),
+        decoration: _isActiveTile
+            ? AppSurfaces.navActive(radius: 12)
+            : _isExpanded
+            ? AppSurfaces.sub(radius: 12)
+            : const SkeuDecoration(),
         child: widget.isExpansionEnabled
             ? ExpansionTile(
                 controller: _expansionController,
-                backgroundColor: AppColors.whiteColor,
-                collapsedBackgroundColor: Colors.transparent,
+                backgroundColor: AppColors.transparentColor,
+                collapsedBackgroundColor: AppColors.transparentColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1521,8 +1506,8 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                       ? null
                       : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
-                iconColor: AppColors.themeColor,
-                collapsedIconColor: AppColors.whiteColor,
+                iconColor: AppPalette.textPrimary,
+                collapsedIconColor: _getIconColor(),
                 title: Text(
                   widget.title,
                   maxLines: 1,
@@ -1536,27 +1521,18 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   widget.icon,
                   colorFilter: widget.preserveIconColors
                       ? null
-                      : ColorFilter.mode(
-                          _effectiveIsCurrentRoute
-                              ? AppColors.themeColor
-                              : AppColors.whiteColor,
-                          BlendMode.srcIn,
-                        ),
+                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(
-                    color: _effectiveIsCurrentRoute
-                        ? AppColors.themeColor
-                        : AppColors.whiteColor,
-                  ),
+                  style: TextStyle(color: _getTextColor()),
                 ),
-                tileColor: _effectiveIsCurrentRoute
-                    ? AppColors.whiteColor
-                    : Colors.transparent,
+                // The pink squircle is painted by the Container above, so the
+                // tile itself stays clear and never doubles the fill.
+                tileColor: AppColors.transparentColor,
                 selected: _effectiveIsCurrentRoute,
-                selectedTileColor: AppColors.whiteColor,
+                selectedTileColor: AppColors.transparentColor,
               ),
       ),
     );
@@ -1573,13 +1549,13 @@ class _UnreadBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.paidLegendColor,
+        color: AppPalette.brand,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
-          color: AppColors.whiteColor,
+          color: AppPalette.textOnDark,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -1602,7 +1578,7 @@ class DrawerListTile extends StatelessWidget {
     required this.leading,
     required this.onTap,
     this.horizontalTitleGap = 16,
-    this.textColor = AppColors.themeColor,
+    this.textColor = AppPalette.textPrimary,
     this.trailing,
   });
 
@@ -1620,11 +1596,10 @@ class DrawerListTile extends StatelessWidget {
 
 /// A sub-menu expansion tile for nesting inside an already-expanded
 /// [_CustomExpansionTile] panel (e.g. "Parent Messaging" inside
-/// "Communication"). Unlike [_CustomExpansionTile] — which toggles between
-/// white/themeColor text+icon to stay legible against the drawer's own
-/// colored background when collapsed — this always uses [AppColors.themeColor],
-/// matching the sibling [DrawerListTile] items (e.g. "Staff Messaging") it
-/// sits alongside on the panel's white background.
+/// "Communication"). Unlike [_CustomExpansionTile] — which flips to warm
+/// white on the pink squircle when it is the active route — this always uses
+/// navy ink, matching the sibling [DrawerListTile] items (e.g. "Staff
+/// Messaging") it sits alongside inside the panel's well.
 class _NestedExpansionTile extends StatelessWidget {
   final String title;
   final String icon;
@@ -1640,25 +1615,27 @@ class _NestedExpansionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-      backgroundColor: AppColors.whiteColor,
-      collapsedBackgroundColor: AppColors.whiteColor,
+      // Clear, so the panel's own well shows through rather than stacking a
+      // second tone on top of it.
+      backgroundColor: AppColors.transparentColor,
+      collapsedBackgroundColor: AppColors.transparentColor,
       // Suppresses Flutter's default top/bottom divider border that
       // ExpansionTile draws while expanded.
       shape: const Border(),
       collapsedShape: const Border(),
-      iconColor: AppColors.themeColor,
-      collapsedIconColor: AppColors.themeColor,
+      iconColor: AppPalette.textPrimary,
+      collapsedIconColor: AppPalette.textPrimary,
       leading: SvgPicture.asset(
         icon,
         colorFilter: const ColorFilter.mode(
-          AppColors.themeColor,
+          AppPalette.textPrimary,
           BlendMode.srcIn,
         ),
       ),
       title: Text(
         title,
         maxLines: 1,
-        style: const TextStyle(color: AppColors.themeColor),
+        style: const TextStyle(color: AppPalette.textPrimary),
       ),
       // Indent sub-items relative to this tile's own leading icon so they
       // read as nested children (e.g. "Room Chat"/"Admin Chat" under

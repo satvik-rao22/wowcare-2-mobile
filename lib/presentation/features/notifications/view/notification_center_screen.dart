@@ -59,7 +59,7 @@ class NotificationCenterScreen extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: AppColors.whiteColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       // Same app-wide bottom nav as the shell. The bar handles being rendered
       // outside the shell: tapping a tab routes into that branch via

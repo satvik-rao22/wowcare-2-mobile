@@ -275,7 +275,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
     super.build(context);
 
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,

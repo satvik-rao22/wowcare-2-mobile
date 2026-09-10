@@ -465,7 +465,7 @@ class _StaffOrStudentSelectionBulkMessagingState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       resizeToAvoidBottomInset: true,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(

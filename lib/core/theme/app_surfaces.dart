@@ -192,9 +192,15 @@ class AppSurfaces {
 
   /// A docked bottom bar: the tray, a hairline along its top edge, and its
   /// ambient shadow thrown upward onto the content it covers.
-  static SkeuDecoration bar() => SkeuDecoration(
+  ///
+  /// Pass [topRadius] for a bar whose top corners are rounded. The hairline
+  /// then runs the whole way round, because Flutter can only follow a corner
+  /// radius with a uniform border — at 1px and 7% alpha the three edges you
+  /// gain sit on the screen's own edges and do not read.
+  static SkeuDecoration bar({double topRadius = 0}) => SkeuDecoration(
     color: AppPalette.surfacePage,
-    border: _topHairline,
+    borderRadius: BorderRadius.vertical(top: Radius.circular(topRadius)),
+    border: topRadius > 0 ? _hairline : _topHairline,
     boxShadow: AppElevation.bar,
   );
 
@@ -416,11 +422,12 @@ class AppSurfaces {
   /// The design components page shows a `#FBDEE9` tint here; this app uses
   /// the solid fill instead, which is a deliberate override recorded in
   /// `docs/redesign-flat-skeu-plan.md`.
-  static SkeuDecoration navActive() => SkeuDecoration(
-    color: AppPalette.brand,
-    borderRadius: AppRadius.allLg,
-    insets: AppElevation.bevelColoured,
-  );
+  static SkeuDecoration navActive({double radius = AppRadius.lg}) =>
+      SkeuDecoration(
+        color: AppPalette.brand,
+        borderRadius: BorderRadius.circular(radius),
+        insets: AppElevation.bevelColoured,
+      );
 
   /// The 64x64 well behind an empty state's icon. A well, not a card:
   /// there is nothing here to press.
