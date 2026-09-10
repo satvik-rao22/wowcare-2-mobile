@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/observability/media_upload_trace.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -586,6 +587,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           _uploadedAttachments = attachments;
         });
       }
+      MediaUploadTrace.stage(MediaUploadStage.uploadSucceeded);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -594,16 +596,27 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
             : 'Video uploaded. Processing continues in background.',
         isSuccess: true,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
       // A cancellation (the screen was disposed mid-upload) is expected — don't
       // surface it as an error. Non-cancel failures still show as before.
       if (!(error is DioException && CancelToken.isCancel(error))) {
+        MediaUploadTrace.stage(MediaUploadStage.uploadFailed);
+        // Terminal failure of the whole flow: everything already uploaded is
+        // discarded and the user is back to square one. Still non-fatal — the
+        // UI surfaces it and Save can be retried.
+        MediaUploadTrace.failure(
+          MediaUploadStage.uploadFailed,
+          error,
+          stackTrace,
+        );
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
           message: ApiErrorHandler.extractErrorMessage(error),
           isError: true,
         );
+      } else {
+        MediaUploadTrace.stage(MediaUploadStage.uploadCancelled);
       }
     } finally {
       if (mounted) {
@@ -840,6 +853,24 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     );
   }
 
+  /// Deletes the staged copies of everything this screen uploaded, now that the
+  /// server has confirmed them READY.
+  ///
+  /// Best-effort: anything missed here is caught by the orphan sweep on a later
+  /// app start, so a failure has no user-visible consequence.
+  Future<void> _discardStagedMediaForConfirmedUpload() async {
+    final paths = _uploadedAssetCodeByPath.keys.toList(growable: false);
+    if (paths.isEmpty) return;
+    for (final path in paths) {
+      try {
+        await _editor.discardStagedMedia(path);
+      } catch (_) {
+        // discardStagedMedia never throws by contract; belt-and-braces so one
+        // bad path cannot abort the rest of the cleanup.
+      }
+    }
+  }
+
   Future<void> _pollProcessingStatusOnce() async {
     final sessionCode = _processingSessionCode;
     final assetCodes = _processingAssetCodes;
@@ -886,6 +917,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
               : 'Video ready';
         });
         await _clearPendingProcessingPoll();
+        // THE server-confirmed point: every asset in this session reports
+        // READY, so the bytes are safely server-side and the persistent copy
+        // has done its job. This is the earliest moment it is safe to delete —
+        // a PUT that returned 200 is not enough, because the asset can still
+        // fail processing and need re-uploading from the local file.
+        await _discardStagedMediaForConfirmedUpload();
         return;
       }
       setState(() {

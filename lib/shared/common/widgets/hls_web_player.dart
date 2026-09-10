@@ -1,7 +1,25 @@
 import 'package:better_player_plus/better_player_plus.dart';
-import 'package:flutter/foundation.dart';
+// PIP-DISABLED (App Review 2.5.4, Sept 2026): foundation was imported for
+// `defaultTargetPlatform`, whose only caller (the _policy field) is commented
+// out below; material re-exports everything else this file uses. Restore this
+// import alongside _policy. Restoring PiP also needs `audio` back in
+// UIBackgroundModes (ios/Runner/Info.plist) + a screen recording for review.
+// import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+// PIP-DISABLED (App Review 2.5.4, Sept 2026): restoring PiP requires re-adding
+// `audio` to UIBackgroundModes in ios/Runner/Info.plist plus a screen recording
+// of the PiP control for the review notes.
+//
+// [VideoLifecycleAction] and [VideoLifecyclePolicy] are deliberately left
+// compiling rather than commented out: they are a pure decision table that
+// issues no PiP calls of its own, and video_lifecycle_policy_test.dart still
+// covers them, so the behaviour stays pinned for whoever turns PiP back on.
+// Nothing in the widget consults them while PiP is off — the commented-out
+// didChangeAppLifecycleState below was their only caller, and
+// BetterPlayerConfiguration.handleLifecycle is back to true so the plugin does
+// the pause/resume itself.
 
 /// What [HlsWebPlayer] should do in response to an app lifecycle change.
 enum VideoLifecycleAction { none, enterPip, exitPip, pause, resume }
@@ -88,26 +106,32 @@ class HlsWebPlayer extends StatefulWidget {
   State<HlsWebPlayer> createState() => _HlsWebPlayerState();
 }
 
-class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver {
+// PIP-DISABLED (App Review 2.5.4, Sept 2026): `with WidgetsBindingObserver`
+// dropped with didChangeAppLifecycleState below — it had no other user.
+// Restoring needs `audio` back in UIBackgroundModes + a review screen recording.
+class _HlsWebPlayerState extends State<HlsWebPlayer> {
   BetterPlayerController? _controller;
-  final GlobalKey _playerKey = GlobalKey();
-  final VideoLifecyclePolicy _policy = VideoLifecyclePolicy(
-    defaultTargetPlatform,
-  );
-  bool _isEnteringPip = false;
-  bool _isPipActive = false;
-  bool _wasPlayingBeforeBackground = false;
-  // Asked of the platform once the data source is ready instead of assumed
-  // from the OS, so the control is offered wherever PiP actually works.
-  bool _pipSupported = false;
-  AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
+  // PIP-DISABLED (App Review 2.5.4, Sept 2026): this GlobalKey existed only to
+  // hand enablePictureInPicture() the render box to shrink. Restoring needs
+  // `audio` back in UIBackgroundModes + a review screen recording.
+  // final GlobalKey _playerKey = GlobalKey();
+  // final VideoLifecyclePolicy _policy = VideoLifecyclePolicy(
+  //   defaultTargetPlatform,
+  // );
+  // bool _isEnteringPip = false;
+  // bool _isPipActive = false;
+  // bool _wasPlayingBeforeBackground = false;
+  // // Asked of the platform once the data source is ready instead of assumed
+  // // from the OS, so the control is offered wherever PiP actually works.
+  // bool _pipSupported = false;
+  // AppLifecycleState _lastLifecycleState = AppLifecycleState.resumed;
 
-  // How long to wait for the platform to confirm PiP actually started before
-  // treating the request as refused. better_player_plus starts iOS PiP from a
-  // native delegate ~200ms after the call returns and implements no
-  // `failedToStartPictureInPictureWithError` callback, so a refusal produces
-  // no event at all — see [_confirmPipStarted].
-  static const Duration _pipStartTimeout = Duration(milliseconds: 1200);
+  // // How long to wait for the platform to confirm PiP actually started before
+  // // treating the request as refused. better_player_plus starts iOS PiP from a
+  // // native delegate ~200ms after the call returns and implements no
+  // // `failedToStartPictureInPictureWithError` callback, so a refusal produces
+  // // no event at all — see [_confirmPipStarted].
+  // static const Duration _pipStartTimeout = Duration(milliseconds: 1200);
 
   // The underlying VideoPlayerController we've attached _onVideoValueChanged
   // to, so it can be detached on rebuild/dispose.
@@ -129,10 +153,21 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    // PIP-DISABLED (App Review 2.5.4, Sept 2026): no lifecycle observer while
+    // PiP is off — handleLifecycle:true hands pause/resume back to the plugin.
+    // Restoring needs `audio` back in UIBackgroundModes + a review recording.
+    // WidgetsBinding.instance.addObserver(this);
     _initPlayer();
   }
 
+  // PIP-DISABLED (App Review 2.5.4, Sept 2026): this whole lifecycle hook only
+  // existed to start/stop PiP on backgrounding; with `audio` gone from
+  // UIBackgroundModes iOS refuses the request, so it just burned the
+  // _pipStartTimeout wait before falling back to a pause. handleLifecycle is
+  // back to true in _initPlayer and the plugin pauses/resumes on its own.
+  // Restoring needs `audio` re-added to UIBackgroundModes plus a screen
+  // recording of the PiP control for the review notes.
+  //
   // Leaving the app while a video is playing shrinks it into the floating PiP
   // window instead of pausing it, on iPhone as well as Android. Which
   // lifecycle state that request has to be made from — and whether coming back
@@ -145,45 +180,45 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   // freeze the floating window instead of letting it keep playing. We take
   // over that pause/resume bookkeeping here so an active/about-to-start PiP
   // session is exempted.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final controller = _controller;
-    if (controller == null) return;
-    _lastLifecycleState = state;
-
-    final isPlaying = controller.isPlaying() ?? false;
-    // Recorded on the way out rather than at `paused` alone: on iOS the PiP
-    // request goes out one state earlier, so `paused` can arrive with playback
-    // already handed to the floating window.
-    if (state != AppLifecycleState.resumed && isPlaying && !_isPipActive) {
-      _wasPlayingBeforeBackground = true;
-    }
-
-    final action = _policy.actionFor(
-      state: state,
-      isPlaying: isPlaying,
-      isPipActive: _isPipActive,
-      isEnteringPip: _isEnteringPip,
-      wasPlayingBeforeBackground: _wasPlayingBeforeBackground,
-    );
-
-    switch (action) {
-      case VideoLifecycleAction.enterPip:
-        _handleBackgrounding();
-      case VideoLifecycleAction.exitPip:
-        _exitPipMode();
-      case VideoLifecycleAction.pause:
-        controller.pause();
-      case VideoLifecycleAction.resume:
-        controller.play();
-      case VideoLifecycleAction.none:
-        break;
-    }
-
-    if (state == AppLifecycleState.resumed) {
-      _wasPlayingBeforeBackground = false;
-    }
-  }
+  // @override
+  // void didChangeAppLifecycleState(AppLifecycleState state) {
+  //   final controller = _controller;
+  //   if (controller == null) return;
+  //   _lastLifecycleState = state;
+  //
+  //   final isPlaying = controller.isPlaying() ?? false;
+  //   // Recorded on the way out rather than at `paused` alone: on iOS the PiP
+  //   // request goes out one state earlier, so `paused` can arrive with playback
+  //   // already handed to the floating window.
+  //   if (state != AppLifecycleState.resumed && isPlaying && !_isPipActive) {
+  //     _wasPlayingBeforeBackground = true;
+  //   }
+  //
+  //   final action = _policy.actionFor(
+  //     state: state,
+  //     isPlaying: isPlaying,
+  //     isPipActive: _isPipActive,
+  //     isEnteringPip: _isEnteringPip,
+  //     wasPlayingBeforeBackground: _wasPlayingBeforeBackground,
+  //   );
+  //
+  //   switch (action) {
+  //     case VideoLifecycleAction.enterPip:
+  //       _handleBackgrounding();
+  //     case VideoLifecycleAction.exitPip:
+  //       _exitPipMode();
+  //     case VideoLifecycleAction.pause:
+  //       controller.pause();
+  //     case VideoLifecycleAction.resume:
+  //       controller.play();
+  //     case VideoLifecycleAction.none:
+  //       break;
+  //   }
+  //
+  //   if (state == AppLifecycleState.resumed) {
+  //     _wasPlayingBeforeBackground = false;
+  //   }
+  // }
 
   @override
   void didUpdateWidget(covariant HlsWebPlayer oldWidget) {
@@ -225,9 +260,17 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
       // reports a usable aspect ratio at all and _applyAspectRatio never
       // overrides it.
       aspectRatio: 9 / 16,
+      // PIP-DISABLED (App Review 2.5.4, Sept 2026): back to the plugin default
+      // (true) so playback simply pauses on backgrounding and resumes on
+      // return. It was false only so an active PiP session could be exempted
+      // from that pause. Restoring PiP means setting this back to false AND
+      // re-adding `audio` to UIBackgroundModes, plus a screen recording for
+      // the review notes.
+      //
       // Handled manually in didChangeAppLifecycleState so an active PiP
       // session is exempted from the pause-on-background behaviour.
-      handleLifecycle: false,
+      // handleLifecycle: false,
+      handleLifecycle: true,
       // The reported aspect ratio can't be trusted to tell portrait from
       // landscape (a backend transcode step has been observed delivering a
       // portrait-shot video as a rotation-free 16:9 stream), so fullscreen
@@ -247,6 +290,13 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
         iconsColor: Colors.white,
         textColor: Colors.white,
         enableFullscreen: true,
+        // PIP-DISABLED (App Review 2.5.4, Sept 2026): kept explicitly false so
+        // the plugin's own PiP entry in the overflow menu stays hidden — do
+        // not gate this on isPictureInPictureSupported(), which still returns
+        // true on iOS even though AVPictureInPictureController cannot start
+        // without `audio` in UIBackgroundModes. Restoring PiP needs that key
+        // re-added plus a screen recording for the review notes.
+        //
         // Better Player's built-in PiP callback is not guarded and can issue
         // overlapping native PiP requests. The dedicated control below routes
         // every request through [_enterPipMode] instead.
@@ -331,16 +381,20 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
-    if (event.betterPlayerEventType == BetterPlayerEventType.pipStart) {
-      _isPipActive = true;
-    } else if (event.betterPlayerEventType == BetterPlayerEventType.pipStop) {
-      _isPipActive = false;
-      // Closing the floating window is a deliberate stop, so returning to the
-      // app must not silently restart the video from the pre-background flag.
-      _wasPlayingBeforeBackground = false;
-    }
+    // PIP-DISABLED (App Review 2.5.4, Sept 2026): no PiP session to track.
+    // Restoring needs `audio` back in UIBackgroundModes + a review recording.
+    // if (event.betterPlayerEventType == BetterPlayerEventType.pipStart) {
+    //   _isPipActive = true;
+    // } else if (event.betterPlayerEventType == BetterPlayerEventType.pipStop) {
+    //   _isPipActive = false;
+    //   // Closing the floating window is a deliberate stop, so returning to the
+    //   // app must not silently restart the video from the pre-background flag.
+    //   _wasPlayingBeforeBackground = false;
+    // }
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
-      _refreshPipSupport();
+      // PIP-DISABLED (App Review 2.5.4, Sept 2026): nothing consumes the
+      // support flag while the PiP control is hidden.
+      // _refreshPipSupport();
       _applyAspectRatio();
       // For HLS in particular, the video's real dimensions can still be
       // provisional/default at the moment `initialized` fires — ExoPlayer
@@ -378,116 +432,128 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
     controller.setOverriddenFit(_fitFor(controller.isFullScreen));
   }
 
-  /// Returns whether PiP was actually requested, so callers driven by
-  /// backgrounding (see [_handleBackgrounding]) know whether to fall back
-  /// to a plain pause instead of leaving the video playing off-screen.
-  Future<bool> _enterPipMode() async {
-    if (_isEnteringPip) return false;
-    final controller = _controller;
-    if (controller == null || _playerKey.currentContext == null) return false;
-
-    setState(() => _isEnteringPip = true);
-    try {
-      final supported = await controller.isPictureInPictureSupported();
-      if (!mounted) return false;
-      if (!supported) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PiP is not supported on this device right now.'),
-          ),
-        );
-        return false;
-      }
-      await controller.enablePictureInPicture(_playerKey);
-      return await _confirmPipStarted(controller);
-    } catch (error, stackTrace) {
-      // The plugin delegates this to the platform activity. A lifecycle race
-      // (for example, entering PiP while the player is disposing) used to
-      // bubble up as an unhandled exception and terminate the screen/app.
-      debugPrint('Unable to enter picture-in-picture: $error\n$stackTrace');
-      // enablePictureInPicture() disables the controls before it asks the
-      // platform and only restores them on a `pipStop` event that a failed
-      // request never produces — undo it here or the player is left with a
-      // video the user can no longer pause.
-      controller.setControlsEnabled(true);
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to start picture-in-picture.')),
-      );
-      return false;
-    } finally {
-      if (mounted) setState(() => _isEnteringPip = false);
-    }
-  }
-
-  /// Waits for the platform to confirm PiP is actually on screen.
-  ///
-  /// Android posts `pipStart` from Dart the moment the request is made, so
-  /// this returns immediately there. iOS reports it from an
-  /// `AVPictureInPictureControllerDelegate` callback a moment later, and
-  /// better_player_plus implements no `failedToStartPictureInPicture...`
-  /// counterpart — so a refused request is indistinguishable from a slow one
-  /// except by waiting. Without this, a refusal on iPhone leaves the video
-  /// playing with the controls still locked out by
-  /// `enablePictureInPicture()`.
-  Future<bool> _confirmPipStarted(BetterPlayerController controller) async {
-    if (_isPipActive) return true;
-    const step = Duration(milliseconds: 100);
-    for (var waited = Duration.zero;
-        waited < _pipStartTimeout;
-        waited += step) {
-      await Future<void>.delayed(step);
-      if (!mounted) return _isPipActive;
-      if (_isPipActive) return true;
-    }
-    controller.setControlsEnabled(true);
-    return false;
-  }
-
-  /// Closes the floating window. iOS only — see
-  /// [VideoLifecyclePolicy.exitsPipOnResume].
-  Future<void> _exitPipMode() async {
-    final controller = _controller;
-    if (controller == null || !_isPipActive) return;
-    try {
-      await controller.disablePictureInPicture();
-    } catch (error, stackTrace) {
-      debugPrint('Unable to leave picture-in-picture: $error\n$stackTrace');
-    }
-  }
-
-  /// Asks the platform whether PiP is usable so the control is only offered
-  /// where it works — an iPhone before iOS 14, or an Android build without
-  /// FEATURE_PICTURE_IN_PICTURE, still gets no button.
-  Future<void> _refreshPipSupport() async {
-    final controller = _controller;
-    if (controller == null) return;
-    var supported = false;
-    try {
-      supported = await controller.isPictureInPictureSupported();
-    } catch (error) {
-      debugPrint('Unable to query picture-in-picture support: $error');
-    }
-    if (!mounted || supported == _pipSupported) return;
-    setState(() => _pipSupported = supported);
-  }
-
-  // Falls back to a plain pause when auto-PiP can't be started (unsupported
-  // device, race with disposal, etc.) so the video doesn't keep playing
-  // silently off-screen with nothing showing it.
-  Future<void> _handleBackgrounding() async {
-    final started = await _enterPipMode();
-    if (started) return;
-    // The confirmation wait above can outlast the trip to the background, so
-    // the user may already be looking at the player again by the time we get
-    // here — pausing then would yank playback out from under them.
-    if (_lastLifecycleState == AppLifecycleState.resumed) return;
-    _controller?.pause();
-  }
+  // PIP-DISABLED (App Review 2.5.4, Sept 2026): every native PiP call site
+  // below is dormant — with `audio` commented out of UIBackgroundModes in
+  // ios/Runner/Info.plist, AVPictureInPictureController refuses to start and
+  // enablePictureInPicture() would only lock the controls out for the
+  // _pipStartTimeout wait. Note isPictureInPictureSupported() still returns
+  // true on iOS in that state, so it is not a usable gate on its own.
+  // Restoring: re-add `audio` to UIBackgroundModes, submit that change on its
+  // own, and attach a screen recording of the PiP control for the review notes.
+  //
+  // /// Returns whether PiP was actually requested, so callers driven by
+  // /// backgrounding (see [_handleBackgrounding]) know whether to fall back
+  // /// to a plain pause instead of leaving the video playing off-screen.
+  // Future<bool> _enterPipMode() async {
+  //   if (_isEnteringPip) return false;
+  //   final controller = _controller;
+  //   if (controller == null || _playerKey.currentContext == null) return false;
+  //
+  //   setState(() => _isEnteringPip = true);
+  //   try {
+  //     final supported = await controller.isPictureInPictureSupported();
+  //     if (!mounted) return false;
+  //     if (!supported) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('PiP is not supported on this device right now.'),
+  //         ),
+  //       );
+  //       return false;
+  //     }
+  //     await controller.enablePictureInPicture(_playerKey);
+  //     return await _confirmPipStarted(controller);
+  //   } catch (error, stackTrace) {
+  //     // The plugin delegates this to the platform activity. A lifecycle race
+  //     // (for example, entering PiP while the player is disposing) used to
+  //     // bubble up as an unhandled exception and terminate the screen/app.
+  //     debugPrint('Unable to enter picture-in-picture: $error\n$stackTrace');
+  //     // enablePictureInPicture() disables the controls before it asks the
+  //     // platform and only restores them on a `pipStop` event that a failed
+  //     // request never produces — undo it here or the player is left with a
+  //     // video the user can no longer pause.
+  //     controller.setControlsEnabled(true);
+  //     if (!mounted) return false;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Unable to start picture-in-picture.')),
+  //     );
+  //     return false;
+  //   } finally {
+  //     if (mounted) setState(() => _isEnteringPip = false);
+  //   }
+  // }
+  //
+  // /// Waits for the platform to confirm PiP is actually on screen.
+  // ///
+  // /// Android posts `pipStart` from Dart the moment the request is made, so
+  // /// this returns immediately there. iOS reports it from an
+  // /// `AVPictureInPictureControllerDelegate` callback a moment later, and
+  // /// better_player_plus implements no `failedToStartPictureInPicture...`
+  // /// counterpart — so a refused request is indistinguishable from a slow one
+  // /// except by waiting. Without this, a refusal on iPhone leaves the video
+  // /// playing with the controls still locked out by
+  // /// `enablePictureInPicture()`.
+  // Future<bool> _confirmPipStarted(BetterPlayerController controller) async {
+  //   if (_isPipActive) return true;
+  //   const step = Duration(milliseconds: 100);
+  //   for (var waited = Duration.zero;
+  //       waited < _pipStartTimeout;
+  //       waited += step) {
+  //     await Future<void>.delayed(step);
+  //     if (!mounted) return _isPipActive;
+  //     if (_isPipActive) return true;
+  //   }
+  //   controller.setControlsEnabled(true);
+  //   return false;
+  // }
+  //
+  // /// Closes the floating window. iOS only — see
+  // /// [VideoLifecyclePolicy.exitsPipOnResume].
+  // Future<void> _exitPipMode() async {
+  //   final controller = _controller;
+  //   if (controller == null || !_isPipActive) return;
+  //   try {
+  //     await controller.disablePictureInPicture();
+  //   } catch (error, stackTrace) {
+  //     debugPrint('Unable to leave picture-in-picture: $error\n$stackTrace');
+  //   }
+  // }
+  //
+  // /// Asks the platform whether PiP is usable so the control is only offered
+  // /// where it works — an iPhone before iOS 14, or an Android build without
+  // /// FEATURE_PICTURE_IN_PICTURE, still gets no button.
+  // Future<void> _refreshPipSupport() async {
+  //   final controller = _controller;
+  //   if (controller == null) return;
+  //   var supported = false;
+  //   try {
+  //     supported = await controller.isPictureInPictureSupported();
+  //   } catch (error) {
+  //     debugPrint('Unable to query picture-in-picture support: $error');
+  //   }
+  //   if (!mounted || supported == _pipSupported) return;
+  //   setState(() => _pipSupported = supported);
+  // }
+  //
+  // // Falls back to a plain pause when auto-PiP can't be started (unsupported
+  // // device, race with disposal, etc.) so the video doesn't keep playing
+  // // silently off-screen with nothing showing it.
+  // Future<void> _handleBackgrounding() async {
+  //   final started = await _enterPipMode();
+  //   if (started) return;
+  //   // The confirmation wait above can outlast the trip to the background, so
+  //   // the user may already be looking at the player again by the time we get
+  //   // here — pausing then would yank playback out from under them.
+  //   if (_lastLifecycleState == AppLifecycleState.resumed) return;
+  //   _controller?.pause();
+  // }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    // PIP-DISABLED (App Review 2.5.4, Sept 2026): paired with the addObserver
+    // in initState. Restoring needs `audio` back in UIBackgroundModes + a
+    // review screen recording.
+    // WidgetsBinding.instance.removeObserver(this);
     _controller?.removeEventsListener(_onPlayerEvent);
     _observedVideoController?.removeListener(_applyAspectRatio);
     _controller?.dispose();
@@ -506,7 +572,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
         children: [
           Positioned.fill(
             child: Container(
-              key: _playerKey,
+              // PIP-DISABLED (App Review 2.5.4, Sept 2026): the key only ever
+              // gave enablePictureInPicture() a render box to shrink.
+              // Restoring needs `audio` back in UIBackgroundModes + a review
+              // screen recording.
+              // key: _playerKey,
               color: Colors.black,
               child: Theme(
                 data: Theme.of(context).copyWith(
@@ -530,37 +600,48 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver
               ),
             ),
           ),
+          // PIP-DISABLED (App Review 2.5.4, Sept 2026): the PiP control is
+          // hidden because iOS can no longer start PiP — `audio` is commented
+          // out of UIBackgroundModes in ios/Runner/Info.plist, so
+          // AVPictureInPictureController refuses to start and the button was a
+          // visible dead control. isPictureInPictureSupported() still reports
+          // true on iOS in that state, so the `_pipSupported` gate below does
+          // NOT hide it on its own.
+          // To restore: re-add `audio` to UIBackgroundModes and submit that
+          // change on its own with a screen recording of this control driving
+          // PiP for the review notes.
+          //
           // Shown once the platform has confirmed it can honour the request,
           // so a device without PiP support never gets a dead button.
-          if (_pipSupported)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  // The host screen (ShowFullScreenMedia / ShowFullScreenMediaView)
-                  // now overlays its back/download row on top of the video instead
-                  // of reserving a fixed AppBar — pushed down here so PiP doesn't
-                  // sit underneath it.
-                  padding: const EdgeInsets.only(top: 58, right: 14),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xB010141A),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: const Color(0x6635B6FF)),
-                    ),
-                    child: IconButton(
-                      tooltip: 'PiP',
-                      onPressed: _isEnteringPip ? null : _enterPipMode,
-                      icon: const Icon(
-                        Icons.picture_in_picture_alt_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // if (_pipSupported)
+          //   Positioned(
+          //     top: 0,
+          //     right: 0,
+          //     child: SafeArea(
+          //       child: Padding(
+          //         // The host screen (ShowFullScreenMedia / ShowFullScreenMediaView)
+          //         // now overlays its back/download row on top of the video instead
+          //         // of reserving a fixed AppBar — pushed down here so PiP doesn't
+          //         // sit underneath it.
+          //         padding: const EdgeInsets.only(top: 58, right: 14),
+          //         child: DecoratedBox(
+          //           decoration: BoxDecoration(
+          //             color: const Color(0xB010141A),
+          //             borderRadius: BorderRadius.circular(22),
+          //             border: Border.all(color: const Color(0x6635B6FF)),
+          //           ),
+          //           child: IconButton(
+          //             tooltip: 'PiP',
+          //             onPressed: _isEnteringPip ? null : _enterPipMode,
+          //             icon: const Icon(
+          //               Icons.picture_in_picture_alt_rounded,
+          //               color: Colors.white,
+          //             ),
+          //           ),
+          //         ),
+          //       ),
+          //     ),
+          //   ),
         ],
       ),
     );

@@ -4,9 +4,10 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import '../../../core/utils/app_time.dart';
 
+import '../../../core/observability/media_upload_trace.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
 import '../../../core/network/session_expired_interceptor.dart'
@@ -366,6 +367,71 @@ class ImageUploadService {
     );
   }
 
+  // ── Upload timeout policy ─────────────────────────────────────────────────
+  //
+  // The PUT below used a bare `Dio()` with NO timeouts, so every value was
+  // null and a stalled connection could hang forever with nothing surfacing to
+  // the user. These bound it without killing legitimate large uploads.
+  //
+  // Applied PER REQUEST rather than on a shared client: `uploadClient` is
+  // local to [uploadFileToPresignedUrl] (constructed on the line below and
+  // never escaping it), so nothing here can affect `_apiClient.client` — the
+  // shared instance every other API call uses, whose 20s connect / 30s receive
+  // are deliberately tuned for JSON and would guillotine a video mid-flight.
+
+  /// Connection establishment only — no bytes have moved yet, so this can stay
+  /// tight regardless of file size.
+  static const Duration _uploadConnectTimeout = Duration(seconds: 30);
+
+  /// Waiting for S3's response AFTER the body has been sent. Dio applies
+  /// `receiveTimeout` to `request.close()`, which for a PUT resolves once the
+  /// response headers arrive; S3 validates the `x-amz-checksum-sha256` of a
+  /// large object before answering, so this is generous rather than tight.
+  static const Duration _uploadResponseTimeout = Duration(minutes: 2);
+
+  /// Floor throughput assumed when sizing [_sendTimeoutFor].
+  ///
+  /// **The assumption: 128 KB/s ≈ 1 Mbit/s sustained upload** — a poor but
+  /// working mobile connection. Anything slower than this for the entire
+  /// transfer is treated as a stall rather than a slow success.
+  ///
+  /// This is the number to revisit if uploads start timing out in the field;
+  /// halving it doubles the allowance.
+  static const int _assumedMinUploadBytesPerSecond = 128 * 1024;
+
+  /// Never shorter than this, so a small photo still gets a sane bound instead
+  /// of a fraction of a second.
+  static const Duration _minSendTimeout = Duration(seconds: 60);
+
+  /// Absolute cap, so a wrong content length can never produce an effectively
+  /// infinite timeout — the failure mode being fixed here.
+  static const Duration _maxSendTimeout = Duration(minutes: 45);
+
+  /// Sizes the send timeout to the file actually being uploaded.
+  ///
+  /// Dio's `sendTimeout` is NOT idle-based: it wraps the whole
+  /// `request.addStream(...)` in a single `.timeout()`, so it must cover the
+  /// entire body transfer, not a gap between chunks. A value tuned for JSON
+  /// (the shared client's 30s) would therefore abort any video beyond a few
+  /// megabytes.
+  ///
+  /// Derived from the payload rather than fixed at the 200 MB worst case so a
+  /// 2 MB photo is not given a 28-minute rope: at the assumed floor
+  /// throughput, 200 MB allows ~27 minutes and 2 MB allows the 60s minimum.
+  @visibleForTesting
+  static Duration sendTimeoutForBytes(int contentLengthBytes) =>
+      _sendTimeoutFor(contentLengthBytes);
+
+  static Duration _sendTimeoutFor(int contentLengthBytes) {
+    if (contentLengthBytes <= 0) return _minSendTimeout;
+    final seconds =
+        (contentLengthBytes / _assumedMinUploadBytesPerSecond).ceil();
+    final computed = Duration(seconds: seconds);
+    if (computed < _minSendTimeout) return _minSendTimeout;
+    if (computed > _maxSendTimeout) return _maxSendTimeout;
+    return computed;
+  }
+
   Future<void> uploadFileToPresignedUrl({
     required File file,
     required String presignedPutUrl,
@@ -409,6 +475,10 @@ class ImageUploadService {
     // same way three times slower.
     const maxAttempts = 3;
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      MediaUploadTrace.attempt(attempt, maxAttempts);
+      MediaUploadTrace.stage(
+        attempt == 1 ? MediaUploadStage.putStarted : MediaUploadStage.putRetry,
+      );
       try {
         final response = await uploadClient.putUri<dynamic>(
           putUri,
@@ -417,6 +487,11 @@ class ImageUploadService {
           options: Options(
             headers: headers,
             responseType: ResponseType.plain,
+            // Set here rather than on the client so the shared API Dio is
+            // untouched and each upload gets a window sized to its own payload.
+            connectTimeout: _uploadConnectTimeout,
+            sendTimeout: _sendTimeoutFor(contentLength),
+            receiveTimeout: _uploadResponseTimeout,
             validateStatus: (status) =>
                 status != null && status >= 200 && status < 300,
           ),
@@ -425,6 +500,11 @@ class ImageUploadService {
             if (effectiveTotal <= 0) return;
             final fraction = sent / effectiveTotal;
             final percent = (fraction * 100).clamp(0, 100).round();
+            // A custom key, not a breadcrumb: this fires continuously and
+            // would evict every stage marker from the 64-entry breadcrumb
+            // budget. Overwriting a key is free, so a process killed mid-PUT
+            // still reports exactly how many bytes had gone out.
+            MediaUploadTrace.bytesUploaded(sent, effectiveTotal);
             onProgress?.call(sent, effectiveTotal, percent);
           },
           cancelToken: cancelToken,
@@ -438,10 +518,12 @@ class ImageUploadService {
 
         final status = response.statusCode ?? 0;
         if (status < 200 || status >= 300) {
+          MediaUploadTrace.stage(MediaUploadStage.putFailed);
           throw Exception('Failed to upload file to storage');
         }
+        MediaUploadTrace.stage(MediaUploadStage.putSucceeded);
         return;
-      } on DioException catch (e) {
+      } on DioException catch (e, stackTrace) {
         ApiLogger.logError(
           url: logUrl,
           method: 'PUT',
@@ -449,12 +531,32 @@ class ImageUploadService {
           statusCode: e.response?.statusCode,
           errorData: e.response?.data,
         );
+        MediaUploadTrace.stage(MediaUploadStage.putFailed);
+        // A timeout is a transient stall, not a verdict from the server, so it
+        // goes through the SAME retry path as a dropped connection instead of
+        // failing the upload outright. sendTimeout/receiveTimeout were absent
+        // from this set, so before the timeouts above existed there was nothing
+        // to classify — and adding them without this would have turned an
+        // infinite hang into an immediate, un-retried failure.
         final isTransientNetworkError =
             e.response == null &&
             (e.type == DioExceptionType.connectionError ||
                 e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.sendTimeout ||
+                e.type == DioExceptionType.receiveTimeout ||
                 e.type == DioExceptionType.unknown);
-        if (!isTransientNetworkError || attempt == maxAttempts) rethrow;
+        final willRetry = isTransientNetworkError && attempt < maxAttempts;
+        if (!willRetry && !CancelToken.isCancel(e)) {
+          // Only the final, unrecoverable failure is recorded — a retried blip
+          // is noise. Non-fatal: the caller surfaces it and the user can retry,
+          // so it must not count against crash-free-users.
+          MediaUploadTrace.failure(
+            MediaUploadStage.putFailed,
+            e,
+            stackTrace,
+          );
+        }
+        if (!willRetry) rethrow;
         await Future.delayed(Duration(seconds: attempt));
       }
     }
@@ -472,17 +574,34 @@ class ImageUploadService {
         .toSet();
     if (expectedSet.isEmpty) return;
 
+    MediaUploadTrace.stage(MediaUploadStage.readyPollStarted);
     final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final result = await _getUploadSessionStatus(
         sessionCode: sessionCode,
         expectedAssetCodes: expectedSet,
       );
-      if (result.isReady) return;
+      if (result.isReady) {
+        MediaUploadTrace.stage(MediaUploadStage.readyPollSucceeded);
+        return;
+      }
       if (result.failureMessage != null && result.failureMessage!.isNotEmpty) {
+        // The backend's own message is not breadcrumbed — it is server text
+        // that could name the asset. Only the verdict is.
+        MediaUploadTrace.stageWithDetail(
+          MediaUploadStage.readyPollFailed,
+          'backend_reported_failure',
+        );
         throw Exception(result.failureMessage);
       }
       if (AppTime.nowUtc().isAfter(deadline)) {
+        // Distinct from the failure case: the audit flagged the 2-minute
+        // ceiling as possibly too short for video transcoding, and this is the
+        // breadcrumb that settles it.
+        MediaUploadTrace.stageWithDetail(
+          MediaUploadStage.readyPollFailed,
+          'timeout',
+        );
         throw Exception('Photo processing is taking too long. Please try again.');
       }
       await Future.delayed(pollEvery);
