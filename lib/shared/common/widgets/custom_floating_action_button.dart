@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class CustomFloatingActionButton extends StatelessWidget {
   const CustomFloatingActionButton({
@@ -41,14 +41,11 @@ class CustomFloatingActionButton extends StatelessWidget {
                     ? AppPalette.textMuted
                     : AppPalette.onBrand,
               )
-            : SvgPicture.asset(
-                svgIcon!,
-                height: 28,
-                colorFilter: ColorFilter.mode(
-                  onPressed == null ? AppPalette.textMuted : AppPalette.onBrand,
-                  BlendMode.srcIn,
-                ),
-              ),
+            : AppIcon(
+              svgIcon!,
+              height: 28,
+              color: onPressed == null ? AppPalette.textMuted : AppPalette.onBrand,
+            ),
       ),
     );
   }

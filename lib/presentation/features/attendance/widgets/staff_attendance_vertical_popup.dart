@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -223,10 +223,11 @@ class _StaffPopupMenuItem extends StatelessWidget {
                 color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(
+              child: AppIcon(
                 svgPath,
                 height: AppDimensions.iconMd,
                 width: AppDimensions.iconMd,
+                tone: IconTone.action,
               ),
             ),
           ),

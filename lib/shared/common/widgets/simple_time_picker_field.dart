@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -86,7 +86,7 @@ class SimpleTimePickerField extends StatelessWidget {
                   ? _formatTime12h(time!)
                   : (placeholder ?? 'Select time'),
             ),
-            SvgPicture.asset(MediaRes.clock_icon),
+            AppIcon(MediaRes.clock_icon),
           ],
         ),
       ),

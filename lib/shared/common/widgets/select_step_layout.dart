@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -101,7 +101,7 @@ class SelectStepLayout extends StatelessWidget {
                 top: 8,
                 left: 8,
                 child: IconButton(
-                  icon: SvgPicture.asset(MediaRes.backButton),
+                  icon: AppIcon(MediaRes.backButton),
                   onPressed: () => Navigator.maybePop(context),
                   padding: const EdgeInsets.all(8),
                   constraints: const BoxConstraints(),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
@@ -12,6 +11,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class DateWidget extends StatefulWidget {
   const DateWidget({
@@ -174,13 +174,10 @@ class _DateWidgetState extends State<DateWidget> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SvgPicture.asset(
+              AppIcon(
                 MediaRes.calender_icon,
                 height: 28.0,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryColor,
-                  BlendMode.srcIn,
-                ),
+                color: AppColors.primaryColor,
               ),
             ],
           ),

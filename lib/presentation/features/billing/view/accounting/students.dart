@@ -16,9 +16,9 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentsAccountingSection extends StatefulWidget {
   const StudentsAccountingSection({
@@ -171,10 +171,11 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {},
                               child: Center(
-                                child: SvgPicture.asset(
+                                child: AppIcon(
                                   MediaRes.filterIcon,
                                   width: 20,
                                   height: 20,
+                                  tone: IconTone.action,
                                 ),
                               ),
                             ),

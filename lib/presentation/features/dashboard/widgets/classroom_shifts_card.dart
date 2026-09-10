@@ -4,7 +4,6 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_
 
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 // date formatter used for the scheduling deep-link
 final _ymd = DateFormat('yyyy-MM-dd');
@@ -192,10 +192,11 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                         }
                       },
                       behavior: HitTestBehavior.opaque,
-                      child: SvgPicture.asset(
+                      child: AppIcon(
                         MediaRes.redirectArrowGradientIcon,
                         width: 16,
                         height: 16,
+                        tone: IconTone.action,
                       ),
                     ),
 

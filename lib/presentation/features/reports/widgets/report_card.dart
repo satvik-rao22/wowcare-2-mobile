@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class ReportItem {
   const ReportItem({
@@ -314,11 +314,11 @@ class _ReportFormatIcon extends StatelessWidget {
     if (format == ReportExportFormat.pdf) {
       return Icon(Icons.picture_as_pdf_rounded, size: size, color: color);
     }
-    return SvgPicture.asset(
+    return AppIcon(
       'assets/icons/excel_icon.svg',
       width: size,
       height: size,
-      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      color: color,
     );
   }
 }

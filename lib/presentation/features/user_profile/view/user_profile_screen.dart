@@ -3,7 +3,6 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/src/app_router.dart'
     show AppRoutes, goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -29,6 +28,7 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -649,21 +649,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                 MainAxisAlignment
                                                                     .center,
                                                             children: [
-                                                              SvgPicture.asset(
+                                                              AppIcon(
                                                                 MediaRes
                                                                     .uploadIcon,
-                                                                height: 10,
-                                                                width: 10,
-                                                                colorFilter: ColorFilter.mode(
-                                                                  AppColors
-                                                                      .cardColor
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.92,
-                                                                      ),
-                                                                  BlendMode
-                                                                      .srcIn,
-                                                                ),
+                                                                size: 10,
+                                                                color: AppColors
+                                                                    .cardColor
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.92,
+                                                                    ),
                                                               ),
                                                               const SizedBox(
                                                                 width: 3,

@@ -7,7 +7,6 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/extensions/string_ext.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -15,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -353,14 +353,11 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                     vertical: screenHeight * 0.01,
                                     horizontal: screenWidth * 0.04,
                                   ),
-                                  leadingIcon: SvgPicture.asset(
+                                  leadingIcon: AppIcon(
                                     MediaRes.homeIcon,
                                     height: screenHeight * 0.022,
                                     width: screenHeight * 0.022,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.authAccentTextColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppColors.authAccentTextColor,
                                   ),
                                   selectedTextStyle: TextStyle(
                                     fontFamily: AppFonts.body,

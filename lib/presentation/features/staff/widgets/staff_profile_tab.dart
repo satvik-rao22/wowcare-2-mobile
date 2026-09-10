@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -843,7 +843,7 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
     final labelColor = _getStatusColor(status);
     final bgColor = _getStatusBgColor(status);
     final icon = (normalized == 'ACTIVE' || normalized == 'A')
-        ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
+        ? AppIcon(MediaRes.checkMarkIcon, height: 18, tone: IconTone.success)
         : null;
 
     return ProfileChip(

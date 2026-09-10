@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -18,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   const CreateInvoiceScreen({
@@ -475,14 +475,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
-                      child: SvgPicture.asset(
+                      child: AppIcon(
                         MediaRes.delete_icon,
                         width: 16,
                         height: 16,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.billingStatusError,
-                          BlendMode.srcIn,
-                        ),
+                        color: AppColors.billingStatusError,
                       ),
                     ),
                   ),

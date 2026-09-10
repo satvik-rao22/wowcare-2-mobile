@@ -8,7 +8,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -990,9 +990,10 @@ class _StaffScreenState extends State<StaffScreen> {
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(8),
-                                              child: SvgPicture.asset(
+                                              child: AppIcon(
                                                 MediaRes.filterIcon,
                                                 height: 20,
+                                                tone: IconTone.action,
                                               ),
                                             ),
                                             BlocBuilder<StaffCubit, StaffState>(

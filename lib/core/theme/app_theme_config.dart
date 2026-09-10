@@ -541,6 +541,27 @@ class AppPalette {
   /// A tappable link.
   static const Color textLink = _brand ? BrandRamps.teal700 : LegacyHues.indigo;
 
+  // ── Glyphs ───────────────────────────────────────────────────────────────
+  //
+  // An icon is a *shape* the theme colours in, never a picture that carries
+  // its own palette. 45 of the SVGs in `assets/icons` ship a baked-in
+  // gradient from the previous look, so anything that paints one without a
+  // colour filter renders last season's brand no matter what this file says.
+  // `AppIcon` exists to make that impossible; these are the tones it offers.
+
+  /// The default glyph: navy ink, the same voice as body copy.
+  static const Color iconDefault = textPrimary;
+
+  /// A glyph that supports rather than leads: row affordances, metadata,
+  /// an inactive tab.
+  static const Color iconMuted = textMuted;
+
+  /// A glyph on pink, navy or any other saturated face.
+  static const Color iconOnBrand = textOnDark;
+
+  /// A glyph that *is* the action — a live filter, a selected slot.
+  static const Color iconAction = actionRecommended;
+
   // ── Surfaces ─────────────────────────────────────────────────────────────
 
   /// The scaffold background — the warm tray everything else sits on.

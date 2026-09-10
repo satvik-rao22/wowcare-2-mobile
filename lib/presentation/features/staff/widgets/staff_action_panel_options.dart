@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -187,7 +187,12 @@ class AttendanceActionItem extends StatelessWidget {
                   color: AppColors.attendanceInfoHighlightColor,
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+                child: AppIcon(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                  tone: IconTone.action,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
@@ -237,14 +242,11 @@ class ActionButton extends StatelessWidget {
           opacity: opacity,
           child: Column(
             children: [
-              SvgPicture.asset(
+              AppIcon(
                 svgPath,
                 height: 24,
                 width: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.cardColor,
-                  BlendMode.srcIn,
-                ),
+                color: AppColors.cardColor,
               ),
               const SizedBox(height: 4),
               Text(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// Filter funnel icon button that overlays a red dot on [iconAsset] whenever
 /// [isActive] is true, so the applied-filter state stays visible on the
@@ -31,7 +31,11 @@ class FilterIconButton extends StatelessWidget {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          SvgPicture.asset(iconAsset, height: iconHeight),
+          AppIcon(
+            iconAsset,
+            height: iconHeight,
+            tone: isActive ? IconTone.action : IconTone.standard,
+          ),
           if (isActive)
             Positioned(
               right: -2,

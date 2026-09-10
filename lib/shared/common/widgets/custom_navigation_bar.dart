@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,6 +10,7 @@ import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/src/app_router.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 // ---------------------------------------------------------------------------
 // Responsive sizing — fixed for Bug 3 (iPad split-screen)
@@ -381,16 +381,10 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                     decoration: isActive
                         ? AppSurfaces.navActive(radius: sizes.activeRadius)
                         : const SkeuDecoration(),
-                    child: SvgPicture.asset(
+                    child: AppIcon(
                       _iconFor(item),
                       height: sizes.iconSize,
-                      // srcIn, not dstIn: dstIn uses the glyph as a mask and
-                      // leaves its baked-in gradient showing. srcIn is what
-                      // actually flattens these SVGs to one colour.
-                      colorFilter: ColorFilter.mode(
-                        isActive ? AppPalette.onBrand : AppPalette.textPrimary,
-                        BlendMode.srcIn,
-                      ),
+                      tone: isActive ? IconTone.onBrand : IconTone.standard,
                     ),
                   ),
                   if (badgeCount > 0)

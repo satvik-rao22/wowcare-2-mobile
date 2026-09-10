@@ -4,7 +4,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -314,7 +314,7 @@ class _AttendanceInfoTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -368,7 +368,7 @@ class _AttendanceHoursTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          SvgPicture.asset(MediaRes.timerIcon, height: 30),
+          AppIcon(MediaRes.timerIcon, height: 30),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

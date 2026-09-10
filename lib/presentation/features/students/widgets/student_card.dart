@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -261,7 +261,7 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Tooltip(
                                     message: StudentStrings
                                         .studentIsCurrentlyNapping,
-                                    child: SvgPicture.asset(
+                                    child: AppArtwork(
                                       MediaRes.napIcon.isNotEmpty
                                           ? MediaRes.napIcon
                                           : MediaRes.sleepIcon,

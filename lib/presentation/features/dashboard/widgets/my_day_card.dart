@@ -9,7 +9,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -1772,7 +1772,7 @@ class _ReminderToggleButtonView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SvgPicture.asset(MediaRes.notificationsGradientIcon),
+                      AppIcon(MediaRes.notificationsGradientIcon),
                       const SizedBox(width: 8),
                       ShaderMask(
                         shaderCallback: (bounds) =>

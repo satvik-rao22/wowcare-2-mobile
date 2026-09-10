@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
@@ -40,6 +39,7 @@ import 'package:wowcare/presentation/features/user_profile/view_model/user_profi
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -174,7 +174,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           : null,
       leading: hasBackButton
           ? IconButton(
-              icon: SvgPicture.asset(MediaRes.backButton),
+              icon: AppIcon(MediaRes.backButton),
               onPressed: () {
                 // Use GoRouter's navigation for proper back handling in shell routes.
                 // In StatefulShellRoute, context.canPop() may not work as expected because
@@ -201,7 +201,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : Builder(
               builder: (context) => IconButton(
-                icon: SvgPicture.asset(MediaRes.hamburgerIcon),
+                icon: AppIcon(MediaRes.hamburgerIcon),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
@@ -253,11 +253,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      SvgPicture.asset(
-                        MediaRes.chatsIcon,
-                        width: 22,
-                        height: 22,
-                      ),
+                      AppIcon(MediaRes.chatsIcon, width: 22, height: 22),
                       if (unreadCount > 0)
                         Positioned(
                           right: -6,
@@ -321,7 +317,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        SvgPicture.asset(
+                        AppIcon(
                           MediaRes.notificationsIcon,
                           width: 22,
                           height: 22,
@@ -496,7 +492,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
 
     return PopupMenuButton<int>(
       constraints: const BoxConstraints(maxWidth: 240),
-      icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+      icon: AppIcon(MediaRes.kebabMenu, width: 22, height: 22),
       offset: const Offset(0, 48),
       color: AppPalette.surfaceCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

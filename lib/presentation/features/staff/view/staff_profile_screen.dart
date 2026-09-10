@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cub
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -592,16 +592,11 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            SvgPicture.asset(
+                                            AppIcon(
                                               MediaRes.uploadIcon,
                                               height: 10,
                                               width: 10,
-                                              colorFilter: ColorFilter.mode(
-                                                AppColors.cardColor.withValues(
-                                                  alpha: 0.92,
-                                                ),
-                                                BlendMode.srcIn,
-                                              ),
+                                              color: AppColors.cardColor.withValues( alpha: 0.92, ),
                                             ),
                                             const SizedBox(width: 3),
                                             Text(
@@ -807,14 +802,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
           child: isSvg
-              ? SvgPicture.asset(
-                  asset,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.cardColor,
-                    BlendMode.srcIn,
-                  ),
-                )
+              ? AppIcon(asset, height: 28, color: AppColors.cardColor)
               : Image.asset(asset, height: 28, color: AppColors.cardColor),
         ),
       ),

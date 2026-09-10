@@ -5,7 +5,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -903,7 +903,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SvgPicture.asset(MediaRes.notificationsGradientIcon),
+          AppIcon(MediaRes.notificationsGradientIcon),
           const SizedBox(width: 8),
           ShaderMask(
             shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
@@ -1664,11 +1664,11 @@ class _ChatActionButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.center,
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.communicationIcon,
           width: 24,
           height: 24,
-          colorFilter: const ColorFilter.mode(AppColors.whiteColor, BlendMode.srcIn),
+          color: AppColors.whiteColor,
         ),
       ),
     );

@@ -4,7 +4,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -1456,9 +1456,10 @@ class _StaffDailyFilterCard extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: SvgPicture.asset(
+                        child: AppIcon(
                           MediaRes.filterIcon,
                           height: 20,
+                          tone: IconTone.action,
                         ),
                       ),
                       if (hasActiveFilters)

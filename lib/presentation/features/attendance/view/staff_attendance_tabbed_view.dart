@@ -3,7 +3,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
@@ -560,7 +560,12 @@ class _StaffMenuItem extends StatelessWidget {
               color: AppColors.attendanceInfoHighlightColor,
               shape: BoxShape.circle,
             ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+            child: AppIcon(
+              svgPath,
+              height: 24,
+              width: 24,
+              tone: IconTone.action,
+            ),
           ),
           const SizedBox(height: AppSpacing.s5),
           Text(label, maxLines: 1, style: AppTextStyles.body),

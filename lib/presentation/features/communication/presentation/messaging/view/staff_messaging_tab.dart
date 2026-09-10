@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -1004,9 +1004,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  SvgPicture.asset(
+                                  AppIcon(
                                     MediaRes.filterIcon,
                                     height: 20,
+                                    tone: IconTone.action,
                                   ),
                                   if (_hasActiveContactFilters)
                                     Positioned(

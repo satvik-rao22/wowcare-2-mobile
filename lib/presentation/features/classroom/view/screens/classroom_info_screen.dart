@@ -6,7 +6,6 @@ import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -44,6 +43,7 @@ import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom
 import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({
@@ -943,7 +943,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                           IconButton(
                             tooltip: 'Back',
                             onPressed: () => Navigator.pop(context),
-                            icon: SvgPicture.asset(
+                            icon: AppIcon(
                               MediaRes.classroomInfoIcon,
                               height: 32,
                             ),

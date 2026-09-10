@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class EditStudentPhysicalExamScreen extends StatefulWidget {
   const EditStudentPhysicalExamScreen({
@@ -281,13 +281,10 @@ class _EditStudentPhysicalExamScreenState
                           fontFamily: AppFonts.body,
                         ),
                       ),
-                      SvgPicture.asset(
+                      AppIcon(
                         MediaRes.calender_icon,
                         height: 20,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.primaryColor,
-                          BlendMode.srcIn,
-                        ),
+                        color: AppColors.primaryColor,
                       ),
                     ],
                   ),

@@ -59,7 +59,7 @@
 //           ),
 //           GestureDetector(
 //             onTap: onRemove,
-//             child: SvgPicture.asset(MediaRes.delete_icon),
+//             child: AppIcon(MediaRes.delete_icon, tone: IconTone.danger),
 //           ),
 //         ],
 //       ),

@@ -4,7 +4,6 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -42,6 +41,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
 /// "Assign Students to Classroom" sheet). The Students-tab card listens and
@@ -1350,7 +1350,7 @@ class _ClassroomStudentsTabCardViewState
                                                 child: Row(
                                                   children: [
                                                     isSvg
-                                                        ? SvgPicture.asset(
+                                                        ? AppArtwork(
                                                             entry.key,
                                                             width: 24,
                                                             height: 24,

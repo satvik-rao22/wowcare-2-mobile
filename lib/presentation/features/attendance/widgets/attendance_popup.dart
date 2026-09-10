@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -1565,7 +1565,12 @@ class AttendancePopupActionButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SvgPicture.asset(icon, height: iconSize, width: iconSize),
+              AppIcon(
+                icon,
+                height: iconSize,
+                width: iconSize,
+                tone: IconTone.action,
+              ),
               const SizedBox(height: AppSpacing.xxs),
               Flexible(
                 child: Text(

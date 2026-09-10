@@ -4,7 +4,6 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
@@ -46,6 +45,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -352,17 +352,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
     final med = (health.medications ?? '').trim();
     if (med.isNotEmpty) {
-      addLine(
-        med,
-        SvgPicture.asset(MediaRes.healthIcon, height: 22, width: 22),
-      );
+      addLine(med, AppIcon(MediaRes.healthIcon, height: 22, width: 22));
     }
     final allergy = (health.allergy ?? '').trim();
     if (allergy.isNotEmpty) {
-      addLine(
-        allergy,
-        SvgPicture.asset(MediaRes.alertIcon, height: 22, width: 22),
-      );
+      addLine(allergy, AppIcon(MediaRes.alertIcon, height: 22, width: 22));
     }
     final diet = (health.dietRestrictions ?? '').trim();
     if (diet.isNotEmpty) {
@@ -371,7 +365,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (health.photoPermission == false) {
       addLine(
         StudentStrings.photoPermissionNotGranted,
-        SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
+        AppIcon(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
 
@@ -844,16 +838,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          SvgPicture.asset(
+                                          AppIcon(
                                             MediaRes.uploadIcon,
                                             height: 10,
                                             width: 10,
-                                            colorFilter: ColorFilter.mode(
-                                              AppColors.whiteColor.withValues(
-                                                alpha: 0.92,
-                                              ),
-                                              BlendMode.srcIn,
-                                            ),
+                                            color: AppColors.whiteColor.withValues( alpha: 0.92, ),
                                           ),
                                           const SizedBox(width: 3),
                                           Text(
@@ -998,7 +987,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.healthIcon,
                                       height: 20,
                                       width: 20,
@@ -1009,7 +998,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.alertIcon,
                                       height: 20,
                                       width: 20,
@@ -1020,7 +1009,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.cameraIcon,
                                       height: 20,
                                       width: 20,
@@ -1325,14 +1314,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: isSvg
-                ? SvgPicture.asset(
-                    asset,
-                    height: 28,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.whiteColor,
-                      BlendMode.srcIn,
-                    ),
-                  )
+                ? AppIcon(asset, height: 28, color: AppColors.whiteColor)
                 : Image.asset(asset, height: 28, color: AppColors.whiteColor),
           ),
         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -27,6 +26,7 @@ import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// One value at a time: which classroom + tab an ALREADY-alive
 /// [ClassroomScreen] should jump to right now.
@@ -519,10 +519,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                                     ),
                                   );
                                 },
-                          icon: SvgPicture.asset(
-                            MediaRes.classroomInfoIcon,
-                            height: 32,
-                          ),
+                          icon: AppIcon(MediaRes.classroomInfoIcon, height: 32),
                         ),
                       ],
                     ),

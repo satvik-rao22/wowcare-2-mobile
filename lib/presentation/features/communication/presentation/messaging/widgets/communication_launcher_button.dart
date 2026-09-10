@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// Gradient pill button used by [MessagingEntryScreen] to launch a
 /// communication module (Staff Messaging / Admin Chat / Room Chat).
@@ -92,14 +92,11 @@ class _CommunicationLauncherButtonState
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SvgPicture.asset(
+                  AppIcon(
                     widget.iconAsset,
                     width: widget.iconSize,
                     height: widget.iconSize,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.messagingOnAccent,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.messagingOnAccent,
                   ),
                   SizedBox(width: widget.iconSize * 0.46),
                   Flexible(

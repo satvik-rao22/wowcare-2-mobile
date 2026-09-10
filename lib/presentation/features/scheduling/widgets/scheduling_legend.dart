@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_media_res.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class SchedulingLegend extends StatelessWidget {
   const SchedulingLegend({super.key});
@@ -18,13 +18,21 @@ class SchedulingLegend extends StatelessWidget {
           children: [
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.availableHoursIcon),
+                icon: AppIcon(
+                  MediaRes.availableHoursIcon,
+                  size: 18,
+                  tone: IconTone.secondary,
+                ),
                 label: 'Available',
               ),
             ),
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.scheduledHoursIcon),
+                icon: AppIcon(
+                  MediaRes.scheduledHoursIcon,
+                  size: 18,
+                  tone: IconTone.success,
+                ),
                 label: 'Scheduled',
               ),
             ),
@@ -35,13 +43,21 @@ class SchedulingLegend extends StatelessWidget {
           children: [
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.notPublishedIcon),
+                icon: AppIcon(
+                  MediaRes.notPublishedIcon,
+                  size: 18,
+                  tone: IconTone.muted,
+                ),
                 label: 'Not Published',
               ),
             ),
             Expanded(
               child: _LegendItem(
-                icon: _SvgIcon(asset: MediaRes.publishedIcon),
+                icon: AppIcon(
+                  MediaRes.publishedIcon,
+                  size: 18,
+                  tone: IconTone.action,
+                ),
                 label: 'Published',
               ),
             ),
@@ -106,22 +122,6 @@ class _LegendItem extends StatelessWidget {
   }
 }
 
-class _SvgIcon extends StatelessWidget {
-  const _SvgIcon({required this.asset, this.colorFilter});
-
-  final String asset;
-  final ColorFilter? colorFilter;
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      asset,
-      width: 18,
-      height: 18,
-      colorFilter: colorFilter,
-    );
-  }
-}
 
 /// Week-view classroom column icon for forecast `blockStatus`.
 class RatioStatusIcon extends StatelessWidget {

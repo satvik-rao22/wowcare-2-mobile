@@ -21,7 +21,7 @@ import 'package:wowcare/presentation/features/students/view/edit_student_physica
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentDatesTabCard extends StatefulWidget {
   const StudentDatesTabCard({
@@ -227,13 +227,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final result =
@@ -282,13 +279,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
                                   : '',
-                              suffix: SvgPicture.asset(
+                              suffix: AppIcon(
                                 MediaRes.calender_icon,
                                 height: 20.0,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
+                                color: AppColors.primaryColor,
                               ),
                               onTap: () async {
                                 final result =

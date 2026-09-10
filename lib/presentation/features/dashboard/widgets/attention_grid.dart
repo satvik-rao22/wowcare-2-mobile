@@ -4,7 +4,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -716,7 +716,12 @@ class _StatusPill extends StatelessWidget {
           ),
           if (showThumbDown) ...[
             const SizedBox(width: 6),
-            SvgPicture.asset(MediaRes.thumbDown, width: 14, height: 14),
+            AppIcon(
+              MediaRes.thumbDown,
+              width: 14,
+              height: 14,
+              tone: IconTone.danger,
+            ),
           ],
         ],
       ),

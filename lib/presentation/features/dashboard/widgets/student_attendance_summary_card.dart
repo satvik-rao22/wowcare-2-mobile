@@ -4,7 +4,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -266,7 +266,7 @@ class _StudentAttendanceSummaryCardState
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -389,7 +389,7 @@ class _StudentAttendanceSummaryCardState
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

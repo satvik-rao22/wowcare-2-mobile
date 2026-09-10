@@ -11,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_docume
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -454,13 +454,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                           ),
                         ),
                       ),
-                      SvgPicture.asset(
+                      AppIcon(
                         MediaRes.calender_icon,
                         height: responsive.isTablet ? 28.0 : 24.0,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.primaryColor,
-                          BlendMode.srcIn,
-                        ),
+                        color: AppColors.primaryColor,
                       ),
                     ],
                   ),
@@ -531,13 +528,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                         ),
                       ),
                     ),
-                    SvgPicture.asset(
+                    AppIcon(
                       MediaRes.uploadIcon,
                       height: responsive.isTablet ? 28.0 : 24.0,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.primaryColor,
-                        BlendMode.srcIn,
-                      ),
+                      color: AppColors.primaryColor,
                     ),
                   ],
                 ),

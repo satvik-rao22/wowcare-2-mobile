@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
@@ -49,10 +49,11 @@ class DashboardCardHeader extends StatelessWidget {
           GestureDetector(
             onTap: onRedirect,
             behavior: HitTestBehavior.opaque,
-            child: SvgPicture.asset(
+            child: AppIcon(
               MediaRes.redirectArrowGradientIcon,
               width: 16,
               height: 16,
+              tone: IconTone.action,
             ),
           ),
         ],

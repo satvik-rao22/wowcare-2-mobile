@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -215,16 +215,18 @@ class _DeleteConfirmationBottomSheetState
               // Delete icon at the top center
               Center(
                 child: isActivityApprove
-                    ? SvgPicture.asset(
+                    ? AppIcon(
                         MediaRes.greenCheckCircleIcon,
                         width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        tone: IconTone.success,
                       )
                     : isActivityReject
-                    ? SvgPicture.asset(
+                    ? AppIcon(
                         MediaRes.redCrossCircleIcon,
                         width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        tone: IconTone.danger,
                       )
                     : Image.asset(
                         'assets/icons/delete.png',
@@ -245,18 +247,11 @@ class _DeleteConfirmationBottomSheetState
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: SvgPicture.asset(
+                              child: AppIcon(
                                 MediaRes.formDeleteIcon,
-                                colorFilter: const ColorFilter.mode(
-                                  AppPalette.onBrand,
-                                  BlendMode.srcIn,
-                                ),
-                                width: isLargeTablet
-                                    ? 32.0
-                                    : (isTablet ? 28.0 : 24.0),
-                                height: isLargeTablet
-                                    ? 32.0
-                                    : (isTablet ? 28.0 : 24.0),
+                                color: AppPalette.onBrand,
+                                width: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
+                                height: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
                               ),
                             ),
                           );

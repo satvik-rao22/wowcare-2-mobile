@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -248,7 +248,7 @@ class _HourChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(iconAsset, width: 13, height: 13),
+        AppIcon(iconAsset, width: 13, height: 13),
         const SizedBox(width: 2),
         Text(
           '${formatSchedulingHours(hours)}h',
@@ -428,12 +428,7 @@ class ShiftHoursTile extends StatelessWidget {
               ],
             ),
           ),
-          SvgPicture.asset(
-            icon,
-            width: 32,
-            height: 32,
-            fit: BoxFit.contain,
-          ),
+          AppIcon(icon, width: 32, height: 32),
         ],
       ),
     );

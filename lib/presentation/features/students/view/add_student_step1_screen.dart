@@ -30,7 +30,6 @@ import 'package:wowcare/presentation/features/students/view_model/student_create
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -39,6 +38,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -1297,13 +1297,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                     ),
                   ),
                   AppSpacing.gapHXxs,
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

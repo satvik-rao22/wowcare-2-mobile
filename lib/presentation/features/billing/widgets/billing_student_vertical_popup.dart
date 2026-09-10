@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
 
@@ -329,16 +329,13 @@ class _PopupActionButton extends StatelessWidget {
                 width: 24,
                 child: Center(
                   child: iconPath != null
-                      ? SvgPicture.asset(
-                          iconPath!,
-                          height: iconSize,
-                          width: iconSize,
-                          fit: BoxFit.contain,
-                          colorFilter: const ColorFilter.mode(
-                            AppColors.billingCardOnColorText,
-                            BlendMode.srcIn,
-                          ),
-                        )
+                      ? AppIcon(
+                        iconPath!,
+                        height: iconSize,
+                        width: iconSize,
+                        fit: BoxFit.contain,
+                        color: AppColors.billingCardOnColorText,
+                      )
                       : Icon(
                           iconData,
                           color: AppColors.billingCardOnColorText,
@@ -558,15 +555,12 @@ class _GradientIcon extends StatelessWidget {
         ).createShader(bounds);
       },
       child: iconPath != null
-          ? SvgPicture.asset(
-              iconPath!,
-              height: size,
-              width: size,
-              colorFilter: const ColorFilter.mode(
-                AppColors.billingCardOnColorText,
-                BlendMode.srcIn,
-              ),
-            )
+          ? AppIcon(
+            iconPath!,
+            height: size,
+            width: size,
+            color: AppColors.billingCardOnColorText,
+          )
           : Icon(
               iconData,
               size: size,

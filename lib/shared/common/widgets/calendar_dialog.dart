@@ -1,7 +1,7 @@
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -372,7 +372,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           Column(
                             children: [
                               const SizedBox(height: 10),
-                              SvgPicture.asset(MediaRes.saperator),
+                              AppIcon(MediaRes.saperator, tone: IconTone.muted),
                             ],
                           ),
                           const SizedBox(width: 10),

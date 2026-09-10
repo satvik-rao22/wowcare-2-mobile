@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -925,7 +925,12 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                   color: AppColors.studentInfoColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+                child: AppIcon(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                  tone: IconTone.action,
+                ),
               ),
               const SizedBox(height: AppSpacing.s5),
               Text(
@@ -1067,14 +1072,11 @@ class _ActionButton extends StatelessWidget {
           opacity: opacity,
           child: Column(
             children: [
-              SvgPicture.asset(
+              AppIcon(
                 svgPath,
                 height: 24,
                 width: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.whiteColor,
-                  BlendMode.srcIn,
-                ),
+                color: AppColors.whiteColor,
               ),
               AppSpacing.gapVXxs,
               Text(

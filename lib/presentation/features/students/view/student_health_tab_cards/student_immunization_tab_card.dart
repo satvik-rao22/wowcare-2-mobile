@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentImmunizationTabCard extends StatefulWidget {
   const StudentImmunizationTabCard({
@@ -218,13 +218,10 @@ class _StudentImmunizationTabCardState
                                   value: selectedDate != null
                                       ? _apiFormatter.format(selectedDate!)
                                       : '',
-                                  suffix: SvgPicture.asset(
+                                  suffix: AppIcon(
                                     MediaRes.calender_icon,
                                     height: 20.0,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.primaryColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppColors.primaryColor,
                                   ),
                                   onTap: () async {
                                     final result =
@@ -270,13 +267,10 @@ class _StudentImmunizationTabCardState
                                 value: selectedDate != null
                                     ? _apiFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final result =

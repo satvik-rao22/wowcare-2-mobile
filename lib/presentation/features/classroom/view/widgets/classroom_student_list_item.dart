@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -160,7 +160,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                               top: 0,
                               child: Tooltip(
                                 message: 'Student is currently napping',
-                                child: SvgPicture.asset(
+                                child: AppArtwork(
                                   // Guard against empty path in assets
                                   MediaRes.napIcon.isNotEmpty
                                       ? MediaRes.napIcon
@@ -214,7 +214,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                     message:
                         entry.value["info"] ?? getDefaultIconDetail(entry.key),
                     child: isSvg
-                        ? SvgPicture.asset(iconPath, height: 18)
+                        ? AppArtwork(iconPath, height: 18)
                         : Image.asset(iconPath, height: 18),
                   ),
                 );
@@ -421,7 +421,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           isSvg
-              ? SvgPicture.asset(iconPath, height: 24, width: 24)
+              ? AppArtwork(iconPath, height: 24, width: 24)
               : Image.asset(iconPath, height: 24, width: 24),
           const SizedBox(width: 16),
           Expanded(

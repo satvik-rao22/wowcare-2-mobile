@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/utils/attendance_events.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class ActivityFeedScreen extends StatefulWidget {
   const ActivityFeedScreen({
@@ -297,10 +297,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                                       ),
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.uploadCloudIcon,
                                       width: iconSize,
                                       height: iconSize,
+                                      tone: IconTone.action,
                                     ),
                                   ),
                                 );

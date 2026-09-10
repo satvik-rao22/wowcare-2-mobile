@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 
@@ -449,34 +449,20 @@ class SchedulingBlockStatusStyle {
 
       case SchedulingBlockStatusKind.inRatio:
 
-        return SvgPicture.asset(
-
+        return AppIcon(
           MediaRes.greenCheckCircleIcon,
-
           width: size,
-
           height: size,
-
+          tone: IconTone.success,
         );
 
       case SchedulingBlockStatusKind.underRatio:
 
-        return SvgPicture.asset(
-
+        return AppIcon(
           MediaRes.alertTriangleIcon,
-
           width: size,
-
           height: size,
-
-          colorFilter: const ColorFilter.mode(
-
-            AppColors.errorColor,
-
-            BlendMode.srcIn,
-
-          ),
-
+          color: AppColors.errorColor,
         );
 
       case SchedulingBlockStatusKind.extraStaff:

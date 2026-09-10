@@ -8,7 +8,7 @@ import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
@@ -908,12 +908,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Room Chat',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.classroom_drawer_icon,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -930,12 +927,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showAdminChatDrawer)
                                 DrawerListTile(
                                   title: 'Admin Chat',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.parentMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -950,12 +944,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.newsletter,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     ParentNewsletterScreen.routeName,
@@ -1041,12 +1032,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStudentAttendance)
                                 DrawerListTile(
                                   title: 'Student Attendance',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.studentAttendanceDrawer,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     StudentAttendanceTabbedView.routeName,
@@ -1057,12 +1045,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: isStaff
                                       ? 'My Attendance'
                                       : 'Staff Attendance',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.staffAttendanceDrawer,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () {
                                     if (isStaff) {
@@ -1152,12 +1137,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Staff Messaging',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.staffMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -1180,12 +1162,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showParentMessagingDrawer)
                                       DrawerListTile(
                                         title: 'Room Chat',
-                                        leading: SvgPicture.asset(
+                                        leading: AppIcon(
                                           MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppPalette.textPrimary,
-                                            BlendMode.srcIn,
-                                          ),
+                                          color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
                                           count: unreadState.unreadFor(
@@ -1203,12 +1182,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showAdminChatDrawer)
                                       DrawerListTile(
                                         title: 'Admin Chat',
-                                        leading: SvgPicture.asset(
+                                        leading: AppIcon(
                                           MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppPalette.textPrimary,
-                                            BlendMode.srcIn,
-                                          ),
+                                          color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
                                           count: unreadState.unreadFor(
@@ -1227,12 +1203,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.newsletter,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppPalette.textPrimary,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     MessagingScreen.newsletterRoute,
@@ -1257,7 +1230,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showClassroomScheduling)
                                 DrawerListTile(
                                   title: 'Classroom Scheduling',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.classroom_Schedule_drawer_icon,
                                   ),
                                   onTap: () =>
@@ -1266,7 +1239,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffScheduling)
                                 DrawerListTile(
                                   title: 'Staff Scheduling',
-                                  leading: SvgPicture.asset(
+                                  leading: AppIcon(
                                     MediaRes.staff_Schedule_drawer_icon,
                                   ),
                                   onTap: () => _navigate(
@@ -1307,23 +1280,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             children: [
                               DrawerListTile(
                                 title: 'Privacy Policy',
-                                leading: SvgPicture.asset(
+                                leading: AppIcon(
                                   MediaRes.settings_drawer_Blue,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppPalette.textPrimary,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppPalette.textPrimary,
                                 ),
                                 onTap: () {},
                               ),
                               DrawerListTile(
                                 title: 'Terms & Conditions',
-                                leading: SvgPicture.asset(
+                                leading: AppIcon(
                                   MediaRes.settings_drawer_Blue,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppPalette.textPrimary,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppPalette.textPrimary,
                                 ),
                                 onTap: () {},
                               ),
@@ -1500,12 +1467,9 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                     _isExpanded = expanded;
                   });
                 },
-                leading: SvgPicture.asset(
-                  widget.icon,
-                  colorFilter: widget.preserveIconColors
-                      ? null
-                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
-                ),
+                leading: widget.preserveIconColors
+                    ? AppArtwork(widget.icon)
+                    : AppIcon(widget.icon, color: _getIconColor()),
                 iconColor: AppPalette.textPrimary,
                 collapsedIconColor: _getIconColor(),
                 title: Text(
@@ -1517,12 +1481,9 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 trailing: const Icon(Icons.keyboard_arrow_down),
               )
             : ListTile(
-                leading: SvgPicture.asset(
-                  widget.icon,
-                  colorFilter: widget.preserveIconColors
-                      ? null
-                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
-                ),
+                leading: widget.preserveIconColors
+                    ? AppArtwork(widget.icon)
+                    : AppIcon(widget.icon, color: _getIconColor()),
                 title: Text(
                   widget.title,
                   maxLines: 1,
@@ -1625,13 +1586,7 @@ class _NestedExpansionTile extends StatelessWidget {
       collapsedShape: const Border(),
       iconColor: AppPalette.textPrimary,
       collapsedIconColor: AppPalette.textPrimary,
-      leading: SvgPicture.asset(
-        icon,
-        colorFilter: const ColorFilter.mode(
-          AppPalette.textPrimary,
-          BlendMode.srcIn,
-        ),
-      ),
+      leading: AppIcon(icon, color: AppPalette.textPrimary),
       title: Text(
         title,
         maxLines: 1,

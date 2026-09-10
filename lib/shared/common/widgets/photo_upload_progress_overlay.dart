@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// Dark scrim + percentage pill shown over an avatar while a profile photo or
 /// classroom logo is uploading.
@@ -80,14 +80,11 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SvgPicture.asset(
+                        AppIcon(
                           MediaRes.uploadIcon,
                           height: 10,
                           width: 10,
-                          colorFilter: ColorFilter.mode(
-                            AppPalette.textOnDark.withValues(alpha: 0.92),
-                            BlendMode.srcIn,
-                          ),
+                          color: AppPalette.textOnDark.withValues(alpha: 0.92),
                         ),
                         const SizedBox(width: 3),
                         Text(

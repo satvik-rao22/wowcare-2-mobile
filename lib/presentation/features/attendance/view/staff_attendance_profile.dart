@@ -3,7 +3,6 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
@@ -38,6 +37,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_s
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 // enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 enum StaffProfileAbsentMarkMethod {
@@ -63,66 +63,51 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
     case StaffProfileAbsentMarkMethod.gps:
       return Tooltip(
         message: 'GPS',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.gpsMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.qr:
       return Tooltip(
         message: 'QR',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.qrAttendanceIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.kiosk:
       return Tooltip(
         message: 'Kiosk',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.kioskAttendenceIcons,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.app:
       return Tooltip(
         message: 'APP',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.web:
       return Tooltip(
         message: 'WEB',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
 
@@ -130,56 +115,44 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
       // TODO: Handle this case.
       return Tooltip(
         message: 'PIN',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.pinMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.transfer:
       // TODO: Handle this case.
       return Tooltip(
         message: 'Transfer',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.transferMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.nfc:
       // TODO: Handle this case.
       return Tooltip(
         message: 'NFC',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.nfcMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.biometric:
       // TODO: Handle this case.
       return Tooltip(
         message: 'Biometric',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.biometricMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.system:
@@ -187,14 +160,11 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
       // gear/"System" indicator.
       return Tooltip(
         message: 'System',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.systemMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
   }

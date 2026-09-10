@@ -1,7 +1,7 @@
 import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
@@ -578,9 +578,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                       child: Stack(
                                         clipBehavior: Clip.none,
                                         children: [
-                                          SvgPicture.asset(
+                                          AppIcon(
                                             MediaRes.filterIcon,
                                             height: 20,
+                                            tone: IconTone.action,
                                           ),
                                           if (_hasVisibleFilters)
                                             Positioned(

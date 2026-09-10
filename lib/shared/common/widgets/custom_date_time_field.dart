@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -14,6 +13,7 @@ import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
@@ -336,16 +336,11 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SvgPicture.asset(
+                AppIcon(
                   widget.isTime ? MediaRes.clock_icon : MediaRes.calender_icon,
                   width: calHelper.dayCellSize * 0.7,
                   height: calHelper.dayCellSize * 0.7,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.primaryColor.withValues(
-                      alpha: widget.isDisabled == true ? 0.5 : 1.0,
-                    ),
-                    BlendMode.srcIn,
-                  ),
+                  color: AppColors.primaryColor.withValues( alpha: widget.isDisabled == true ? 0.5 : 1.0, ),
                 ),
               ],
             ),

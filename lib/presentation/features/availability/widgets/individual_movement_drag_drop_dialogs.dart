@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -8,6 +7,7 @@ import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class MovementDragDropDecision {
   const MovementDragDropDecision({
@@ -267,13 +267,10 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                       ),
                       child: Row(
                         children: [
-                          SvgPicture.asset(
+                          AppIcon(
                             MediaRes.calender_icon,
                             height: 18,
-                            colorFilter: const ColorFilter.mode(
-                              AppColors.primaryColor,
-                              BlendMode.srcIn,
-                            ),
+                            color: AppColors.primaryColor,
                           ),
                           const SizedBox(width: 10),
                           Text(

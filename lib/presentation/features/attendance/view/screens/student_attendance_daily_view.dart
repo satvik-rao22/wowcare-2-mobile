@@ -44,7 +44,7 @@ import 'package:wowcare/presentation/features/students/view/student_filter_scree
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
   const StudentAttendanceDailyViewScreen({
@@ -1580,9 +1580,10 @@ class _StudentDailyFilterCard extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: SvgPicture.asset(
+                        child: AppIcon(
                           MediaRes.filterIcon,
                           height: 20,
+                          tone: IconTone.action,
                         ),
                       ),
                       if (hasActiveFilters)

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -19,6 +18,7 @@ import 'package:wowcare/presentation/features/classroom/forms/widgets/assign_cla
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// [StaffClassroomItem.profilePictureUrl] can hold either a full URL or a
 /// bare media asset code — [DocumentImageWidget] needs to know which.
@@ -357,7 +357,10 @@ class _StaffConfirmationView extends StatelessWidget {
                           ),
                           GestureDetector(
                             onTap: () => cubit.removeStaff(staff),
-                            child: SvgPicture.asset(MediaRes.delete_icon),
+                            child: AppIcon(
+                              MediaRes.delete_icon,
+                              tone: IconTone.danger,
+                            ),
                           ),
                         ],
                       ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
@@ -244,10 +244,11 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {},
                         child: Center(
-                          child: SvgPicture.asset(
+                          child: AppIcon(
                             MediaRes.filterIcon,
                             width: 20,
                             height: 20,
+                            tone: IconTone.action,
                           ),
                         ),
                       ),

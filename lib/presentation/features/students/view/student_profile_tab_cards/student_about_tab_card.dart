@@ -8,7 +8,6 @@ import 'package:wowcare/domain/features/student/entities/student_regular_schedul
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -33,6 +32,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_tags_edit_sheet.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -998,7 +998,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     }
 
     final icon = isActive
-        ? SvgPicture.asset(MediaRes.checkMarkIcon, height: 18)
+        ? AppIcon(MediaRes.checkMarkIcon, height: 18, tone: IconTone.success)
         : null;
 
     return _Chip(

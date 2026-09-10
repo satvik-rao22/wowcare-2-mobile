@@ -4,7 +4,7 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -2557,9 +2557,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                   children: [
                                     Padding(
                                       padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
+                                      child: AppIcon(
                                         MediaRes.filterIcon,
                                         height: 20,
+                                        tone: IconTone.action,
                                       ),
                                     ),
                                     Builder(
@@ -2872,10 +2873,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                       .endsWith(
                                                                         '.svg',
                                                                       )) {
-                                                                    return SvgPicture.asset(
+                                                                    return AppArtwork(
                                                                       iconPath,
-                                                                      fit: BoxFit
-                                                                          .contain,
+                                                                      fit: BoxFit.contain,
                                                                     );
                                                                   }
                                                                   return Image.asset(
@@ -3340,13 +3340,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 ),
               ),
               const SizedBox(width: 4),
-              SvgPicture.asset(
+              AppIcon(
                 MediaRes.calender_icon,
                 height: 20.0,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryColor,
-                  BlendMode.srcIn,
-                ),
+                color: AppColors.primaryColor,
               ),
             ],
           ),

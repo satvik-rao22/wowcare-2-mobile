@@ -15,10 +15,10 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab_widgets.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({super.key, required this.staffCode});
@@ -351,13 +351,10 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final now = AppTime.now();
@@ -486,13 +483,10 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
                                   : '',
-                              suffix: SvgPicture.asset(
+                              suffix: AppIcon(
                                 MediaRes.calender_icon,
                                 height: 20.0,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
+                                color: AppColors.primaryColor,
                               ),
                               onTap: () async {
                                 final now = AppTime.now();

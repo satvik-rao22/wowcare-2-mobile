@@ -12,7 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/src/app_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
   const OrganizationSelectionScreen({super.key, this.isSwitchFlow = false});
@@ -277,14 +277,11 @@ class _OrganizationSelectionScreenState
                                     vertical: screenHeight * 0.01,
                                     horizontal: screenWidth * 0.04,
                                   ),
-                                  leadingIcon: SvgPicture.asset(
+                                  leadingIcon: AppIcon(
                                     MediaRes.homeIcon,
                                     height: screenHeight * 0.022,
                                     width: screenHeight * 0.022,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.authAccentTextColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppColors.authAccentTextColor,
                                   ),
                                   selectedTextStyle: TextStyle(
                                     fontFamily: AppFonts.body,

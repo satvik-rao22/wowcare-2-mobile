@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_media_res.dart';
 import 'ellipsis_tooltip_text.dart';
 import 'profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class SelectedStudentTile extends StatelessWidget {
   const SelectedStudentTile({
@@ -95,7 +95,7 @@ class SelectedStudentTile extends StatelessWidget {
         if (showRemove)
           IconButton(
             onPressed: onTap,
-            icon: SvgPicture.asset(MediaRes.delete_icon),
+            icon: AppIcon(MediaRes.delete_icon, tone: IconTone.danger),
           ),
       ],
     );

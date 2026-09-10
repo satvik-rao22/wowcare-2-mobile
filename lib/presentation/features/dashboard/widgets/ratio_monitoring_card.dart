@@ -4,7 +4,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -526,8 +526,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
             child: Center(
-              child: SvgPicture.asset(
+              child: AppIcon(
                 room.isRatioGood ? MediaRes.thumbUp : MediaRes.thumbDown,
+                tone: room.isRatioGood ? IconTone.success : IconTone.danger,
               ),
             ),
           ),

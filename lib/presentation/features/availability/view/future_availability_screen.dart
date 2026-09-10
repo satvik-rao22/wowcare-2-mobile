@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -240,11 +240,7 @@ class _DateNavigator extends StatelessWidget {
             splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
             child: Padding(
               padding: const EdgeInsets.all(3),
-              child: SvgPicture.asset(
-                MediaRes.calender_icon,
-                width: 20,
-                height: 20,
-              ),
+              child: AppIcon(MediaRes.calender_icon, width: 20, height: 20),
             ),
           ),
         ),

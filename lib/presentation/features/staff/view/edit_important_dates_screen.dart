@@ -9,7 +9,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -18,6 +17,7 @@ import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
@@ -637,13 +637,10 @@ class _EditImportantDatesScreenViewState
                     ),
                   ),
                   const SizedBox(width: 4),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

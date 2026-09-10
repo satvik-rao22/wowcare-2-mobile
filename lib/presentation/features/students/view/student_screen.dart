@@ -5,7 +5,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -1494,9 +1494,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                           padding: const EdgeInsets.all(
                                             AppSpacing.xs,
                                           ),
-                                          child: SvgPicture.asset(
+                                          child: AppIcon(
                                             MediaRes.filterIcon,
                                             height: 20,
+                                            tone: IconTone.action,
                                           ),
                                         ),
                                         Builder(

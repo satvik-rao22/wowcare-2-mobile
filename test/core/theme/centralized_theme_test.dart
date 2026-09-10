@@ -434,6 +434,29 @@ void main() {
     });
   });
 
+  group('glyphs are centralised', () {
+    test('no file paints an SVG without going through AppIcon', () {
+      // 45 of the SVGs in `assets/icons` ship a baked-in gradient from the
+      // previous look, so a bare `SvgPicture` renders last season's brand
+      // whatever the palette says. `AppIcon` forces a
+      // `ColorFilter.mode(token, BlendMode.srcIn)` over every glyph, and
+      // `AppArtwork` is the deliberate opt-out for a pictogram whose own
+      // colours are the content.
+      final List<String> found = offenders(
+        RegExp(r'(?<![A-Za-z0-9_])SvgPicture(?![A-Za-z0-9_])'),
+      );
+      expect(
+        found,
+        isEmpty,
+        reason:
+            'Icons are themed, not pictures: use AppIcon (a glyph the theme '
+            'colours) or AppArtwork (a pictogram that keeps its own '
+            'palette), both from lib/core/theme/app_icon.dart, at:\n'
+            '${found.join('\n')}',
+      );
+    });
+  });
+
   group('colour literals live in app_theme_config.dart', () {
     /// The 44 files that still declare a raw colour. Mostly the per-module
     /// decorative palettes `docs/theming.md` lists as a follow-up, plus

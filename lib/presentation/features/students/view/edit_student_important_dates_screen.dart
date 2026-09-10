@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -16,6 +15,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class EditStudentImportantDatesScreen extends StatefulWidget {
   const EditStudentImportantDatesScreen({
@@ -267,13 +267,10 @@ class _EditStudentImportantDatesScreenState
                       ),
                     ),
                   ),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),
