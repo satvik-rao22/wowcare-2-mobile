@@ -3,39 +3,41 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
+import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
+import '../../../presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/src/app_router.dart'
+    show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
-import 'package:wowcare/core/util/string_utils.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/notification_badge_cubit.dart';
 
-import '../../../src/app_router.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -110,10 +112,46 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
               builder: (context, state) {
                 final cubit = context.read<ParentChildCubit>();
-                final names = cubit.childNames;
+                // Labels, not bare names: `CustomDropdown` is a label-keyed
+                // widget, so two siblings whose names render identically used
+                // to collapse into one entry that always resolved to the first
+                // of them — leaving a multi-child parent unable to switch to
+                // the second. `displayLabels`/`selectByLabel` keep the switcher
+                // one-to-one with `children` (see ParentChildCubit).
+                final names = cubit.displayLabels;
                 final canPickChild = !state.isLoading && names.isNotEmpty;
+                // Only offer the switcher when there's actually something to
+                // switch to. A single-child (or still-loading, where the
+                // count isn't known yet) account keeps the interactive
+                // dropdown — hiding it only once we know for certain there's
+                // nothing else to pick avoids a layout flash while loading.
+                final showSwitcher =
+                    state.isLoading || state.children.length > 1;
+                if (!showSwitcher) {
+                  final label =
+                      state.selectedChild?.name ??
+                      (names.isNotEmpty ? names.first : 'No children linked');
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: SizedBox(
+                      width: 220,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                  );
+                }
                 return Padding(
-                  padding: const EdgeInsets.only(left: 20),
+                  padding: const EdgeInsets.only(left: 4),
                   child: SizedBox(
                     width: 220,
                     child: CustomDropdown(
@@ -121,9 +159,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ? 'Loading children...'
                           : 'No children linked',
                       items: names,
-                      selectedItem: state.selectedChild?.name,
-                      onSelect: cubit.selectByName,
-                      prependHintAsSelectableItem: false,
+                      selectedItem: cubit.labelForCode(
+                        state.selectedChild?.code,
+                      ),
+                      onSelect: cubit.selectByLabel,
                       isEnabled: canPickChild,
                     ),
                   ),
@@ -139,12 +178,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // In StatefulShellRoute, context.canPop() may not work as expected because
                 // the route hierarchy differs from traditional Navigator stacks.
                 // Always try to pop from the shell context first, preserving route history.
-                debugPrint(
+                // AppLogger, not debugPrint: `debugPrint` is NOT stripped from
+                // release builds, so this printed the user's current route on
+                // every back press in production. Same rule the router states
+                // at its own top-level redirect.
+                AppLogger.d(
                   '[CustomAppBar] Back button pressed. '
                   'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
                 );
 
-                if (context.canPop()) {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else if (context.canPop()) {
                   context.pop();
                 } else {
                   // Fallback: navigate to dashboard if nothing to pop
@@ -162,58 +207,87 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (!isKiosk)
           BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
             builder: (context, badgeState) {
-              final role = context.read<RoleCubit>();
-              final int unreadCount = role.isParent
-                  ? badgeState.parentTotal
-                  : role.isAdmin
-                  ? badgeState.adminTotal
-                  : badgeState.staffTotal;
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: SvgPicture.asset(
-                      MediaRes.chatsIcon,
-                      width: 22,
-                      height: 22,
-                    ),
-                    // Route directly by role to the user's primary messaging surface,
-                    // matching the role-based unread total shown on this icon (instead of
-                    // always opening the launcher/picker). isStaff is checked before the
-                    // admin fallback because isAdmin == (admin || staff).
-                    onPressed: () {
-                      if (role.isParent) {
-                        context.go(MessagingScreen.parentMessagingRoute); // Room Chats
-                      } else if (role.isStaff) {
-                        context.go(AppRoutes.messaging); // Staff Messaging
-                      } else {
-                        context.push(AppRoutes.adminChat); // Admin Chat
-                      }
-                    },
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(179, 38, 30, 1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unreadCount > 99 ? '99+' : '$unreadCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+              // watch, not read: this badge's value depends on the CURRENT
+              // persona (parentTotal vs adminTotal vs staffTotal below), so
+              // it must also rebuild when RoleCubit's state changes on its
+              // own — a bare `.read` only captured whatever role happened to
+              // be active the last time UnreadBadgeCubit itself emitted,
+              // which left the badge showing the PREVIOUS persona's count
+              // for a dual-role account until some unrelated Firestore
+              // event happened to also fire after switching profile.
+              final role = context.watch<RoleCubit>();
+              // Uses the raw role string via totalForRole rather than
+              // RoleCubit.isAdmin — isAdmin is `role == 'admin' || role ==
+              // 'staff'` (a broad "non-parent" check used for module-access
+              // gating elsewhere), so a ternary on isAdmin/isParent always
+              // matched staff into the admin branch and never reached
+              // staffTotal, showing a STAFF persona counts that wrongly
+              // included ADMIN_CHAT (a type staff can't even open).
+              final personaTotal = badgeState.totalForRole(role.role);
+              // firestoreTotal sums EVERY doc in the user's Firestore
+              // user_inbox collection with no type filter — it can't apply
+              // the persona-visibility rules parentTotal/adminTotal/
+              // staffTotal do (e.g. CLASSROOM_CHAT is staff-internal and
+              // "deliberately excluded from parentTotal" — see
+              // UnreadBadgeState's own doc). A dual-role account (e.g. also
+              // staff at the same school) would otherwise see their parent
+              // badge inflated by conversations the parent persona can't
+              // even open. Only fall back to the unfiltered total before
+              // the per-type streams have delivered anything at all — once
+              // countsByType is populated, the persona-scoped total is
+              // always the correct, authoritative one.
+              final int unreadCount = badgeState.countsByType.isNotEmpty
+                  ? personaTotal
+                  : (badgeState.firestoreTotal ?? personaTotal);
+              // Icon + badge share ONE tap target (InkResponse via IconButton
+              // below) instead of the badge being a bare, non-interactive
+              // Positioned Container layered on top of it — tapping directly
+              // on the count number wasn't reliably reaching the IconButton
+              // underneath it.
+              return IconButton(
+                icon: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SvgPicture.asset(
+                        MediaRes.chatsIcon,
+                        width: 22,
+                        height: 22,
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color.fromRGBO(179, 38, 30, 1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
+                // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
+                // role-gated, each with its unread badge) instead of jumping straight to
+                // one surface — so the user can pick which messaging area to open, as on web.
+                // Presented as a bottom sheet overlay (not a pushed page) — picking which
+                // messaging area to open is a quick dismissible choice, not a destination.
+                onPressed: () => MessagingEntryScreen.show(context),
               );
             },
           ),
@@ -221,51 +295,75 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
             builder: (context, badgeState) {
               final int unreadCount = badgeState.unreadCount;
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: SvgPicture.asset(
-                      MediaRes.notificationsIcon,
-                      width: 22,
-                      height: 22,
-                    ),
-                    onPressed: () async {
-                      // Don't stack a second notification page when the bell is
-                      // tapped again while already on it.
-                      if (currentRoute == NotificationCenterScreen.routeName)
-                        return;
-                      await context.push(NotificationCenterScreen.routeName);
-                      // The user may have read notifications in the center —
-                      // reconcile the badge with the server on return.
-                      if (context.mounted) {
-                        context.read<NotificationBadgeCubit>().refresh();
-                      }
-                    },
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
+              // Icon + badge share ONE tap target — see the chat bell above
+              // for why (the badge number wasn't reliably tappable as a
+              // bare Positioned sibling of the IconButton).
+              //
+              // This count is account-wide (userCode + schoolCode + role) —
+              // the backend has no per-student notification scoping, so a
+              // parent with multiple children sees ONE combined total here
+              // regardless of which child is selected in the dropdown right
+              // next to it. Without this tooltip that reads as a bug ("this
+              // notification isn't about the child I have selected") rather
+              // than the actual, current behaviour — this is a UI
+              // clarification, not a fix, since scoping it per child would
+              // require the backend to accept a studentCode filter.
+              return Tooltip(
+                message: isParent
+                    ? 'Notifications for all your children'
+                    : 'Notifications',
+                child: IconButton(
+                  icon: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        SvgPicture.asset(
+                          MediaRes.notificationsIcon,
+                          width: 22,
+                          height: 22,
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(179, 38, 30, 1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unreadCount > 99 ? '99+' : '$unreadCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color.fromRGBO(179, 38, 30, 1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
-                ],
+                  ),
+                  onPressed: () async {
+                    // Don't stack a second notification page when the bell is
+                    // tapped again while already on it.
+                    if (currentRoute == NotificationCenterScreen.routeName) {
+                      return;
+                    }
+                    await context.push(NotificationCenterScreen.routeName);
+                    // The user may have read notifications in the center —
+                    // reconcile the badge with the server on return.
+                    if (context.mounted) {
+                      context.read<NotificationBadgeCubit>().refresh();
+                    }
+                  },
+                ),
               );
             },
           ),
@@ -402,20 +500,50 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
         PopupMenuItem<int>(
           enabled: false,
           height: 64,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 4,
-                  right: 10,
-                  top: 8,
-                  bottom: 8,
-                ),
-                child: BlocProvider.value(
-                  value: _profileHeaderCubit,
-                  child: ProfileMenuHeader(isParentPersona: isParentPersona),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              Navigator.of(context).pop();
+
+              if (currentRoute == UserProfileScreen.routeName) return;
+              final storage = serviceLocator<StorageService>();
+              final name =
+                  (await storage.getString(StorageKeys.displayName) ?? '')
+                      .trim();
+              final email = (await storage.getString(StorageKeys.email) ?? '')
+                  .trim();
+              final activeRole =
+                  (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+                      .trim();
+              if (!context.mounted) return;
+              context.go(
+                UserProfileScreen.routeName,
+                extra: <String, dynamic>{
+                  'userName': name,
+                  'userEmail': email,
+                  'userPersona': activeRole,
+                },
+              );
+            },
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 240),
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 4,
+                      right: 10,
+                      top: 8,
+                      bottom: 8,
+                    ),
+                    child: BlocProvider.value(
+                      value: _profileHeaderCubit,
+                      child: ProfileMenuHeader(
+                        isParentPersona: isParentPersona,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -938,6 +1066,10 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     await cubit.persistPersonaSwitch(nextRole);
     if (!context.mounted) return;
 
+    try {
+      context.read<GeofenceCubit>().handleProfileSwitch();
+    } catch (_) {}
+
     context.read<ParentChildCubit>().invalidate();
 
     // Mirrors UserProfileScreen._applyPersonaSwitch so both Switch Profile entry
@@ -984,11 +1116,37 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     await cubit.load(isParent: context.read<RoleCubit>().isParent);
     if (!context.mounted) return;
 
+    // "Switch Profile" can be tapped from ANY screen, including ones with a
+    // route imperatively pushed on top of the root navigator OR a shell
+    // branch's own nested navigator (the parent Attendance profile onto
+    // dashboardBranchKey, a Communication-module sub-screen onto
+    // messagingBranchKey, etc.) — `context.go` alone doesn't know how to pop
+    // those, so the pushed screen just keeps covering Dashboard. Unwind
+    // every branch's navigator first — see popAllShellBranchNavigators's
+    // own doc.
+    popAllShellBranchNavigators(context);
+    if (!context.mounted) return;
+
     // Land on the new persona's dashboard. DashboardScreen branches on RoleCubit,
     // so this shows the correct (admin/staff/parent) dashboard and rebuilds it
     // fresh — otherwise a stale Billing/Messaging/etc. screen lingers after the
-    // switch and shows the previous persona's data.
-    context.go(DashboardScreen.routeName);
+    // switch and shows the previous persona's data. goToDashboardRoot (not a
+    // bare context.go) is what actually switches the shell's active branch —
+    // see its own doc for why a plain `go` wasn't landing on Dashboard from
+    // another branch (e.g. Messaging).
+    goToDashboardRoot(context);
+
+    // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+    // Messaging, Billing) to reload fresh for the new persona — deliberately
+    // AFTER navigating away, not before. Messaging's own SchoolSwitchReloadMixin
+    // reacts to this by re-keying the BlocProvider that wraps its
+    // GlobalScaffold (and therefore this very kebab menu's own context) —
+    // firing it while still on Messages disposed the context this function
+    // is running on mid-flight, so `if (!context.mounted) return;` above
+    // silently aborted before ever reaching the navigation call. The persona
+    // switch itself (role, cached storage) had already fully applied by
+    // then, which is why it "worked" while the screen never moved.
+    SchoolSwitchEvents.notifySwitched();
   } catch (e) {
     if (!context.mounted) return;
     CoreUtils.showTopSnackBar(

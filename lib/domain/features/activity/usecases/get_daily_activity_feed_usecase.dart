@@ -1,5 +1,5 @@
-import '../entities/activity_feed_row.dart';
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class GetDailyActivityFeedUseCase {
   GetDailyActivityFeedUseCase(this._repository);

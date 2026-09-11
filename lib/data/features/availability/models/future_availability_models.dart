@@ -1,62 +1,45 @@
+import 'package:json_annotation/json_annotation.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 
+part 'future_availability_models.g.dart';
+
+// explicitToJson: nested classroom/availability lists must be
+// deep-serialized to maps — otherwise toJson() emits raw model objects,
+// which then fail to parse back via fromCacheJson (the cache round-trip).
+@JsonSerializable(explicitToJson: true)
 class FutureAvailabilityGridModel {
   const FutureAvailabilityGridModel({
     required this.schoolCode,
     required this.startDate,
     required this.endDate,
-    required this.classrooms,
-    required this.availability,
+    this.classrooms = const <FutureAvailabilityClassroomModel>[],
+    this.availability = const <FutureAvailabilityEntryModel>[],
   });
 
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String schoolCode;
+  @JsonKey(fromJson: _parseDate, toJson: _formatDateOnly)
   final DateTime startDate;
+  @JsonKey(fromJson: _parseDate, toJson: _formatDateOnly)
   final DateTime endDate;
+  @JsonKey(fromJson: _readClassroomList)
   final List<FutureAvailabilityClassroomModel> classrooms;
+  @JsonKey(fromJson: _readEntryList)
   final List<FutureAvailabilityEntryModel> availability;
 
+  /// The API wraps the grid in a `data` envelope; the cache copy (written by
+  /// [toJson]) does not, so both factories delegate to the same generated
+  /// field mapping — just with a different (already-unwrapped) input map.
   factory FutureAvailabilityGridModel.fromJson(Map<String, dynamic> json) {
     final data = (json['data'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
-    return FutureAvailabilityGridModel(
-      schoolCode: (data['schoolCode'] ?? '').toString(),
-      startDate: _parseDate(data['startDate']),
-      endDate: _parseDate(data['endDate']),
-      classrooms: ((data['classrooms'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityClassroomModel.fromJson)
-          .toList(),
-      availability: ((data['availability'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityEntryModel.fromJson)
-          .toList(),
-    );
+    return _$FutureAvailabilityGridModelFromJson(data);
   }
 
-  factory FutureAvailabilityGridModel.fromCacheJson(Map<String, dynamic> json) {
-    return FutureAvailabilityGridModel(
-      schoolCode: (json['schoolCode'] ?? '').toString(),
-      startDate: _parseDate(json['startDate']),
-      endDate: _parseDate(json['endDate']),
-      classrooms: ((json['classrooms'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityClassroomModel.fromJson)
-          .toList(),
-      availability: ((json['availability'] as List<dynamic>?) ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(FutureAvailabilityEntryModel.fromJson)
-          .toList(),
-    );
-  }
+  factory FutureAvailabilityGridModel.fromCacheJson(Map<String, dynamic> json) =>
+      _$FutureAvailabilityGridModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'schoolCode': schoolCode,
-      'startDate': _formatDateOnly(startDate),
-      'endDate': _formatDateOnly(endDate),
-      'classrooms': classrooms.map((e) => e.toJson()).toList(),
-      'availability': availability.map((e) => e.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => _$FutureAvailabilityGridModelToJson(this);
 
   FutureAvailabilityGrid toEntity() {
     return FutureAvailabilityGrid(
@@ -69,32 +52,56 @@ class FutureAvailabilityGridModel {
   }
 }
 
+List<FutureAvailabilityClassroomModel> _readClassroomList(dynamic value) {
+  if (value is! List) return const <FutureAvailabilityClassroomModel>[];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(FutureAvailabilityClassroomModel.fromJson)
+      .toList();
+}
+
+List<FutureAvailabilityEntryModel> _readEntryList(dynamic value) {
+  if (value is! List) return const <FutureAvailabilityEntryModel>[];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(FutureAvailabilityEntryModel.fromJson)
+      .toList();
+}
+
+@JsonSerializable()
 class FutureAvailabilityClassroomModel {
   const FutureAvailabilityClassroomModel({
     required this.code,
     required this.name,
     required this.capacity,
+    this.logoAssetCode = '',
   });
 
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String code;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String name;
+  @JsonKey(fromJson: _toInt)
   final int capacity;
+  @JsonKey(fromJson: _toStringOrEmpty)
+  final String logoAssetCode;
 
-  factory FutureAvailabilityClassroomModel.fromJson(Map<String, dynamic> json) {
-    return FutureAvailabilityClassroomModel(
-      code: (json['code'] ?? '').toString(),
-      name: (json['name'] ?? '').toString(),
-      capacity: _toInt(json['capacity']),
-    );
-  }
+  factory FutureAvailabilityClassroomModel.fromJson(Map<String, dynamic> json) =>
+      _$FutureAvailabilityClassroomModelFromJson(json);
 
-  Map<String, dynamic> toJson() => <String, dynamic>{'code': code, 'name': name, 'capacity': capacity};
+  Map<String, dynamic> toJson() => _$FutureAvailabilityClassroomModelToJson(this);
 
   FutureAvailabilityClassroom toEntity() {
-    return FutureAvailabilityClassroom(code: code, name: name, capacity: capacity);
+    return FutureAvailabilityClassroom(
+      code: code,
+      name: name,
+      capacity: capacity,
+      logoAssetCode: logoAssetCode,
+    );
   }
 }
 
+@JsonSerializable()
 class FutureAvailabilityEntryModel {
   const FutureAvailabilityEntryModel({
     required this.classroomCode,
@@ -108,41 +115,29 @@ class FutureAvailabilityEntryModel {
     required this.enrollmentCount,
   });
 
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String classroomCode;
+  @JsonKey(fromJson: _parseDate, toJson: _formatDateOnly)
   final DateTime date;
+  @JsonKey(fromJson: _shiftFromApi, toJson: _shiftToApi)
   final FutureAvailabilityShift shift;
+  @JsonKey(fromJson: _toInt)
   final int availableSpots;
+  @JsonKey(fromJson: _toInt)
   final int expectedStudentCount;
+  @JsonKey(fromJson: _toInt)
   final int classroomCapacity;
+  @JsonKey(fromJson: _toInt)
   final int confirmedMovementCount;
+  @JsonKey(fromJson: _toInt)
   final int pendingMovementCount;
+  @JsonKey(fromJson: _toInt)
   final int enrollmentCount;
 
-  factory FutureAvailabilityEntryModel.fromJson(Map<String, dynamic> json) {
-    return FutureAvailabilityEntryModel(
-      classroomCode: (json['classroomCode'] ?? '').toString(),
-      date: _parseDate(json['date']),
-      shift: _shiftFromApi((json['shift'] ?? '').toString()),
-      availableSpots: _toInt(json['availableSpots']),
-      expectedStudentCount: _toInt(json['expectedStudentCount']),
-      classroomCapacity: _toInt(json['classroomCapacity']),
-      confirmedMovementCount: _toInt(json['confirmedMovementCount']),
-      pendingMovementCount: _toInt(json['pendingMovementCount']),
-      enrollmentCount: _toInt(json['enrollmentCount']),
-    );
-  }
+  factory FutureAvailabilityEntryModel.fromJson(Map<String, dynamic> json) =>
+      _$FutureAvailabilityEntryModelFromJson(json);
 
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'classroomCode': classroomCode,
-        'date': _formatDateOnly(date),
-        'shift': _shiftToApi(shift),
-        'availableSpots': availableSpots,
-        'expectedStudentCount': expectedStudentCount,
-        'classroomCapacity': classroomCapacity,
-        'confirmedMovementCount': confirmedMovementCount,
-        'pendingMovementCount': pendingMovementCount,
-        'enrollmentCount': enrollmentCount,
-      };
+  Map<String, dynamic> toJson() => _$FutureAvailabilityEntryModelToJson(this);
 
   FutureAvailabilityEntry toEntity() {
     return FutureAvailabilityEntry(
@@ -159,25 +154,30 @@ class FutureAvailabilityEntryModel {
   }
 }
 
+String _toStringOrEmpty(dynamic value) => (value ?? '').toString();
+
 DateTime _parseDate(dynamic raw) {
   final dateString = (raw ?? '').toString().trim();
-  if (dateString.isEmpty) return DateTime.now();
-  return DateTime.tryParse(dateString) ?? DateTime.now();
+  if (dateString.isEmpty) return AppTime.today();
+  return DateTime.tryParse(dateString) ?? AppTime.today();
 }
 
 int _toInt(dynamic value) {
   if (value is int) return value;
+  if (value is num) return value.toInt();
   return int.tryParse((value ?? '').toString()) ?? 0;
 }
 
-FutureAvailabilityShift _shiftFromApi(String shift) {
-  switch (shift.trim().toUpperCase()) {
+FutureAvailabilityShift _shiftFromApi(dynamic shift) {
+  switch (shift.toString().trim().toUpperCase()) {
     case 'MORNING':
       return FutureAvailabilityShift.morning;
     case 'AFTERNOON':
       return FutureAvailabilityShift.afternoon;
     case 'ALL':
       return FutureAvailabilityShift.all;
+    case 'TWO_SHIFTS':
+      return FutureAvailabilityShift.twoShifts;
     case 'FULL_DAY':
     default:
       return FutureAvailabilityShift.fullDay;
@@ -194,6 +194,8 @@ String _shiftToApi(FutureAvailabilityShift shift) {
       return 'ALL';
     case FutureAvailabilityShift.fullDay:
       return 'FULL_DAY';
+    case FutureAvailabilityShift.twoShifts:
+      return 'TWO_SHIFTS';
   }
 }
 

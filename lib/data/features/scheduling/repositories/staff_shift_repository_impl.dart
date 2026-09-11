@@ -1,4 +1,4 @@
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
@@ -217,6 +217,7 @@ class StaffShiftRepositoryImpl
     required String organizationCode,
     required DateTime startDate,
     required DateTime endDate,
+    required bool publishedOnly,
     List<String> staffCodes = const <String>[],
   }) async {
     final models = await _remote.getStaffShiftHoursRange(
@@ -225,6 +226,7 @@ class StaffShiftRepositoryImpl
         endDate: _formatDate(endDate),
         schoolCode: schoolCode,
         organizationCode: organizationCode,
+        publishedOnly: publishedOnly,
         staffCodes: staffCodes,
       ),
     );

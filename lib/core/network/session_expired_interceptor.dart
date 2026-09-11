@@ -1,15 +1,35 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
-/// When the server rejects the session (e.g. access/refresh token expired), triggers
-/// [SessionExpiredCoordinator] so we call logout with the stored refresh token,
-/// clear local session, and return to sign-in.
+/// `RequestOptions.extra` flag marking a request as UNSAFE to auto-replay after
+/// a 401 token refresh — a non-idempotent mutation (e.g. a create/upload) whose
+/// silent replay could duplicate a write that already reached the server. Such a
+/// request still triggers the refresh, but the interceptor surfaces the error
+/// instead of replaying, so the caller retries under its own single-flight guard
+/// with the now-valid token. Idempotent requests (GET, and updates/deletes that
+/// converge) are left to replay as before, so no existing behaviour regresses.
+const String kNoAutoReplayExtraKey = 'noAutoReplay';
+
+/// Handles 401s: first try to RENEW the session, and only log the user out if
+/// renewal isn't possible.
+///
+/// Mirrors the web client's 401 interceptor — refresh, then replay the original
+/// request once; a second consecutive 401 falls through to logout. Without the
+/// retry-once guard, a token the server rejects for a non-expiry reason
+/// (revoked, wrong scope) would loop forever.
 class SessionExpiredInterceptor extends Interceptor {
-  SessionExpiredInterceptor(this._storage);
+  SessionExpiredInterceptor(this._dio);
 
-  final StorageService _storage;
+  /// The client this interceptor is attached to — used to replay the original
+  /// request after a successful refresh.
+  final Dio _dio;
+
+  /// Marks a request that has already been retried after a refresh, so it can
+  /// never be retried again. Dio's equivalent of the web's threaded
+  /// `__retried` fetch-option.
+  static const String _retriedFlag = '__retried';
 
   @override
   Future<void> onError(DioException err, ErrorInterceptorHandler handler) async {
@@ -19,39 +39,77 @@ class SessionExpiredInterceptor extends Interceptor {
       return;
     }
 
-    if (_isMissingAuthorizationHeaderError(err)) {
-      await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession();
-      handler.next(err);
-      return;
+    final alreadyRetried = err.requestOptions.extra[_retriedFlag] == true;
+    if (!alreadyRetried) {
+      final newToken = await TokenRefreshService.instance.refreshSession();
+      if (newToken != null && newToken.isNotEmpty) {
+        if (!shouldReplayAfterRefresh(err.requestOptions)) {
+          // Session refreshed successfully, but this request opted OUT of
+          // automatic replay (an unsafe/non-idempotent mutation). Replaying it
+          // could duplicate a write that already reached the server. Surface the
+          // error so the caller retries deliberately with the now-valid token.
+          AppLogger.d(
+            '[TokenRefresh] refreshed but not replaying non-idempotent request '
+            '${err.requestOptions.method} ${err.requestOptions.uri.path}',
+          );
+          handler.next(err);
+          return;
+        }
+        try {
+          final options = err.requestOptions
+            ..extra[_retriedFlag] = true
+            ..headers['Authorization'] = 'Bearer $newToken';
+          final replayed = await _dio.fetch<dynamic>(options);
+          handler.resolve(replayed);
+          return;
+        } on DioException catch (replayError) {
+          // The refresh SUCCEEDED — the session is valid and the new token is
+          // stored. Only this one replay failed (network blip, timeout, or a
+          // second 401 the nested pass already handled). Logging out here would
+          // kill a healthy session over a transient failure.
+          //
+          // Surface the REPLAY's error, not the original 401: propagating the
+          // stale 401 would tell every caller "session dead" for what was
+          // actually a network failure — the same mistake, one layer down.
+          AppLogger.d('[TokenRefresh] replay after refresh failed: $replayError');
+          handler.next(replayError);
+          return;
+        } catch (e) {
+          AppLogger.d('[TokenRefresh] replay after refresh threw: $e');
+          handler.next(
+            DioException(
+              requestOptions: err.requestOptions,
+              error: e,
+              type: DioExceptionType.unknown,
+            ),
+          );
+          return;
+        }
+      }
     }
 
-    final hasSession = await _hasAnyPersistedSessionState();
-    if (!hasSession) {
-      handler.next(err);
-      return;
-    }
-
+    // Renewal wasn't possible (no/expired refresh token, or a second 401 on the
+    // replay). Any 401 on an authenticated endpoint at this point means the
+    // session is genuinely gone — whether tokens are still persisted (a normal
+    // expiry) or the session was already cleared underneath a still-mounted
+    // authenticated screen (in which case the request goes out with no
+    // Authorization/role/school headers and the server rejects it). Both must
+    // bounce the user to sign-in; previously the cleared-session case bailed out
+    // silently, leaving the screen stuck firing 401s forever. The coordinator
+    // no-ops when we're already on the sign-in/splash route, so calling it on
+    // every such 401 is safe.
     await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession();
     handler.next(err);
   }
 
-  /// Consider the user "logged in" even when access token is unexpectedly missing,
-  /// as long as any auth/session marker remains in storage.
-  Future<bool> _hasAnyPersistedSessionState() async {
-    final accessToken =
-        (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
-    final refreshToken =
-        (await _storage.getString(StorageKeys.refreshToken) ?? '').trim();
-    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '').trim();
-    final loginCompleted = await _storage.getBool(StorageKeys.loginCompleted) ?? false;
-
-    return accessToken.isNotEmpty ||
-        refreshToken.isNotEmpty ||
-        userCode.isNotEmpty ||
-        loginCompleted;
-  }
+  /// Whether a request may be automatically replayed after a successful token
+  /// refresh. A request that set [kNoAutoReplayExtraKey] in its `extra` (a
+  /// non-idempotent mutation) opts out; everything else replays as before.
+  static bool shouldReplayAfterRefresh(RequestOptions options) =>
+      options.extra[kNoAutoReplayExtraKey] != true;
 
   /// Login/forgot-password 401 means invalid credentials, not global session expiry.
+  /// Login-context 401 is handled explicitly by the splash screen (and auth cubit).
   /// FCM endpoints 401s are non-fatal and should not trigger logout.
   /// Notification operations should never interrupt authentication.
   static bool _shouldIgnorePath(RequestOptions options) {
@@ -61,27 +119,17 @@ class SessionExpiredInterceptor extends Interceptor {
     if (p.contains('/auth/forgot-password')) return true;
     if (p.contains('/auth/forgot_password')) return true;
     if (p.contains('/auth/logout')) return true;
+    // The refresh call itself: a 401 here means the refresh token is dead. It
+    // must NOT re-enter refresh (infinite recursion) — the caller already
+    // handles a null result by logging out.
+    if (p.contains('/auth/refresh')) return true;
+    // Login-context: 401 means the cached token expired (handled by splash screen)
+    if (p.contains('/auth/login-context')) return true;
     // FCM endpoints: 401 is non-fatal and must NOT trigger logout
     if (p.contains('/notification/fcm')) return true;
     if (p.contains('/notification/fcm/')) return true;
     // Notification operations should be non-blocking
     if (p.contains('/notification/')) return true;
-    return false;
-  }
-
-  /// Some backends return 401 with a specific message when Authorization
-  /// header is absent. Treat this as a hard session-expired signal and logout.
-  static bool _isMissingAuthorizationHeaderError(DioException err) {
-    final data = err.response?.data;
-    if (data is Map) {
-      final message = (data['message'] ?? '').toString().toLowerCase();
-      final error = (data['error'] ?? '').toString().toLowerCase();
-      if (message.contains('missing authorization header')) return true;
-      if (error == 'unauthorized' &&
-          message.contains('authorization header')) {
-        return true;
-      }
-    }
     return false;
   }
 }

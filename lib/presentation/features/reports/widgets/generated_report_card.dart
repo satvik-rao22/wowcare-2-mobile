@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart'
     show GeneratedReportItem;
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class GeneratedReportCard extends StatefulWidget {
   const GeneratedReportCard({
@@ -23,13 +27,21 @@ class GeneratedReportCard extends StatefulWidget {
 }
 
 class _GeneratedReportCardState extends State<GeneratedReportCard> {
-  bool _isExpanded = false;
-  bool _isDownloading = false;
+  /// §2.2 bucket B — expand/collapse and the per-card download spinner are
+  /// UI micro-state local to this card.
+  final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isDownloading = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isExpanded.dispose();
+    _isDownloading.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = context.isTablet;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -37,145 +49,144 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
-                onTap: () => setState(() => _isExpanded = !_isExpanded),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 64,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 24 : 16,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.item.fileName,
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: isTablet ? 16 : 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xff573353),
-                                  height: 19 / 14,
+                onTap: () => _isExpanded.value = !_isExpanded.value,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _isExpanded,
+                  builder: (context, expanded, _) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 64,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 24 : 16,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.item.fileName,
+                                  style: AppTextStyles.reportsFieldValue(
+                                    fontSize: isTablet ? 16 : 14,
+                                  ).copyWith(height: 19 / 14),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    if (_isExpanded) ...[
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Color(0xFFE9ECEF),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _DetailRow(
-                              label: 'Date',
-                              value: _formatDate(widget.item.generatedAt),
-                            ),
-                            const SizedBox(height: 10),
-                            _DetailRow(
-                              label: 'Time',
-                              value: _formatTime(widget.item.generatedAt),
-                            ),
-                            const SizedBox(height: 16),
-                            if (widget.onDownload != null)
-                              SizedBox(
-                                width: double.infinity,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: _isDownloading
-                                          ? [
-                                              Colors.grey.shade400,
-                                              Colors.grey.shade600,
-                                            ]
-                                          : AppColors.primaryGradientColors,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: _isDownloading
-                                        ? null
-                                        : () async {
-                                            setState(
-                                              () => _isDownloading = true,
-                                            );
-                                            try {
-                                              await widget.onDownload?.call(
-                                                widget.item.assetCode,
-                                              );
-                                            } finally {
-                                              if (mounted) {
-                                                setState(
-                                                  () => _isDownloading = false,
-                                                );
-                                              }
-                                            }
-                                          },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      shadowColor: Colors.transparent,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
+                      if (expanded) ...[
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: AppColors.reportsCardDividerColor,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(AppSizes.md),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _DetailRow(
+                                label: ReportsStrings.date,
+                                value: _formatDate(widget.item.generatedAt),
+                              ),
+                              const SizedBox(height: AppSizes.xsPlus),
+                              _DetailRow(
+                                label: ReportsStrings.time,
+                                value: _formatTime(widget.item.generatedAt),
+                              ),
+                              const SizedBox(height: AppSizes.md),
+                              if (widget.onDownload != null)
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: _isDownloading,
+                                  builder: (context, downloading, _) => SizedBox(
+                                    width: double.infinity,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: downloading
+                                              ? [
+                                                  AppColors.reportsMutedColor,
+                                                  AppColors
+                                                      .reportsDisabledForegroundColor,
+                                                ]
+                                              : AppColors.primaryGradientColors,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: downloading
+                                            ? null
+                                            : () async {
+                                                _isDownloading.value = true;
+                                                try {
+                                                  await widget.onDownload?.call(
+                                                    widget.item.assetCode,
+                                                  );
+                                                } finally {
+                                                  if (mounted) {
+                                                    _isDownloading.value =
+                                                        false;
+                                                  }
+                                                }
+                                              },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor:
+                                              AppColors.transparentColor,
+                                          shadowColor:
+                                              AppColors.transparentColor,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                        ),
+                                        child: downloading
+                                            ? const SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(AppColors.cardColor),
+                                                ),
+                                              )
+                                            : const Text(
+                                                ReportsStrings.download,
+                                                style: AppTextStyles
+                                                    .reportsDownloadButtonLabel,
+                                              ),
                                       ),
                                     ),
-                                    child: _isDownloading
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
-                                                  ),
-                                            ),
-                                          )
-                                        : const Text(
-                                            'Download',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
                                   ),
+                                )
+                              else
+                                CustomButtonLayout(
+                                  isForm: false,
+                                  cancelButtonLabel: ReportsStrings.view,
+                                  onPressedCancel: widget.onView,
+                                  confirmButtonLabel: ReportsStrings.download,
+                                  onPressedConfirm: () => widget.onDownload
+                                      ?.call(widget.item.assetCode),
                                 ),
-                              )
-                            else
-                              CustomButtonLayout(
-                                isForm: false,
-                                cancelButtonLabel: 'View',
-                                onPressedCancel: widget.onView,
-                                confirmButtonLabel: 'Download',
-                                onPressedConfirm: () => widget.onDownload?.call(
-                                  widget.item.assetCode,
-                                ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -186,18 +197,18 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
   }
 
   static const _months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    ReportsStrings.jan,
+    ReportsStrings.feb,
+    ReportsStrings.mar,
+    ReportsStrings.apr,
+    ReportsStrings.may,
+    ReportsStrings.jun,
+    ReportsStrings.jul,
+    ReportsStrings.aug,
+    ReportsStrings.sep,
+    ReportsStrings.oct,
+    ReportsStrings.nov,
+    ReportsStrings.dec,
   ];
 
   DateTime _toSchoolTime(DateTime dt) =>
@@ -235,24 +246,16 @@ class _DetailRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
+          style: AppTextStyles.reportsFieldLabel(
             fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
-            height: 16 / 13,
-          ),
+          ).copyWith(height: 16 / 13),
         ),
         Flexible(
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
+            style: AppTextStyles.reportsFieldValue(
               fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
-              height: 19 / 14,
-            ),
+            ).copyWith(height: 19 / 14),
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
           ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import '../model/scheduling_models.dart';
-import '../utils/scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 
 class SchedulingLegend extends StatelessWidget {
   const SchedulingLegend({super.key});
@@ -94,7 +94,6 @@ class _LegendItem extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

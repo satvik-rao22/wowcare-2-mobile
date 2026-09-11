@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
+import '../../../../core/utils/attendance_classroom_scope.dart';
 import '../models/student_attendance_models.dart';
 import '../models/student_absence_record_models.dart';
 import '../models/staff_absence_record_models.dart';
@@ -101,8 +102,7 @@ abstract class AttendanceRemoteDataSource {
   ///
   /// Backend endpoint:
   /// `/api/v1/student-attendance/view/absent/records/activity`.
-  Future<StudentAttendanceAbsentFormPageModel>
-  getStudentAbsentRecordsActivity({
+  Future<StudentAttendanceAbsentFormPageModel> getStudentAbsentRecordsActivity({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -260,29 +260,34 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
+  /// Delete a single staff absence record (marked absent) — admin override sign-in.
+  Future<void> deleteStaffAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
+  });
+
   /// Marks students absent for a date range.
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   });
 
   /// Marks staff absent for a date range.
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   });
 
   /// Expected attendance summary used for the daily "Expected Students" card.
   Future<StudentAttendanceExpectedSummaryModel>
-  getStudentAttendanceExpectedSummaryCard({
-    String? classroomCode,
-  });
+  getStudentAttendanceExpectedSummaryCard({String? classroomCode});
 
   /// Staff expected attendance summary used for the daily "Expected Staff" card.
   Future<StaffAttendanceExpectedSummaryModel>
-  getStaffAttendanceExpectedSummaryCard({
-    String? classroomCode,
-  });
+  getStaffAttendanceExpectedSummaryCard({String? classroomCode});
 
   /// Current-day sign-in status for one or more staff members.
   ///
@@ -302,12 +307,28 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
-  /// Same contract as activity [activity_attendance_window_validator]: `instant` is UTC ISO.
-  /// Returns `studentCode ->` status strings (or normalized from bool `data` values).
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
+  /// Classroom-scoped "at time" student sign-in status.
+  ///
+  /// Moved verbatim from the activity attendance-window validator: POSTs to
+  /// [ApiPaths.studentAttendanceSignInStatusAtTime] and parses the `data` map
+  /// into `studentCode -> isPresent`, where a value of `true` counts as
+  /// present.
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
     required String classroomCode,
     required List<String> studentCodes,
-    required String instantIsoUtc,
+    required DateTime instantUtc,
+  });
+
+  /// Classroom-scoped "at time" staff sign-in status.
+  ///
+  /// Moved verbatim from the activity attendance-window validator: POSTs to
+  /// [ApiPaths.staffAttendanceSignInStatusAtTime] and parses the `data` map
+  /// into `staffCode -> isPresent`, where a value of `true` OR the string
+  /// `SIGNED_IN` counts as present.
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
   });
 
   /// Updates a single student attendance record (sign-in/sign-out entry).
@@ -333,6 +354,7 @@ abstract class AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Posts a student sign-out request (parent or staff endpoint).
@@ -340,17 +362,20 @@ abstract class AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   });
 
   /// Posts a student classroom transfer request.
   Future<Map<String, dynamic>?> postStudentTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   });
 
   /// Posts a staff sign-in request (admin bulk or teacher-self endpoint).
   Future<Map<String, dynamic>?> postStaffSignIn({
     required Map<String, dynamic> body,
     required bool isSelf,
+    String? idempotencyKey,
   });
 
   /// Posts a staff sign-out request.
@@ -358,11 +383,13 @@ abstract class AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
     bool isSelf = false,
+    String? idempotencyKey,
   });
 
   /// Posts a staff classroom transfer request.
   Future<Map<String, dynamic>?> postStaffTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   });
 
   /// Patches a staff daily attendance record identified by [rowCode].
@@ -408,8 +435,15 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   final Dio _client;
 
+  // Backend expects list-valued query params (classroomCodes, tagCodes,
+  // allowedClassroomCodes, etc.) as ONE comma-joined value — confirmed
+  // against a real request the backend actually filters by (e.g.
+  // `classroomCodes=CLS_A,CLS_B,CLS_C`) — not as repeated `key[]=value`
+  // pairs. `ListFormat.multiCompatible` produces the latter, which the
+  // backend silently ignores, so multi-value filters (like selecting more
+  // than one classroom) never actually narrowed the results.
   static final Options _attendanceListOptions = Options(
-    listFormat: ListFormat.multiCompatible,
+    listFormat: ListFormat.csv,
   );
 
   void _mergeAllowedClassroomCodes(
@@ -433,8 +467,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     queryParameters['size'] = size;
     queryParameters['pageable.page'] = page;
     queryParameters['pageable.size'] = size;
-    final effectiveSort =
-        (sort != null && sort.isNotEmpty) ? sort : defaultSort;
+    final effectiveSort = (sort != null && sort.isNotEmpty)
+        ? sort
+        : defaultSort;
     queryParameters['pageable.sort'] = effectiveSort;
     if (sort != null && sort.isNotEmpty) {
       queryParameters['sort'] = sort;
@@ -817,8 +852,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<StudentAttendanceAbsentFormPageModel>
-  getStudentAbsentRecordsActivity({
+  Future<StudentAttendanceAbsentFormPageModel> getStudentAbsentRecordsActivity({
     required String fromAbsenceDate,
     required String toAbsenceDate,
     List<String>? classroomCodes,
@@ -1475,9 +1509,31 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
+  Future<void> deleteStaffAbsenceRecord({
+    required String absenceRecordCode,
+    required String staffCode,
+    required List<String> allowedClassroomCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAbsenceRecordByCode(absenceRecordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final queryParameters = <String, dynamic>{'staffCode': staffCode};
+    _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
+
+    await _client.delete<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
+  }
+
+  @override
   Future<MarkAbsentResponseModel> markStudentsAbsent({
     required MarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAbsenceRecordsMarkAbsent,
@@ -1490,6 +1546,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
         ...request.toJson(),
         'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1505,6 +1564,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<StaffMarkAbsentResponseModel> markStaffAbsent({
     required StaffMarkAbsentRequestModel request,
     required List<String> allowedClassroomCodes,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAbsenceRecordsMarkAbsent,
@@ -1517,6 +1577,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
         ...request.toJson(),
         'allowedClassroomCodes': List<String>.from(allowedClassroomCodes),
       },
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1530,9 +1593,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StudentAttendanceExpectedSummaryModel>
-  getStudentAttendanceExpectedSummaryCard({
-    String? classroomCode,
-  }) async {
+  getStudentAttendanceExpectedSummaryCard({String? classroomCode}) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceExpectedSummaryCard,
       ApiConstants.attendanceBaseUrl,
@@ -1563,9 +1624,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
   @override
   Future<StaffAttendanceExpectedSummaryModel>
-  getStaffAttendanceExpectedSummaryCard({
-    String? classroomCode,
-  }) async {
+  getStaffAttendanceExpectedSummaryCard({String? classroomCode}) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceExpectedSummaryCard,
       ApiConstants.attendanceBaseUrl,
@@ -1649,34 +1708,58 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<Map<String, String>> getStudentSignInStatusAtTime({
+  Future<Map<String, bool>> getStudentSignInStatusAtTime({
     required String classroomCode,
     required List<String> studentCodes,
-    required String instantIsoUtc,
+    required DateTime instantUtc,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceSignInStatusAtTime,
-      ApiConstants.attendanceBaseUrl,
-    );
-
-    final response = await _client.post<Map<String, dynamic>>(
+    if (studentCodes.isEmpty) return const <String, bool>{};
+    final endpoint = ApiPaths.url(ApiPaths.studentAttendanceSignInStatusAtTime);
+    final response = await _client.post<dynamic>(
       endpoint,
       data: <String, dynamic>{
-        'classroomCode': classroomCode.trim(),
+        'classroomCode': classroomCode,
         'studentCodes': studentCodes,
-        'instant': instantIsoUtc.trim(),
+        'instant': instantUtc.toIso8601String(),
       },
     );
+    final root = response.data;
+    if (root is! Map<String, dynamic>) return const <String, bool>{};
+    final data = root['data'];
+    if (data is! Map) return const <String, bool>{};
+    return data.map<String, bool>((key, value) {
+      final code = key.toString().trim();
+      final isPresent = value == true;
+      return MapEntry(code, isPresent);
+    });
+  }
 
-    final data = response.data;
-    if (data == null || data['data'] is! Map<String, dynamic>) {
-      throw Exception(
-        'Unexpected student sign-in status at-time API response format',
-      );
-    }
-
-    final raw = data['data'] as Map<String, dynamic>;
-    return raw.map((key, value) => MapEntry(key, value.toString()));
+  @override
+  Future<Map<String, bool>> getStaffSignInStatusAtTime({
+    required String classroomCode,
+    required List<String> staffCodes,
+    required DateTime instantUtc,
+  }) async {
+    if (staffCodes.isEmpty) return const <String, bool>{};
+    final endpoint = ApiPaths.url(ApiPaths.staffAttendanceSignInStatusAtTime);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'classroomCode': classroomCode,
+        'staffCodes': staffCodes,
+        'instant': instantUtc.toIso8601String(),
+      },
+    );
+    final root = response.data;
+    if (root is! Map<String, dynamic>) return const <String, bool>{};
+    final data = root['data'];
+    if (data is! Map) return const <String, bool>{};
+    return data.map<String, bool>((key, value) {
+      final code = key.toString().trim();
+      final isPresent =
+          value == true || value.toString().toUpperCase() == 'SIGNED_IN';
+      return MapEntry(code, isPresent);
+    });
   }
 
   @override
@@ -1736,6 +1819,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isParent
@@ -1747,6 +1831,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       queryParameters: queryParameters,
       data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
@@ -1757,6 +1844,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> body,
     Map<String, dynamic>? queryParameters,
     required bool isParent,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isParent
@@ -1768,6 +1856,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       endpoint,
       queryParameters: queryParameters,
       data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
     );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
@@ -1776,12 +1867,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStudentTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceRecordsTransfer,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1790,6 +1888,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignIn({
     required Map<String, dynamic> body,
     required bool isSelf,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isSelf
@@ -1797,7 +1896,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
           : ApiPaths.staffAttendanceRecordsSignIn,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1806,6 +1911,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
     bool isSelf = false,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       isSelf
@@ -1813,7 +1919,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
           : ApiPaths.staffAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1821,12 +1933,19 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStaffTransfer({
     required Map<String, dynamic> body,
+    String? idempotencyKey,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffAttendanceRecordsTransfer,
       ApiConstants.attendanceBaseUrl,
     );
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: idempotencyKey != null
+          ? Options(headers: {IdempotencyKey.headerName: idempotencyKey})
+          : null,
+    );
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }
@@ -1866,32 +1985,28 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> getStudentAttendanceProfileRaw({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _attendanceListGet(ApiPaths.studentAttendanceProfile, queryParameters);
+  }) => _attendanceListGet(ApiPaths.studentAttendanceProfile, queryParameters);
 
   @override
   Future<Map<String, dynamic>?> getStudentAttendanceProfileAbsentToggleRaw({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _attendanceListGet(
-        ApiPaths.studentAttendanceProfileAbsentToggle,
-        queryParameters,
-      );
+  }) => _attendanceListGet(
+    ApiPaths.studentAttendanceProfileAbsentToggle,
+    queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> getStaffAttendanceProfileRaw({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _attendanceListGet(ApiPaths.staffAttendanceProfile, queryParameters);
+  }) => _attendanceListGet(ApiPaths.staffAttendanceProfile, queryParameters);
 
   @override
   Future<Map<String, dynamic>?> getStaffAttendanceProfileAbsentToggleRaw({
     required Map<String, dynamic> queryParameters,
-  }) =>
-      _attendanceListGet(
-        ApiPaths.staffAttendanceProfileAbsentToggle,
-        queryParameters,
-      );
+  }) => _attendanceListGet(
+    ApiPaths.staffAttendanceProfileAbsentToggle,
+    queryParameters,
+  );
 
   @override
   Future<Map<String, dynamic>?> getStudentAttendanceAbsentViewRaw({

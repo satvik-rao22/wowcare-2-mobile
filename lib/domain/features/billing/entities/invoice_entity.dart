@@ -227,6 +227,7 @@ class InvoicePaymentParams extends Equatable {
     this.method,
     this.reference,
     this.narration,
+    this.idempotencyKey,
   });
 
   final String schoolCode;
@@ -239,6 +240,11 @@ class InvoicePaymentParams extends Equatable {
   final String? reference;
   final String? narration;
 
+  /// Stable per-operation key sent as the `Idempotency-Key` header so the
+  /// backend dedupes a retried/replayed payment or refund. Kept stable across
+  /// retries of the SAME logical operation; the cubit rotates it after success.
+  final String? idempotencyKey;
+
   @override
   List<Object?> get props => [
         schoolCode,
@@ -250,6 +256,7 @@ class InvoicePaymentParams extends Equatable {
         method,
         reference,
         narration,
+        idempotencyKey,
       ];
 }
 
@@ -263,6 +270,7 @@ class CreateCreditParams extends Equatable {
     this.studentCode,
     this.reason,
     this.description,
+    this.idempotencyKey,
   });
 
   final String schoolCode;
@@ -273,6 +281,10 @@ class CreateCreditParams extends Equatable {
   final String? reason;
   final String? description;
 
+  /// Stable per-operation `Idempotency-Key` for the credit POST (see
+  /// [InvoicePaymentParams.idempotencyKey]).
+  final String? idempotencyKey;
+
   @override
   List<Object?> get props => [
         schoolCode,
@@ -282,7 +294,46 @@ class CreateCreditParams extends Equatable {
         studentCode,
         reason,
         description,
+        idempotencyKey,
       ];
+}
+
+/// One student's result from `POST /api/v1/invoices/check-recipients`.
+class RecipientEligibilityEntity extends Equatable {
+  const RecipientEligibilityEntity({
+    required this.studentCode,
+    required this.eligible,
+    this.reason,
+  });
+
+  final String studentCode;
+  final bool eligible;
+
+  /// Populated when [eligible] is false — why this student can't receive an
+  /// invoice yet (e.g. no family/billing profile).
+  final String? reason;
+
+  @override
+  List<Object?> get props => [studentCode, eligible, reason];
+}
+
+/// Result of `POST /api/v1/invoices/check-recipients` — run before creating
+/// an invoice to confirm every selected student can actually receive one.
+class CheckRecipientsResultEntity extends Equatable {
+  const CheckRecipientsResultEntity({
+    required this.allEligible,
+    required this.recipients,
+  });
+
+  final bool allEligible;
+  final List<RecipientEligibilityEntity> recipients;
+
+  /// The subset that failed the check, for surfacing reasons to the user.
+  List<RecipientEligibilityEntity> get ineligible =>
+      recipients.where((r) => !r.eligible).toList();
+
+  @override
+  List<Object?> get props => [allEligible, recipients];
 }
 
 class InvoicePaymentResultEntity extends Equatable {

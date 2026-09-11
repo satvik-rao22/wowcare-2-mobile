@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'scheduling_legend.dart';
 
 class SchedulingFilterBar extends StatelessWidget {
@@ -27,13 +28,25 @@ class SchedulingFilterBar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CustomDropdown(
-            hintText: 'Select Classroom',
-            items: classroomNames,
-            selectedItem: selectedClassroom,
-            prependHintAsSelectableItem: true,
-            fieldHeight: 44,
-            onSelect: onClassroomChanged,
+          Row(
+            children: [
+              Expanded(
+                child: CustomDropdown(
+                  hintText: 'Select Classroom',
+                  items: classroomNames,
+                  selectedItem: selectedClassroom,
+                  fieldHeight: 44,
+                  onSelect: onClassroomChanged,
+                ),
+              ),
+              if (selectedClassroom != null) ...[
+                const SizedBox(width: 8),
+                CustomClearAllChip(
+                  label: 'Clear',
+                  onTap: () => onClassroomChanged(null),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
           const SchedulingLegend(),

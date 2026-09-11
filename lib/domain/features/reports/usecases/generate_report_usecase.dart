@@ -1,7 +1,8 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/errors/failures.dart';
-import '../entities/report_entity.dart';
-import '../repositories/reports_repository.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
+import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
 import 'report_params.dart';
 
 abstract class UseCase<Type, Params> {
@@ -42,6 +43,6 @@ class GenerateReportUseCase implements UseCase<ReportEntity, ReportParams> {
       return e;
     }
 
-    return ServerFailure('Failed to generate report: ${e.toString()}');
+    return ServerFailure(ApiErrorHandler.extractErrorMessage(e));
   }
 }

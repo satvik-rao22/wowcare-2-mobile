@@ -1,13 +1,18 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource_impl.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 
 class FakeDio extends Fake implements Dio {
-  Map<String, dynamic>? Function(String path)? responseBuilder;
+  dynamic Function(String path)? responseBuilder;
   bool shouldThrow = false;
   DioException? exception;
+
+  @override
+  BaseOptions get options => BaseOptions();
 
   @override
   Future<Response<T>> post<T>(
@@ -22,12 +27,16 @@ class FakeDio extends Fake implements Dio {
     ProgressCallback? onUploadProgress,
   }) async {
     if (shouldThrow) {
-      throw exception ?? DioException(
-        requestOptions: RequestOptions(path: path),
-        message: 'Network error',
-      );
+      throw exception ??
+          DioException(
+            requestOptions: RequestOptions(path: path),
+            message: 'Network error',
+          );
     }
-    final responseData = responseBuilder?.call(path);
+    var responseData = responseBuilder?.call(path);
+    if (responseData is Map) {
+      responseData = Map<String, dynamic>.from(responseData);
+    }
     return Response<T>(
       data: responseData as T?,
       statusCode: 200,
@@ -46,12 +55,16 @@ class FakeDio extends Fake implements Dio {
     String? baseUrl,
   }) async {
     if (shouldThrow) {
-      throw exception ?? DioException(
-        requestOptions: RequestOptions(path: path),
-        message: 'Network error',
-      );
+      throw exception ??
+          DioException(
+            requestOptions: RequestOptions(path: path),
+            message: 'Network error',
+          );
     }
-    final responseData = responseBuilder?.call(path);
+    var responseData = responseBuilder?.call(path);
+    if (responseData is Map) {
+      responseData = Map<String, dynamic>.from(responseData);
+    }
     return Response<T>(
       data: responseData as T?,
       statusCode: 200,
@@ -80,34 +93,40 @@ void main() {
 
   group('ReportsRemoteDataSourceImpl', () {
     group('generateReport', () {
-      test('routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint', () async {
-        const reportType = ReportType.studentDailyAttendance;
-        final requestBody = <String, dynamic>{'startDate': '2026-01-01', 'endDate': '2026-01-01'};
-        final responseData = {
-          'reportId': 'report-123',
-          'reportType': 'STUDENT_DAILY_ATTENDANCE',
-          'generatedAt': '2026-01-15T10:30:00Z',
-          'assetCode': 'asset-456',
-          'fileName': 'report.xlsx',
-        };
+      test(
+        'routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint',
+        () async {
+          const reportType = ReportType.studentDailyAttendance;
+          final requestBody = <String, dynamic>{
+            'startDate': '2026-01-01',
+            'endDate': '2026-01-01',
+          };
+          final responseData = {
+            'reportId': 'report-123',
+            'reportType': 'STUDENT_DAILY_ATTENDANCE',
+            'generatedAt': '2026-01-15T10:30:00Z',
+            'assetCode': 'asset-456',
+            'fileName': 'report.xlsx',
+          };
 
-        fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
-            return responseData;
-          }
-          return null;
-        };
+          fakeDio.responseBuilder = (path) {
+            if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        final result = await dataSource.generateReport(
-          reportType: reportType,
-          requestBody: requestBody,
-        );
+          final result = await dataSource.generateReport(
+            reportType: reportType,
+            payload: _RawPayload(requestBody),
+          );
 
-        expect(result.reportId, 'report-123');
-        expect(result.reportType, 'STUDENT_DAILY_ATTENDANCE');
-        expect(result.assetCode, 'asset-456');
-        expect(result.fileName, 'report.xlsx');
-      });
+          expect(result.reportId, 'report-123');
+          expect(result.reportType, 'STUDENT_DAILY_ATTENDANCE');
+          expect(result.assetCode, 'asset-456');
+          expect(result.fileName, 'report.xlsx');
+        },
+      );
 
       test('routes STUDENT_ABSENT to student-attendance endpoint', () async {
         const reportType = ReportType.studentAbsent;
@@ -126,7 +145,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STUDENT_ABSENT');
@@ -149,7 +168,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STAFF_ABSENT');
@@ -157,7 +176,9 @@ void main() {
 
       test('routes STAFF_DETAILS to staff endpoint', () async {
         const reportType = ReportType.staffDetails;
-        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+        final requestBody = <String, dynamic>{
+          'classroomCodes': ['CLASS-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
           if (path.endsWith('/api/v1/staff/reports/generate')) {
@@ -172,7 +193,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STAFF_DETAILS');
@@ -180,7 +201,9 @@ void main() {
 
       test('routes STUDENTS_AND_FAMILY to student endpoint', () async {
         const reportType = ReportType.studentsAndFamily;
-        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+        final requestBody = <String, dynamic>{
+          'classroomCodes': ['CLASS-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
           if (path.endsWith('/api/v1/student/reports/generate')) {
@@ -195,7 +218,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'STUDENTS_AND_FAMILY');
@@ -218,7 +241,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'EMERGENCY_CONTACTS');
@@ -226,10 +249,12 @@ void main() {
 
       test('routes IMMUNIZATION to immunization endpoint', () async {
         const reportType = ReportType.immunization;
-        final requestBody = <String, dynamic>{'studentCodes': ['STU-1']};
+        final requestBody = <String, dynamic>{
+          'studentCodes': ['STU-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/settings/immunization/report')) {
+          if (path.endsWith('/api/v1/student/reports/generate')) {
             return {
               'reportId': 'report-immun-1',
               'reportType': 'IMMUNIZATION',
@@ -241,7 +266,7 @@ void main() {
 
         final result = await dataSource.generateReport(
           reportType: reportType,
-          requestBody: requestBody,
+          payload: _RawPayload(requestBody),
         );
 
         expect(result.reportType, 'IMMUNIZATION');
@@ -254,20 +279,59 @@ void main() {
       // compile time, so the old runtime ArgumentError path is structurally
       // unreachable — there is nothing left for a test to exercise.
 
-      test('throws FormatException when backend response is missing required fields', () async {
-        const reportType = ReportType.studentDailyAttendance;
-        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+      test(
+        'routes BILLING_TRANSACTION to billing transaction endpoint via GET',
+        () async {
+          const reportType = ReportType.billingTransaction;
+          final requestBody = <String, dynamic>{
+            'dateFrom': '2026-01-01T00:00:00.000Z',
+            'dateTo': '2026-01-15T00:00:00.000Z',
+            'paymentMethods': ['Card', 'Cash'],
+            'transactionStatuses': ['Success'],
+          };
+          // The billing endpoints stream the file back as bytes
+          // (ResponseType.bytes) rather than returning JSON, so the fake must
+          // answer with bytes or generateReport null-checks on response.data.
+          final responseData = utf8.encode('fake-xlsx-bytes');
 
-        fakeDio.responseBuilder = (_) => null;
+          String? capturedPath;
+          fakeDio.responseBuilder = (path) {
+            capturedPath = path;
+            if (path.endsWith('/api/v1/reports/billing/TRANSACTION')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        expect(
-          () => dataSource.generateReport(
+          final result = await dataSource.generateReport(
             reportType: reportType,
-            requestBody: requestBody,
-          ),
-          throwsA(isA<FormatException>()),
-        );
-      });
+            payload: _RawPayload(requestBody),
+          );
+
+          expect(capturedPath, endsWith('/api/v1/reports/billing/TRANSACTION'));
+          // The datasource stamps ReportType.billingTransaction.backendValue,
+          // which is 'TRANSACTION'.
+          expect(result.reportType, 'TRANSACTION');
+        },
+      );
+
+      test(
+        'throws FormatException when backend response is missing required fields',
+        () async {
+          const reportType = ReportType.studentDailyAttendance;
+          final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+          fakeDio.responseBuilder = (_) => null;
+
+          expect(
+            () => dataSource.generateReport(
+              reportType: reportType,
+              payload: _RawPayload(requestBody),
+            ),
+            throwsA(isA<FormatException>()),
+          );
+        },
+      );
 
       test('propagates DioException from network errors', () async {
         const reportType = ReportType.studentDailyAttendance;
@@ -283,7 +347,7 @@ void main() {
         expect(
           () => dataSource.generateReport(
             reportType: reportType,
-            requestBody: requestBody,
+            payload: _RawPayload(requestBody),
           ),
           throwsA(isA<DioException>()),
         );
@@ -321,31 +385,34 @@ void main() {
         expect(result[1].reportId, 'recent-2');
       });
 
-      test('returns list of recent student attendance reports with nested data.reports format', () async {
-        final responseData = {
-          'data': {
-            'reports': [
-              {
-                'reportId': 'recent-nested-1',
-                'reportType': 'STUDENT_DAILY_ATTENDANCE',
-                'generatedAt': '2026-01-15T10:30:00Z',
-              },
-            ],
-          },
-        };
+      test(
+        'returns list of recent student attendance reports with nested data.reports format',
+        () async {
+          final responseData = {
+            'data': {
+              'reports': [
+                {
+                  'reportId': 'recent-nested-1',
+                  'reportType': 'STUDENT_DAILY_ATTENDANCE',
+                  'generatedAt': '2026-01-15T10:30:00Z',
+                },
+              ],
+            },
+          };
 
-        fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
-            return responseData;
-          }
-          return null;
-        };
+          fakeDio.responseBuilder = (path) {
+            if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        final result = await dataSource.getRecentStudentAttendanceReports();
+          final result = await dataSource.getRecentStudentAttendanceReports();
 
-        expect(result, hasLength(1));
-        expect(result[0].reportId, 'recent-nested-1');
-      });
+          expect(result, hasLength(1));
+          expect(result[0].reportId, 'recent-nested-1');
+        },
+      );
 
       test('handles empty reports list', () async {
         fakeDio.responseBuilder = (path) => {'reports': []};
@@ -510,5 +577,101 @@ void main() {
         expect(result, containsAll(['123', '456']));
       });
     });
+
+    group('getReportDownloadUrl', () {
+      test('returns deliveryUrl immediately when asset is READY', () async {
+        fakeDio.responseBuilder = (_) => {
+          'data': {
+            'assets': [
+              {
+                'assetCode': 'AST_123',
+                'status': 'READY',
+                'deliveryUrl': 'https://cdn.example.com/reports/report.pdf',
+              },
+            ],
+          },
+        };
+
+        final result = await dataSource.getReportDownloadUrl('AST_123');
+        expect(result, 'https://cdn.example.com/reports/report.pdf');
+      });
+
+      test('polls and returns URL when asset transitions to READY', () async {
+        int pollCount = 0;
+        fakeDio.responseBuilder = (_) {
+          pollCount++;
+          if (pollCount == 1) {
+            return {
+              'data': {
+                'assets': [
+                  {
+                    'assetCode': 'AST_123',
+                    'status': 'PROCESSING',
+                    'originalDownloadUrl':
+                        '/api/v1/media-assets/AST_123/artifacts/original',
+                  },
+                ],
+              },
+            };
+          }
+          return {
+            'data': {
+              'assets': [
+                {
+                  'assetCode': 'AST_123',
+                  'status': 'READY',
+                  'deliveryUrl': 'https://cdn.example.com/reports/report.pdf',
+                },
+              ],
+            },
+          };
+        };
+
+        final result = await dataSource.getReportDownloadUrl('AST_123');
+        expect(result, 'https://cdn.example.com/reports/report.pdf');
+        expect(pollCount, greaterThanOrEqualTo(2));
+      });
+
+      test('throws Exception when asset status is FAILED', () async {
+        fakeDio.responseBuilder = (_) => {
+          'data': {
+            'assets': [
+              {'assetCode': 'AST_123', 'status': 'FAILED'},
+            ],
+          },
+        };
+
+        expect(
+          () => dataSource.getReportDownloadUrl('AST_123'),
+          throwsA(isA<Exception>()),
+        );
+      });
+    });
+
+    group('downloadReportFile', () {
+      test('downloads bytes successfully', () async {
+        fakeDio.responseBuilder = (_) => [1, 2, 3, 4, 5];
+
+        final result = await dataSource.downloadReportFile(
+          'https://cdn.example.com/reports/report.pdf',
+        );
+
+        expect(result, [1, 2, 3, 4, 5]);
+      });
+    });
   });
+}
+
+/// A payload that serialises to a literal map.
+///
+/// The datasource's job is endpoint routing and response handling — it treats
+/// the payload as opaque and only calls `toJson()` — so these tests pin the
+/// exact body rather than going through a params class.
+class _RawPayload extends ReportRequestPayload {
+  const _RawPayload(this._json);
+
+  final Map<String, dynamic> _json;
+
+  @override
+  Map<String, dynamic> toJson() => _json;
 }

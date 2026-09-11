@@ -15,6 +15,7 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   private let prefsSchoolRadiusKey = "geofence_school_radius_m"
   private let prefsGpsEnabledKey = "geofence_gps_sign_in_enabled"
   private let prefsLastInsideKey = "geofence_last_notified_inside"
+  private let prefsNothingToDoKey = "geofence_nothing_to_do"
 
   static func initializeWithChannel(_ channel: FlutterMethodChannel) {
     if instance == nil {
@@ -31,18 +32,16 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     // HundredMeters was too coarse — requestState could return .unknown for zones
     // smaller than the accuracy radius, so the initial state was never resolved.
     locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-    // allowsBackgroundLocationUpdates MUST only be set when the app actually has
-    // "Always" authorization. Setting it on a .notDetermined or .authorizedWhenInUse
-    // CLLocationManager raises an NSInternalInconsistencyException on some iOS
-    // versions and can silently prevent location updates from starting.
-    // We apply it in handleAuthorizationChange() once "Always" is confirmed.
-    // Background region-crossing events still work with "When In Use" in the
-    // foreground; "Always" is required only for background + killed-app delivery.
+    // allowsBackgroundLocationUpdates is never enabled. The bundle declares no
+    // `location` UIBackgroundMode and no "Always" usage descriptions (removed
+    // for App Review guideline 2.5.4), so setting it would either throw or be
+    // ignored. iOS location here is strictly foreground.
     locationManager.pausesLocationUpdatesAutomatically = false
 
-    // Request location + notification permissions at app launch so the system
-    // prompts appear immediately, not delayed until school data loads.
-    requestLocationPermission()
+    // Location permission is requested by the Dart side (GeofenceCubit) once
+    // geofencing actually initializes for a school — not here at native init —
+    // so the user isn't prompted before there's any context for why, and so
+    // there is a single, deliberate request path instead of two racing ones.
     requestNotificationPermission()
 
     channel?.setMethodCallHandler { [weak self] call, result in
@@ -52,46 +51,32 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
         self.handleUpdateSchoolLocation(call: call, result: result)
       case "getGeofenceStatus":
         self.handleGetGeofenceStatus(result: result)
+      case "updateSignInStatus":
+        self.handleUpdateSignInStatus(call: call, result: result)
+      case "clearGeofenceState":
+        self.handleClearGeofenceState(result: result)
+      case "triggerNotification":
+        self.handleTriggerNotification(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
   }
 
-  // MARK: - Permission helpers
-
-  /// Two-step iOS location permission flow:
-  ///   Step 1 (.notDetermined) → requestWhenInUseAuthorization()
-  ///   Step 2 (.authorizedWhenInUse) → requestAlwaysAuthorization()
-  /// iOS 14+ only shows the "Always Allow" system prompt after the user has
-  /// first granted "When In Use" — calling requestAlwaysAuthorization() on a
-  /// .notDetermined status skips straight to the When-In-Use dialog anyway,
-  /// but being explicit avoids subtle ordering issues on some iOS versions.
-  private func requestLocationPermission() {
-    let status: CLAuthorizationStatus
-    if #available(iOS 14.0, *) {
-      status = locationManager.authorizationStatus
-    } else {
-      status = CLLocationManager.authorizationStatus()
-    }
-
-    switch status {
-    case .notDetermined:
-      print("[iOS LOCATION] Status: notDetermined → requesting When In Use")
-      locationManager.requestWhenInUseAuthorization()
-    case .authorizedWhenInUse:
-      print("[iOS LOCATION] Status: authorizedWhenInUse → requesting Always")
-      locationManager.requestAlwaysAuthorization()
-    case .authorizedAlways:
-      print("[iOS LOCATION] Status: authorizedAlways ✅ — no request needed")
-    case .denied:
-      print("[iOS LOCATION] Status: denied ❌ — user must enable in Settings")
-    case .restricted:
-      print("[iOS LOCATION] Status: restricted ❌ — parental controls active")
-    @unknown default:
-      print("[iOS LOCATION] Status: unknown (\(status.rawValue))")
-    }
+  private func handleClearGeofenceState(result: FlutterResult) {
+    let defaults = UserDefaults.standard
+    defaults.removeObject(forKey: prefsLastInsideKey)
+    result(true)
   }
+
+  private func handleTriggerNotification(call: FlutterMethodCall, result: FlutterResult) {
+    let args = call.arguments as? [String: Any]
+    let isInside = args?["isInside"] as? Bool ?? true
+    showLocalNotification(isInside: isInside)
+    result(true)
+  }
+
+  // MARK: - Permission helpers
 
   private func requestNotificationPermission() {
     UNUserNotificationCenter.current().requestAuthorization(
@@ -155,6 +140,22 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     result(true)
   }
 
+  private func handleUpdateSignInStatus(call: FlutterMethodCall, result: FlutterResult) {
+    guard let args = call.arguments as? [String: Any] else {
+      result(FlutterError(code: "bad_args", message: "Missing args", details: nil))
+      return
+    }
+    let nothingToDo = args["nothingToDo"] as? Bool ?? false
+    let defaults = UserDefaults.standard
+    defaults.set(nothingToDo, forKey: prefsNothingToDoKey)
+    defaults.set(Date().timeIntervalSince1970, forKey: "geofence_nothing_to_do_timestamp")
+    
+    if nothingToDo {
+      UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["wowcare_geofence_enter"])
+    }
+    result(true)
+  }
+
   private func handleGetGeofenceStatus(result: FlutterResult) {
     let defaults = UserDefaults.standard
     let lastInside = defaults.bool(forKey: prefsLastInsideKey)
@@ -177,6 +178,17 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
     guard CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else {
       print("[iOS GEOFENCE] ❌ Region monitoring not available on this device")
+      return
+    }
+
+    // CLLocationManager region monitoring requires "Always" authorization —
+    // with When In Use, startMonitoring(for:) only reports kCLErrorDenied to
+    // monitoringDidFailFor. Since the "Always" usage descriptions were removed
+    // from Info.plist for App Review guideline 2.5.4, this app can no longer be
+    // granted Always, so on any normal install we bail out here and geofencing
+    // runs foreground-only from Dart (GeofenceCubit's position stream).
+    guard currentAuthorizationStatus == .authorizedAlways else {
+      print("[iOS GEOFENCE] Skipping region monitoring — requires Always authorization, which this app no longer requests (foreground-only geofencing)")
       return
     }
 
@@ -205,6 +217,15 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   // MARK: - CLLocationManagerDelegate
 
+  /// Current authorization status, via the instance property on iOS 14+ and the
+  /// deprecated type method below it.
+  private var currentAuthorizationStatus: CLAuthorizationStatus {
+    if #available(iOS 14.0, *) {
+      return locationManager.authorizationStatus
+    }
+    return CLLocationManager.authorizationStatus()
+  }
+
   // iOS 14+ authorization change callback.
   @available(iOS 14.0, *)
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -219,15 +240,23 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   }
 
   private func handleAuthorizationChange(status: CLAuthorizationStatus) {
+    // allowsBackgroundLocationUpdates is deliberately left at its default of
+    // false in every branch. It is only legal to set when the bundle declares
+    // the `location` UIBackgroundMode, which was removed for App Review
+    // guideline 2.5.4 — setting it to true without that entry throws.
     switch status {
     case .authorizedWhenInUse:
-      // User granted "When In Use" — now escalate to "Always" for background monitoring.
-      print("[iOS LOCATION] Got When In Use → requesting Always for background geofencing")
-      locationManager.requestAlwaysAuthorization()
+      // The only level this app can now be granted: the "Always" usage
+      // descriptions were removed from Info.plist, so iOS never offers
+      // "Always Allow" and never escalates. Foreground-only tracking is
+      // handled on the Dart side (GeofenceCubit's position stream).
+      print("[iOS LOCATION] Got When In Use — foreground-only geofencing")
     case .authorizedAlways:
-      print("[iOS LOCATION] ✅ Got Always authorization — enabling background updates and restarting region monitoring")
-      // Safe to enable background updates now that "Always" is confirmed.
-      locationManager.allowsBackgroundLocationUpdates = true
+      // Only reachable on a device that was granted Always by an older build
+      // (before the usage descriptions were removed) and has not reinstalled.
+      // Region monitoring is still allowed in that case, so honour it, but
+      // nothing here requests or relies on it.
+      print("[iOS LOCATION] Always authorization carried over from a previous install — restarting region monitoring")
       restartMonitoringWithPersistedConfig()
     case .denied:
       print("[iOS LOCATION] ❌ Authorization denied — geofencing disabled")
@@ -354,6 +383,24 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     channel?.invokeMethod("geofenceStatusChanged", arguments: ["isInside": isInside])
 
     guard shouldNotify else { return }
+
+    // "You can now Sign In or Sign Out" is meaningless when staff/admin is
+    // already signed in or a guardian's children are all already signed in.
+    var nothingToDo = defaults.bool(forKey: prefsNothingToDoKey)
+    if nothingToDo {
+      let timestamp = defaults.double(forKey: "geofence_nothing_to_do_timestamp")
+      let setDate = Date(timeIntervalSince1970: timestamp)
+      let isSameDay = Calendar.current.isDateInToday(setDate)
+      if !isSameDay {
+        nothingToDo = false
+      }
+    }
+
+    if isInside && nothingToDo {
+      print("[iOS GEOFENCE] Skipping enter notification — nothing to sign in/out")
+      return
+    }
+
     showLocalNotification(isInside: isInside)
   }
 

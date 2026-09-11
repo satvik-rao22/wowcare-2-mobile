@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SelectFlowHeader extends StatelessWidget {

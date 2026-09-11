@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Wraps any list/card child and briefly flashes a highlight when it is the
 /// target of a notification deep-link.
@@ -33,6 +33,7 @@ class HighlightableCard extends StatefulWidget {
     this.highlightColor,
     this.duration = const Duration(milliseconds: 2200),
     this.scrollOnHighlight = false,
+    this.foreground = false,
   });
 
   /// The card content.
@@ -55,6 +56,15 @@ class HighlightableCard extends StatefulWidget {
   /// When true, the card scrolls itself into view (via its own context) on
   /// highlight — no external [GlobalKey] needed. Use for deeply-nested cards.
   final bool scrollOnHighlight;
+
+  /// Paints the flash IN FRONT of [child] instead of behind it.
+  ///
+  /// The default (behind) is invisible when the child paints its own opaque,
+  /// full-bleed background — e.g. `StaffStyleCard`, an opaque white `Container`
+  /// with no margin — because the child covers the exact same rect and hides
+  /// both the border and the tint. Set this for such cards; the tint is
+  /// translucent, so the content still reads through.
+  final bool foreground;
 
   bool get _matches {
     final a = (code ?? '').trim();
@@ -142,6 +152,9 @@ class _HighlightableCardState extends State<HighlightableCard>
         // Overlay starts strong (t=1) and fades to nothing (t=0).
         final t = 1 - _controller.value;
         return DecoratedBox(
+          position: widget.foreground
+              ? DecorationPosition.foreground
+              : DecorationPosition.background,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(

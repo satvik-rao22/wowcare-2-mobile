@@ -1,3 +1,4 @@
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_qr_entity.dart';
 
 class KioskQrModel extends KioskQrEntity {
@@ -32,16 +33,16 @@ class KioskQrModel extends KioskQrEntity {
   }
 
   static DateTime _parseDate(dynamic date) {
-    if (date == null) return DateTime.now();
+    if (date == null) return AppTime.nowUtc();
     if (date is DateTime) return date;
     if (date is String) {
       try {
         return DateTime.parse(date);
       } catch (_) {
-        return DateTime.now();
+        return AppTime.nowUtc();
       }
     }
-    return DateTime.now();
+    return AppTime.nowUtc();
   }
 
   Map<String, dynamic> toJson() {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Supported preview types for composer/message cards.
 enum PreviewKind { url, email, phone }
@@ -262,7 +263,7 @@ class MessageContentProcessor {
   /// • < 60 min old → "Xm ago"  (e.g. "3m ago")
   /// • otherwise → the pre-formatted [hhMM] string (e.g. "14:05")
   static String smartBubbleTime(DateTime sentAt, String hhMM) {
-    final diff = DateTime.now().toUtc().difference(sentAt.toUtc());
+    final diff = ServerTimeService.instance.nowUtc().difference(sentAt.toUtc());
     if (diff.inSeconds < 30) return 'Now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     return hhMM;
@@ -279,6 +280,6 @@ class MessageContentProcessor {
     if (senderName != null && senderName.trim().isNotEmpty) {
       return senderName.trim();
     }
-    return senderName ?? 'User';
+    return 'User';
   }
 }

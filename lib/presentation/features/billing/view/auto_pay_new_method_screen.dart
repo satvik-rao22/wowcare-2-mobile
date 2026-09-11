@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/billing/cubit/auto_pay_new_method_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/auto_pay_new_method_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class AutoPayNewMethodScreen extends StatefulWidget {
   const AutoPayNewMethodScreen({super.key});
@@ -18,8 +22,8 @@ class AutoPayNewMethodScreen extends StatefulWidget {
 }
 
 class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
-  static const Color _primary = Color(0xFF573353);
-  static const Color _infoBg = Color(0xFFFFF3E0);
+  static const Color _primary = AppColors.billingTextColor;
+  static const Color _infoBg = AppColors.billingInfoBannerBackground;
 
   late final AutoPayNewMethodCubit _cubit = AutoPayNewMethodCubit();
 
@@ -71,11 +75,11 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         builder: (context, state) {
     final responsive = ResponsiveHelper(context);
     final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
-    final currentYear = DateTime.now().year;
+    final currentYear = billingSchoolCurrentYear();
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return StaffFormLayout(
-      title: 'Set Auto Payment',
+      title: BillingStrings.setAutoPayment,
       bottomBar: Container(
         padding: EdgeInsets.only(
           bottom: (MediaQuery.of(context).padding.bottom > 0)
@@ -86,10 +90,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.billingCardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.blackColor.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -113,7 +117,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             child: Opacity(
               opacity: _isSubmitEnabled ? 1 : 0.6,
               child: CustomButtonLayout(
-                confirmButtonLabel: 'Save details',
+                confirmButtonLabel: BillingStrings.saveDetails,
                 onPressedConfirm: _onSaveDetails,
                 showCancelButton: false,
                 isForm: false,
@@ -135,12 +139,12 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
                         CustomDropdown(
-                          label: 'Payment Method',
-                          hintText: 'Select Payment Method',
-                          items: const ['Visa', 'MasterCard', 'Discover', 'ACH'],
+                          label: BillingStrings.paymentMethod,
+                          hintText: BillingStrings.selectPaymentMethod,
+                          items: const [BillingStrings.visa, BillingStrings.masterCard, BillingStrings.discover, BillingStrings.ach],
                           selectedItem: _selectedPaymentMethodLabel(),
                           labelStyle: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.labelFontSize,
                             fontWeight: FontWeight.w400,
                             color: _primary,
@@ -148,14 +152,14 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                           fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                           selectedTextStyle: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w600,
                             color: _primary,
                             height: 19 / 14,
                           ),
                           popupItemTextStyle: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w400,
                             color: _primary,
@@ -167,10 +171,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         if (_paymentMethod.isNotEmpty) _buildFeeMessage(),
                         if (_showCardFields) ...[
                           const SizedBox(height: 16),
-                          _buildLabel('Card Number', required: true),
+                          _buildLabel(BillingStrings.cardNumber, required: true),
                           _buildInput(
                             controller: _cardNumberController,
-                            hint: 'Enter card number',
+                            hint: BillingStrings.enterCardNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 19,
                           ),
@@ -183,13 +187,13 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     CustomDropdown(
-                                      label: 'Expiration Month',
-                                      hintText: 'Month',
+                                      label: BillingStrings.expirationMonth,
+                                      hintText: BillingStrings.month,
                                       items: months,
                                       selectedItem:
                                           _expMonth.isEmpty ? null : _expMonth,
                                       labelStyle: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: responsive.labelFontSize,
                                         fontWeight: FontWeight.w400,
                                         color: _primary,
@@ -197,7 +201,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                                       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                                       selectedTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w600,
                                         color: _primary,
@@ -216,13 +220,13 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     CustomDropdown(
-                                      label: 'Expiration Year',
-                                      hintText: 'Year',
+                                      label: BillingStrings.expirationYear,
+                                      hintText: BillingStrings.year,
                                       items: years,
                                       selectedItem:
                                           _expYear.isEmpty ? null : _expYear,
                                       labelStyle: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: responsive.labelFontSize,
                                         fontWeight: FontWeight.w400,
                                         color: _primary,
@@ -230,7 +234,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                                       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                                       selectedTextStyle: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: Fonts.manrope,
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w600,
                                         color: _primary,
@@ -246,10 +250,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          _buildLabel('CVV', required: true),
+                          _buildLabel(BillingStrings.cvv, required: true),
                           _buildInput(
                             controller: _cvvController,
-                            hint: 'Enter CVV',
+                            hint: BillingStrings.enterCvv,
                             keyboardType: TextInputType.number,
                             maxLength: 4,
                           ),
@@ -257,31 +261,31 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         ],
                         if (_showEcheckFields) ...[
                           const SizedBox(height: 16),
-                          _buildLabel('Account Number', required: true),
+                          _buildLabel(BillingStrings.accountNumber, required: true),
                           _buildInput(
                             controller: _accountNumberController,
-                            hint: 'Enter account number',
+                            hint: BillingStrings.enterAccountNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 17,
                           ),
                           _buildFieldError('accountNumber'),
                           const SizedBox(height: 12),
-                          _buildLabel('Routing Number', required: true),
+                          _buildLabel(BillingStrings.routingNumber, required: true),
                           _buildInput(
                             controller: _routingNumberController,
-                            hint: 'Enter routing number',
+                            hint: BillingStrings.enterRoutingNumber,
                             keyboardType: TextInputType.number,
                             maxLength: 9,
                           ),
                           _buildFieldError('routingNumber'),
                           const SizedBox(height: 12),
                           CustomDropdown(
-                            label: 'Account Type',
-                            hintText: 'Select Account Type',
-                            items: const ['Checking', 'Savings'],
+                            label: BillingStrings.accountType,
+                            hintText: BillingStrings.selectAccountType,
+                            items: const [BillingStrings.checking, BillingStrings.savings],
                             selectedItem: _selectedAccountTypeLabel(),
                             labelStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.labelFontSize,
                               fontWeight: FontWeight.w400,
                               color: _primary,
@@ -289,7 +293,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                             labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                             fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                             selectedTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
                               color: _primary,
@@ -311,7 +315,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                               color: _infoBg,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0x4DFDB813),
+                                color: AppColors.billingInfoBannerBorder,
                               ),
                             ),
                             child: const Row(
@@ -320,15 +324,15 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                                 Icon(
                                   Icons.info_outline,
                                   size: 16,
-                                  color: Color(0xFFDD6B20),
+                                  color: AppColors.billingWarningIconColor,
                                 ),
                                 SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Your current outstanding balance will be deducted automatically.',
+                                    BillingStrings.yourCurrentOutstandingBalance,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color(0xFFD97706),
+                                      fontFamily: Fonts.manrope,
+                                      color: AppColors.billingInfoBannerTextColor,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -340,9 +344,9 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
                         if (_isSaving)
                           const Center(
                             child: Text(
-                              'Please wait... Processing your payment information.',
+                              BillingStrings.pleaseWaitProcessingYour,
                               style: TextStyle(
-                                color: Color(0xFF718096),
+                                color: AppColors.billingMutedSlateText,
                                 fontSize: 12,
                               ),
                             ),
@@ -365,7 +369,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         text: TextSpan(
           text: text,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w400,
             color: _primary,
@@ -374,7 +378,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
               ? const [
                   TextSpan(
                     text: '*',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.errorColor),
                   ),
                 ]
               : const [],
@@ -393,8 +397,8 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0x66573353)),
+        color: AppColors.billingCardColor,
+        border: Border.all(color: AppColors.billingBorderDefault),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
       child: TextField(
@@ -416,7 +420,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         }
       },
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: Fonts.manrope,
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
           color: _primary,
@@ -425,10 +429,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: responsive.labelFontSize,
             fontWeight: FontWeight.w400,
-            color: Colors.grey,
+            color: AppColors.billingGrey,
           ),
           counterText: '',
           border: InputBorder.none,
@@ -457,10 +461,10 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   String? _selectedPaymentMethodLabel() {
     const map = <String, String>{
-      'visa': 'Visa',
-      'mast': 'MasterCard',
-      'disc': 'Discover',
-      'echeck': 'ACH',
+      'visa': BillingStrings.visa,
+      'mast': BillingStrings.masterCard,
+      'disc': BillingStrings.discover,
+      'echeck': BillingStrings.ach,
     };
     return map[_paymentMethod];
   }
@@ -468,9 +472,9 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
   String? _selectedAccountTypeLabel() {
     switch (_accountType.toLowerCase()) {
       case 'checking':
-        return 'Checking';
+        return BillingStrings.checking;
       case 'savings':
-        return 'Savings';
+        return BillingStrings.savings;
       default:
         return null;
     }
@@ -478,12 +482,12 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
   Widget _buildFeeMessage() {
     final map = <String, String>{
-      'visa': 'Visa',
-      'mast': 'MasterCard',
-      'disc': 'Discover',
-      'echeck': 'ACH (Bank Transfer)',
+      'visa': BillingStrings.visa,
+      'mast': BillingStrings.masterCard,
+      'disc': BillingStrings.discover,
+      'echeck': BillingStrings.achBankTransfer,
     };
-    final methodLabel = map[_paymentMethod] ?? 'Card';
+    final methodLabel = map[_paymentMethod] ?? BillingStrings.card;
     final feeText = _paymentMethod == 'echeck'
         ? '$methodLabel - \$1.00 convenience fee will be applied'
         : '$methodLabel - 3% convenience fee will be applied';
@@ -492,21 +496,25 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF0),
+        color: AppColors.billingFeeBannerBackground,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0x40FF9F40)),
+        border: Border.all(color: AppColors.billingFeeBannerBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFFDD6B20)),
+          const Icon(
+            Icons.info_outline,
+            size: 16,
+            color: AppColors.billingWarningIconColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               feeText,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 12,
-                color: Color(0xFFC05621),
+                color: AppColors.billingFeeBannerTextColor,
               ),
             ),
           ),
@@ -526,7 +534,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     if (!isValid) {
       final firstError = _fieldErrors.values.isNotEmpty
           ? _fieldErrors.values.first
-          : 'Please check the form fields.';
+          : BillingStrings.pleaseCheckTheForm;
       CoreUtils.showTopSnackBar(
         context: context,
         message: firstError,
@@ -540,7 +548,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     if (!mounted) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Secure token created successfully.',
+      message: BillingStrings.secureTokenCreatedSuccessfully,
       isSuccess: true,
     );
   }

@@ -3,14 +3,15 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_qr_section_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/app/di/di.dart';
 
 /// OPTIMIZED: Kiosk dashboard screen with isolated rendering.
@@ -43,6 +44,10 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   /// Last app lifecycle state to detect true resume vs internal nav
   AppLifecycleState? _lastLifecycleState;
 
+  /// Track if we've loaded QR at least once in this session
+  /// to avoid unnecessary reloads
+  bool _qrLoadedOnce = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,13 +58,13 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     // Initialize lifecycle state tracking
     _lastLifecycleState = AppLifecycleState.resumed;
     _returningFromSignFlow = false;
+    _qrLoadedOnce = false;
 
-    // Initial QR load on screen open only. Returning here after a sign-in/
-    // sign-out flow must NOT trigger another load — the QR stays put until
-    // the app is foregrounded again or the user pulls to refresh.
+    // Initial QR load on screen open
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppLogger.d('[KIOSK] Dashboard refresh requested (initState)');
       _loadQrCode();
+      _qrLoadedOnce = true;
     });
   }
 
@@ -70,32 +75,15 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       'returningFromSign=$_returningFromSignFlow',
     );
 
-    // Only reload QR on true app resume from background
-    // NOT on internal navigation or widget rebuilds
+    // Reload QR on app resume from background
     if (state == AppLifecycleState.resumed) {
-      // Distinguish between:
-      // 1. Real resume: paused/detached → resumed ✅ RELOAD (if expired)
-      // 2. Internal nav: resumed → resumed ❌ DON'T RELOAD
-
-      final isRealResume = _lastLifecycleState == AppLifecycleState.paused ||
+      final isRealResume =
+          _lastLifecycleState == AppLifecycleState.paused ||
           _lastLifecycleState == AppLifecycleState.detached;
 
-      if (isRealResume && !_returningFromSignFlow) {
-        AppLogger.d('[KIOSK] True app resume - checking QR validity');
-        _loadQrCodeIfNeeded(); // ← Smart: only if expired
-      } else {
-        AppLogger.d(
-          '[KIOSK] Skipping QR reload '
-          '(isRealResume=$isRealResume, returningFromSign=$_returningFromSignFlow)',
-        );
-      }
-
-      // CRITICAL: Only reset flag on true app resume (paused/detached → resumed)
-      // NOT on internal navigation (resumed → resumed)
-      // This ensures flag persists through sign-in/out flow and is only cleared
-      // after user returns from actual background
       if (isRealResume) {
-        AppLogger.d('[KIOSK] Resetting flag after true app resume');
+        AppLogger.d('[KIOSK] True app resume - reloading QR');
+        _loadQrCode(); // Always reload on actual app resume
         _returningFromSignFlow = false;
       }
     }
@@ -109,13 +97,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     unawaited(context.read<KioskDashboardCubit>().loadQrCode());
   }
 
-  /// Load QR only if needed (cache-aware)
-  /// Checks if cached QR is valid before fetching
-  void _loadQrCodeIfNeeded() {
-    AppLogger.d('[KIOSK] Smart QR refresh (cache-aware)');
-    unawaited(context.read<KioskDashboardCubit>().loadQrCodeIfNeeded());
-  }
-
   /// Refresh dashboard data (school info, QR, kiosk settings)
   Future<void> _refreshDashboard() async {
     AppLogger.d('[KIOSK] Refresh requested (pull-to-refresh)');
@@ -124,7 +105,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
   @override
   void dispose() {
-    // Remove observer
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -133,10 +113,15 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     return Platform.isIOS && (MediaQuery.of(context).size.shortestSide >= 600);
   }
 
-  Future<void> _onPinSubmit(String pin) async {
-    AppLogger.d('[Kiosk] PIN submitted: length=${pin.length}');
+  Future<void> _onPinSubmit(String pin, {bool isLogout = false}) async {
+    AppLogger.d(
+      '[Kiosk] PIN submitted: length=${pin.length}, isLogout=$isLogout',
+    );
     _currentPin = pin;
-    final result = await context.read<KioskDashboardCubit>().submitPin(pin);
+    final result = await context.read<KioskDashboardCubit>().submitPin(
+      pin,
+      isLogout: isLogout,
+    );
 
     // Handle PIN verification failure - show error without changing state
     if (result == null && mounted) {
@@ -152,102 +137,154 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final bool isTablet = isIpad();
+
+    // Reload QR when returning from navigation (back arrow from sign-in/sign-out)
+    // This ensures fresh QR is displayed when user returns to dashboard
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _qrLoadedOnce) {
+        final currentRoute = ModalRoute.of(context);
+        if (currentRoute?.isCurrent ?? false) {
+          AppLogger.d(
+            '[KIOSK] Dashboard returned to view - reloading QR for freshness',
+          );
+          _loadQrCode();
+        }
+      }
+    });
+
     return _buildScaffold(isTablet);
   }
 
   Widget _buildScaffold(bool isTablet) {
-    return BlocListener<KioskDashboardCubit, KioskDashboardState>(
+    return BlocListener<KioskAttendanceCubitV2, KioskAttendanceStateV2>(
       listener: (context, state) {
-        if (state is KioskDashboardPinSuccess) {
-          _handlePinSuccess(context, state.pinResult);
-        } else if (state is KioskDashboardError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.message,
-            isError: true,
+        if (state is KioskAttendanceSuccessV2) {
+          AppLogger.d(
+            '[KIOSK] Attendance success detected - reloading QR code',
           );
+          _loadQrCode();
+          context.read<KioskAttendanceCubitV2>().reset();
         }
       },
-      child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight + 1),
-          child: Column(
-            children: [
-              Container(
-                color: Colors.white,
-                child: SafeArea(
-                  bottom: false,
-                  child: Row(
-                    children: [
-                      // Back arrow
-                      // IconButton(
-                      //   icon: const Icon(
-                      //     Icons.arrow_back,
-                      //     color: AppColors.primaryColor,
-                      //   ),
-                      //   onPressed: () async {
-                      //     AppLogger.d('[Kiosk] Back button pressed');
-                      //     // go back to the previous screen
-                      //     if (mounted) {
-                      //       GoRouter.of(context).pop();
-                      //     }
-                      //   },
-                      // ),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 16.0),
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundImage: AssetImage(
-                            'assets/images/WowCarePNG.png',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'WowCare',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                      // IconButton(
-                      //   icon: const Icon(
-                      //     Icons.exit_to_app,
-                      //     color: AppColors.primaryColor,
-                      //   ),
-                      //   onPressed: () async {
-                      //     AppLogger.d('[Kiosk] Logout button pressed');
-                      //     await serviceLocator<KioskAccessControl>()
-                      //         .deactivateKioskMode();
-                      //     if (mounted) {
-                      //       GoRouter.of(context).go('/sign-in');
-                      //     }
-                      //   },
-                      // ),
-                    ],
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: AppColors.themeColor),
-            ],
-          ),
-        ),
-
-        bottomSheet: Container(color: AppColors.themeColor, height: 1),
-        body: RefreshIndicator(
-          onRefresh: _refreshDashboard,
-          child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
-            builder: (context, state) {
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: _buildContent(context, state, isTablet),
+      child: BlocListener<KioskDashboardCubit, KioskDashboardState>(
+        listener: (context, state) {
+          if (state is KioskDashboardPinSuccess) {
+            _handlePinSuccess(context, state.pinResult);
+          } else if (state is KioskDashboardError) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message,
+              isError: true,
+            );
+          }
+        },
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              AppLogger.d(
+                '[Kiosk] Back button intercepted on dashboard (no-op)',
               );
-            },
+            }
+          },
+          child: Scaffold(
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          // Back arrow
+                          // IconButton(
+                          //   icon: const Icon(
+                          //     Icons.arrow_back,
+                          //     color: AppColors.primaryColor,
+                          //   ),
+                          //   onPressed: () async {
+                          //     AppLogger.d('[Kiosk] Back button pressed');
+                          //     // go back to the previous screen
+                          //     if (mounted) {
+                          //       GoRouter.of(context).pop();
+                          //     }
+                          //   },
+                          // ),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 16.0),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundImage: AssetImage(
+                                'assets/images/WowCarePNG.png',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'WowCare',
+                              style: TextStyle(
+                                color: AppColors.primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: AppColors.primaryColor,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'logout') {
+                                AppLogger.d(
+                                  '[Kiosk] Logout selected from menu',
+                                );
+                                GoRouter.of(context).go('/kiosk/logout');
+                              }
+                            },
+                            itemBuilder: (BuildContext context) => [
+                              const PopupMenuItem<String>(
+                                value: 'logout',
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.logout,
+                                      size: 20,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Logout'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Divider(height: 1, color: AppColors.themeColor),
+                ],
+              ),
+            ),
+            bottomSheet: Container(color: AppColors.themeColor, height: 1),
+            body: RefreshIndicator(
+              onRefresh: _refreshDashboard,
+              child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
+                builder: (context, state) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildScaffoldGradient(),
+                    ),
+                    child: _buildContent(context, state, isTablet),
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),

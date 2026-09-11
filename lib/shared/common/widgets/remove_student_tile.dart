@@ -1,9 +1,9 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:flutter_svg/svg.dart';
-// import '../../../app/theme/colors.dart';
-// import '../../../app/theme/media_res.dart';
-// import '../../../presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart';
+// import '../../../core/theme/app_colors.dart';
+// import '../../../core/theme/app_media_res.dart';
+// import '../../../presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart';
 // import 'profile_show_widget.dart';
 
 // class RemoveStudentTile extends StatelessWidget {

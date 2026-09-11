@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -10,11 +11,13 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -28,27 +31,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/activity_feed_invalidation.dart';
-import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/context_switch_cache_cleaner.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -106,7 +107,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void _navigate(String location, {Object? extra}) {
     Navigator.pop(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      appRouter.go(location, extra: extra);
+      // appRouterGo (not a bare appRouter.go) — the drawer bypasses
+      // CustomNavigationBar's tap handler entirely, so this is what tells a
+      // kept-alive branch screen (e.g. Activities, Classroom) it just became
+      // visible again when reached via a drawer link. See appRouterGo's doc
+      // comment / TabVisibilityEvents for why that's needed at all.
+      appRouterGo(location, extra: extra);
     });
   }
 
@@ -119,6 +125,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode);
       final selectedName = await storage.getString(
         StorageKeys.selectedSchoolName,
+      );
+      print(
+        'CustomDrawer: _loadSchoolContext: orgCode=$orgCode, schoolCode=$schoolCode, selectedName=$selectedName',
       );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
@@ -153,6 +162,24 @@ class _CustomDrawerState extends State<CustomDrawer> {
           )
           .toList();
 
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
+      // from the switcher, using the cached `/users/details` snapshot. An
+      // unknown/missing status is treated as active so a stale snapshot
+      // never hides a school the user should be able to reach.
+      if (orgCode != null && orgCode.isNotEmpty) {
+        final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
+        if (cachedUsers.isNotEmpty) {
+          schoolsForOrg = schoolsForOrg.where((e) {
+            final status = schoolStatusFromUserDetails(
+              cachedUsers,
+              orgCode,
+              e['schoolCode'] ?? '',
+            );
+            return status == null || status == 'ACTIVE';
+          }).toList();
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _currentOrgCode = orgCode;
@@ -180,7 +207,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             const CircleAvatar(
               backgroundColor: Colors.white,
               radius: 28,
-              backgroundImage: AssetImage(MediaRes.logo_wow),
+              backgroundImage: AssetImage(MediaRes.appLogo),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -356,6 +383,25 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final authLocal = serviceLocator<AuthLocalDataSource>();
     final authCubit = context.read<AuthCubit>();
 
+    // Re-verify from the backend (not just the possibly-stale dropdown list)
+    // that the target school is still active before switching into it.
+    if (isSchoolChanged) {
+      final blockMessage = await authCubit.verifySchoolActiveOrBlockMessage(
+        organizationCode: _currentOrgCode!,
+        schoolCode: schoolCode,
+      );
+      if (blockMessage != null) {
+        if (!mounted) return;
+        setState(() => _isSchoolDropdownOpen = false);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: blockMessage,
+          isError: true,
+        );
+        return;
+      }
+    }
+
     // Persist new selection locally (used by all APIs).
     await authLocal.setSelectedOrgAndSchool(
       organizationCode: _currentOrgCode!,
@@ -408,42 +454,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _navigate(DashboardScreen.routeName);
   }
 
-  /// Clears every cache layer so a school switch starts from a clean slate:
-  ///  1. Persisted `*_cache_*` SharedPreferences entries (repository caches),
-  ///     keeping the auth/session login cache which is not school-scoped.
-  ///  2. Non-prefs caches — image cache, Isar messaging/conversation
-  ///     collections, in-flight staff request caches (via the session wiper).
-  ///  3. Process-wide in-memory caches / invalidation gates that open screens
-  ///     listen to (students attendance status, scheduling, activity feed).
-  ///
-  /// Each step is isolated so one failure never blocks the rest of the switch.
+  /// Clears every cache layer so a school switch starts from a clean slate —
+  /// see [clearAllCachesForContextSwitch] for exactly what's covered. Shared
+  /// with the persona-switch path (user_profile_screen.dart) and the
+  /// FCM-driven school switch (active_school_switcher.dart) so a cache added
+  /// to one module is covered for every switch kind automatically.
   Future<void> _clearAllCachesForSchoolSwitch() async {
-    final storage = serviceLocator<StorageService>();
-
-    try {
-      await CacheManager(storage).clearAllStandardCaches(
-        protectedKeys: <String>{
-          StorageKeys.loginCacheKey,
-          StorageKeys.loginCacheTimestamp,
-        },
-      );
-    } catch (_) {}
-
-    try {
-      await serviceLocator<SessionLocalCacheWiper>().wipe();
-    } catch (_) {}
-
-    try {
-      clearClassroomStudentsAttendanceCache();
-    } catch (_) {}
-
-    try {
-      SchedulingCacheGate.invalidate();
-    } catch (_) {}
-
-    try {
-      await ActivityFeedInvalidation.invalidate(storage);
-    } catch (_) {}
+    await clearAllCachesForContextSwitch(serviceLocator<StorageService>());
   }
 
   void _showSnackOnRoot(String message, {bool isError = false}) {
@@ -488,7 +505,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       try {
         final signOutFormList =
             serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = AppTime.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final signedInPage = await signOutFormList(
@@ -564,11 +581,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           'classroom': selectedChild.classroom,
           'tags': selectedChild.tags,
           'schedule': selectedChild.schedule,
-          'sibling': const <String, dynamic>{
-            'name': <dynamic>[],
-            'relation': <dynamic>[],
-            'status': <dynamic>[],
-          },
+          'sibling': const StudentSiblingInfo(),
           'studentCode': selectedChild.code,
           'syncWithParentChildSelection': true,
         },
@@ -609,16 +622,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (!navigator.context.mounted) return;
       navigator.context.go(
         StaffProfileScreen.routeName,
-        extra: <String, dynamic>{
-          'staffCode': profile.staffCode,
-          'name': profile.fullName.trim().isNotEmpty
+        extra: StaffProfileArgs(
+          staffCode: profile.staffCode,
+          name: profile.fullName.trim().isNotEmpty
               ? profile.fullName.trim()
               : '-',
-          'classroom': classroom,
-          'designation': profile.designation,
-          'phoneNumber': profile.phoneNumber,
-          'employmentStatus': profile.status,
-        },
+          classroom: classroom,
+          designation: profile.designation,
+          phoneNumber: profile.phoneNumber,
+          employmentStatus: profile.status,
+        ),
       );
     } catch (_) {
       ScaffoldMessenger.of(navigator.context).showSnackBar(
@@ -890,58 +903,51 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   expanded,
                                 ),
                             children: [
-                              if (showParentMessagingDrawer ||
-                                  showAdminChatDrawer)
-                                _NestedExpansionTile(
-                                  title: 'Parent Messaging',
-                                  icon: MediaRes.parentMessaging,
-                                  children: [
-                                    if (showParentMessagingDrawer)
-                                      DrawerListTile(
-                                        title: 'Room Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.classroom_drawer_icon,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.roomChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            MessagingScreen
-                                                .parentMessagingRoute,
-                                          );
-                                        },
-                                      ),
-                                    if (showAdminChatDrawer)
-                                      DrawerListTile(
-                                        title: 'Admin Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.adminChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            AdminChatHostScreen.routeName,
-                                          );
-                                        },
-                                      ),
-                                  ],
+                              // Flattened directly under "Messages" (no
+                              // intermediate "Parent Messaging" nesting) —
+                              // Room Chat and Admin Chat are the two options
+                              // a parent needs, one tap away.
+                              if (showParentMessagingDrawer)
+                                DrawerListTile(
+                                  title: 'Room Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.classroom_drawer_icon,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.roomChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
+                                  },
+                                ),
+                              if (showAdminChatDrawer)
+                                DrawerListTile(
+                                  title: 'Admin Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.parentMessaging,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.adminChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(AdminChatHostScreen.routeName);
+                                  },
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -1162,7 +1168,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.staffMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showParentMessagingDrawer ||
@@ -1333,10 +1341,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         },
                       ),
                       const SizedBox(height: 15),
-                      const Text(
-                        "Version : 1.3.9",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white),
+                      FutureBuilder<PackageInfo>(
+                        future: PackageInfo.fromPlatform(),
+                        builder: (context, snapshot) {
+                          final version = snapshot.hasData
+                              ? snapshot.data!.version
+                              : '';
+                          return Text(
+                            version.isNotEmpty ? "Version : $version" : "",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white),
+                          );
+                        },
                       ),
                     ],
                   ),

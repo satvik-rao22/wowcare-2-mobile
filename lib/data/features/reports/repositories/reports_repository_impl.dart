@@ -1,15 +1,19 @@
-import '../../../../core/errors/failures.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/reports/entities/report_entity.dart';
-import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
-import '../../../../domain/features/reports/repositories/reports_repository.dart';
-import '../../../../domain/features/reports/usecases/report_params.dart';
-import '../datasources/reports_remote_datasource.dart';
-import '../models/recent_report_model.dart';
-import '../models/report_response_model.dart';
+import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_context_helper.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
+import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
+import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
+import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource.dart';
+import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
+import 'package:wowcare/data/features/reports/mappers/report_entity_mapper.dart';
+import 'package:wowcare/data/features/reports/models/report_request_context.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
+import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 
 class ReportsRepositoryImpl implements ReportsRepository {
   ReportsRepositoryImpl(this._remoteDataSource, StorageService storageService)
@@ -38,27 +42,26 @@ class ReportsRepositoryImpl implements ReportsRepository {
       '[REPORTS-REPO] generateReport called: ${params.reportType.backendValue}',
     );
 
-    // Build request body with required fields
-    var requestBody = params.toRequestBody();
+    // The identity every report payload carries, read from storage rather
+    // than from the form.
+    final context = ReportRequestContext(
+      schoolCode: await _storageService.getString(StorageKeys.schoolCode) ?? '',
+      organizationCode:
+          await _storageService.getString(StorageKeys.organizationCode) ?? '',
+      generatedBy: await _storageService.getString(StorageKeys.userCode) ?? '',
+      // Pass the schoolName properly instead of the schoolCode in the
+      // schoolName field.
+      schoolName: await SchoolContextHelper.getSchoolName(),
+    );
 
-    // Add required fields from storage to all report payloads
-    final schoolCode =
-        await _storageService.getString(StorageKeys.schoolCode) ?? '';
-    final organizationCode =
-        await _storageService.getString(StorageKeys.organizationCode) ?? '';
-    final userCode =
-        await _storageService.getString(StorageKeys.userCode) ?? '';
-
-    requestBody['schoolCode'] = schoolCode;
-    requestBody['organizationCode'] = organizationCode;
-    requestBody['generatedBy'] = userCode;
+    final payload = ReportRequestPayload.fromParams(params, context: context);
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 
     // Always make fresh API call - no caching of generated reports
     final response = await _remoteDataSource.generateReport(
       reportType: params.reportType,
-      requestBody: requestBody,
+      payload: payload,
     );
 
     AppLogger.i(
@@ -67,6 +70,48 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
     return _mapResponseModelToEntity(response);
   }
+
+  /// Resolves the human-readable school name for [schoolCode]/[organizationCode]
+  /// from the cached org/school list, since `StorageKeys.selectedSchoolName`
+  /// is sometimes populated with the school code instead of its name.
+  // Future<String> _resolveSchoolName(
+  //   String schoolCode,
+  //   String organizationCode,
+  // ) async {
+  //   final storedName =
+  //       await _storageService.getString(StorageKeys.selectedSchoolName) ?? '';
+
+  //   final raw = await _storageService.getString(
+  //     StorageKeys.organizationsAndSchools,
+  //   );
+  //   if (raw != null && raw.isNotEmpty) {
+  //     try {
+  //       final decoded = jsonDecode(raw);
+  //       if (decoded is List) {
+  //         final list = decoded.whereType<Map>().map(
+  //           (e) => Map<String, dynamic>.from(e),
+  //         );
+  //         final match = list.firstWhere(
+  //           (e) =>
+  //               (e['schoolCode']?.toString() ?? '') == schoolCode &&
+  //               (e['organizationCode']?.toString() ?? '') == organizationCode,
+  //           orElse: () => const <String, dynamic>{},
+  //         );
+  //         final fromList = match['schoolName']?.toString() ?? '';
+  //         if (fromList.isNotEmpty) {
+  //           return fromList;
+  //         }
+  //       }
+  //     } catch (e) {
+  //       AppLogger.e(
+  //         '[REPORTS-REPO] Failed to parse organizationsAndSchools: $e',
+  //       );
+  //     }
+  //   }
+
+  //   // Fallback to stored name or the code itself if no better name is found.
+  //   return storedName.isNotEmpty ? storedName : schoolCode;
+  // }
 
   @override
   Future<List<ReportMetadataEntity>> getRecentReports() async {
@@ -84,7 +129,10 @@ class ReportsRepositoryImpl implements ReportsRepository {
         'Staff Attendance',
         _remoteDataSource.getRecentStaffAttendanceReports,
       ),
-      _RecentReportsSource('Staff Reports', _remoteDataSource.getRecentStaffReports),
+      _RecentReportsSource(
+        'Staff Reports',
+        _remoteDataSource.getRecentStaffReports,
+      ),
       _RecentReportsSource(
         'Student Management',
         _remoteDataSource.getRecentStudentManagementReports,
@@ -102,7 +150,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       if (result.error != null) {
         failures.add('${result.label}: ${result.error}');
       } else {
-        AppLogger.d('[REPORTS] ${result.label} Reports Count: ${result.data.length}');
+        AppLogger.d(
+          '[REPORTS] ${result.label} Reports Count: ${result.data.length}',
+        );
         allReports.addAll(result.data);
       }
     }
@@ -114,7 +164,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       );
     }
     if (failures.isNotEmpty) {
-      AppLogger.e('[REPORTS] Some recent-report sources failed: ${failures.join('; ')}');
+      AppLogger.e(
+        '[REPORTS] Some recent-report sources failed: ${failures.join('; ')}',
+      );
     }
 
     AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
@@ -127,7 +179,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
         final entity = _mapRecentModelToEntity(model);
         unique[entity.reportId] = entity;
       } catch (e) {
-        AppLogger.w('[REPORTS] Skipping unparseable recent report (${model.reportId}): $e');
+        AppLogger.w(
+          '[REPORTS] Skipping unparseable recent report (${model.reportId}): $e',
+        );
       }
     }
 
@@ -145,7 +199,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return sorted;
   }
 
-  Future<_RecentFetchResult> _safeFetchRecent(_RecentReportsSource source) async {
+  Future<_RecentFetchResult> _safeFetchRecent(
+    _RecentReportsSource source,
+  ) async {
     try {
       final data = await source.fetch();
       return _RecentFetchResult(label: source.label, data: data);
@@ -191,6 +247,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<String> getReportDownloadUrl(String assetCode) async {
+    if (assetCode.startsWith('base64:')) {
+      return assetCode;
+    }
     AppLogger.d('Getting download URL for asset: $assetCode');
     return _remoteDataSource.getReportDownloadUrl(assetCode);
   }

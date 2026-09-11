@@ -1,0 +1,211 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
+
+import 'student_sign_in_submit_state.dart';
+
+/// Owns the student sign-in submit call and its in-progress/success/failure
+/// state, routing the mutation through [SubmitStudentSignInUseCase] instead of
+/// the View touching [AttendanceRepository] directly.
+///
+/// [submit] intentionally RETURNS the [AttendanceActionResult] and RETHROWS on
+/// error: this refactor moves the repository call behind the UseCase and
+/// centralises submit state, but the form keeps its exact success/navigation
+/// and catch behaviour, so nothing the user sees changes.
+class StudentSignInSubmitCubit extends Cubit<StudentSignInSubmitState> {
+  StudentSignInSubmitCubit(
+    this._submitStudentSignIn, {
+    required GetStudentAbsentFormListUseCase getStudentAbsentFormListUseCase,
+    required DeleteStudentAbsenceRecordUseCase
+    deleteStudentAbsenceRecordUseCase,
+  }) : _getStudentAbsentFormListUseCase = getStudentAbsentFormListUseCase,
+       _deleteStudentAbsenceRecordUseCase = deleteStudentAbsenceRecordUseCase,
+       super(const StudentSignInSubmitInitial());
+
+  final SubmitStudentSignInUseCase _submitStudentSignIn;
+  final GetStudentAbsentFormListUseCase _getStudentAbsentFormListUseCase;
+  final DeleteStudentAbsenceRecordUseCase _deleteStudentAbsenceRecordUseCase;
+
+  String? _idempotencyKey;
+
+  // The request the current _idempotencyKey was minted for. A resubmit
+  // with an UNCHANGED request reuses the key (protects a genuine retry,
+  // e.g. after a timeout, from double-submitting); a DIFFERENT request
+  // (corrected payload) gets a fresh key instead of silently replaying
+  // whatever the backend's idempotency layer cached for the first one.
+  Object? _idempotencyKeyRequest;
+
+  /// True once [clearTodaysAbsenceRecordsBeforeSignIn] has actually deleted
+  /// at least one absence record for the student(s) about to be signed in.
+  /// The delete and the sign-in POST are two separate backend calls with no
+  /// shared transaction — if the delete succeeds and the sign-in then
+  /// fails, the student is left neither absent nor signed in. [submit]
+  /// checks this to retry harder and surface a clearer message in exactly
+  /// that situation, since it's the only mitigation available client-side.
+  bool _absenceJustCleared = false;
+
+  /// True while a submit is in flight.
+  bool get isSubmitting => state is StudentSignInSubmitInProgress;
+
+  bool _absenceDateMatchesCalendarDay(
+    String absenceDateRaw,
+    String targetYyyyMmDd,
+  ) {
+    final trimmed = absenceDateRaw.trim();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.length >= 10 && trimmed.substring(0, 10) == targetYyyyMmDd) {
+      return true;
+    }
+    try {
+      final dt = DateTime.parse(trimmed).toLocal();
+      final norm =
+          '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+      return norm == targetYyyyMmDd;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Staff sign-in: for students marked absent on [attendanceDateYyyyMmDd],
+  /// delete absence records first (override sign-in). Best-effort — if the
+  /// absent-form-list lookup fails, skips deletion and lets the sign-in POST
+  /// run rather than blocking the whole sign-in on this pre-step.
+  Future<void> clearTodaysAbsenceRecordsBeforeSignIn({
+    required String attendanceDateYyyyMmDd,
+    required String staffCode,
+    required List<({String studentCode, String classroomCode, String fullName})>
+    students,
+  }) async {
+    final allItems = <StudentAttendanceAbsentFormItem>[];
+
+    try {
+      var page = 0;
+      const pageSize = 200;
+      while (true) {
+        final absentPage = await _getStudentAbsentFormListUseCase(
+          fromAbsenceDate: attendanceDateYyyyMmDd,
+          toAbsenceDate: attendanceDateYyyyMmDd,
+          page: page,
+          size: pageSize,
+        );
+        allItems.addAll(absentPage.items);
+        if (!absentPage.hasMore) break;
+        page++;
+        if (page > 100) break;
+      }
+    } catch (e) {
+      AppLogger.d(
+        '[StudentSignIn] absent-form-list lookup failed ($e); '
+        'proceeding to sign-in without clearing absence records',
+      );
+      return; // skip deletion, caller continues to the sign-in POST
+    }
+
+    final processedStudentCodes = <String>{};
+    for (final s in students) {
+      final sc = s.studentCode.trim();
+      if (sc.isEmpty || processedStudentCodes.contains(sc)) continue;
+
+      final matches = allItems.where((it) {
+        if (it.studentCode.trim() != sc) return false;
+        return _absenceDateMatchesCalendarDay(
+          it.absenceDate,
+          attendanceDateYyyyMmDd,
+        );
+      }).toList();
+
+      if (matches.isEmpty) continue;
+
+      final withCode = matches
+          .where((it) => (it.absenceRecordCode ?? '').trim().isNotEmpty)
+          .toList();
+      if (withCode.isEmpty) {
+        throw Exception(
+          'Cannot sign in ${s.fullName}: marked absent for '
+          'this day but the absence record could not be resolved. Refresh and try again.',
+        );
+      }
+
+      final room = s.classroomCode.trim();
+      var chosen = withCode.first;
+      if (room.isNotEmpty) {
+        final byRoom = withCode
+            .where((it) => it.classroomCode.trim() == room)
+            .toList();
+        if (byRoom.isNotEmpty) {
+          chosen = byRoom.first;
+        }
+      }
+
+      await _deleteStudentAbsenceRecordUseCase(
+        absenceRecordCode: chosen.absenceRecordCode!.trim(),
+        staffCode: staffCode,
+      );
+      _absenceJustCleared = true;
+      processedStudentCodes.add(sc);
+    }
+  }
+
+  Future<AttendanceActionResult> submit({
+    required StudentSignInRequest request,
+    required bool isParent,
+  }) async {
+    emit(const StudentSignInSubmitInProgress());
+    if (_idempotencyKey == null || _idempotencyKeyRequest != request) {
+      _idempotencyKey = IdempotencyKey.generate();
+      _idempotencyKeyRequest = request;
+    }
+
+    // An absence record was just deleted for this attempt — the delete and
+    // this POST have no shared backend transaction, so a failure here would
+    // otherwise leave the student neither absent nor signed in with no
+    // signal that happened. Retry a couple of times (the STABLE idempotency
+    // key above makes this safe — the backend dedupes any retry that did
+    // secretly land) before giving up. A normal sign-in (nothing deleted)
+    // still fails on the first error, unchanged from before.
+    final hadClearedAbsence = _absenceJustCleared;
+    final maxAttempts = hadClearedAbsence ? 3 : 1;
+    late Object lastError;
+    late StackTrace lastStackTrace;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final result = await _submitStudentSignIn(
+          request: request,
+          isParent: isParent,
+          idempotencyKey: _idempotencyKey,
+        );
+        if (!isClosed) emit(StudentSignInSubmitSuccess(result));
+        _idempotencyKey = null;
+        _idempotencyKeyRequest = null;
+        _absenceJustCleared = false;
+        return result;
+      } catch (e, st) {
+        lastError = e;
+        lastStackTrace = st;
+        if (attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+        }
+      }
+    }
+
+    _absenceJustCleared = false;
+    if (!isClosed) {
+      final baseMessage = ApiErrorHandler.extractErrorMessage(lastError);
+      final message = hadClearedAbsence
+          ? 'Absence record was cleared, but sign-in failed after retrying '
+                '($baseMessage). This student is now NEITHER marked absent '
+                'nor signed in — please try signing them in again right away.'
+          : baseMessage;
+      emit(StudentSignInSubmitFailure(message));
+    }
+    Error.throwWithStackTrace(lastError, lastStackTrace);
+  }
+}

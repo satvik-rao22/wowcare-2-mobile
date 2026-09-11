@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
 /// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/date_utils.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
@@ -31,6 +33,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.isRequired = false, // ✅ ADD THIS
     this.firstDate,
     this.lastDate,
+    this.dateFormat, // Optional custom date format string
     super.key,
   });
 
@@ -56,6 +59,8 @@ class CustomDateTimeField extends StatefulWidget {
 
   // Add callback for date range selection
   final Function(DateTime, DateTime?)? onRangeSelected;
+  
+  final String? dateFormat;
 
   @override
   State<CustomDateTimeField> createState() => _CustomDateTimeFieldState();
@@ -125,8 +130,10 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    DateTime dateTime = DateTime.now();
+    DateTime dateTime = AppTime.now();
     try {
+      // resolveForCurrentSchool pulls a fresh server clock as part of resolving,
+      // so schoolCalendarDateAndTimeNow below reflects authoritative "now".
       final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
         storage: serviceLocator<StorageService>(),
         apiClient: serviceLocator<ApiClient>(),
@@ -186,10 +193,17 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     if (widget.isRangePicker) {
       if (selectedDate != null) {
         if (rangeEndDate != null) {
-          selectedValue =
-              "${DateUtilsNew.formatToReadableDate(selectedDate!)} - ${DateUtilsNew.formatToReadableDate(rangeEndDate!)}";
+          final startStr = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(selectedDate!)
+              : DateUtilsNew.formatToReadableDate(selectedDate!);
+          final endStr = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(rangeEndDate!)
+              : DateUtilsNew.formatToReadableDate(rangeEndDate!);
+          selectedValue = "$startStr - $endStr";
         } else {
-          selectedValue = DateUtilsNew.formatToReadableDate(selectedDate!);
+          selectedValue = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(selectedDate!)
+              : DateUtilsNew.formatToReadableDate(selectedDate!);
         }
       }
     } else if (widget.isTime) {
@@ -202,7 +216,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
       }
     } else {
       if (selectedDate != null) {
-        selectedValue = DateUtilsNew.formatToReadableDate(selectedDate!);
+        selectedValue = widget.dateFormat != null 
+            ? DateFormat(widget.dateFormat!).format(selectedDate!)
+            : DateUtilsNew.formatToReadableDate(selectedDate!);
       }
     }
   }

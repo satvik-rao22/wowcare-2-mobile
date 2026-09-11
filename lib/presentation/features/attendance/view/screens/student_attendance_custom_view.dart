@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -14,20 +17,14 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
-import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 
 class StudentAttendanceCustomView extends StatefulWidget {
   const StudentAttendanceCustomView({
@@ -60,15 +57,12 @@ class _StudentAttendanceCustomViewState
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
-  bool _isClassroomDataReady = false;
 
   // Optional: show a small spinner on "View" action (UI-only)
   final Map<String, bool> _loadingButtons = <String, bool>{};
 
   late final StudentAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
@@ -79,18 +73,7 @@ class _StudentAttendanceCustomViewState
   @override
   void initState() {
     super.initState();
-    // Resolve cubit from DI with safe fallback (for hot-reload scenarios)
-    if (serviceLocator.isRegistered<StudentAttendanceCustomCubit>()) {
-      _cubit = serviceLocator<StudentAttendanceCustomCubit>();
-    } else {
-      final repo = serviceLocator<AttendanceRepository>();
-      _cubit = StudentAttendanceCustomCubit(
-        getStudentAttendanceCustomUseCase: GetStudentAttendanceCustomUseCase(
-          repo,
-        ),
-        repository: repo,
-      );
-    }
+    _cubit = serviceLocator<StudentAttendanceCustomCubit>();
 
     _customSearchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
@@ -139,10 +122,7 @@ class _StudentAttendanceCustomViewState
   /// classroom filter unscoped so teachers see every classroom.
   Future<void> _resolveCrossClassFlag() async {
     try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+      final enabled = await _cubit.resolveCrossClassEnabled();
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -168,7 +148,6 @@ class _StudentAttendanceCustomViewState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -186,12 +165,10 @@ class _StudentAttendanceCustomViewState
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAttendanceData(reset: true);
@@ -206,6 +183,7 @@ class _StudentAttendanceCustomViewState
     _customSearchController.dispose();
     _scrollController.dispose();
     _cubit.close();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -223,16 +201,13 @@ class _StudentAttendanceCustomViewState
 
   Future<void> _fetchClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _cubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _classroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep code when lookup fails.
     } finally {
       _classroomFetchInFlight.remove(code);
     }
@@ -260,25 +235,10 @@ class _StudentAttendanceCustomViewState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return BlocProvider.value(value: _cubit, child: _buildContent());
-    }
-
-    return BlocProvider.value(
-      value: _cubit,
-      child: GlobalScaffold(
-        hasBackButton: true,
-        showCustomNavigationBar: true,
-        body: _buildContent(),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
 
-    return BlocListener<ClassroomCubit, ClassroomState>(
+    final Widget content = BlocListener<ClassroomCubit, ClassroomState>(
       bloc: _classroomCubit,
       listenWhen: (previous, current) =>
           previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
@@ -319,16 +279,74 @@ class _StudentAttendanceCustomViewState
                       children: [
                         SizedBox(height: responsive.verticalSpacing / 4),
                         if (!widget.contentOnly) ...[
-                          _buildHeaderTabsRow(),
-                          const SizedBox(height: 10),
-                          _buildTabIndicator(selectedTab: 1),
+                          _CustomHeaderTabsRow(
+                            onRefresh: () => _loadAttendanceData(reset: true),
+                          ),
+                          const SizedBox(height: AppSpacing.s10),
+                          const _CustomTabIndicator(selectedTab: 1),
                           SizedBox(height: responsive.verticalSpacing),
                         ],
-                        _buildFilterSection(),
+                        _CustomFilterSection(
+                          searchController: _customSearchController,
+                          classroomCubit: _classroomCubit,
+                          selectedClassroomNames: _selectedClassroomNames,
+                          onClassroomsChanged: (values) {
+                            setState(() {
+                              _selectedClassroomNames = List<String>.from(
+                                values,
+                              );
+                              _syncClassroomFilterCodes();
+                            });
+                            if (_selectedClassroomNames.isNotEmpty &&
+                                _selectedClassroomCodes == null) {
+                              return;
+                            }
+                            _loadAttendanceData(reset: true);
+                          },
+                          onRangeSelected: (start, end) {
+                            setState(() {
+                              _customRangeStart = start;
+                              _customRangeEnd = end;
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                          onClearAll: () {
+                            setState(() {
+                              _customSearchController.clear();
+                              _searchQuery = '';
+                              _selectedClassroomNames = <String>[];
+                              _selectedClassroomCodes = null;
+                              final now = attendanceSchoolToday();
+                              _customRangeStart = DateTime(
+                                now.year,
+                                now.month,
+                                1,
+                              );
+                              _customRangeEnd = DateTime(
+                                now.year,
+                                now.month + 1,
+                                0,
+                              );
+                            });
+                            _loadAttendanceData(reset: true);
+                          },
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildContentSection(
-                          state,
-                          _getFilteredAttendance(state.items),
+                        _CustomContentSection(
+                          state: state,
+                          filtered: _getFilteredAttendance(state.items),
+                          expandedIndex: _customExpandedStudentIndex,
+                          loadingButtons: _loadingButtons,
+                          onRetry: () => _loadAttendanceData(reset: true),
+                          onCardTap: (index) {
+                            setState(() {
+                              _customExpandedStudentIndex =
+                                  (_customExpandedStudentIndex == index)
+                                  ? null
+                                  : index;
+                            });
+                          },
+                          onViewPressed: _handleViewAttendancePressed,
                         ),
                         if (state.isLoadingMore)
                           Padding(
@@ -345,6 +363,19 @@ class _StudentAttendanceCustomViewState
               );
             },
           ),
+    );
+
+    if (widget.contentOnly) {
+      return BlocProvider.value(value: _cubit, child: content);
+    }
+
+    return BlocProvider.value(
+      value: _cubit,
+      child: GlobalScaffold(
+        hasBackButton: true,
+        showCustomNavigationBar: true,
+        body: content,
+      ),
     );
   }
 
@@ -459,9 +490,40 @@ class _StudentAttendanceCustomViewState
     );
   }
 
-  Widget _buildHeaderTabsRow() {
+  Future<void> _handleViewAttendancePressed(
+    _CustomAttendanceRow attendance,
+  ) async {
+    setState(() => _loadingButtons[attendance.id] = true);
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    setState(() => _loadingButtons[attendance.id] = false);
+    context.push(
+      StudentAttendanceProfile.routeName,
+      extra: {
+        'studentCode': attendance.studentCode,
+        'studentId': attendance.studentId,
+        'studentName': attendance.studentName,
+        'studentPhotoUuid': attendance.studentPhotoUuid,
+        'roomName': attendance.roomName,
+        'isSignedIn': attendance.hasSignIn,
+        'isAbsent': !attendance.hasSignIn && attendance.expectedToday,
+        'isExpectedToday': attendance.expectedToday,
+        'isPresentToday': attendance.hasSignIn,
+        'profileStatus': 'A',
+      },
+    );
+  }
+}
+
+class _CustomHeaderTabsRow extends StatelessWidget {
+  const _CustomHeaderTabsRow({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
     // This matches the reference UI layout; navigation is intentionally disabled (UI-only).
-    int selectedTab = 1; // 0: Daily, 1: Custom, 2: Absent
+    const int selectedTab = 1; // 0: Daily, 1: Custom, 2: Absent
     void onTabTap(int index) {}
 
     return Row(
@@ -473,26 +535,100 @@ class _StudentAttendanceCustomViewState
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                _buildTabButton('Daily', 0, selectedTab, onTabTap),
-                const SizedBox(width: 16),
-                _buildTabButton('Custom', 1, selectedTab, onTabTap),
-                const SizedBox(width: 16),
-                _buildTabButton('Absent', 2, selectedTab, onTabTap),
+                _CustomTabButton(
+                  label: 'Daily',
+                  index: 0,
+                  selectedTab: selectedTab,
+                  onTap: onTabTap,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                _CustomTabButton(
+                  label: 'Custom',
+                  index: 1,
+                  selectedTab: selectedTab,
+                  onTap: onTabTap,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                _CustomTabButton(
+                  label: 'Absent',
+                  index: 2,
+                  selectedTab: selectedTab,
+                  onTap: onTabTap,
+                ),
               ],
             ),
           ),
         ),
         StudentAttendanceVerticalPopUp(
           students: const [],
-          refreshCallback: () => _loadAttendanceData(reset: true),
+          refreshCallback: onRefresh,
         ),
       ],
     );
   }
+}
 
-  Widget _buildTabIndicator({required int selectedTab}) {
+class _CustomTabButton extends StatelessWidget {
+  const _CustomTabButton({
+    required this.label,
+    required this.index,
+    required this.selectedTab,
+    required this.onTap,
+  });
+
+  final String label;
+  final int index;
+  final int selectedTab;
+  final void Function(int) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSelected = selectedTab == index;
+    return GestureDetector(
+      onTap: () => onTap(index),
+      child: AppText.body(
+        label,
+        style: AppTextStyles.attendanceCustomTabLabel(isSelected: isSelected),
+      ),
+    );
+  }
+}
+
+class _CustomTabIndicator extends StatelessWidget {
+  const _CustomTabIndicator({required this.selectedTab});
+
+  final int selectedTab;
+
+  // Simple positioning methods for tab indicator (matches reference implementation)
+  static double _getTabIndicatorPosition(int selectedTab) {
+    double position = 0;
+    for (int i = 0; i < selectedTab; i++) {
+      position += _getTabWidth(i) + 13;
+    }
+    return position;
+  }
+
+  static double _getTabIndicatorWidth(int selectedTab) {
+    return _getTabWidth(selectedTab);
+  }
+
+  static double _getTabWidth(int tabIndex) {
+    switch (tabIndex) {
+      case 0: // Daily
+        return 45.0;
+      case 1: // Custom
+        return 55.0;
+      case 2: // Absent
+        return 50.0;
+      default:
+        return 45.0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      height: 2,
+      height: AppSpacing.s2,
       child: Stack(
         children: [
           Positioned(
@@ -500,20 +636,39 @@ class _StudentAttendanceCustomViewState
             child: Container(
               height: 2,
               width: _getTabIndicatorWidth(selectedTab),
-              color: const Color(0xFF3B5BDB),
+              color: AppColors.attendanceTabIndicatorColor,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildFilterSection() {
+class _CustomFilterSection extends StatelessWidget {
+  const _CustomFilterSection({
+    required this.searchController,
+    required this.classroomCubit,
+    required this.selectedClassroomNames,
+    required this.onClassroomsChanged,
+    required this.onRangeSelected,
+    required this.onClearAll,
+  });
+
+  final TextEditingController searchController;
+  final ClassroomCubit classroomCubit;
+  final List<String> selectedClassroomNames;
+  final ValueChanged<List<String>> onClassroomsChanged;
+  final void Function(DateTime start, DateTime? end) onRangeSelected;
+  final VoidCallback onClearAll;
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final spacing = responsive.horizontalSpacing / 2;
 
     return CustomSectionCard(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         children: [
           Row(
@@ -521,7 +676,7 @@ class _StudentAttendanceCustomViewState
               Expanded(
                 flex: responsive.isTablet ? 3 : 2,
                 child: CustomSearchBar(
-                  controller: _customSearchController,
+                  controller: searchController,
                   hintText: 'Search Students',
                 ),
               ),
@@ -529,31 +684,22 @@ class _StudentAttendanceCustomViewState
               Expanded(
                 flex: responsive.isTablet ? 2 : 1,
                 child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                  bloc: _classroomCubit,
+                  bloc: classroomCubit,
                   builder: (context, state) {
                     final items = state.classrooms.map((c) => c.name).toList();
-                    final isLoading = state.isLoading || !_isClassroomDataReady;
+                    final isLoading =
+                        state.isLoading || state.classrooms.isEmpty;
                     if (isLoading && items.isEmpty) {
                       return ShimmerLoader(
                         height: 40,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppRadius.allMd,
                       );
                     }
                     return CustomMultiSelectDropdown(
                       hintText: 'Classroom',
                       items: items,
-                      selectedItems: _selectedClassroomNames,
-                      onChanged: (values) {
-                        setState(() {
-                          _selectedClassroomNames = List<String>.from(values);
-                          _syncClassroomFilterCodes();
-                        });
-                        if (_selectedClassroomNames.isNotEmpty &&
-                            _selectedClassroomCodes == null) {
-                          return;
-                        }
-                        _loadAttendanceData(reset: true);
-                      },
+                      selectedItems: selectedClassroomNames,
+                      onChanged: onClassroomsChanged,
                     );
                   },
                 ),
@@ -569,63 +715,75 @@ class _StudentAttendanceCustomViewState
                   isRangePicker: true,
                   // Ensure the picker displays current month's default start–end on open
                   fetchInitialTime: true,
-                  onRangeSelected: (start, end) {
-                    setState(() {
-                      _customRangeStart = start;
-                      _customRangeEnd = end;
-                    });
-                    _loadAttendanceData(reset: true);
-                  },
+                  onRangeSelected: onRangeSelected,
                 ),
               ),
               SizedBox(width: spacing),
-              CustomClearAllChip(
-                onTap: () {
-                  setState(() {
-                    _customSearchController.clear();
-                    _searchQuery = '';
-                    _selectedClassroomNames = <String>[];
-                    _selectedClassroomCodes = null;
-                    final now = attendanceSchoolToday();
-                    _customRangeStart = DateTime(now.year, now.month, 1);
-                    _customRangeEnd = DateTime(now.year, now.month + 1, 0);
-                  });
-                  _loadAttendanceData(reset: true);
-                },
-              ),
+              CustomClearAllChip(onTap: onClearAll),
             ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildContentSection(
-    StudentAttendanceCustomState state,
-    List<_CustomAttendanceRow> filtered,
-  ) {
+class _CustomContentSection extends StatelessWidget {
+  const _CustomContentSection({
+    required this.state,
+    required this.filtered,
+    required this.expandedIndex,
+    required this.loadingButtons,
+    required this.onRetry,
+    required this.onCardTap,
+    required this.onViewPressed,
+  });
+
+  final StudentAttendanceCustomState state;
+  final List<_CustomAttendanceRow> filtered;
+  final int? expandedIndex;
+  final Map<String, bool> loadingButtons;
+  final VoidCallback onRetry;
+  final ValueChanged<int> onCardTap;
+  final ValueChanged<_CustomAttendanceRow> onViewPressed;
+
+  @override
+  Widget build(BuildContext context) {
     if (state.isLoading && state.items.isEmpty) {
-      return _buildLoadingShimmer();
+      return const _CustomLoadingShimmer();
     }
 
     if (state.errorMessage != null) {
-      return _buildErrorWidget(state.errorMessage!);
+      return _CustomErrorWidget(message: state.errorMessage!, onRetry: onRetry);
     }
 
     if (filtered.isEmpty) {
-      return _buildEmptyWidget();
+      return const _CustomEmptyWidget();
     }
 
     return Column(
       children: [
         ...filtered.asMap().entries.map((entry) {
-          return _buildCustomStudentCard(entry.value, entry.key);
+          final index = entry.key;
+          final attendance = entry.value;
+          return _CustomStudentCardItem(
+            attendance: attendance,
+            isExpanded: expandedIndex == index,
+            isLoading: loadingButtons[attendance.id] == true,
+            onTap: () => onCardTap(index),
+            onViewPressed: () => onViewPressed(attendance),
+          );
         }),
       ],
     );
   }
+}
 
-  Widget _buildLoadingShimmer() {
+class _CustomLoadingShimmer extends StatelessWidget {
+  const _CustomLoadingShimmer();
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Column(
       children: List.generate(
@@ -636,11 +794,19 @@ class _StudentAttendanceCustomViewState
       ),
     );
   }
+}
 
-  Widget _buildErrorWidget(String message) {
+class _CustomErrorWidget extends StatelessWidget {
+  const _CustomErrorWidget({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             const Icon(
@@ -648,32 +814,37 @@ class _StudentAttendanceCustomViewState
               color: AppColors.errorColor,
               size: 48,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             AppText.title(
               'Error loading attendance data',
-              style: TextStyle(color: AppColors.errorColor, fontSize: 18),
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.errorColor,
+                fontSize: 18,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             AppText.body(
               message.isNotEmpty ? message : 'Please try again.',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             ElevatedButton.icon(
-              onPressed: () => _loadAttendanceData(reset: true),
+              onPressed: onRetry,
               icon: const Icon(Icons.refresh),
               label: AppText.body(
                 'Retry',
-                style: TextStyle(color: Colors.white),
+                style: AppTextStyles.body.copyWith(color: AppColors.cardColor),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.cardColor,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
+                  horizontal: AppSpacing.xl,
+                  vertical: AppSpacing.sm,
                 ),
               ),
             ),
@@ -682,11 +853,16 @@ class _StudentAttendanceCustomViewState
       ),
     );
   }
+}
 
-  Widget _buildEmptyWidget() {
+class _CustomEmptyWidget extends StatelessWidget {
+  const _CustomEmptyWidget();
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             const Icon(
@@ -694,16 +870,21 @@ class _StudentAttendanceCustomViewState
               color: AppColors.secondaryColor,
               size: 48,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
             AppText.title(
               'No attendance data found',
-              style: TextStyle(color: AppColors.secondaryColor, fontSize: 18),
+              style: AppTextStyles.title.copyWith(
+                color: AppColors.secondaryColor,
+                fontSize: 18,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.xs),
             AppText.body(
               'Try adjusting your search criteria or date range',
-              style: TextStyle(color: AppColors.secondaryColor),
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -711,57 +892,28 @@ class _StudentAttendanceCustomViewState
       ),
     );
   }
+}
 
-  Widget _buildTabButton(
-    String label,
-    int index,
-    int selectedTab,
-    void Function(int) onTap,
-  ) {
-    final bool isSelected = selectedTab == index;
-    return GestureDetector(
-      onTap: () => onTap(index),
-      child: AppText.body(
-        label,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-          color: isSelected ? const Color(0xFF222B45) : const Color(0xFF8F9BB3),
-        ),
-      ),
-    );
-  }
+/// Expanded-card detail row styled exactly like staff_card.dart:
+/// label 13/w400 and value 14/w500, both Manrope in AppColors.primaryColor.
+class _CustomStudentDetailRow extends StatelessWidget {
+  const _CustomStudentDetailRow({required this.label, required this.value});
 
-  /// Expanded-card detail row styled exactly like staff_card.dart:
-  /// label 13/w400 and value 14/w500, both Manrope in Color(0xff573353).
-  Widget _buildCustomDetailRow(String label, String value) {
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
+        Flexible(child: Text(label, style: AppTextStyles.label)),
+        const SizedBox(width: AppSpacing.xs),
         Flexible(
           child: Text(
             value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
-              height: 19 / 14,
-            ),
+            style: AppTextStyles.body,
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -770,10 +922,26 @@ class _StudentAttendanceCustomViewState
       ],
     );
   }
+}
 
-  Widget _buildCustomStudentCard(_CustomAttendanceRow attendance, int index) {
+class _CustomStudentCardItem extends StatelessWidget {
+  const _CustomStudentCardItem({
+    required this.attendance,
+    required this.isExpanded,
+    required this.isLoading,
+    required this.onTap,
+    required this.onViewPressed,
+  });
+
+  final _CustomAttendanceRow attendance;
+  final bool isExpanded;
+  final bool isLoading;
+  final VoidCallback onTap;
+  final VoidCallback onViewPressed;
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bool isExpanded = _customExpandedStudentIndex == index;
 
     final studentName = attendance.studentName.isNotEmpty
         ? attendance.studentName
@@ -791,24 +959,21 @@ class _StudentAttendanceCustomViewState
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _customExpandedStudentIndex = (_customExpandedStudentIndex == index)
-              ? null
-              : index;
-        });
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.s10,
+        ),
         decoration: BoxDecoration(
           color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AppRadius.allLg,
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.attendanceCardShadowLightColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -834,7 +999,7 @@ class _StudentAttendanceCustomViewState
                     ),
                   ],
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: AppSpacing.s14),
                 // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
                   child: Row(
@@ -843,27 +1008,19 @@ class _StudentAttendanceCustomViewState
                       Flexible(
                         child: Text(
                           studentName,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           roomName,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -878,23 +1035,29 @@ class _StudentAttendanceCustomViewState
             if (isExpanded) ...[
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
-              const SizedBox(height: 10),
-              _buildCustomDetailRow('Attended Days', daysAttended),
-              const SizedBox(height: 6),
-              _buildCustomDetailRow('Attended Time', totalHours),
+              const SizedBox(height: AppSpacing.s10),
+              _CustomStudentDetailRow(
+                label: 'Attended Days',
+                value: daysAttended,
+              ),
+              const SizedBox(height: AppSpacing.s6),
+              _CustomStudentDetailRow(
+                label: 'Attended Time',
+                value: totalHours,
+              ),
               SizedBox(height: responsive.verticalSpacing / 1.2),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
-                  child: _loadingButtons[attendance.id] == true
+                  child: isLoading
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
                             color: AppColors.cardBorderColor.withValues(
                               alpha: 0.1,
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.allSm,
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                               width: 1,
@@ -902,8 +1065,8 @@ class _StudentAttendanceCustomViewState
                           ),
                           child: const Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: AppSpacing.lg,
+                              height: AppSpacing.lg,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -915,37 +1078,7 @@ class _StudentAttendanceCustomViewState
                         )
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
-                          onPressedCancel: () async {
-                            setState(
-                              () => _loadingButtons[attendance.id] = true,
-                            );
-                            await Future.delayed(
-                              const Duration(milliseconds: 300),
-                            );
-                            if (!mounted) return;
-                            setState(
-                              () => _loadingButtons[attendance.id] = false,
-                            );
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => StudentAttendanceProfile(
-                                  studentCode: attendance.studentCode,
-                                  studentId: attendance.studentId,
-                                  studentName: attendance.studentName,
-                                  studentPhotoUuid: attendance.studentPhotoUuid,
-                                  roomName: attendance.roomName,
-                                  isSignedIn: attendance.hasSignIn,
-                                  isAbsent:
-                                      !attendance.hasSignIn &&
-                                      attendance.expectedToday,
-                                  isExpectedToday: attendance.expectedToday,
-                                  isPresentToday: attendance.hasSignIn,
-                                  profileStatus: 'A',
-                                ),
-                              ),
-                            );
-                          },
+                          onPressedCancel: onViewPressed,
                         ),
                 ),
               ),
@@ -954,32 +1087,6 @@ class _StudentAttendanceCustomViewState
         ),
       ),
     );
-  }
-
-  // Simple positioning methods for tab indicator (matches reference implementation)
-  double _getTabIndicatorPosition(int selectedTab) {
-    double position = 0;
-    for (int i = 0; i < selectedTab; i++) {
-      position += _getTabWidth(i) + 13;
-    }
-    return position;
-  }
-
-  double _getTabIndicatorWidth(int selectedTab) {
-    return _getTabWidth(selectedTab);
-  }
-
-  double _getTabWidth(int tabIndex) {
-    switch (tabIndex) {
-      case 0: // Daily
-        return 45.0;
-      case 1: // Custom
-        return 55.0;
-      case 2: // Absent
-        return 50.0;
-      default:
-        return 45.0;
-    }
   }
 }
 

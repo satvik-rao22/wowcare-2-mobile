@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 /// "↓ New Messages" chip shown above the input bar when a new message
 /// arrives while the user is reading older history, instead of forcing a
@@ -41,25 +43,25 @@ class NewMessagesIndicator extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
+                        color: AppColors.blackColor.withValues(alpha: 0.18),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.arrow_downward_rounded,
-                        color: Colors.white,
+                        color: AppColors.messagingOnAccent,
                         size: 16,
                       ),
                       SizedBox(width: 6),
                       Text(
-                        'New Messages',
-                        style: TextStyle(
-                          color: Colors.white,
+                        AppStrings.newMessagesLabel,
+                        style: AppTextStyles.size14.copyWith(
+                          color: AppColors.messagingOnAccent,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),

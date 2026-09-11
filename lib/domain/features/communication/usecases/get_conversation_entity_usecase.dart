@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
-import '../repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
 class GetConversationEntityUseCase {
   final ConversationEntityRepository _repository;

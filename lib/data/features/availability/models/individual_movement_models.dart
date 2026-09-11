@@ -1,46 +1,43 @@
+import 'package:json_annotation/json_annotation.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 
+part 'individual_movement_models.g.dart';
+
+// explicitToJson: nested movement lists must be deep-serialized to maps —
+// otherwise toJson() emits raw model objects for `overdue`/`upcoming`/etc.,
+// which then fail to parse back via fromCacheJson (the cache round-trip).
+@JsonSerializable(explicitToJson: true)
 class IndividualMovementBoardModel {
   const IndividualMovementBoardModel({
-    required this.overdue,
-    required this.upcoming,
-    required this.confirmed,
-    required this.rejected,
+    this.overdue = const <IndividualMovementModel>[],
+    this.upcoming = const <IndividualMovementModel>[],
+    this.confirmed = const <IndividualMovementModel>[],
+    this.rejected = const <IndividualMovementModel>[],
   });
 
+  @JsonKey(fromJson: _readMovementList)
   final List<IndividualMovementModel> overdue;
+  @JsonKey(fromJson: _readMovementList)
   final List<IndividualMovementModel> upcoming;
+  @JsonKey(fromJson: _readMovementList)
   final List<IndividualMovementModel> confirmed;
+  @JsonKey(fromJson: _readMovementList)
   final List<IndividualMovementModel> rejected;
 
+  /// The API wraps the board in a `data` envelope; the cache copy (written by
+  /// [toJson]) does not, so both factories delegate to the same generated
+  /// field mapping — just with a different (already-unwrapped) input map.
   factory IndividualMovementBoardModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-    return IndividualMovementBoardModel(
-      overdue: _readList(data['overdue']),
-      upcoming: _readList(data['upcoming']),
-      confirmed: _readList(data['confirmed']),
-      rejected: _readList(data['rejected']),
-    );
+    return _$IndividualMovementBoardModelFromJson(data);
   }
 
-  factory IndividualMovementBoardModel.fromCacheJson(Map<String, dynamic> json) {
-    return IndividualMovementBoardModel(
-      overdue: _readList(json['overdue']),
-      upcoming: _readList(json['upcoming']),
-      confirmed: _readList(json['confirmed']),
-      rejected: _readList(json['rejected']),
-    );
-  }
+  factory IndividualMovementBoardModel.fromCacheJson(Map<String, dynamic> json) =>
+      _$IndividualMovementBoardModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'overdue': overdue.map((e) => e.toJson()).toList(),
-      'upcoming': upcoming.map((e) => e.toJson()).toList(),
-      'confirmed': confirmed.map((e) => e.toJson()).toList(),
-      'rejected': rejected.map((e) => e.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => _$IndividualMovementBoardModelToJson(this);
 
   IndividualMovementBoard toEntity() {
     return IndividualMovementBoard(
@@ -50,16 +47,9 @@ class IndividualMovementBoardModel {
       rejected: rejected.map((e) => e.toEntity()).toList(),
     );
   }
-
-  static List<IndividualMovementModel> _readList(dynamic value) {
-    if (value is! List) return const <IndividualMovementModel>[];
-    return value
-        .whereType<Map<String, dynamic>>()
-        .map(IndividualMovementModel.fromJson)
-        .toList();
-  }
 }
 
+@JsonSerializable()
 class IndividualMovementModel {
   const IndividualMovementModel({
     required this.id,
@@ -87,85 +77,53 @@ class IndividualMovementModel {
     this.updatedAt,
   });
 
+  @JsonKey(fromJson: _toIntOrZero)
   final int id;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String code;
+  @JsonKey(fromJson: _parseMovementType, toJson: _movementTypeToApi)
   final IndividualMovementType movementType;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String studentCode;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String studentName;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String studentAvatarInitials;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String fromClassroomCode;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String fromClassroomName;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String toClassroomCode;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String toClassroomName;
+  @JsonKey(fromJson: _parseDateOnly, toJson: _formatDateOnly)
   final DateTime movementDate;
+  @JsonKey(fromJson: _parseWorkflowStatus, toJson: _statusToApi)
   final IndividualMovementWorkflowStatus status;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String source;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String comment;
+  @JsonKey(fromJson: _toStringOrEmpty)
   final String bucket;
   final String? profilePhotoAssetCode;
+  @JsonKey(fromJson: _parseDateTime, toJson: _formatDateTime)
   final DateTime? confirmedAt;
   final String? confirmedBy;
+  @JsonKey(fromJson: _parseDateTime, toJson: _formatDateTime)
   final DateTime? rejectedAt;
   final String? rejectedBy;
   final String? rejectionComment;
+  @JsonKey(fromJson: _parseDateTime, toJson: _formatDateTime)
   final DateTime? createdAt;
+  @JsonKey(fromJson: _parseDateTime, toJson: _formatDateTime)
   final DateTime? updatedAt;
 
-  factory IndividualMovementModel.fromJson(Map<String, dynamic> json) {
-    return IndividualMovementModel(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      code: (json['code'] ?? '').toString(),
-      movementType: _parseMovementType((json['movementType'] ?? '').toString()),
-      studentCode: (json['studentCode'] ?? '').toString(),
-      studentName: (json['studentName'] ?? '').toString(),
-      studentAvatarInitials: (json['studentAvatarInitials'] ?? '').toString(),
-      fromClassroomCode: (json['fromClassroomCode'] ?? '').toString(),
-      fromClassroomName: (json['fromClassroomName'] ?? '').toString(),
-      toClassroomCode: (json['toClassroomCode'] ?? '').toString(),
-      toClassroomName: (json['toClassroomName'] ?? '').toString(),
-      movementDate: _parseDateOnly((json['movementDate'] ?? '').toString()),
-      status: _parseWorkflowStatus((json['status'] ?? '').toString()),
-      source: (json['source'] ?? '').toString(),
-      comment: (json['comment'] ?? '').toString(),
-      bucket: (json['bucket'] ?? '').toString(),
-      profilePhotoAssetCode: json['profilePhotoAssetCode']?.toString(),
-      confirmedAt: _parseDateTime(json['confirmedAt']),
-      confirmedBy: json['confirmedBy']?.toString(),
-      rejectedAt: _parseDateTime(json['rejectedAt']),
-      rejectedBy: json['rejectedBy']?.toString(),
-      rejectionComment: json['rejectionComment']?.toString(),
-      createdAt: _parseDateTime(json['createdAt']),
-      updatedAt: _parseDateTime(json['updatedAt']),
-    );
-  }
+  factory IndividualMovementModel.fromJson(Map<String, dynamic> json) =>
+      _$IndividualMovementModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'id': id,
-      'code': code,
-      'movementType': _movementTypeToApi(movementType),
-      'studentCode': studentCode,
-      'studentName': studentName,
-      'studentAvatarInitials': studentAvatarInitials,
-      'fromClassroomCode': fromClassroomCode,
-      'fromClassroomName': fromClassroomName,
-      'toClassroomCode': toClassroomCode,
-      'toClassroomName': toClassroomName,
-      'movementDate': _formatDateOnly(movementDate),
-      'status': _statusToApi(status),
-      'source': source,
-      'comment': comment,
-      'bucket': bucket,
-      'profilePhotoAssetCode': profilePhotoAssetCode,
-      'confirmedAt': confirmedAt?.toIso8601String(),
-      'confirmedBy': confirmedBy,
-      'rejectedAt': rejectedAt?.toIso8601String(),
-      'rejectedBy': rejectedBy,
-      'rejectionComment': rejectionComment,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toJson() => _$IndividualMovementModelToJson(this);
 
   IndividualMovement toEntity() {
     return IndividualMovement(
@@ -196,8 +154,20 @@ class IndividualMovementModel {
   }
 }
 
-IndividualMovementType _parseMovementType(String value) {
-  switch (value.toUpperCase()) {
+List<IndividualMovementModel> _readMovementList(dynamic value) {
+  if (value is! List) return const <IndividualMovementModel>[];
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(IndividualMovementModel.fromJson)
+      .toList();
+}
+
+int _toIntOrZero(dynamic value) => (value as num?)?.toInt() ?? 0;
+
+String _toStringOrEmpty(dynamic value) => (value ?? '').toString();
+
+IndividualMovementType _parseMovementType(dynamic value) {
+  switch (value.toString().toUpperCase()) {
     case 'START_SCHOOL':
       return IndividualMovementType.startSchool;
     case 'LEAVE_SCHOOL':
@@ -221,8 +191,8 @@ String _movementTypeToApi(IndividualMovementType value) {
   }
 }
 
-IndividualMovementWorkflowStatus _parseWorkflowStatus(String value) {
-  switch (value.toUpperCase()) {
+IndividualMovementWorkflowStatus _parseWorkflowStatus(dynamic value) {
+  switch (value.toString().toUpperCase()) {
     case 'CONFIRMED':
       return IndividualMovementWorkflowStatus.confirmed;
     case 'REJECTED':
@@ -244,9 +214,10 @@ String _statusToApi(IndividualMovementWorkflowStatus value) {
   }
 }
 
-DateTime _parseDateOnly(String value) {
-  if (value.trim().isEmpty) return DateTime.now();
-  return DateTime.tryParse(value)?.toLocal() ?? DateTime.now();
+DateTime _parseDateOnly(dynamic value) {
+  final raw = (value ?? '').toString();
+  if (raw.trim().isEmpty) return AppTime.today();
+  return DateTime.tryParse(raw)?.toLocal() ?? AppTime.today();
 }
 
 DateTime? _parseDateTime(dynamic value) {
@@ -256,6 +227,8 @@ DateTime? _parseDateTime(dynamic value) {
   return DateTime.tryParse(raw)?.toLocal();
 }
 
+String? _formatDateTime(DateTime? value) => value?.toIso8601String();
+
 String _formatDateOnly(DateTime date) {
   final y = date.year.toString().padLeft(4, '0');
   final m = date.month.toString().padLeft(2, '0');
@@ -263,20 +236,22 @@ String _formatDateOnly(DateTime date) {
   return '$y-$m-$d';
 }
 
+@JsonSerializable()
 class MovementStatusCountsModel {
   const MovementStatusCountsModel({
     required this.overdueCount,
     required this.pendingCount,
   });
 
+  @JsonKey(fromJson: _toIntOrZero)
   final int overdueCount;
+  @JsonKey(fromJson: _toIntOrZero)
   final int pendingCount;
 
   factory MovementStatusCountsModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? const {};
-    return MovementStatusCountsModel(
-      overdueCount: (data['overdueCount'] as num?)?.toInt() ?? 0,
-      pendingCount: (data['pendingCount'] as num?)?.toInt() ?? 0,
-    );
+    final data = json['data'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+    return _$MovementStatusCountsModelFromJson(data);
   }
+
+  Map<String, dynamic> toJson() => _$MovementStatusCountsModelToJson(this);
 }

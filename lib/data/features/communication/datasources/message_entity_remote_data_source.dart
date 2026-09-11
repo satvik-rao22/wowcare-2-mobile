@@ -1,7 +1,13 @@
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
+import 'package:wowcare/data/features/communication/models/send_message_request.dart';
+import 'package:wowcare/data/features/communication/models/edit_message_request.dart';
+import 'package:wowcare/data/features/communication/models/message_reaction_request.dart';
 
 abstract class MessageEntityRemoteDataSource {
   Future<List<MessageEntityDto>> getMessages({
@@ -42,6 +48,12 @@ abstract class MessageEntityRemoteDataSource {
   /// from its message without deleting the whole message. Same endpoint
   /// legacy's `CommunicationRemoteDataSource.deleteAttachment` calls.
   Future<void> deleteAttachment(int attachmentId);
+
+  /// Full per-recipient-per-persona receipts for one message — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment for why this is
+  /// fetched separately from the message list's own lighter `receipts`
+  /// field.
+  Future<List<ReadReceiptEntityDto>> getMessageReceipts(String messageCode);
 }
 
 class MessageEntityRemoteDataSourceImpl
@@ -86,22 +98,32 @@ class MessageEntityRemoteDataSourceImpl
     String? threadParentCode,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessages);
-    final body = <String, dynamic>{
-      'conversationCode': conversationCode,
-      'type': 'TEXT',
-      'content': text,
-      // Backend tracks attachments by the messaging-service's own integer id
-      // (assigned at registration — see ChatAttachmentUploader.upload), not
-      // by the document-service asset code. Matches
-      // CommunicationRemoteDataSource.sendMessage's confirmed-working
-      // contract for this same endpoint.
-      if (attachmentIds.isNotEmpty) 'attachmentIds': attachmentIds,
-      if (isPrivate) 'isPrivate': true,
-      if (privateParentUserCode != null)
-        'privateParentUserCode': privateParentUserCode,
-      // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
-      if (threadParentCode != null) 'replyToMessageId': threadParentCode,
-    };
+
+    // Belt-and-suspenders alongside the x-role header: the messaging service
+    // has been observed attributing a sent message to a dual-role account's
+    // OTHER persona (e.g. GUARDIAN) even when the request headers are
+    // unambiguously the active persona (e.g. ORGANIZATION_ADMIN) — mirrors
+    // why the notification inbox needed an explicit `role` param, not just
+    // the header, to get a correctly-scoped response. Uses the same active-
+    // persona resolution as the header itself, so the two can never disagree.
+    final activeRole = await resolveActiveBackendRole(
+      serviceLocator<StorageService>(),
+    );
+
+    // Backend tracks attachments by the messaging-service's own integer id
+    // (assigned at registration — see ChatAttachmentUploader.upload), not by
+    // the document-service asset code. `replyToMessageCode` is the create-time
+    // key (distinct from the `replyToMessageId` echoed back on read — see
+    // MessageEntityDto.fromJson).
+    final body = SendMessageRequest(
+      conversationCode: conversationCode,
+      content: _wrapAsHtml(text),
+      attachmentIds: attachmentIds,
+      isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
+      replyToMessageCode: threadParentCode,
+      role: activeRole,
+    ).toJson();
 
     final response = await apiClient.client.post(endpoint, data: body);
     _assertSuccess(response.data, 'Failed to send message');
@@ -109,6 +131,20 @@ class MessageEntityRemoteDataSourceImpl
     return MessageEntityDto.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
+  }
+
+  /// Wraps plain/inline-formatted content in a block-level `<p>` tag, which
+  /// the messaging service requires — sending un-wrapped content (even a
+  /// single word like "Hi") 500s.
+  static String _wrapAsHtml(String content) {
+    final trimmed = content.trim();
+    if (RegExp(
+      r'^<(p|div|ul|ol|blockquote)[\s>]',
+      caseSensitive: false,
+    ).hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return '<p>$trimmed</p>';
   }
 
   @override
@@ -119,7 +155,7 @@ class MessageEntityRemoteDataSourceImpl
     final endpoint = _url(ApiPaths.messagingMessage(messageCode));
     final response = await apiClient.client.put(
       endpoint,
-      data: {'content': newText},
+      data: EditMessageRequest(content: _wrapAsHtml(newText)).toJson(),
     );
     _assertSuccess(response.data, 'Failed to edit message');
 
@@ -140,7 +176,7 @@ class MessageEntityRemoteDataSourceImpl
     required String emoji,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessageReactions(messageCode));
-    await apiClient.client.post(endpoint, data: {'emoji': emoji});
+    await apiClient.client.post(endpoint, data: MessageReactionRequest(emoji: emoji).toJson());
   }
 
   @override
@@ -148,7 +184,9 @@ class MessageEntityRemoteDataSourceImpl
     required String messageCode,
     required String emoji,
   }) async {
-    final endpoint = _url(ApiPaths.messagingMessageReaction(messageCode, emoji));
+    final endpoint = _url(
+      ApiPaths.messagingMessageReaction(messageCode, emoji),
+    );
     await apiClient.client.delete(endpoint);
   }
 
@@ -162,6 +200,25 @@ class MessageEntityRemoteDataSourceImpl
   Future<void> deleteAttachment(int attachmentId) async {
     final endpoint = _url(ApiPaths.messagingAttachmentPath(attachmentId));
     await apiClient.client.delete(endpoint);
+  }
+
+  @override
+  Future<List<ReadReceiptEntityDto>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    final endpoint = _url(ApiPaths.messagingMessageReceipts(messageCode));
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to load message receipts');
+    final data = response.data['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (json) => ReadReceiptEntityDto.fromJson(
+            json,
+            fallbackMessageCode: messageCode,
+          ),
+        )
+        .toList();
   }
 
   void _assertSuccess(dynamic data, String fallback) {

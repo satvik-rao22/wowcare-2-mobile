@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_attendance_model.dart';
 
 /// Remote data source for kiosk ATTENDANCE operations (refactored Clean Architecture).

@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import '../../../../../core/errors/failures.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import '../../../../data/features/messaging/datasources/feature_flag_local_data_source.dart';
 
 /// Use case for retrieving feature flag state.

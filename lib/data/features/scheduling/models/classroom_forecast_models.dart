@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
+import 'scheduling_json_parsing.dart';
 import 'staff_shift_models.dart';
 
 class ClassroomForecastBlockModel {
@@ -42,15 +44,15 @@ class ClassroomForecastBlockModel {
         : const <String>[];
 
     return ClassroomForecastBlockModel(
-      blockDate: (json['blockDate'] ?? '').toString(),
+      blockDate: SchedulingJsonParsing.string(json['blockDate']),
       blockStart: start,
       blockEnd: end,
-      classroomCode: (json['classroomCode'] ?? '').toString(),
-      blockStatus: (json['blockStatus'] ?? '').toString(),
-      expectedStudents: (json['expectedStudents'] as num?)?.toInt() ?? 0,
-      ratioRule: (json['ratioRule'] as num?)?.toInt() ?? 0,
-      requiredStaff: (json['requiredStaff'] as num?)?.toInt() ?? 0,
-      scheduledStaff: (json['scheduledStaff'] as num?)?.toInt() ?? 0,
+      classroomCode: SchedulingJsonParsing.string(json['classroomCode']),
+      blockStatus: SchedulingJsonParsing.string(json['blockStatus']),
+      expectedStudents: SchedulingJsonParsing.intValue(json['expectedStudents']),
+      ratioRule: SchedulingJsonParsing.intValue(json['ratioRule']),
+      requiredStaff: SchedulingJsonParsing.intValue(json['requiredStaff']),
+      scheduledStaff: SchedulingJsonParsing.intValue(json['scheduledStaff']),
       withinMonitoringWindow: json['withinMonitoringWindow'] == true,
       staffShiftCodes: codes,
     );
@@ -58,7 +60,7 @@ class ClassroomForecastBlockModel {
 
   ClassroomForecastBlock toEntity() {
     return ClassroomForecastBlock(
-      blockDate: DateTime.tryParse(blockDate) ?? DateTime.now(),
+      blockDate: DateTime.tryParse(blockDate) ?? AppTime.today(),
       blockStart: blockStart.toTimeOfDay(),
       blockEnd: blockEnd.toTimeOfDay(),
       classroomCode: classroomCode,

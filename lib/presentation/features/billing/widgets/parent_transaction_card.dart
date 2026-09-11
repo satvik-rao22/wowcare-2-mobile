@@ -1,52 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/date_utils.dart';
-
-/// Demo statement data model for UI-only display
-class DemoStatement {
-  final String id;
-  final String studentName;
-  final String statementType; // e.g. 'Yearly', 'Monthly', 'Custom'
-  final DateTime generatedOn;
-  final DateTime periodFrom;
-  final DateTime periodTo;
-
-  const DemoStatement({
-    required this.id,
-    required this.studentName,
-    required this.statementType,
-    required this.generatedOn,
-    required this.periodFrom,
-    required this.periodTo,
-  });
-}
-
-/// Example demo statements – use these in your UI list/grid as needed
-final List<DemoStatement> demoStatements = [
-  DemoStatement(
-    id: 'st_001',
-    studentName: 'Lux Stud',
-    statementType: 'Yearly',
-    generatedOn: DateTime(2026, 1, 22),
-    periodFrom: DateTime(2026, 1, 1),
-    periodTo: DateTime(2026, 12, 31),
-  ),
-  DemoStatement(
-    id: 'st_002',
-    studentName: 'Lux Stud',
-    statementType: 'Monthly',
-    generatedOn: DateTime(2026, 1, 22),
-    periodFrom: DateTime(2026, 1, 1),
-    periodTo: DateTime(2026, 1, 31),
-  ),
-];
+import 'package:wowcare/core/utils/date_utils.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 /// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {
@@ -105,19 +71,19 @@ class ParentTransactionCard extends StatelessWidget {
     switch (_type) {
       case 'invoice':
         return (
-          label: 'Invoice',
+          label: BillingStrings.invoice,
           color: AppColors.billingInvoiceBadgeColor,
           textColor: AppColors.secondaryColor,
         );
       case 'refund':
         return (
-          label: 'Refund',
+          label: BillingStrings.refund,
           color: AppColors.billingRefundBadgeColor,
           textColor: AppColors.billingGreyDark,
         );
       default:
         return (
-          label: 'Payment',
+          label: BillingStrings.payment,
           color: AppColors.billingPaymentBadgeColor,
           textColor: AppColors.secondaryColor,
         );
@@ -132,12 +98,14 @@ class ParentTransactionCard extends StatelessWidget {
     return TransactionItem(
       id: int.tryParse(transaction.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
       transactionType: transaction.transactionType,
-      date: transaction.date ?? DateTime.now(),
+      date: transaction.date ?? billingSchoolNow(),
       amount: transaction.amount,
       status: transaction.status,
       description: transaction.description,
       studentName: transaction.studentName,
       classroom: '',
+      studentCode:
+          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
       paidAmount: transaction.paidAmount,
       refundedAmount: transaction.refundedAmount,
       invoiceCode: transaction.invoiceCode,
@@ -148,52 +116,51 @@ class ParentTransactionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final badge = _badge();
 
     final expanded = <Widget>[];
     if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
         ..add(StaffCardDetailRow(
-          label: 'Payment Method',
+          label: BillingStrings.paymentMethod,
           value: transaction.method,
         ))
         ..add(const SizedBox(height: 10));
     }
     expanded.add(StaffCardDetailRow(
-      label: 'Status',
+      label: BillingStrings.status,
       value: _formatStatus(transaction.status),
     ));
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {
       expanded.add(StaffCardDetailRow(
-        label: 'Description',
+        label: BillingStrings.description,
         value: transaction.description,
       ));
       expanded.add(const SizedBox(height: 10));
     }
     if (transaction.items.isNotEmpty) {
       expanded.add(StaffCardDetailRow(
-        label: 'Items',
+        label: BillingStrings.items,
         value: transaction.items.join(', '),
       ));
       expanded.add(const SizedBox(height: 10));
     }
     expanded.add(StaffCardDetailRow(
-      label: 'Amount',
+      label: BillingStrings.amount,
       value: '\$${transaction.amount.toStringAsFixed(2)}',
     ));
     if (_type == 'payment') {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
-          primaryLabel: 'View Receipt',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewReceiptScreen(
-                transaction: _toTransactionItem(),
-                viewType: 'receipt',
-              ),
+          primaryLabel: BillingStrings.viewReceipt,
+          onPrimary: () => context.push(
+            ViewReceiptScreen.routeName,
+            extra: ViewReceiptArgs(
+              transaction: _toTransactionItem(),
+              viewType: 'receipt',
             ),
           ),
         ));
@@ -201,12 +168,11 @@ class ParentTransactionCard extends StatelessWidget {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
-          primaryLabel: 'View Invoice',
-          onPrimary: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ViewInvoiceScreen(
-                transaction: _toTransactionItem(),
-              ),
+          primaryLabel: BillingStrings.viewInvoice,
+          onPrimary: () => context.push(
+            ViewInvoiceScreen.routeName,
+            extra: ViewInvoiceArgs(
+              transaction: _toTransactionItem(),
             ),
           ),
         ));
@@ -290,7 +256,7 @@ class ParentStatementCard extends StatelessWidget {
     this.onView,
   });
 
-  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+  String get _title => studentNames.isNotEmpty ? studentNames : BillingStrings.statement;
 
   String get _formattedType => statement.statementType.isEmpty
       ? '—'
@@ -299,7 +265,7 @@ class ParentStatementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
+    final isTablet = ResponsiveHelper(context).isTabletCompact;
     final generatedAt = statement.generatedAt;
     return StaffStyleCard(
       leading: DocumentImageWidget(
@@ -319,7 +285,7 @@ class ParentStatementCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _Badge(
-            label: 'Statement',
+            label: BillingStrings.statement,
             color: AppColors.billingPaymentBadgeColor,
             textColor: AppColors.secondaryColor,
           ),
@@ -327,27 +293,30 @@ class ParentStatementCard extends StatelessWidget {
       ),
       expandedChildren: [
         StaffCardDetailRow(
-          label: 'Statement Type',
+          label: BillingStrings.statementType,
           value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Generated On',
+          label: BillingStrings.generatedOn,
           value: generatedAt != null
               ? DateUtilsNew.formatToReadableDate(generatedAt)
               : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
-          label: 'Statement Period',
+          label: BillingStrings.statementPeriod,
           value:
               '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
         const SizedBox(height: 16),
         StaffCardActions(
-          secondaryLabel: 'View',
+          // Both actions share the same fetch-in-flight flag, so the label
+          // stays generic rather than claiming "Downloading…" while a View
+          // fetch is actually what's in flight.
+          secondaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.view,
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          primaryLabel: isDownloading ? BillingStrings.loading : BillingStrings.download,
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],

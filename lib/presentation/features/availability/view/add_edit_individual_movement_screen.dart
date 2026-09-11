@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -27,6 +29,7 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
   /// Items are **codes**; UI can display names via [studentNamesByCode]/[classroomNamesByCode].
   final List<String> students;
   final List<String> classrooms;
+
   /// Full list used for duplicate detection (same student, date, from, to).
   final List<MovementItem> existingMovements;
   final Map<String, String> studentNamesByCode;
@@ -43,11 +46,12 @@ class AddEditIndividualMovementScreen extends StatefulWidget {
       _AddEditIndividualMovementScreenState();
 }
 
-class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovementScreen> {
+class _AddEditIndividualMovementScreenState
+    extends State<AddEditIndividualMovementScreen> {
   String? _selectedStudent;
   String? _currentClassroom;
   String? _nextClassroom;
-  DateTime _movementDate = DateTime.now();
+  DateTime _movementDate = AppTime.now();
   late final TextEditingController _commentController;
 
   String _nameForStudentCode(String code) {
@@ -64,52 +68,16 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
     return name.isNotEmpty ? name : c;
   }
 
-  /// Builds display-only names (no codes) while maintaining a stable mapping
-  /// from display string -> code. If multiple items share the same name,
-  /// suffix them as "Name (2)", "Name (3)", etc.
-  ({
-    List<String> items,
-    Map<String, String> displayToCode,
-    Map<String, String> codeToDisplay,
-  }) _buildDisplayOnlyOptions({
-    required List<String> codes,
-    required String Function(String code) nameForCode,
-  }) {
-    final counts = <String, int>{};
-    final items = <String>[];
-    final displayToCode = <String, String>{};
-    final codeToDisplay = <String, String>{};
-
-    for (final codeRaw in codes) {
-      final code = codeRaw.trim();
-      if (code.isEmpty) continue;
-      final baseName = nameForCode(code).trim();
-      final name = baseName.isNotEmpty ? baseName : code;
-
-      final next = (counts[name] ?? 0) + 1;
-      counts[name] = next;
-
-      final display = next == 1 ? name : '$name ($next)';
-      items.add(display);
-      displayToCode[display] = code;
-      codeToDisplay[code] = display;
-    }
-
-    return (
-      items: items,
-      displayToCode: displayToCode,
-      codeToDisplay: codeToDisplay,
-    );
-  }
-
   @override
   void initState() {
     super.initState();
     _selectedStudent = widget.initialData?.student;
     _currentClassroom = widget.initialData?.currentClassroom;
     _nextClassroom = widget.initialData?.nextClassroom;
-    _movementDate = widget.initialData?.movementDate ?? DateTime.now();
-    _commentController = TextEditingController(text: widget.initialData?.comment ?? '');
+    _movementDate = widget.initialData?.movementDate ?? AppTime.now();
+    _commentController = TextEditingController(
+      text: widget.initialData?.comment ?? '',
+    );
 
     // Normalize for movement types where one side is expected to be empty.
     if (widget.movementType == MovementType.startSchool) {
@@ -126,19 +94,20 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
   }
 
   void _onSavePressed() {
-    final String? error = IndividualMovementValidators.validateMoveToNextClassroomForm(
-      student: _selectedStudent,
-      fromClassroom: _currentClassroom,
-      toClassroom: _nextClassroom,
-      movementType: widget.movementType,
-      movementDate: _movementDate,
-      existing: widget.existingMovements,
-      excludeId: widget.editingMovementId,
-    );
+    final String? error =
+        IndividualMovementValidators.validateMoveToNextClassroomForm(
+          student: _selectedStudent,
+          fromClassroom: _currentClassroom,
+          toClassroom: _nextClassroom,
+          movementType: widget.movementType,
+          movementDate: _movementDate,
+          existing: widget.existingMovements,
+          excludeId: widget.editingMovementId,
+        );
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
       return;
     }
 
@@ -153,14 +122,8 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
     );
   }
 
-  TextStyle _labelStyle(ResponsiveHelper responsive) {
-    return TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
-  }
+  TextStyle _labelStyle(ResponsiveHelper responsive) =>
+      AppTextStyles.movementFormLabel(fontSize: responsive.labelFontSize);
 
   Widget _commentField(ResponsiveHelper responsive) {
     final labelStyle = _labelStyle(responsive);
@@ -171,8 +134,10 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.cardColor,
+            border: Border.all(
+              color: AppColors.primaryColor.withValues(alpha: 0.4),
+            ),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -182,16 +147,14 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
             keyboardType: TextInputType.multiline,
             minLines: 1,
             maxLines: 4,
-            style: TextStyle(
-              fontFamily: Fonts.manrope,
+            style: AppTextStyles.movementFormValue(
               fontSize: responsive.inputFontSize,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
-              height: 19 / 14,
             ),
             decoration: InputDecoration(
               hintText: 'Enter Comment',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -209,16 +172,16 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    final studentOptions = _buildDisplayOnlyOptions(
+    final studentOptions = buildDisplayOnlyOptions(
       codes: widget.students,
       nameForCode: _nameForStudentCode,
     );
-    final classroomOptions = _buildDisplayOnlyOptions(
+    final classroomOptions = buildDisplayOnlyOptions(
       codes: widget.classrooms,
       nameForCode: _nameForClassroomCode,
     );
     final currentCode = _currentClassroom?.trim() ?? '';
-    final nextClassroomOptions = _buildDisplayOnlyOptions(
+    final nextClassroomOptions = buildDisplayOnlyOptions(
       codes: currentCode.isEmpty
           ? widget.classrooms
           : widget.classrooms.where((c) => c.trim() != currentCode).toList(),
@@ -236,7 +199,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -249,10 +212,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: CustomConfirmButton(
-          label: 'Save',
-          onPressed: _onSavePressed,
-        ),
+        child: CustomConfirmButton(label: 'Save', onPressed: _onSavePressed),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -262,18 +222,20 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
             SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
             Container(
               width: double.infinity,
-              constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+              constraints: BoxConstraints(
+                minHeight: responsive.inputFieldHeight,
+              ),
               padding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
                 vertical: responsive.isTablet ? 16.0 : 12.0,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 borderRadius: BorderRadius.circular(
                   responsive.isTablet ? 12.0 : 8.0,
                 ),
                 border: Border.all(
-                  color: const Color(0x66573353),
+                  color: AppColors.primaryColor.withValues(alpha: 0.4),
                 ),
               ),
               child: Text(
@@ -282,15 +244,12 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   name: '',
                   fromClassroom: '',
                   toClassroom: '',
-                  movementDate: DateTime.now(),
+                  movementDate: AppTime.now(),
                   workflowStatus: MovementWorkflowStatus.pending,
                   movementType: widget.movementType,
                 ).movementTypeLabel,
-                style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                style: AppTextStyles.movementFormValue(
                   fontSize: responsive.inputFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
                 ),
               ),
             ),
@@ -299,23 +258,20 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               label: 'Select Student',
               hintText: 'Select',
               items: studentOptions.items,
-              selectedItem: (_selectedStudent == null ||
-                      _selectedStudent!.trim().isEmpty)
+              selectedItem:
+                  (_selectedStudent == null || _selectedStudent!.trim().isEmpty)
                   ? null
                   : studentOptions.codeToDisplay[_selectedStudent!.trim()],
               showAsterisk: true,
               labelStyle: _labelStyle(responsive),
               labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-              selectedTextStyle: TextStyle(
-                fontFamily: Fonts.manrope,
+              selectedTextStyle: AppTextStyles.movementFormValue(
                 fontSize: responsive.inputFontSize,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xff573353),
-                height: 19 / 14,
               ),
               isEnabled: !widget.isEditing,
               onSelect: (value) => setState(
-                () => _selectedStudent = studentOptions.displayToCode[(value ?? '').trim()],
+                () => _selectedStudent =
+                    studentOptions.displayToCode[(value ?? '').trim()],
               ),
             ),
             SizedBox(height: responsive.verticalSpacing),
@@ -330,25 +286,25 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                           label: 'Current Classroom',
                           hintText: 'Select',
                           items: classroomOptions.items,
-                          selectedItem: (_currentClassroom == null ||
+                          selectedItem:
+                              (_currentClassroom == null ||
                                   _currentClassroom!.trim().isEmpty)
                               ? null
-                              : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
+                              : classroomOptions
+                                    .codeToDisplay[_currentClassroom!.trim()],
                           showAsterisk: true,
                           labelStyle: _labelStyle(responsive),
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                          selectedTextStyle: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          selectedTextStyle: AppTextStyles.movementFormValue(
                             fontSize: responsive.inputFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
-                          isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
+                          isEnabled:
+                              !widget.isEditing &&
+                              !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
-                                () => _currentClassroom = classroomOptions
-                                    .displayToCode[(value ?? '').trim()],
-                              ),
+                            () => _currentClassroom = classroomOptions
+                                .displayToCode[(value ?? '').trim()],
+                          ),
                         ),
                       ],
                     ),
@@ -362,25 +318,23 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                           label: 'Next to Classroom',
                           hintText: 'Select',
                           items: nextClassroomOptions.items,
-                          selectedItem: (_nextClassroom == null ||
+                          selectedItem:
+                              (_nextClassroom == null ||
                                   _nextClassroom!.trim().isEmpty)
                               ? null
-                              : nextClassroomOptions.codeToDisplay[_nextClassroom!.trim()],
+                              : nextClassroomOptions
+                                    .codeToDisplay[_nextClassroom!.trim()],
                           showAsterisk: true,
                           labelStyle: _labelStyle(responsive),
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                          selectedTextStyle: TextStyle(
-                            fontFamily: Fonts.manrope,
+                          selectedTextStyle: AppTextStyles.movementFormValue(
                             fontSize: responsive.inputFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
                           isEnabled: !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
-                                () => _nextClassroom = nextClassroomOptions
-                                    .displayToCode[(value ?? '').trim()],
-                              ),
+                            () => _nextClassroom = nextClassroomOptions
+                                .displayToCode[(value ?? '').trim()],
+                          ),
                         ),
                       ],
                     ),
@@ -395,25 +349,23 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                     label: 'Classroom',
                     hintText: 'Select',
                     items: classroomOptions.items,
-                    selectedItem: (_nextClassroom == null ||
+                    selectedItem:
+                        (_nextClassroom == null ||
                             _nextClassroom!.trim().isEmpty)
                         ? null
-                        : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
+                        : classroomOptions.codeToDisplay[_nextClassroom!
+                              .trim()],
                     showAsterisk: true,
                     labelStyle: _labelStyle(responsive),
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    selectedTextStyle: TextStyle(
-                      fontFamily: Fonts.manrope,
+                    selectedTextStyle: AppTextStyles.movementFormValue(
                       fontSize: responsive.inputFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
-                      height: 19 / 14,
                     ),
                     isEnabled: !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
-                          () => _nextClassroom = classroomOptions
-                              .displayToCode[(value ?? '').trim()],
-                        ),
+                      () => _nextClassroom =
+                          classroomOptions.displayToCode[(value ?? '').trim()],
+                    ),
                   ),
                 ],
               )
@@ -425,25 +377,24 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                     label: 'Classroom',
                     hintText: 'Select',
                     items: classroomOptions.items,
-                    selectedItem: (_currentClassroom == null ||
+                    selectedItem:
+                        (_currentClassroom == null ||
                             _currentClassroom!.trim().isEmpty)
                         ? null
-                        : classroomOptions.codeToDisplay[_currentClassroom!.trim()],
+                        : classroomOptions.codeToDisplay[_currentClassroom!
+                              .trim()],
                     showAsterisk: true,
                     labelStyle: _labelStyle(responsive),
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    selectedTextStyle: TextStyle(
-                      fontFamily: Fonts.manrope,
+                    selectedTextStyle: AppTextStyles.movementFormValue(
                       fontSize: responsive.inputFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
-                      height: 19 / 14,
                     ),
-                    isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
+                    isEnabled:
+                        !widget.isEditing && !widget.lockClassroomSelection,
                     onSelect: (value) => setState(
-                          () => _currentClassroom = classroomOptions
-                              .displayToCode[(value ?? '').trim()],
-                        ),
+                      () => _currentClassroom =
+                          classroomOptions.displayToCode[(value ?? '').trim()],
+                    ),
                   ),
                 ],
               ),
@@ -455,7 +406,11 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               initialDate: _movementDate,
               fetchInitialTime: false,
               firstDate: widget.disablePastDates
-                  ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
+                  ? DateTime(
+                      AppTime.now().year,
+                      AppTime.now().month,
+                      AppTime.now().day,
+                    )
                   : null,
               onDateSelected: (date) => setState(() => _movementDate = date),
             ),

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 
 class BillingStudentCard extends StatefulWidget {
@@ -58,7 +61,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
   late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
   bool get _localSelected => _cubit.state;
 
-  bool isExpanded = false;
+  final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
@@ -75,6 +78,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
   @override
   void dispose() {
     _cubit.close();
+    _isExpanded.dispose();
     super.dispose();
   }
 
@@ -128,8 +132,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isTablet = screenWidth > 600;
+          final isTablet = ResponsiveHelper(context).isTabletCompact;
 
           Color statusColor;
           switch (widget.lastPaymentStatus) {
@@ -137,7 +140,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               statusColor = AppColors.successColor;
               break;
             case 'Pending':
-              statusColor = Colors.orange;
+              statusColor = AppColors.warningColor;
               break;
             case 'Failed':
               statusColor = AppColors.errorColor;
@@ -153,18 +156,20 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
           final String paymentStatusText =
               widget.lastPaymentStatus.trim().isNotEmpty
                   ? widget.lastPaymentStatus
-                  : 'NOT PAID';
+                  : BillingStrings.notPaid;
           final bool hasInvoice = widget.lastInvoiceAmount > 0 ||
               widget.lastInvoiceSent.trim() != '-';
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              return IntrinsicHeight(
+              return ValueListenableBuilder<bool>(
+                valueListenable: _isExpanded,
+                builder: (context, isExpanded, _) => IntrinsicHeight(
                 child: Container(
                   width: constraints.maxWidth,
                   height: isExpanded ? null : 64.0,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.billingCardColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppColors.cardBorderColor,
@@ -173,13 +178,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Material(
-                    color: Colors.transparent,
+                    color: AppColors.transparentColor,
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          isExpanded = !isExpanded;
-                        });
-                      },
+                      onTap: () => _isExpanded.value = !_isExpanded.value,
                       onLongPress: widget.onLongPress,
                       child: Column(
                         children: [
@@ -227,10 +228,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                         child: Text(
                                           widget.name,
                                           style: TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: Fonts.manrope,
                                             fontSize: isTablet ? 16 : 14,
                                             fontWeight: FontWeight.w500,
-                                            color: const Color(0xff573353),
+                                            color: AppColors.billingTextColor,
                                             height: 19 / 14,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -245,10 +246,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             ? Text(
                                                 widget.classroom,
                                                 style: TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: Fonts.manrope,
                                                   fontSize: isTablet ? 16 : 14,
                                                   fontWeight: FontWeight.w500,
-                                                  color: const Color(0xff573353),
+                                                  color: AppColors.billingTextColor,
                                                   height: 19 / 14,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -264,9 +265,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                         MainAxisSize.min,
                                                     children: [
                                                       Text(
-                                                        'Payment',
+                                                        BillingStrings.payment,
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: Fonts.manrope,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -284,7 +285,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       Text(
                                                         widget.paymentMethod,
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily: Fonts.manrope,
                                                           fontSize:
                                                               isTablet ? 14 : 12,
                                                           fontWeight:
@@ -301,9 +302,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                     ],
                                                   )
                                                 : Text(
-                                                    'Not setup',
+                                                    BillingStrings.notSetup,
                                                     style: TextStyle(
-                                                      fontFamily: 'Manrope',
+                                                      fontFamily: Fonts.manrope,
                                                       fontSize:
                                                           isTablet ? 16 : 14,
                                                       fontWeight:
@@ -329,7 +330,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                               thickness: 1,
                               indent: 16,
                               endIndent: 16,
-                              color: Color(0xFFE9ECEF),
+                              color: AppColors.billingDividerLight,
                             ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -337,29 +338,29 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _buildDetailRow(
-                                    label: 'Payment Method',
+                                    label: BillingStrings.paymentMethod,
                                     value: widget.paymentMethod,
                                     note: widget.paymentNote,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Last Payment Status',
+                                    label: BillingStrings.lastPaymentStatus,
                                     value: paymentStatusText,
                                     valueColor: statusColor,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Last Invoice',
+                                    label: BillingStrings.lastInvoice,
                                     value: hasInvoice
                                         ? '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}'
-                                        : 'NO INVOICE',
+                                        : BillingStrings.noInvoice,
                                     note: hasInvoice
                                         ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
                                         : null,
                                   ),
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
-                                    label: 'Open Balance',
+                                    label: BillingStrings.openBalance,
                                     value:
                                         '\$${widget.openBalance.toStringAsFixed(0)}',
                                   ),
@@ -381,12 +382,12 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             padding: EdgeInsets.zero,
                                           ),
                                           child: const Text(
-                                            'View',
+                                            BillingStrings.view,
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: Fonts.manrope,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.white,
+                                              color: AppColors.billingCardOnColorText,
                                               height: 16 / 16,
                                             ),
                                           ),
@@ -402,6 +403,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                       ),
                     ),
                   ),
+                ),
                 ),
               );
             },
@@ -424,10 +426,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: Fonts.manrope,
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: AppColors.billingTextColor,
             height: 16 / 13,
           ),
         ),
@@ -439,10 +441,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: Fonts.manrope,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: valueColor ?? const Color(0xff573353),
+                  color: valueColor ?? AppColors.billingTextColor,
                   height: 19 / 14,
                 ),
                 textAlign: TextAlign.right,
@@ -452,10 +454,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                 Text(
                   note,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.billingTextColor,
                     height: 14 / 10,
                   ),
                   textAlign: TextAlign.right,

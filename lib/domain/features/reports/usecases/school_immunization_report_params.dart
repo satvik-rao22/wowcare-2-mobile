@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'report_params.dart';
 
 /// Parameters for School Immunization report generation.
@@ -16,6 +16,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     required this.includeParentName,
     required this.includeParentEmail,
     required this.format,
+    required this.schoolName,
     this.classroomCodes,
     this.tagCodes,
   });
@@ -37,6 +38,8 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   /// Whether to include parent name in the report
   final bool includeParentName;
 
+  final String schoolName;
+
   /// Whether to include parent email in the report
   final bool includeParentEmail;
 
@@ -50,34 +53,16 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   final List<String>? tagCodes;
 
   @override
-  Map<String, dynamic> toRequestBody() {
-    return {
-      'reportType': 'IMMUNIZATION',
-      'startDate': startDate.toIso8601String().split('T')[0],
-      'endDate': endDate.toIso8601String().split('T')[0],
-      'vaccineCodes': vaccineCodes,
-      // Key names confirmed against the web client's verified IMMUNIZATION
-      // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
-      'statusFilter': statusFilters,
-      'includeParentName': includeParentName,
-      'includeParentEmail': includeParentEmail,
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'roomCodes': classroomCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty)
-        'tagCodes': tagCodes,
-      'format': format,
-    };
-  }
-
-  @override
   String toCacheIdentifier() {
     final parts = <String>[
       'IMMUNIZATION',
       startDate.toIso8601String().split('T')[0],
       endDate.toIso8601String().split('T')[0],
       'vaccines=${vaccineCodes.join(',')}',
+      'schoolName=$schoolName',
       'statuses=${statusFilters.join(',')}',
       'parentName=$includeParentName',
+
       'parentEmail=$includeParentEmail',
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classrooms=${classroomCodes!.join(',')}',
@@ -95,6 +80,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     vaccineCodes,
     statusFilters,
     includeParentName,
+    schoolName,
     includeParentEmail,
     format,
     classroomCodes,

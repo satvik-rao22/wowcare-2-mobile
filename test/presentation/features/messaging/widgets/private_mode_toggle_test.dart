@@ -11,9 +11,9 @@ import 'package:wowcare/domain/features/communication/entities/messaging_staff_r
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
 
 // ── Minimal fake base (satisfies interface without mockito) ───────────────────
 
@@ -48,18 +48,28 @@ class _FakeRepo implements ConversationEntityRepository {
       const Stream.empty();
 
   @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) =>
+      const Stream.empty();
+
+  @override
   Stream<int> watchTotalUnreadCount() => const Stream.empty();
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async => const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -164,6 +174,26 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement reconcileClassroomChat
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper to build a testable widget tree ────────────────────────────────────
@@ -199,13 +229,13 @@ PrivateModeToggleCubit _cubit(
   _FakeRepo repo, {
   bool initialEnabled = false,
   RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
-}) =>
-    PrivateModeToggleCubit(
-      togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-      conversationCode: 'CONV-001',
-      viewerRole: () => viewerRole,
-      initialEnabled: initialEnabled,
-    );
+}) => PrivateModeToggleCubit(
+  togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+  conversationCode: 'CONV-001',
+  viewerRole: () => viewerRole,
+  initialEnabled: initialEnabled,
+  currentUserCode: () => 'USER-001',
+);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

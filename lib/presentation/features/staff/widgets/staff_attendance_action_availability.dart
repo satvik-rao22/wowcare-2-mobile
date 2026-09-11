@@ -1,5 +1,6 @@
 /// Rules aligned with [StaffAttendanceProfile] / staff attendance pop-up:
-/// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
+/// - Sign-in: active profile, not currently signed in, not absent — repeatable
+///   any number of times per day, including after a prior sign-out
 /// - Sign-out / Transfer: currently signed in (and not absent)
 /// - Mark absent: active profile, not signed in, not already absent, not signed out
 class StaffAttendanceGate {
@@ -8,6 +9,7 @@ class StaffAttendanceGate {
     required this.isSignedInToday,
     required this.isAbsentToday,
     this.hasSignedOutToday = false,
+    this.allowAbsentSignInOverride = false,
   });
 
   final bool isActiveProfile;
@@ -15,19 +17,34 @@ class StaffAttendanceGate {
   final bool isAbsentToday;
   final bool hasSignedOutToday;
 
+  /// When true, Sign-In stays available even after the staff member has
+  /// been marked absent for the day — this is the ADMIN-only "override
+  /// sign-in" path: performing it deletes that day's absence record (see
+  /// `AttendanceRepository.deleteStaffAbsenceRecord`) before creating the
+  /// sign-in. Self-service staff attendance must never set this — an
+  /// absent staff member cannot recover their own day this way, only an
+  /// admin persona managing their record can.
+  final bool allowAbsentSignInOverride;
+
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day (attendance is done)
-  /// - ABSENT     -> disable all actions for the day (no recovery sign-in)
+  /// - SIGNED_OUT -> Sign-In is available again (repeated sign-in/sign-out
+  ///   cycles are allowed within the same day); Mark Absent stays locked —
+  ///   attendance for the day has already started.
+  /// - ABSENT     -> disable all actions for the day (no recovery sign-in),
+  ///   unless [allowAbsentSignInOverride] is set, in which case Sign-In
+  ///   stays enabled as an admin override.
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false;
     if (isSignedInToday) return false;
-    // Once marked absent for the day, all self-attendance actions are
-    // locked out for that date — no recovery sign-in.
-    if (isAbsentToday) return false;
+    // Once marked absent for the day, self-attendance actions are locked
+    // out for that date — no recovery sign-in — unless an admin is
+    // overriding the absence.
+    if (isAbsentToday && !allowAbsentSignInOverride) return false;
+    // hasSignedOutToday intentionally does NOT block Sign-In — staff can
+    // sign in and out any number of times per day.
     return true;
   }
 
@@ -132,7 +149,9 @@ Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
     if (!gate.canTransfer)
       'Transfer':
           'Transfer can only be done for Students/Staff already signed in.',
-    if (!gate.canMarkAbsent) 'Absent': 'Already marked absent for today.',
+    if (!gate.canMarkAbsent)
+      'Absent':
+          'Absent can only be marked for Students/Staff not yet signed in',
   };
 }
 
@@ -147,7 +166,9 @@ Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
   required bool isWithinGeofence,
 }) {
   const geofenceReason = 'You are not within geofencing Range';
-  final reasons = Map<String, String>.from(staffAttendanceDisabledReasons(gate));
+  final reasons = Map<String, String>.from(
+    staffAttendanceDisabledReasons(gate),
+  );
   if (!isWithinGeofence) {
     reasons['Sign-in'] = geofenceReason;
     reasons['Absent'] = geofenceReason;
@@ -159,6 +180,7 @@ Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
 StaffAttendanceGate staffAttendanceGateFromTodayStatus({
   required bool isActiveProfile,
   required String? todayStatusRaw,
+  bool allowAbsentSignInOverride = false,
 }) {
   final su = (todayStatusRaw ?? '').trim().toUpperCase();
   final isSignedIn = su == 'SIGNED_IN';
@@ -175,5 +197,6 @@ StaffAttendanceGate staffAttendanceGateFromTodayStatus({
     isSignedInToday: isSignedIn,
     isAbsentToday: isAbsent,
     hasSignedOutToday: hasSignedOut,
+    allowAbsentSignInOverride: allowAbsentSignInOverride,
   );
 }

@@ -1,60 +1,51 @@
 import 'dart:async';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_tab_shared_helpers.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_error_handler.dart';
-import '../../../../core/util/guardian_code_resolver.dart';
-import '../../../../core/util/activity_feed_invalidation.dart';
-import '../../../../core/util/cache_manager.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/staff_code_resolver.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/school_timezone_resolver.dart';
-import '../../../../core/util/school_zone_datetime.dart';
-import '../../../../domain/features/activity/entities/activity_detail.dart';
-import '../../../../domain/features/activity/entities/activity_feed_row.dart';
-import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
-import '../cubit/activity_moderation_cubit.dart';
-import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
-import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
-    hide StudentAttendanceTime;
-import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../util/activity_filter_metadata_cache.dart';
-import '../widgets/activity_feed_student_avatar.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/guardian_code_resolver.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_query.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_scope_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_feed_state.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_moderation_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_feed_student_avatar.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'activity_filter_screen.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
-import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
-import '../../../../shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'edit_create_activity_screens/bathroom_activity.dart';
 import 'edit_create_activity_screens/bottle_activity.dart';
 import 'edit_create_activity_screens/incident_activity.dart';
@@ -64,15 +55,19 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../util/activity_parent_feed_merge.dart';
-import '../utils/activity_staff_display.dart';
-import '../utils/activity_patch_attachments.dart';
+import 'package:wowcare/domain/features/activity/services/activity_feed_display_rules.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
 import 'activity_feed_card_permissions.dart';
-import 'activity_item.dart';
+import '../model/activity_item.dart';
+import '../model/activity_feed_grouping.dart';
 
-export 'activity_item.dart';
+export '../model/activity_item.dart';
+export '../model/activity_feed_grouping.dart';
+export '../model/activity_item_from_feed_row.dart';
 export 'activity_feed_card_permissions.dart';
-export '../utils/activity_patch_attachments.dart'
+export 'package:wowcare/presentation/features/activities/model/activity_item_edit_mappers.dart'
+    show activityItemFromActivityDetail, studentDataMapsForActivityEdit;
+export 'package:wowcare/data/features/activity/mappers/activity_patch_attachments.dart'
     show attachmentUsableDeliveryUrl, attachmentRowHasUsableMedia;
 
 bool activityHasMediaOrProcessing(ActivityItem activity) {
@@ -99,7 +94,7 @@ bool activityHasMediaOrProcessing(ActivityItem activity) {
   return false;
 }
 
-class ActivityDailyTab extends StatefulWidget {
+class ActivityDailyTab extends StatelessWidget {
   const ActivityDailyTab({
     super.key,
     this.fromStudentProfile = false,
@@ -109,6 +104,9 @@ class ActivityDailyTab extends StatefulWidget {
     this.allowActivityWrite = true,
     this.highlightCode,
     this.highlightDate,
+    this.highlightClassroomCode,
+    this.deepLinkStudentCode,
+    this.onRefreshStaffSignInStatus,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
@@ -118,6 +116,28 @@ class ActivityDailyTab extends StatefulWidget {
   /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
   /// day rather than today — otherwise the highlighted card isn't in view.
   final DateTime? highlightDate;
+
+  /// Classroom of the deep-linked activity. The feed loads ONE classroom at a
+  /// time, so without selecting this room the target card isn't in the list and
+  /// the highlight silently no-ops.
+  final String? highlightClassroomCode;
+
+  /// The child a notification deep-link is about (GUARDIAN persona only).
+  ///
+  /// For a guardian the feed's subject is the selected child, not a classroom,
+  /// so a parent of two children needs to know WHICH child the tapped
+  /// notification concerns. This used to be carried only by the separate
+  /// `ParentChildCubit.selectByCode` call in `NotificationNavigator` /
+  /// `NotificationCenterScreen`, which meant the feed loaded whichever child
+  /// happened to be selected whenever that call hadn't landed yet — a
+  /// cold-launch tap (the splash route never made it at all) or a tap that
+  /// crossed a school switch (which resets the cubit, so the selection is
+  /// deferred until its list reloads).
+  ///
+  /// Untrusted payload input: it is only honoured after being matched against
+  /// the guardian's own student page fetched in [_bootstrapParentHome], so a
+  /// code for someone else's child is ignored, never queried.
+  final String? deepLinkStudentCode;
 
   final bool fromStudentProfile;
 
@@ -131,13 +151,70 @@ class ActivityDailyTab extends StatefulWidget {
   /// Edit / delete / add; false when [DAILY_ACTIVITY] has `write: false`.
   final bool allowActivityWrite;
 
+  /// Re-checks the staff persona's today sign-in status (drives the parent
+  /// screen's Add-activity FAB gate). Invoked on manual pull-to-refresh so the
+  /// FAB reflects a sign-in/out done elsewhere without needing an app restart.
+  final Future<void> Function()? onRefreshStaffSignInStatus;
+
   static const String routeName = '/activityDailyTab';
 
   @override
-  State<ActivityDailyTab> createState() => _ActivityDailyTabState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ActivityFeedScopeCubit>(
+          create: (_) => serviceLocator<ActivityFeedScopeCubit>(),
+        ),
+        BlocProvider<ActivityModerationCubit>(
+          create: (_) => serviceLocator<ActivityModerationCubit>(),
+        ),
+      ],
+      child: _ActivityDailyTabView(
+        fromStudentProfile: fromStudentProfile,
+        studentName: studentName,
+        studentProfile: studentProfile,
+        isNotParent: isNotParent,
+        allowActivityWrite: allowActivityWrite,
+        highlightCode: highlightCode,
+        highlightDate: highlightDate,
+        highlightClassroomCode: highlightClassroomCode,
+        deepLinkStudentCode: deepLinkStudentCode,
+        onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
+      ),
+    );
+  }
 }
 
-class _ActivityDailyTabState extends State<ActivityDailyTab>
+class _ActivityDailyTabView extends StatefulWidget {
+  const _ActivityDailyTabView({
+    this.fromStudentProfile = false,
+    this.studentName,
+    this.studentProfile,
+    this.isNotParent = true,
+    this.allowActivityWrite = true,
+    this.highlightCode,
+    this.highlightDate,
+    this.highlightClassroomCode,
+    this.deepLinkStudentCode,
+    this.onRefreshStaffSignInStatus,
+  });
+
+  final String? highlightCode;
+  final DateTime? highlightDate;
+  final String? highlightClassroomCode;
+  final String? deepLinkStudentCode;
+  final bool fromStudentProfile;
+  final String? studentName;
+  final Map<String, dynamic>? studentProfile;
+  final bool isNotParent;
+  final bool allowActivityWrite;
+  final Future<void> Function()? onRefreshStaffSignInStatus;
+
+  @override
+  State<_ActivityDailyTabView> createState() => _ActivityDailyTabViewState();
+}
+
+class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -151,11 +228,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
   }
 
-  //final TextEditingController _searchController = TextEditingController();
   late bool isNotParent;
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
-  DateTime? _selectedDate = DateTime.now();
+  DateTime? _selectedDate = AppTime.now();
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
@@ -177,13 +253,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   final Map<String, String> _classroomNameByCode = {};
   final Map<String, String> _studentCodeByName = {};
   final Map<String, List<String>> _classroomStudents = {};
-  List<ActivityItem> _activities = [];
   static const int _feedPageSize = 10;
   final ScrollController _feedScrollController = ScrollController();
-  bool _feedHasMore = false;
-  bool _loadingMoreFeed = false;
-  int _feedNextPage = 0;
-  bool _loadingFeed = false;
   bool _isFeedRequestInFlight = false;
   String? _lastFeedRequestKey;
   DateTime? _lastFeedCompletedAt;
@@ -194,7 +265,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   /// Logged-in user's display name; used when feed [createdBy] is "system", etc.
   String _viewerStaffDisplayName = '';
   String _viewerStaffCode = '';
-  final Map<String, String> _staffDisplayNameByCode = {};
   List<ActivitySetting> _classroomActivitySettings = [];
   List<String> _tagFilterOptions = [];
   Map<String, String> _tagNameToCode = {};
@@ -202,7 +272,27 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   /// Guardian home: children we may show activities for.
   final Set<String> _parentAllowedStudentCodes = {};
+
+  /// The child the feed is CURRENTLY scoped to, as `{studentCode: classroomCode}`.
+  /// Its keys drive `ActivityFeedCubit.loadDailyForGuardian`'s per-student
+  /// fan-out, so it deliberately holds exactly one entry for a guardian.
   final Map<String, String> _parentStudentClassroomByCode = {};
+
+  /// EVERY linked child's classroom, from the last successful bootstrap.
+  ///
+  /// [_parentStudentClassroomByCode] is narrowed to the selected child because
+  /// its keys are the fan-out set; that narrowing is what made
+  /// [_syncWithGlobalChildSelection] see a `null` classroom for every OTHER
+  /// child and re-run the whole guardian/student-page bootstrap on each switch.
+  /// Keeping the unnarrowed map here lets a switch between already-known
+  /// children apply immediately, with no refetch and no chance of two
+  /// concurrent bootstraps interleaving their `clear()`s.
+  final Map<String, String> _parentClassroomByStudentCodeAll = {};
+
+  /// Guards against [_bootstrapParentHome] being re-entered — `build` schedules
+  /// [_syncWithGlobalChildSelection] on every frame, so an in-flight (or
+  /// failing) bootstrap would otherwise be restarted frame after frame.
+  bool _parentBootstrapInFlight = false;
 
   // Staff persona scoping
   List<String> _allowedClassroomCodes = const [];
@@ -210,137 +300,308 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   bool _loadingParentContext = false;
   String? _lastGlobalSelectedStudentCode;
 
-  late final GetDailyActivityFeedUseCase _getDailyActivityFeedUseCase;
-  late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetActiveActivityTypesForSchoolUseCase
-  _getActiveActivityTypesForSchoolUseCase;
-  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase
-  _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentCodesForActivityTagFilterUseCase
-  _getStudentCodesForActivityTagFilterUseCase;
-  late final GetStudentPageUseCase _getStudentPageUseCase;
-  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
-  late final GetStudentAbsentRecordsActivityUseCase
-  _getStudentAbsentRecordsActivityUseCase;
-  late final ActivityModerationCubit _moderationCubit;
+  /// Whether the rows on screen answer the question currently being asked —
+  /// this child, this day, this room. Starts false: an empty list before the
+  /// first load means "we don't know yet", not "there are none".
+  ///
+  /// Cleared by [_beginFeedLoad] and set by [_endFeedLoad], which is what keeps
+  /// the two leaks of the "No Activities found" empty state closed:
+  ///
+  ///  * **before the first load** — the pre-bootstrap window, which spans
+  ///    `_bootstrapSchoolZone()` (storage + the timezone API) and
+  ///    `_bootstrap()`'s storage reads. Nothing was flagged as loading yet (the
+  ///    cubit doesn't exist, so `_effectiveFeedState` falls back to
+  ///    `ActivityFeedState.initial()`, and `_loadingParentContext` is only set
+  ///    once `_bootstrapParentHome` is genuinely running), so the screen
+  ///    claimed there were no activities before it had looked;
+  ///  * **on a deep link into an already-open tab** — this State is keep-alive
+  ///    inside an `IndexedStack`, so when the route key doesn't change it is
+  ///    reused, carrying the PREVIOUS visit's completed (and possibly empty)
+  ///    result. `didUpdateWidget` would render that stale answer to the new
+  ///    question for a frame before its reload flipped the cubit's `isLoading`
+  ///    — the reported "empty, then a loader, then the list".
+  bool _feedResultIsCurrent = false;
+
+  /// The feed is busy, or has no result for the current scope: show the loader,
+  /// not "No Activities found". See [shouldShowActivityFeedLoadingPlaceholder]
+  /// for the rule and why a bootstrap error deliberately does not hold the
+  /// loader open.
+  bool get _showFeedLoadingPlaceholder =>
+      shouldShowActivityFeedLoadingPlaceholder(
+        isLoading: _displayedLoadingFeed,
+        isLoadingParentContext: _loadingParentContext,
+        hasCurrentResult: _feedResultIsCurrent,
+        hasBootstrapError: _feedError != null,
+      );
+
+  /// Marks the on-screen rows stale because a (re)load has just been decided.
+  ///
+  /// Must run **synchronously**, before the first `await` of the load, so no
+  /// frame can be painted between the decision and the placeholder going up.
+  void _beginFeedLoad() {
+    if (!_feedResultIsCurrent) return;
+    _feedResultIsCurrent = false;
+    if (mounted) setState(() {});
+  }
+
+  /// Marks the on-screen rows as the answer to the current scope — the load
+  /// finished, so an empty list now genuinely means "no activities".
+  void _endFeedLoad() {
+    if (_feedResultIsCurrent) return;
+    _feedResultIsCurrent = true;
+    if (mounted) setState(() {});
+  }
+
+  ActivityFeedScopeCubit get _feedScope =>
+      context.read<ActivityFeedScopeCubit>();
+  ActivityModerationCubit get _moderationCubit =>
+      context.read<ActivityModerationCubit>();
   StreamSubscription<ActivityModerationState>? _moderationSub;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
   bool _isAdminPersona = false;
 
-  final List<Color> _colorPalette = [
-    const Color(0xFFB3E5FC),
-    const Color(0xFFFFCCBC),
-    const Color(0xFFC8E6C9),
-    const Color(0xFFFFE0B2),
-    //const Color(0xFFFFF9C4),
-    const Color(0xFFE1BEE7),
-    //const Color(0xFFCCFF90),
-    const Color(0xFF80DEEA),
-    const Color(0xFFD1C4E9),
-    const Color(0xFFFFAB91),
-  ];
-  // final List<String> _allStudents = [
-  //   'Raghave Gupta',
-  //   'Rohan Gupta',
-  //   'Ruhi Gupta',
-  //   'Anya Mehta',
-  //   'Kabir Mehta',
-  //   'Sara Khan',
-  // ];
-  // Map activity label to the destination edit activity screen
-  static final Map<String, Widget Function(ActivityItem)> editActivityRoutes = {
-    'Nap Start': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
-    'Nap End': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true),
-    'Bathroom': (activity) =>
-        BathroomActivityScreen(activityData: activity, isEdit: true),
-    'Bottle': (activity) =>
-        BottleActivityScreen(activityData: activity, isEdit: true),
-    'Meal': (activity) =>
-        MealActivityScreen(activityData: activity, isEdit: true),
-    'Incident': (activity) =>
-        IncidentActivityScreen(activityData: activity, isEdit: true),
-    'Photo': (activity) => PhotoVideoActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      isPhoto: true,
+  // --------------------------------------------------------------------------
+  // Mandate 2 (final slice): BOTH the STAFF/non-parent AND the GUARDIAN/
+  // parent daily-feed paths now live in [ActivityFeedCubit] — the staff
+  // branch calls [ActivityFeedCubit.loadDaily]/`loadNextPage`, the parent
+  // branch calls [ActivityFeedCubit.loadDailyForGuardian]/`loadNextPage`
+  // (see `_loadParentHomeDailyFeed`/`_loadNextParentHomeDailyFeedPage`). One
+  // cubit instance is shared across both, since `_parentHome` is fixed for
+  // the life of a given State instance (a persona switch remounts the whole
+  // screen — see `ActivityFeedScreen._contextReloadEpoch`) — the two paths
+  // never drive the same cubit instance concurrently from one State.
+  //
+  // The cubit is created LAZILY (on first use from [_loadDailyFeed]/
+  // [_loadNextDailyFeedPage], whichever persona branch runs first), NOT via
+  // `BlocProvider.create` at the outer `ActivityDailyTab.build()` — `create`
+  // there would run before `_bootstrap()`/`_bootstrapSchoolZone()` resolve
+  // `_viewerStaffDisplayName`/`_schoolIana`, freezing the cubit's
+  // [ActivityFeedPresentation] with empty/fallback values for the whole
+  // widget lifetime (those two String fields are NOT live references, unlike
+  // the two Map/Set fields below). By construction time, every call site
+  // only ever runs after those are resolved.
+  ActivityFeedCubit? _feedCubitInstance;
+
+  // BlocBuilder (wrapping `_buildTabBody` in `build()`) subscribes to this
+  // cubit's stream itself now — no manual StreamSubscription to hold/cancel.
+  ActivityFeedCubit get _feedCubit {
+    final existing = _feedCubitInstance;
+    if (existing != null) return existing;
+    final cubit = ActivityFeedCubit(
+      dataSource: _feedScope,
+      storageService: _storageService,
+      presentation: ActivityFeedPresentation(
+        viewerStaffDisplayName: _viewerStaffDisplayName,
+        schoolIana: _schoolIana,
+        // Live references (both fields are `final` and only ever mutated
+        // in place via clear()/addAll()/addEntries()) so the cubit keeps
+        // seeing up-to-date values even though presentation itself is
+        // resolved once, at cubit-creation time.
+        classroomNameByCode: _classroomNameByCode,
+        tagStudentCodes: _studentCodesForTagFilter,
+      ),
+    );
+    _feedCubitInstance = cubit;
+    return cubit;
+  }
+
+  /// The cubit's state if it has been created yet, else the same defaults
+  /// `ActivityFeedState.initial()` carries (empty/not-loading) — which is
+  /// exactly what the pre-migration local fields held before the first
+  /// [_loadDailyFeed] call, so reading this before the cubit exists is
+  /// behaviourally identical to the old pre-bootstrap render.
+  ActivityFeedState get _effectiveFeedState =>
+      _feedCubitInstance?.state ?? ActivityFeedState.initial();
+
+  /// Both personas (STAFF and GUARDIAN/parent) are now cubit-backed: the
+  /// View's `_withClientFilters` (multi-select activity-type narrowing +
+  /// approval-status re-filter) is intentionally NOT applied inside the
+  /// cubit (see its `_mapDailyFeedPageToItems` NOTE) because it depends on
+  /// View-only state (`_filterActivityTypes`, `_classroomActivitySettings`)
+  /// that isn't part of the resolved query. Applied here, as a pure
+  /// post-fetch transform, at every display read site, for both personas.
+  List<ActivityItem> get _displayedActivities =>
+      _withClientFilters(_effectiveFeedState.items);
+
+  bool get _displayedLoadingFeed => _effectiveFeedState.isLoading;
+
+  bool get _displayedLoadingMoreFeed => _effectiveFeedState.isLoadingMore;
+
+  bool get _displayedFeedHasMore => _effectiveFeedState.hasMore;
+
+  /// `_feedError` is still written directly by `_bootstrap()`/
+  /// `_bootstrapParentHome()` for bootstrap-level failures (school not
+  /// selected / classrooms failed to load / guardian profile failed to
+  /// resolve) — those happen before a query can even be built, so they can't
+  /// flow through the cubit. A bootstrap error takes priority (the feed can't
+  /// run without a resolved school/classroom-or-student-map); otherwise fall
+  /// back to the cubit's own load error.
+  String? get _displayedFeedError => _feedError ?? _effectiveFeedState.error;
+
+  final List<Color> _colorPalette = AppColors.activityDailyColorPalette;
+  // Map activity label to the destination edit route name + typed args.
+  static final Map<String, (String, Object) Function(ActivityItem)>
+  editActivityRoutes = {
+    'Nap Start': (activity) => (
+      NapActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
     ),
-    'Video': (activity) => PhotoVideoActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      isPhoto: false,
+    'Nap End': (activity) => (
+      NapActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
     ),
-    'Medication': (activity) =>
-        MedicationActivityScreen(activityData: activity, isEdit: true),
-    'Notes': (activity) =>
-        NotesActivityScreen(activityData: activity, isEdit: true),
-    'Outdoor': (activity) =>
-        OutdoorActivityScreen(activityData: activity, isEdit: true),
-    'Learning': (activity) =>
-        LearningActivityScreen(activityData: activity, isEdit: true),
+    'Bathroom': (activity) => (
+      BathroomActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Bottle': (activity) => (
+      BottleActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Meal': (activity) => (
+      MealActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Incident': (activity) => (
+      IncidentActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Photo': (activity) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        isPhoto: true,
+      ),
+    ),
+    'Video': (activity) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        isPhoto: false,
+      ),
+    ),
+    'Medication': (activity) => (
+      MedicationActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Notes': (activity) => (
+      NotesActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Outdoor': (activity) => (
+      OutdoorActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
+    'Learning': (activity) => (
+      LearningActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
   };
 
   /// View: same screens as edit, read-only.
-  static final Map<String, Widget Function(ActivityItem)> activityRoutes = {
-    'Nap Start': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
-    'Nap End': (activity) =>
-        NapActivityScreen(activityData: activity, isEdit: true, readOnly: true),
-    'Bathroom': (activity) => BathroomActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+  static final Map<String, (String, Object) Function(ActivityItem)>
+  activityRoutes = {
+    'Nap Start': (activity) => (
+      NapActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Bottle': (activity) => BottleActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Nap End': (activity) => (
+      NapActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Meal': (activity) => MealActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Bathroom': (activity) => (
+      BathroomActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Incident': (activity) => IncidentActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Bottle': (activity) => (
+      BottleActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Photo': (activity) => PhotoVideoActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
-      isPhoto: true,
+    'Meal': (activity) => (
+      MealActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Video': (activity) => PhotoVideoActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
-      isPhoto: false,
+    'Incident': (activity) => (
+      IncidentActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Medication': (activity) => MedicationActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Photo': (activity) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+        isPhoto: true,
+      ),
     ),
-    'Notes': (activity) => NotesActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Video': (activity) => (
+      PhotoVideoActivityScreen.routeName,
+      PhotoVideoActivityScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+        isPhoto: false,
+      ),
     ),
-    'Outdoor': (activity) => OutdoorActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Medication': (activity) => (
+      MedicationActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
-    'Learning': (activity) => LearningActivityScreen(
-      activityData: activity,
-      isEdit: true,
-      readOnly: true,
+    'Notes': (activity) => (
+      NotesActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
+    ),
+    'Outdoor': (activity) => (
+      OutdoorActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
+    ),
+    'Learning': (activity) => (
+      LearningActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
     ),
   };
 
@@ -370,6 +631,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _lastFeedCompletedAt = null;
     _lastFeedCompletedWithError = true;
 
+    // Re-check the staff sign-in gate in parallel: pull-to-refresh should
+    // also flip the Add-activity FAB after a sign-in/out done on another
+    // screen, not just the feed contents.
+    final refreshStaffSignInStatus = widget.onRefreshStaffSignInStatus;
+    if (refreshStaffSignInStatus != null) {
+      unawaited(refreshStaffSignInStatus());
+    }
+
     // Force refresh of metadata + feed.
     // Also bust staff dropdown cache so edit screens refetch staff list.
     try {
@@ -387,7 +656,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         );
         await _cacheManager.invalidateCache(staffKey);
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('staff cache invalidation on refresh failed: $e');
+    }
     if (_parentHome) {
       await _bootstrapParentHome();
       await _loadTagFilterOptions(forceRefresh: true);
@@ -473,6 +744,32 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toSet();
   }
 
+  /// `_filterTags` holds tag NAMES (the multi-select shows names) — the
+  /// attendance/absent endpoints' `tagCodes` query param, and the student-code
+  /// resolution in `_rebuildStudentCodesForTagFilter`, both need actual codes.
+  /// Case-insensitive fallback because `_tagNameToCode`'s keys come from the
+  /// API's own casing, which may not exactly match a name round-tripped
+  /// through the multi-select. A name with no resolved code (stale
+  /// selection, options not loaded yet) is dropped rather than sent as a
+  /// bogus filter value.
+  List<String> _tagCodesForApiFilter() {
+    final tagNameToCodeLower = <String, String>{
+      for (final e in _tagNameToCode.entries)
+        e.key.trim().toLowerCase(): e.value,
+    };
+    return _filterTags
+        .map((name) {
+          final key = name.trim();
+          if (key.isEmpty) return null;
+          return (_tagNameToCode[key] ?? tagNameToCodeLower[key.toLowerCase()])
+              ?.trim();
+        })
+        .whereType<String>()
+        .where((code) => code.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
   int _appliedFilterBadgeCount() {
     final hasActivityTypeFilter = _filterActivityTypes.isNotEmpty;
     final hasTagFilter = _filterTags.isNotEmpty;
@@ -524,45 +821,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
 
-    final tagCodes = _filterTags
-        .map((name) => _tagNameToCode[name]?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
+    final tagCodes = _tagCodesForApiFilter();
     if (tagCodes.isEmpty) return;
 
     try {
-      if (_parentHome) {
-        final classroomCodes = _parentStudentClassroomByCode.values
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList();
-        for (final cc in classroomCodes) {
-          final students = await _getStudentCodesForActivityTagFilterUseCase(
-            schoolCode: school,
-            classroomCode: cc,
-            tagCodes: tagCodes,
-          );
-          if (!mounted) return;
-          _studentCodesForTagFilter.addAll(students);
-        }
-        return;
-      }
+      final classroomCodes = _parentHome
+          ? _parentStudentClassroomByCode.values
+                .map((c) => c.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+          : _selectedClassroomCodesForFeed();
+      if (classroomCodes.isEmpty) return;
 
-      final classroomName = _selectdClassroom;
-      if (classroomName == null ||
-          !_classroomCodeByName.containsKey(classroomName)) {
-        return;
+      for (final cc in classroomCodes) {
+        if (cc.trim().isEmpty) continue;
+        final students = await _feedScope.getStudentCodesForActivityTagFilter(
+          schoolCode: school,
+          classroomCode: cc,
+          tagCodes: tagCodes,
+        );
+        if (!mounted) return;
+        _studentCodesForTagFilter.addAll(students);
       }
-      final cc = _classroomCodeByName[classroomName]!;
-      final students = await _getStudentCodesForActivityTagFilterUseCase(
-        schoolCode: school,
-        classroomCode: cc,
-        tagCodes: tagCodes,
-      );
-      if (!mounted) return;
-      _studentCodesForTagFilter.addAll(students);
     } catch (_) {
       if (mounted) _studentCodesForTagFilter.clear();
     }
@@ -583,18 +864,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
             .toUpperCase();
+    // Active-persona check (RoleCubit), not a scan of the account's full
+    // cached roles list — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. STAFF + SCHOOL_ADMIN
+    // in a different school) would be misdetected as admin regardless of
+    // which persona is actually active right now.
+    final roleCubit = context.read<RoleCubit>();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
         _isAdminPersona =
-            roles.contains('ADMIN') ||
+            (roleCubit.isAdmin && !roleCubit.isStaff) ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -660,6 +945,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _classroomOptions = scoped.map((c) => c['name']!).toList()..sort();
             _feedError = null;
             if (_classroomOptions.isNotEmpty) {
+              _applyDeepLinkClassroom();
               final keep =
                   _selectdClassroom != null &&
                   _classroomOptions.contains(_selectdClassroom);
@@ -692,7 +978,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           hydratedClassroomsFromCache = _classroomOptions.isNotEmpty;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('classroom cache read failed, falling back to network: $e');
+    }
 
     // For unrestricted personas (admin), continue to API refresh so stale
     // staff-scoped cache cannot lock the dropdown.
@@ -708,7 +996,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
 
     try {
-      final classrooms = await _getActiveClassroomsUseCase(
+      final classrooms = await _feedScope.getActiveClassrooms(
         schoolCode: school,
         onlyTypeClassroom: true,
       );
@@ -752,6 +1040,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _classroomOptions = scoped.map((c) => c.name).toList()..sort();
         _feedError = null;
         if (_classroomOptions.isNotEmpty) {
+          _applyDeepLinkClassroom();
           final keep =
               _selectdClassroom != null &&
               _classroomOptions.contains(_selectdClassroom);
@@ -803,10 +1092,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _loadStaffClassroomScope() async {
-    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not
+    // admins). Checked against the ACTIVE persona (RoleCubit), not a scan of
+    // the account's full cached roles list — a dual-role account (e.g.
+    // STAFF + GUARDIAN in a different school) always has 'GUARDIAN' in that
+    // list regardless of which persona is active right now.
+    if (context.read<RoleCubit>().isParent) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;
@@ -832,7 +1123,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               .where((e) => e.isNotEmpty)
               .toList();
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('decodeCodes: malformed cached classroom-codes JSON: $e');
+      }
       return <String>[];
     }
 
@@ -847,10 +1140,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isNotEmpty) {
-        final repo = serviceLocator<StaffRepository>();
-        final profile = await repo.getStaffProfile(
+        final profile = await _feedScope.getOwnStaffProfileForClassroomScope(
           staffCode: staffCode,
-          forEditStaff: true,
         );
         final primary = profile.primaryClassroomCode.trim();
         final profileAllowed = profile.allowedClassroomCodes
@@ -875,9 +1166,38 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _allowedClassroomCodes = allowed;
   }
 
+  /// The child the GUARDIAN feed should load — see
+  /// [resolveGuardianFeedStudentCode] for the precedence and why the
+  /// deep-link's student outranks the dropdown exactly once.
+  ///
+  /// The owned set is [_parentClassroomByStudentCodeAll], the student page just
+  /// fetched for this guardian, so an unowned code is never queried. Returns
+  /// null only when the guardian has no children with a classroom, which the
+  /// caller already reports as its own error.
+  String? _resolveParentFeedStudentCode() {
+    final deepLink = widget.deepLinkStudentCode;
+    final resolved = resolveGuardianFeedStudentCode(
+      deepLinkStudentCode: deepLink,
+      deepLinkAlreadyApplied: _deepLinkStudentApplied,
+      selectedChildCode: context.read<ParentChildCubit>().selectedChild?.code,
+      ownedStudentCodes: _parentClassroomByStudentCodeAll.keys,
+    );
+    // Burn the one-shot only when the deep link is what actually answered,
+    // so a tap whose child could not be resolved this time (list still
+    // settling) can still win the retry.
+    if (resolved != null &&
+        !_deepLinkStudentApplied &&
+        resolved.toUpperCase() == (deepLink ?? '').trim().toUpperCase()) {
+      _deepLinkStudentApplied = true;
+    }
+    return resolved;
+  }
+
   Future<void> _bootstrapParentHome() async {
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
+    if (_parentBootstrapInFlight) return;
+    _parentBootstrapInFlight = true;
 
     if (mounted) {
       setState(() {
@@ -895,15 +1215,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _parentAllowedStudentCodes.clear();
             _parentStudentClassroomByCode.clear();
             _loadingParentContext = false;
-            _activities = [];
-            _loadingFeed = false;
-            _feedHasMore = false;
           });
         }
+        // Empty student map -> the cubit's own not-ready guard clears its
+        // feed state (no network call), matching `_loadParentHomeDailyFeed`'s
+        // not-ready handling.
+        await _loadDailyFeed(refresh: true);
         return;
       }
 
-      final page = await _getStudentPageUseCase(
+      final page = await _feedScope.getStudentPage(
         schoolCode: school,
         guardianCodes: [guardianCode],
         page: 0,
@@ -913,6 +1234,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       _parentAllowedStudentCodes.clear();
       _parentStudentClassroomByCode.clear();
+      _parentClassroomByStudentCodeAll.clear();
       for (final s in page.items) {
         final code = s.code.trim();
         if (code.isEmpty) continue;
@@ -920,23 +1242,30 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         if (cc.isEmpty) continue;
         _parentAllowedStudentCodes.add(code);
         _parentStudentClassroomByCode[code] = cc;
+        _parentClassroomByStudentCodeAll[code] = cc;
       }
 
-      // Parent UX: use the child currently selected in the global dropdown.
-      final globalSelectedCode =
-          (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
-      if (globalSelectedCode.isNotEmpty) {
-        final selectedClassroom =
-            _parentStudentClassroomByCode[globalSelectedCode];
+      // Which child this feed is for. See [_resolveParentFeedStudentCode] for
+      // the precedence and why the deep-link's student outranks the dropdown.
+      final targetCode = _resolveParentFeedStudentCode();
+      if (targetCode != null) {
+        // Push the resolution back into the app's single source of truth, so
+        // the app-bar switcher (and every other parent screen) agrees with the
+        // feed. This is also what keeps the post-frame
+        // `_syncWithGlobalChildSelection` from immediately re-scoping to the
+        // PREVIOUSLY selected child and firing a second fetch: the latch below
+        // and the cubit now hold the same code. No-op when they already match.
+        context.read<ParentChildCubit>().selectByCode(targetCode);
+
+        final targetClassroom = _parentClassroomByStudentCodeAll[targetCode];
         _parentAllowedStudentCodes
           ..clear()
-          ..add(globalSelectedCode);
-        _parentStudentClassroomByCode..clear();
-        if (selectedClassroom != null && selectedClassroom.trim().isNotEmpty) {
-          _parentStudentClassroomByCode[globalSelectedCode] = selectedClassroom
-              .trim();
+          ..add(targetCode);
+        _parentStudentClassroomByCode.clear();
+        if (targetClassroom != null && targetClassroom.trim().isNotEmpty) {
+          _parentStudentClassroomByCode[targetCode] = targetClassroom.trim();
         }
-        _lastGlobalSelectedStudentCode = globalSelectedCode;
+        _lastGlobalSelectedStudentCode = targetCode;
       }
 
       if (_parentAllowedStudentCodes.isEmpty) {
@@ -944,11 +1273,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           setState(() {
             _feedError = 'No linked children with a classroom.';
             _loadingParentContext = false;
-            _activities = [];
-            _loadingFeed = false;
-            _feedHasMore = false;
           });
         }
+        // Empty student map -> the cubit's own not-ready guard clears its
+        // feed state (no network call), matching `_loadParentHomeDailyFeed`'s
+        // not-ready handling.
+        await _loadDailyFeed(refresh: true);
         return;
       }
 
@@ -968,9 +1298,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _parentStudentClassroomByCode.clear();
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
+    } finally {
+      // Released even on the early `return`s and the `if (!mounted) return`
+      // above, so a failed bootstrap can be retried by the next selection
+      // change rather than wedging the guard on forever.
+      _parentBootstrapInFlight = false;
     }
   }
 
+  /// Re-scopes the feed when the global child dropdown changes.
+  ///
+  /// Two things here are deliberate and were previously wrong:
+  ///
+  /// * **The latch is set only once the switch has actually been applied.** It
+  ///   used to be set BEFORE the (async, network-backed) bootstrap, so if that
+  ///   bootstrap failed — an offline moment, a 5xx on the student page — the
+  ///   guard already believed the new child was live. Every later call
+  ///   early-returned and the feed stayed on the PREVIOUS child indefinitely,
+  ///   with the app bar showing the new one. That is only reachable for a
+  ///   parent with more than one child.
+  /// * **A child whose classroom is already known switches with no refetch**,
+  ///   via [_parentClassroomByStudentCodeAll]. The narrowed map can never
+  ///   answer for another child (its keys are the fan-out set), so every switch
+  ///   used to re-run the whole guardian + student-page bootstrap.
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
@@ -978,20 +1328,44 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
-    _lastGlobalSelectedStudentCode = globalSelectedCode;
+    final classroom =
+        _parentStudentClassroomByCode[globalSelectedCode] ??
+        _parentClassroomByStudentCodeAll[globalSelectedCode];
 
-    // If we don't have parent context yet (or classroom mapping for this child),
-    // bootstrap first, then the feed load will be scoped to the selected child.
-    if (_parentStudentClassroomByCode[globalSelectedCode] == null) {
-      _bootstrapParentHome();
+    if (classroom == null || classroom.trim().isEmpty) {
+      // No parent context yet, or a child we've never resolved a classroom for
+      // (newly linked / newly enrolled). Fetch it; the bootstrap sets the latch
+      // itself once it succeeds. Not latching here is what makes a failure
+      // retryable.
+      unawaited(_bootstrapParentHome());
       return;
     }
+
+    _lastGlobalSelectedStudentCode = globalSelectedCode;
 
     _parentAllowedStudentCodes
       ..clear()
       ..add(globalSelectedCode);
+    _parentStudentClassroomByCode
+      ..clear()
+      ..[globalSelectedCode] = classroom.trim();
 
-    _loadDailyFeed(refresh: true);
+    // Hold the loading placeholder across the switch. The rows on screen still
+    // belong to the PREVIOUS child until the new fetch emits, and if that child
+    // happened to have an empty day the feed would drop to "No Activities
+    // found" for the gap before `loadDailyForGuardian` flips `isLoading` — the
+    // same wrong-empty-state the deep-link path had.
+    setState(() {
+      _loadingParentContext = true;
+    });
+    unawaited(
+      _loadDailyFeed(refresh: true).whenComplete(() {
+        if (!mounted) return;
+        setState(() {
+          _loadingParentContext = false;
+        });
+      }),
+    );
   }
 
   Future<void> _reloadStudentsAndSettings({
@@ -1008,11 +1382,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         school == null ||
         school.isEmpty ||
         !_classroomCodeByName.containsKey(classroomName)) {
-      if (mounted) {
-        setState(() {
-          _activities = [];
-        });
-      }
+      // STAFF path is fully cubit-backed now — nothing local to clear here;
+      // `_loadDailyFeed`'s own not-ready guard (called by
+      // `_reloadStudentsAndSettingsThenFeed`) clears the cubit's feed state.
       return;
     }
 
@@ -1024,13 +1396,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     );
 
     try {
-      final settings =
-          await ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
-            cacheManager: _cacheManager,
-            useCase: _getActiveActivityTypesForSchoolUseCase,
-            schoolCode: school,
-            forceRefresh: forceRefreshApis,
-          );
+      final settings = await _feedScope.loadActivityTypeSettingsForFilters(
+        schoolCode: school,
+        forceRefresh: forceRefreshApis,
+      );
       if (!mounted) return;
       setState(() {
         _classroomActivitySettings = settings;
@@ -1073,11 +1442,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _updateAvailableStudents();
           });
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('student-classroom cache read failed for $classroomName: $e');
+      }
     }
 
     try {
-      final students = await _getStudentClassroomListUseCase(
+      final students = await _feedScope.getStudentClassroomList(
         schoolCode: school,
         classroomCode: code,
         status: const ['ACTIVE'],
@@ -1119,7 +1490,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1130,7 +1501,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -1149,6 +1522,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1167,7 +1541,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1178,7 +1552,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         for (final s in students) {
           mergedByName[s.fullName] = s.studentCode;
         }
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('getStudentClassroomList failed for $classroomCode: $e');
+      }
     }
 
     if (!mounted) return;
@@ -1208,76 +1584,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (isNotParent) {
       await _loadAllStudentsForAllowedClassrooms(forceRefreshApis: true);
     }
-  }
-
-  List<ActivityItem> _mapDailyFeedPageToItems(ActivityFeedPage page) {
-    final raw = page.content
-        .map(
-          (row) => activityItemFromFeedRow(
-            row,
-            // Guardian feed should not fallback to guardian display name as
-            // "created by" when API returns system/staff-code placeholders.
-            viewerDisplayName: _parentHome ? null : _viewerStaffDisplayName,
-            schoolIana: _schoolIana,
-            staffDisplayNameByCode: _staffDisplayNameByCode,
-            activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
-              row.activityTypeCode,
-            ),
-          ),
-        )
-        .toList();
-    return _withClientFilters(raw);
-  }
-
-  Future<void> _primeStaffDisplayNamesFromFeedRows(
-    Iterable<ActivityFeedRow> rows,
-  ) async {
-    final missingCodes = <String>{};
-    String? staffPresentCodeFromRow(ActivityFeedRow row) {
-      for (final p in row.parameterValues) {
-        final pName = (p['parameterName'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
-        if (pName != 'staff present') continue;
-        final raw =
-            (p['selectedOptionCode'] ??
-                    p['valueText'] ??
-                    p['valueNumber'] ??
-                    '')
-                .toString()
-                .trim();
-        if (raw.isNotEmpty) return raw;
-      }
-      return null;
-    }
-
-    for (final row in rows) {
-      final codeCandidates = <String>{
-        (row.staffCode ?? '').trim(),
-        (staffPresentCodeFromRow(row) ?? '').trim(),
-      };
-      for (final code in codeCandidates) {
-        if (code.isEmpty) continue;
-        if (_staffDisplayNameByCode.containsKey(code)) continue;
-        missingCodes.add(code);
-      }
-    }
-    if (missingCodes.isEmpty) return;
-    final repo = serviceLocator<StaffRepository>();
-    await Future.wait(
-      missingCodes.map((code) async {
-        try {
-          final profile = await repo.getStaffProfile(staffCode: code);
-          final full = profile.fullName.trim();
-          final composed = '${profile.firstName} ${profile.lastName}'.trim();
-          final resolved = full.isNotEmpty ? full : composed;
-          if (resolved.isNotEmpty) {
-            _staffDisplayNameByCode[code] = resolved;
-          }
-        } catch (_) {}
-      }),
-    );
   }
 
   String? _selectedAttendanceEventFilter() {
@@ -1387,339 +1693,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
 
+    // Opened from a student profile: the profile passes the student's classroom
+    // CODE directly. Use it as the final fallback so the feed resolves this
+    // student's room even when the name→code maps / _classroomStudents haven't
+    // populated yet (otherwise _loadDailyFeed early-returns an empty feed).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
+
     return const <String>[];
-  }
-
-  String _displayClassroomName({String? classroomCode, String? classroomName}) {
-    final n = (classroomName ?? '').trim();
-    if (n.isNotEmpty && !n.startsWith('CLS_')) return n;
-    final c = (classroomCode ?? '').trim();
-    if (c.isEmpty) return n;
-    return _classroomNameByCode[c] ?? c;
-  }
-
-  DateTime? _attendanceClockToDateTime(StudentAttendanceTime? t, DateTime day) {
-    if (t == null) return null;
-    return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
-  }
-
-  DateTime? _absentClockToDateTime(dynamic t, DateTime day) {
-    if (t == null) return null;
-    final hour = (t.hour as int?) ?? 0;
-    final minute = (t.minute as int?) ?? 0;
-    final second = (t.second as int?) ?? 0;
-    return DateTime(day.year, day.month, day.day, hour, minute, second);
-  }
-
-  DateTime? _tryParseDisplayDateTime(String dateRaw, String timeRaw) {
-    final date = dateRaw.trim().replaceAll(RegExp(r'\s+'), ' ');
-    final time = timeRaw
-        .trim()
-        .replaceAll(RegExp(r'[\u00A0\u202F]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ');
-    if (date.isEmpty || time.isEmpty) return null;
-
-    DateTime day;
-    try {
-      day = DateFormat('MMMM d, yyyy').parseStrict(date);
-    } catch (_) {
-      return null;
-    }
-
-    final m = RegExp(
-      r'^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][.]?[Mm][.]?)?$',
-    ).firstMatch(time);
-    if (m == null) return null;
-
-    var hour = int.tryParse(m.group(1) ?? '') ?? 0;
-    final minute = int.tryParse(m.group(2) ?? '') ?? 0;
-    final second = int.tryParse(m.group(3) ?? '') ?? 0;
-    final ampm = (m.group(4) ?? '').toUpperCase().replaceAll('.', '');
-
-    if (ampm == 'AM') {
-      if (hour == 12) hour = 0;
-    } else if (ampm == 'PM') {
-      if (hour < 12) hour += 12;
-    }
-    if (hour < 0 ||
-        hour > 23 ||
-        minute < 0 ||
-        minute > 59 ||
-        second < 0 ||
-        second > 59) {
-      return null;
-    }
-    return DateTime(day.year, day.month, day.day, hour, minute, second);
-  }
-
-  DateTime _activityItemSortDateTime(ActivityItem item) {
-    final parsedDisplay = _tryParseDisplayDateTime(item.date, item.time);
-    if (parsedDisplay != null) return parsedDisplay;
-
-    final date = item.date.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (date.isNotEmpty) {
-      try {
-        return DateFormat('MMMM d, yyyy').parseStrict(date);
-      } catch (_) {}
-    }
-
-    final iso = (item.activityDateIso ?? '').trim();
-    if (iso.isNotEmpty) {
-      try {
-        return DateTime.parse(iso);
-      } catch (_) {}
-    }
-    return DateTime.fromMillisecondsSinceEpoch(0);
-  }
-
-  int _compareActivityItemsByTimeDesc(ActivityItem a, ActivityItem b) {
-    final byTime = _activityItemSortDateTime(
-      b,
-    ).compareTo(_activityItemSortDateTime(a));
-    if (byTime != 0) return byTime;
-    return b.name.compareTo(a.name);
-  }
-
-  List<ActivityItem> _mapAttendanceDailyPageToItems(
-    StudentAttendanceDailyPage page,
-  ) {
-    if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
-    final eventFilter = _selectedAttendanceEventFilter();
-    final day = _selectedDate ?? DateTime.now();
-    final selectedClassroomName = _selectdClassroom;
-    final selectedClassroomCode = selectedClassroomName != null
-        ? _classroomCodeByName[selectedClassroomName]
-        : null;
-    final out = <ActivityItem>[];
-    for (final row in page.items) {
-      final studentName = row.studentName.trim().isEmpty
-          ? 'Student'
-          : row.studentName.trim();
-      final studentCode = row.studentCode?.trim();
-      final baseClassName = _displayClassroomName(
-        classroomCode: row.classroomCode,
-        classroomName: row.classroomName,
-      );
-      if (row.isTransfer == true) {
-        if (eventFilter == null || eventFilter == 'Transfer') {
-          final at =
-              _attendanceClockToDateTime(row.transferTime, day) ??
-              _attendanceClockToDateTime(row.nextActionTime, day) ??
-              day;
-          final fromName = _displayClassroomName(
-            classroomCode: row.fromClassroomCode,
-            classroomName: row.fromClassroomName,
-          );
-          final toName = _displayClassroomName(
-            classroomCode: row.toClassroomCode,
-            classroomName: row.toClassroomName,
-          );
-          final fromCode = (row.fromClassroomCode ?? '').trim();
-          final toCode = (row.toClassroomCode ?? '').trim();
-
-          final selectedCode = (selectedClassroomCode ?? '').trim();
-          final bool viewingFromClassroom =
-              selectedCode.isNotEmpty &&
-              fromCode.isNotEmpty &&
-              selectedCode == fromCode;
-          final bool viewingToClassroom =
-              selectedCode.isNotEmpty &&
-              toCode.isNotEmpty &&
-              selectedCode == toCode;
-
-          final String transferLine;
-          if (viewingFromClassroom) {
-            transferLine =
-                'Transferred to ${toName.isEmpty ? 'classroom' : toName}';
-          } else if (viewingToClassroom) {
-            transferLine =
-                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName}';
-          } else {
-            transferLine =
-                'Transferred from ${fromName.isEmpty ? 'classroom' : fromName} to ${toName.isEmpty ? 'classroom' : toName}';
-          }
-
-          out.add(
-            ActivityItem(
-              time: DateFormat.jm().format(at),
-              date: DateFormat('MMMM d, yyyy').format(at),
-              name: 'Transfer',
-              description: transferLine,
-              studentList: <String>[studentName],
-              createdBy: (row.transferredBy ?? '').trim().isEmpty
-                  ? _viewerStaffDisplayName
-                  : row.transferredBy!.trim(),
-              studentCode: studentCode?.isEmpty == true ? null : studentCode,
-              classroomCode: viewingFromClassroom
-                  ? (row.fromClassroomCode ?? row.classroomCode).trim()
-                  : ((row.toClassroomCode ?? row.classroomCode).trim()),
-              activityDateIso: at.toIso8601String(),
-              studentActivityRefs: <Map<String, String>>[
-                {
-                  'name': studentName,
-                  if (studentCode != null && studentCode.isNotEmpty)
-                    'studentCode': studentCode,
-                },
-              ],
-            ),
-          );
-        }
-        // Important: backend may return the final sign-out time on the last
-        // transfer row (`isTransfer: true`). Render sign-out from transfer rows too.
-        if ((eventFilter == null || eventFilter == 'Sign-out') &&
-            row.signedOutTime != null) {
-          final at = _attendanceClockToDateTime(row.signedOutTime, day) ?? day;
-          final effectiveClassName = _displayClassroomName(
-            classroomCode:
-                (row.toClassroomCode ?? row.classroomCode).trim().isEmpty
-                ? row.classroomCode
-                : row.toClassroomCode,
-            classroomName:
-                (row.toClassroomName ?? row.classroomName).trim().isEmpty
-                ? row.classroomName
-                : row.toClassroomName!,
-          );
-          out.add(
-            ActivityItem(
-              time: DateFormat.jm().format(at),
-              date: DateFormat('MMMM d, yyyy').format(at),
-              name: 'Sign-out',
-              description:
-                  'Signed-Out from ${effectiveClassName.isEmpty ? 'classroom' : effectiveClassName}',
-              studentList: <String>[studentName],
-              createdBy: (row.signedOutBy ?? '').trim().isEmpty
-                  ? _viewerStaffDisplayName
-                  : row.signedOutBy!.trim(),
-              studentCode: studentCode?.isEmpty == true ? null : studentCode,
-              classroomCode: (row.toClassroomCode ?? row.classroomCode).trim(),
-              activityDateIso: at.toIso8601String(),
-              studentActivityRefs: <Map<String, String>>[
-                {
-                  'name': studentName,
-                  if (studentCode != null && studentCode.isNotEmpty)
-                    'studentCode': studentCode,
-                },
-              ],
-            ),
-          );
-        }
-        continue;
-      }
-
-      if ((eventFilter == null || eventFilter == 'Sign-in') &&
-          row.signedInTime != null) {
-        final at = _attendanceClockToDateTime(row.signedInTime, day) ?? day;
-        out.add(
-          ActivityItem(
-            time: DateFormat.jm().format(at),
-            date: DateFormat('MMMM d, yyyy').format(at),
-            name: 'Sign-in',
-            description:
-                'Signed-In to ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
-            studentList: <String>[studentName],
-            createdBy: (row.signedInBy ?? '').trim().isEmpty
-                ? _viewerStaffDisplayName
-                : row.signedInBy!.trim(),
-            studentCode: studentCode?.isEmpty == true ? null : studentCode,
-            classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
-            studentActivityRefs: <Map<String, String>>[
-              {
-                'name': studentName,
-                if (studentCode != null && studentCode.isNotEmpty)
-                  'studentCode': studentCode,
-              },
-            ],
-          ),
-        );
-      }
-
-      if ((eventFilter == null || eventFilter == 'Sign-out') &&
-          row.signedOutTime != null) {
-        final at = _attendanceClockToDateTime(row.signedOutTime, day) ?? day;
-        out.add(
-          ActivityItem(
-            time: DateFormat.jm().format(at),
-            date: DateFormat('MMMM d, yyyy').format(at),
-            name: 'Sign-out',
-            description:
-                'Signed-Out from ${baseClassName.isEmpty ? 'classroom' : baseClassName}',
-            studentList: <String>[studentName],
-            createdBy: (row.signedOutBy ?? '').trim().isEmpty
-                ? _viewerStaffDisplayName
-                : row.signedOutBy!.trim(),
-            studentCode: studentCode?.isEmpty == true ? null : studentCode,
-            classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
-            studentActivityRefs: <Map<String, String>>[
-              {
-                'name': studentName,
-                if (studentCode != null && studentCode.isNotEmpty)
-                  'studentCode': studentCode,
-              },
-            ],
-          ),
-        );
-      }
-    }
-    out.sort(_compareActivityItemsByTimeDesc);
-    return out;
-  }
-
-  List<ActivityItem> _mapAbsentRecordsPageToItems(
-    StudentAttendanceAbsentFormPage page,
-  ) {
-    final out = <ActivityItem>[];
-    for (final row in page.items) {
-      DateTime recordDay;
-      try {
-        final src = row.absenceDate.trim();
-        recordDay = src.isEmpty
-            ? (_selectedDate ?? DateTime.now())
-            : DateTime.parse(src);
-      } catch (_) {
-        recordDay = _selectedDate ?? DateTime.now();
-      }
-      final at =
-          _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
-      final studentName = row.studentName.trim().isEmpty
-          ? 'Student'
-          : row.studentName.trim();
-      final studentCode = row.studentCode.trim();
-      final className = _displayClassroomName(
-        classroomCode: row.classroomCode,
-        classroomName: row.classroomName,
-      );
-
-      final reason = row.absenceNote?.trim();
-      final description = (reason != null && reason.isNotEmpty)
-          ? 'Marked absent from ${className.isEmpty ? 'classroom' : className} ($reason)'
-          : 'Marked absent from ${className.isEmpty ? 'classroom' : className}';
-
-      out.add(
-        ActivityItem(
-          time: DateFormat.jm().format(at),
-          date: DateFormat('MMMM d, yyyy').format(at),
-          name: 'Marked Absent',
-          description: description,
-          studentList: <String>[studentName],
-          createdBy: (row.markedAbsentByName ?? '').trim().isEmpty
-              ? _viewerStaffDisplayName
-              : row.markedAbsentByName!.trim(),
-          studentCode: studentCode.isEmpty ? null : studentCode,
-          classroomCode: row.classroomCode.trim(),
-          activityDateIso: at.toIso8601String(),
-          studentActivityRefs: <Map<String, String>>[
-            {
-              'name': studentName,
-              if (studentCode.isNotEmpty) 'studentCode': studentCode,
-            },
-          ],
-        ),
-      );
-    }
-    out.sort(_compareActivityItemsByTimeDesc);
-    return out;
   }
 
   void _onFeedScroll() {
@@ -1728,9 +1713,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
   void _maybeLoadNextDailyFeedPage() {
     if (!_feedScrollController.hasClients) return;
-    if (_loadingMoreFeed ||
-        !_feedHasMore ||
-        _loadingFeed ||
+    if (_displayedLoadingMoreFeed ||
+        !_displayedFeedHasMore ||
+        _displayedLoadingFeed ||
         _isFeedRequestInFlight) {
       return;
     }
@@ -1745,175 +1730,60 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _loadNextDailyFeedPage() async {
-    if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
-
     if (_parentHome) {
       return _loadNextParentHomeDailyFeedPage();
     }
 
-    final classroomName = _selectdClassroom;
-    final school = _schoolCode;
-    final date = _selectedDate;
-    if (classroomName == null ||
-        school == null ||
-        school.isEmpty ||
-        date == null ||
-        !_classroomCodeByName.containsKey(classroomName)) {
-      return;
-    }
-
-    final classroomCode = _classroomCodeByName[classroomName]!;
-    final dateStr = _dateQueryParam(date);
-    final studentCodes = _selectedStudentCodesForAttendanceFilter();
-    final selectedEvent = _selectedAttendanceEventFilter();
-    final signInAtFilter =
-        (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-in')
-        ? 'NOT_NULL'
-        : null;
-    final signOutAtFilter =
-        (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-out')
-        ? 'NOT_NULL'
-        : null;
-
-    _loadingMoreFeed = true;
-    if (mounted) setState(() {});
-
-    try {
-      final selectedStudentCode =
-          (studentCodes != null && studentCodes.isNotEmpty)
-          ? studentCodes.first
-          : null;
-      final classroomCodes = _selectedClassroomCodesForFeed();
-      final typeCodes = _activityTypeCodesForApiFilter();
-      final pageIndex = _feedNextPage;
-
-      final includeAttendance =
-          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getDailyActivityFeedUseCase(
-        classroomCode: classroomCode,
-        date: dateStr,
-        studentCode: selectedStudentCode,
-        classroomCodes: classroomCodes,
-        studentCodes: studentCodes,
-        activityTypeCodes: typeCodes,
-        guardianPersona: _parentHome,
-        page: pageIndex,
-        size: _feedPageSize,
-      );
-      StudentAttendanceDailyPage? attendancePage;
-      StudentAttendanceAbsentFormPage? absentPage;
-      if (includeAttendance) {
-        if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
-            fromAbsenceDate: dateStr,
-            toAbsenceDate: dateStr,
-            classroomCodes: classroomCodes.isNotEmpty
-                ? classroomCodes
-                : <String>[classroomCode],
-            studentCodes: studentCodes,
-            page: pageIndex,
-            size: _feedPageSize,
-          );
-        } else if (selectedEvent == null) {
-          final ccForAttendance = classroomCodes.isNotEmpty
-              ? classroomCodes
-              : <String>[classroomCode];
-          final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
-              attendanceDate: dateStr,
-              classroomCodes: ccForAttendance,
-              studentCodes: studentCodes,
-              signInAtFilter: null,
-              signOutAtFilter: null,
-              page: pageIndex,
-              size: _feedPageSize,
-            ),
-            _getStudentAbsentRecordsActivityUseCase(
-              fromAbsenceDate: dateStr,
-              toAbsenceDate: dateStr,
-              classroomCodes: ccForAttendance,
-              studentCodes: studentCodes,
-              page: pageIndex,
-              size: _feedPageSize,
-            ),
-          ]);
-          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
-          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
-        } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
-            attendanceDate: dateStr,
-            classroomCodes: classroomCodes.isNotEmpty
-                ? classroomCodes
-                : <String>[classroomCode],
-            studentCodes: studentCodes,
-            signInAtFilter: signInAtFilter,
-            signOutAtFilter: signOutAtFilter,
-            page: pageIndex,
-            size: _feedPageSize,
-          );
-        }
-      }
-      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
-      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
-
-      final items = <ActivityItem>[
-        if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
-        ..._mapDailyFeedPageToItems(activityFeedPage),
-      ]..sort(_compareActivityItemsByTimeDesc);
-
-      if (!mounted) return;
-      setState(() {
-        _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
-        _feedHasMore =
-            (attendancePage?.hasMore ?? false) ||
-            (absentPage?.hasMore ?? false) ||
-            !activityFeedPage.last;
-        _feedNextPage = _feedHasMore ? pageIndex + 1 : 0;
-      });
-    } catch (e) {
-      if (mounted) {
-        CoreUtils.logApiError(
-          ApiErrorHandler.extractErrorMessage(e),
-          showOnScreen: true,
-          context: context,
-        );
-        setState(() => _feedHasMore = false);
-      }
-    } finally {
-      _loadingMoreFeed = false;
-      if (mounted) {
-        setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _maybeLoadNextDailyFeedPage(),
-        );
-      }
-    }
+    // STAFF path: delegate to ActivityFeedCubit, which has its own
+    // single-flight (`isLoadingMore`) and `hasMore`/`isLoading` guards — see
+    // its `loadNextPage()` doc. Nothing to paginate if no first page has ever
+    // been requested (cubit not yet created).
+    if (_feedCubitInstance == null) return;
+    await _feedCubit.loadNextPage();
   }
 
+  /// GUARDIAN/parent path: delegates to [ActivityFeedCubit.loadDailyForGuardian]
+  /// — the per-student fan-out (each child fetched in its own classroom,
+  /// merged) — instead of running the fan-out here. `school`/`date`
+  /// resolution still has to happen in the View (the cubit can't build a
+  /// query without them), but the "no linked children" not-ready case is
+  /// covered by the cubit's own guard (`studentClassroomByCode.isEmpty`), so
+  /// it's no longer checked here before calling. The request-key de-dupe/
+  /// throttle wrapper (`_lastFeedRequestKey`/`_isFeedRequestInFlight`/
+  /// `_lastFeedCompletedAt`/`_lastFeedCompletedWithError`) is the same one
+  /// the STAFF branch below uses — shared fields, never written by both
+  /// branches from the same State instance (see the Mandate 2 note above
+  /// `_feedCubitInstance`).
   Future<void> _loadParentHomeDailyFeed({bool refresh = false}) async {
+    // Synchronously, before any await: whatever is on screen no longer answers
+    // the question we are about to ask.
+    _beginFeedLoad();
     final school = _schoolCode;
     final date = _selectedDate;
-    if (school == null ||
-        school.isEmpty ||
-        date == null ||
-        _parentAllowedStudentCodes.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _activities = [];
-          _loadingFeed = false;
-          _feedHasMore = false;
-          _loadingMoreFeed = false;
-        });
+    if (school == null || school.isEmpty || date == null) {
+      // Mirrors the STAFF branch's not-ready handling below: nothing to
+      // clear before a cubit exists (see `_effectiveFeedState`'s fallback),
+      // and once one exists, drive it back to its own not-ready state.
+      if (_feedCubitInstance != null) {
+        await _feedCubit.loadDailyForGuardian(
+          const ActivityFeedQuery(
+            organizationCode: '',
+            schoolCode: '',
+            classroomCode: '',
+            dateStr: '',
+          ),
+          const <String, String>{},
+        );
       }
       return;
     }
 
+    // Note there is deliberately no `_endFeedLoad()` on the not-ready return
+    // above: "not ready" means the school, day or child map is still
+    // resolving, which is exactly when the loader must hold. Every genuine
+    // dead end (no school selected, guardian profile unresolvable, no linked
+    // children) sets `_feedError` instead, which the display rule treats as
+    // terminal — so this cannot spin forever.
     final codes = _parentAllowedStudentCodes.toList()..sort();
     final dateStr = _dateQueryParam(date);
     final typeCodes = _activityTypeCodesForApiFilter();
@@ -1927,6 +1797,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-out')
         ? 'NOT_NULL'
         : null;
+    final includeAttendance =
+        _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
     final requestKey = [
       'parentDaily',
       school,
@@ -1940,11 +1812,24 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // Already-loaded feed: skip the refetch, but still honour a pending
+      // deep-link scroll (the rows are on screen; only the trigger was missing).
+      // The in-flight case leaves the result stale on purpose — the request
+      // that is already running will end the load.
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      if (!_lastFeedCompletedWithError) {
+        // Same scope as the completed request: the rows on screen already ARE
+        // the answer, so re-affirm them rather than holding the placeholder.
+        _endFeedLoad();
+        _scheduleHighlightScroll();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
+        _endFeedLoad();
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -1955,274 +1840,69 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
-    if (mounted) {
-      setState(() {
-        _loadingFeed = true;
-        _feedError = null;
-        _feedHasMore = true;
-        _loadingMoreFeed = false;
-      });
-    }
+    // Fetch, per-student fan-out merge, tri-source assembly, sort/group/
+    // dedupe and hasMore computation are all now owned by ActivityFeedCubit
+    // (a verbatim port of this branch) — see its class doc. It also owns its
+    // own generation/school-switch staleness guard, so `_feedGeneration`/
+    // `_isStaleFeedResponse` are no longer consulted here (they remain the
+    // STAFF branch's mechanism below).
+    await _feedCubit.loadDailyForGuardian(
+      ActivityFeedQuery(
+        // Unused by ActivityFeedCubit's guardian fan-out (not read anywhere
+        // in its fetch path) — left empty rather than threading a new
+        // organizationCode resolution through this View for a field the
+        // cubit doesn't consume.
+        organizationCode: '',
+        schoolCode: school,
+        // Per-student classroom scoping comes from `studentClassroomByCode`
+        // below, not this field — the cubit's fan-out ignores it.
+        classroomCode: '',
+        dateStr: dateStr,
+        attendanceEvent: selectedEvent,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        typeCodes: typeCodes,
+        approvalStatuses: approvalStatuses,
+        tagCodes: _tagCodesForApiFilter(),
+        guardianPersona: true,
+        includeAttendance: includeAttendance,
+        isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
+        pageSize: _feedPageSize,
+      ),
+      Map<String, String>.from(_parentStudentClassroomByCode),
+      refresh: refresh,
+    );
 
-    try {
-      StudentAttendanceDailyPage? attendancePage;
-      StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty &&
-          _shouldIncludeAttendanceEntries()) {
-        if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
-            fromAbsenceDate: dateStr,
-            toAbsenceDate: dateStr,
-            studentCodes: codes,
-            page: 0,
-            size: _feedPageSize,
-          );
-        } else if (selectedEvent == null) {
-          final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
-              attendanceDate: dateStr,
-              studentCodes: codes,
-              signInAtFilter: null,
-              signOutAtFilter: null,
-              page: 0,
-              size: _feedPageSize,
-            ),
-            _getStudentAbsentRecordsActivityUseCase(
-              fromAbsenceDate: dateStr,
-              toAbsenceDate: dateStr,
-              studentCodes: codes,
-              page: 0,
-              size: _feedPageSize,
-            ),
-          ]);
-          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
-          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
-        } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
-            attendanceDate: dateStr,
-            studentCodes: codes,
-            signInAtFilter: signInAtFilter,
-            signOutAtFilter: signOutAtFilter,
-            page: 0,
-            size: _feedPageSize,
-          );
-        }
+    _isFeedRequestInFlight = false;
+    _lastFeedCompletedAt = AppTime.nowUtc();
+    final feedError = _feedCubit.state.error;
+    _lastFeedCompletedWithError = feedError != null;
+    // The fetch is done, so the rows on screen now answer the current scope —
+    // an empty list from here on genuinely means "no activities". Set on the
+    // error path too: an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
+    if (feedError != null) {
+      if (mounted) {
+        CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
       }
-      final pages = await Future.wait(
-        _parentAllowedStudentCodes.map((sc) async {
-          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
-          if (cc.isEmpty) {
-            return const ActivityFeedPage(
-              content: [],
-              totalElements: 0,
-              totalPages: 0,
-              pageNumber: 0,
-              last: true,
-            );
-          }
-          return _getDailyActivityFeedUseCase(
-            classroomCode: cc,
-            date: dateStr,
-            studentCode: sc,
-            activityTypeCodes: typeCodes,
-            approvalStatuses: approvalStatuses,
-            guardianPersona: true,
-            page: 0,
-            size: _feedPageSize,
-          );
-        }),
-      );
-
-      final merged = mergeActivityFeedPages(pages);
-      await _primeStaffDisplayNamesFromFeedRows(merged.content);
-      await primeActivityFeedOptionLabelsFromRows(merged.content);
-      final items = <ActivityItem>[
-        if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
-        ..._mapDailyFeedPageToItems(merged),
-      ]..sort(_compareActivityItemsByTimeDesc);
-
-      if (!mounted) {
-        _isFeedRequestInFlight = false;
-        return;
-      }
-      setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
-        _loadingFeed = false;
-        _feedError = null;
-        _feedHasMore =
-            (attendancePage?.hasMore ?? false) ||
-            (absentPage?.hasMore ?? false) ||
-            !merged.last;
-        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
-      });
-      _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
-      _lastFeedCompletedWithError = false;
+    } else {
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
-    } catch (e) {
-      if (!mounted) {
-        _isFeedRequestInFlight = false;
-        return;
-      }
-      final msg = ApiErrorHandler.extractErrorMessage(e);
-      setState(() {
-        _loadingFeed = false;
-        _feedError = msg;
-        _feedHasMore = false;
-      });
-      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
-      _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
-      _lastFeedCompletedWithError = true;
     }
   }
 
+  /// GUARDIAN/parent pagination: delegates to [ActivityFeedCubit.loadNextPage],
+  /// which has its own single-flight (`isLoadingMore`) and `hasMore`/
+  /// `isLoading` guards and continues the guardian fan-out it stored from the
+  /// most recent [ActivityFeedCubit.loadDailyForGuardian] call — see its doc.
+  /// Nothing to paginate if no first page has ever been requested (cubit not
+  /// yet created), matching the STAFF pagination function below.
   Future<void> _loadNextParentHomeDailyFeedPage() async {
-    if (_loadingMoreFeed || !_feedHasMore || _loadingFeed) return;
-
-    final school = _schoolCode;
-    final date = _selectedDate;
-    if (school == null ||
-        school.isEmpty ||
-        date == null ||
-        _parentAllowedStudentCodes.isEmpty) {
-      return;
-    }
-
-    final dateStr = _dateQueryParam(date);
-    final typeCodes = _activityTypeCodesForApiFilter();
-    final approvalStatuses = _approvalStatusesForApiFilter();
-    final pageIndex = _feedNextPage;
-    final selectedEvent = _selectedAttendanceEventFilter();
-    final signInAtFilter =
-        (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-in')
-        ? 'NOT_NULL'
-        : null;
-    final signOutAtFilter =
-        (!_isMarkedAbsentEvent(selectedEvent) && selectedEvent == 'Sign-out')
-        ? 'NOT_NULL'
-        : null;
-
-    _loadingMoreFeed = true;
-    if (mounted) setState(() {});
-
-    try {
-      StudentAttendanceDailyPage? attendancePage;
-      StudentAttendanceAbsentFormPage? absentPage;
-      if (_filterApprovalStatuses.isEmpty &&
-          _shouldIncludeAttendanceEntries()) {
-        if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
-            fromAbsenceDate: dateStr,
-            toAbsenceDate: dateStr,
-            studentCodes: _parentAllowedStudentCodes.toList(),
-            page: pageIndex,
-            size: _feedPageSize,
-          );
-        } else if (selectedEvent == null) {
-          final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
-              attendanceDate: dateStr,
-              studentCodes: _parentAllowedStudentCodes.toList(),
-              signInAtFilter: null,
-              signOutAtFilter: null,
-              page: pageIndex,
-              size: _feedPageSize,
-            ),
-            _getStudentAbsentRecordsActivityUseCase(
-              fromAbsenceDate: dateStr,
-              toAbsenceDate: dateStr,
-              studentCodes: _parentAllowedStudentCodes.toList(),
-              page: pageIndex,
-              size: _feedPageSize,
-            ),
-          ]);
-          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
-          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
-        } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
-            attendanceDate: dateStr,
-            studentCodes: _parentAllowedStudentCodes.toList(),
-            signInAtFilter: signInAtFilter,
-            signOutAtFilter: signOutAtFilter,
-            page: pageIndex,
-            size: _feedPageSize,
-          );
-        }
-      }
-      final pages = await Future.wait(
-        _parentAllowedStudentCodes.map((sc) async {
-          final cc = _parentStudentClassroomByCode[sc]?.trim() ?? '';
-          if (cc.isEmpty) {
-            return ActivityFeedPage(
-              content: const [],
-              totalElements: 0,
-              totalPages: 0,
-              pageNumber: pageIndex,
-              last: true,
-            );
-          }
-          return _getDailyActivityFeedUseCase(
-            classroomCode: cc,
-            date: dateStr,
-            studentCode: sc,
-            activityTypeCodes: typeCodes,
-            approvalStatuses: approvalStatuses,
-            guardianPersona: true,
-            page: pageIndex,
-            size: _feedPageSize,
-          );
-        }),
-      );
-
-      final merged = mergeActivityFeedPages(pages);
-      await _primeStaffDisplayNamesFromFeedRows(merged.content);
-      await primeActivityFeedOptionLabelsFromRows(merged.content);
-      final items = <ActivityItem>[
-        if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
-        ..._mapDailyFeedPageToItems(merged),
-      ]..sort(_compareActivityItemsByTimeDesc);
-
-      if (!mounted) return;
-      setState(() {
-        _activities.addAll(items);
-        _activities = groupMultiStudentFeedItems(
-          _activities,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
-        _feedHasMore =
-            (attendancePage?.hasMore ?? false) ||
-            (absentPage?.hasMore ?? false) ||
-            !merged.last;
-        _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
-      });
-    } catch (e) {
-      if (mounted) {
-        CoreUtils.logApiError(
-          ApiErrorHandler.extractErrorMessage(e),
-          showOnScreen: true,
-          context: context,
-        );
-        setState(() => _feedHasMore = false);
-      }
-    } finally {
-      _loadingMoreFeed = false;
-      if (mounted) {
-        setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _maybeLoadNextDailyFeedPage(),
-        );
-      }
-    }
+    if (_feedCubitInstance == null) return;
+    await _feedCubit.loadNextPage();
   }
 
   Future<void> _loadDailyFeed({bool refresh = false}) async {
@@ -2230,6 +1910,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       return _loadParentHomeDailyFeed(refresh: refresh);
     }
 
+    // Synchronously, before any await — see [_beginFeedLoad].
+    _beginFeedLoad();
     final school = _schoolCode;
     final date = _selectedDate;
     final classroomCodes = _selectedClassroomCodesForFeed();
@@ -2240,18 +1922,36 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         school.isEmpty ||
         date == null ||
         classroomCode == null) {
-      if (mounted) {
-        setState(() {
-          _activities = [];
-          _loadingFeed = false;
-          _feedHasMore = false;
-          _loadingMoreFeed = false;
-        });
+      // Mirrors the old clear-on-not-ready — only meaningful once a cubit
+      // (and therefore possibly stale items) exists; nothing to clear before
+      // that, since `_effectiveFeedState` already falls back to
+      // `ActivityFeedState.initial()`. An empty schoolCode/classroomCode/
+      // dateStr is exactly ActivityFeedCubit.loadDaily's own "not ready" gate.
+      if (_feedCubitInstance != null) {
+        await _feedCubit.loadDaily(
+          const ActivityFeedQuery(
+            organizationCode: '',
+            schoolCode: '',
+            classroomCode: '',
+            dateStr: '',
+          ),
+        );
       }
       return;
     }
 
+    // As in the guardian branch, the not-ready return above deliberately does
+    // NOT end the load: every genuine dead end sets `_feedError` instead.
     final dateStr = _dateQueryParam(date);
+
+    // Resolve the active tag filter to student codes BEFORE fetching/filtering
+    // below — without this, `_studentCodesForTagFilter` stays permanently
+    // empty for the STAFF persona (only the guardian branch above called this),
+    // so `_withTagFilterOnly`/`_withClientFilters` always filtered every item
+    // out regardless of which tags were selected. Mirrors the Custom tab's
+    // `_loadRangeFeed`, which already awaits this before its own fetch.
+    await _rebuildStudentCodesForTagFilter();
+    if (!mounted) return;
 
     final studentCodes = _selectedStudentCodesForAttendanceFilter();
     final selectedEvent = _selectedAttendanceEventFilter();
@@ -2275,18 +1975,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
       if (_isFeedRequestInFlight) {
-        // Same request is already running; skip duplicate calls.
+        // Same request is already running; skip duplicate calls. The result
+        // stays stale on purpose — the running request will end the load.
         return;
       }
       if (!_lastFeedCompletedWithError) {
         // Last identical request already completed successfully
-        // (including empty-result success). No need to refetch.
+        // (including empty-result success). No need to refetch — but the rows
+        // ARE already loaded, so a pending deep-link still needs its scroll.
+        // Returning here previously skipped it entirely, which is why a cached
+        // feed highlighted without ever scrolling. Same scope as that
+        // completed request, so the rows on screen already are the answer.
+        _endFeedLoad();
+        _scheduleHighlightScroll();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
+        _endFeedLoad();
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2294,131 +2004,64 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _isFeedRequestInFlight = true;
     _lastFeedRequestKey = requestKey;
 
-    if (mounted) {
-      setState(() {
-        _loadingFeed = true;
-        _feedError = null;
-        _feedHasMore = true;
-        _loadingMoreFeed = false;
-      });
-    }
+    final selectedStudentCode =
+        (studentCodes != null && studentCodes.isNotEmpty)
+        ? studentCodes.first
+        : null;
+    final typeCodes = _activityTypeCodesForApiFilter();
+    final approvalStatuses = _approvalStatusesForApiFilter();
+    final includeAttendance =
+        _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
 
-    try {
-      final selectedStudentCode =
-          (studentCodes != null && studentCodes.isNotEmpty)
-          ? studentCodes.first
-          : null;
-      final typeCodes = _activityTypeCodesForApiFilter();
-      final approvalStatuses = _approvalStatusesForApiFilter();
-
-      final includeAttendance =
-          _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getDailyActivityFeedUseCase(
+    // Fetch, tri-source merge, sort/group/dedupe and hasMore computation are
+    // all now owned by ActivityFeedCubit (a verbatim port of this branch) —
+    // see its class doc. It also owns its own generation/school-switch
+    // staleness guard, so `_feedGeneration`/`_isStaleFeedResponse` are no
+    // longer consulted here (they remain the parent path's mechanism).
+    await _feedCubit.loadDaily(
+      ActivityFeedQuery(
+        // Unused by ActivityFeedCubit today (not read anywhere in its fetch
+        // path) — left empty rather than threading a new organizationCode
+        // resolution through this View for a field the cubit doesn't consume.
+        organizationCode: '',
+        schoolCode: school,
         classroomCode: classroomCode,
-        date: dateStr,
-        studentCode: selectedStudentCode,
         classroomCodes: classroomCodes,
+        dateStr: dateStr,
+        studentCode: selectedStudentCode,
         studentCodes: studentCodes,
-        activityTypeCodes: typeCodes,
+        attendanceEvent: selectedEvent,
+        signInAtFilter: signInAtFilter,
+        signOutAtFilter: signOutAtFilter,
+        typeCodes: typeCodes,
         approvalStatuses: approvalStatuses,
-        guardianPersona: _parentHome,
-        page: 0,
-        size: _feedPageSize,
-      );
-      StudentAttendanceDailyPage? attendancePage;
-      StudentAttendanceAbsentFormPage? absentPage;
-      if (includeAttendance) {
-        if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
-            fromAbsenceDate: dateStr,
-            toAbsenceDate: dateStr,
-            classroomCodes: classroomCodes,
-            studentCodes: studentCodes,
-            page: 0,
-            size: _feedPageSize,
-          );
-        } else if (selectedEvent == null) {
-          final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
-              attendanceDate: dateStr,
-              classroomCodes: classroomCodes,
-              studentCodes: studentCodes,
-              signInAtFilter: null,
-              signOutAtFilter: null,
-              page: 0,
-              size: _feedPageSize,
-            ),
-            _getStudentAbsentRecordsActivityUseCase(
-              fromAbsenceDate: dateStr,
-              toAbsenceDate: dateStr,
-              classroomCodes: classroomCodes,
-              studentCodes: studentCodes,
-              page: 0,
-              size: _feedPageSize,
-            ),
-          ]);
-          attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
-          absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
-        } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
-            attendanceDate: dateStr,
-            classroomCodes: classroomCodes,
-            studentCodes: studentCodes,
-            signInAtFilter: signInAtFilter,
-            signOutAtFilter: signOutAtFilter,
-            page: 0,
-            size: _feedPageSize,
-          );
-        }
-      }
-      await _primeStaffDisplayNamesFromFeedRows(activityFeedPage.content);
-      await primeActivityFeedOptionLabelsFromRows(activityFeedPage.content);
+        tagCodes: _tagCodesForApiFilter(),
+        guardianPersona: false,
+        includeAttendance: includeAttendance,
+        isMarkedAbsentEvent: _isMarkedAbsentEvent(selectedEvent),
+        pageSize: _feedPageSize,
+      ),
+      refresh: refresh,
+    );
 
-      final items = <ActivityItem>[
-        if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
-        ..._mapDailyFeedPageToItems(activityFeedPage),
-      ]..sort(_compareActivityItemsByTimeDesc);
-
-      if (!mounted) {
-        _isFeedRequestInFlight = false;
-        return;
+    _isFeedRequestInFlight = false;
+    _lastFeedCompletedAt = AppTime.nowUtc();
+    final feedError = _feedCubit.state.error;
+    _lastFeedCompletedWithError = feedError != null;
+    // The fetch is done, so the rows on screen now answer the current scope —
+    // an empty list from here on genuinely means "no activities". Set on the
+    // error path too: an errored load is still a completed one, and the
+    // message branch renders the error rather than the empty text.
+    _endFeedLoad();
+    if (feedError != null) {
+      if (mounted) {
+        CoreUtils.logApiError(feedError, showOnScreen: true, context: context);
       }
-      setState(() {
-        _activities = groupMultiStudentFeedItems(
-          items,
-          attendanceRequireDateAndTimeMatch: false,
-        )..sort(_compareActivityItemsByTimeDesc);
-        _loadingFeed = false;
-        _feedError = null;
-        _feedHasMore =
-            (attendancePage?.hasMore ?? false) ||
-            (absentPage?.hasMore ?? false) ||
-            !activityFeedPage.last;
-        _feedNextPage = _feedHasMore ? 1 : 0;
-      });
-      _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
-      _lastFeedCompletedWithError = false;
+    } else {
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
-    } catch (e) {
-      if (!mounted) {
-        _isFeedRequestInFlight = false;
-        return;
-      }
-      final msg = ApiErrorHandler.extractErrorMessage(e);
-      setState(() {
-        _loadingFeed = false;
-        _feedError = msg;
-        _feedHasMore = false;
-      });
-      CoreUtils.logApiError(msg, showOnScreen: true, context: context);
-      _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
-      _lastFeedCompletedWithError = true;
     }
   }
 
@@ -2430,36 +2073,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (widget.highlightDate != null) {
       _selectedDate = widget.highlightDate;
     }
-    _getDailyActivityFeedUseCase =
-        serviceLocator<GetDailyActivityFeedUseCase>();
-    _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getActiveActivityTypesForSchoolUseCase =
-        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
-    _getStudentClassroomListUseCase =
-        serviceLocator<GetStudentClassroomListUseCase>();
-    _getTagNameCodeMapForSchoolUseCase =
-        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentCodesForActivityTagFilterUseCase =
-        serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
-    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-    _getStudentAttendanceDailyUseCase =
-        serviceLocator<GetStudentAttendanceDailyUseCase>();
-    _getStudentAbsentRecordsActivityUseCase =
-        serviceLocator<GetStudentAbsentRecordsActivityUseCase>();
-    _moderationCubit = serviceLocator<ActivityModerationCubit>();
     _moderationSub = _moderationCubit.stream.listen(_onModerationState);
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
     isNotParent = widget.isNotParent;
-    if (widget.fromStudentProfile) {
-      final n = widget.studentName;
-      if (n != null && n.trim().isNotEmpty) {
-        _selectedStudent = n.trim();
-      }
-    }
+    _seedProfileContext();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Opened from a student profile: we already have the classroom + student
+      // codes, so kick off the feed right away instead of waiting for the full
+      // classroom/student bootstrap. The dropdown option lists fill in behind
+      // it. _loadDailyFeed de-dupes by request key, so the later bootstrap call
+      // with the same classroom won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
       await _bootstrap();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -2468,6 +2103,61 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _loadDailyFeed(refresh: true);
       }
     });
+  }
+
+  /// Handles a NEW notification deep-link arriving into an already-live tab.
+  ///
+  /// This tab is `AutomaticKeepAliveClientMixin` and sits in an indexed-stack
+  /// shell branch, so once Activities has been visited the State is reused:
+  /// [initState] never runs again, every one-shot latch is still set from the
+  /// previous visit, and no feed reload is triggered. The card still flashed
+  /// (that reads `widget.highlightCode` live during paint) but nothing ever
+  /// asked for a scroll — the "cached / already open" case.
+  ///
+  /// Resetting the latches and reloading on the target's day + room restores
+  /// the same path a cold open takes.
+  @override
+  void didUpdateWidget(covariant _ActivityDailyTabView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A deep-link about a DIFFERENT child arriving without a remount — the
+    // route key only changes when there IS a highlightCode, so a student-only
+    // change (or a link carrying no highlight at all) lands here instead.
+    // Routed through the cubit rather than re-scoped locally so the app-bar
+    // switcher and the feed stay in step; `_syncWithGlobalChildSelection` picks
+    // it up on the next frame and does the re-scope + reload.
+    if (_parentHome &&
+        widget.deepLinkStudentCode != oldWidget.deepLinkStudentCode) {
+      _deepLinkStudentApplied = false;
+      final code = (widget.deepLinkStudentCode ?? '').trim();
+      if (code.isNotEmpty) {
+        context.read<ParentChildCubit>().selectByCode(code);
+      }
+    }
+
+    final changed =
+        widget.highlightCode != oldWidget.highlightCode ||
+        widget.highlightDate != oldWidget.highlightDate ||
+        widget.highlightClassroomCode != oldWidget.highlightClassroomCode;
+    if (!changed) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+
+    setState(() {
+      _highlightApplied = false;
+      _highlightScrollScheduled = false;
+      _deepLinkClassroomApplied = false;
+      // The scope just changed under us, so the rows currently on screen answer
+      // the PREVIOUS notification's question. Invalidating here — in the same
+      // frame the new target is applied — is what stops a reused keep-alive
+      // State from rendering its stale (possibly empty) result as
+      // "No Activities found" before `_loadDailyFeed` below flips the cubit's
+      // `isLoading`.
+      _feedResultIsCurrent = false;
+      if (widget.highlightDate != null) _selectedDate = widget.highlightDate;
+      _applyDeepLinkClassroom();
+    });
+    // refresh: true bypasses the de-dupe, so the load always completes and
+    // fires the scroll even when the same day/room was already showing.
+    _loadDailyFeed(refresh: true);
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -2484,7 +2174,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             widget.highlightDate ??
             SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('_bootstrapSchoolZone failed: $e');
+    }
   }
 
   @override
@@ -2493,7 +2185,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
-    _moderationCubit.close();
+    _feedCubitInstance?.close();
     super.dispose();
   }
 
@@ -2506,10 +2198,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         message: state.message,
         isSuccess: true,
       );
-      // Approve/reject change the feed; delete does not refresh (matches prior).
-      if (state.action != ActivityModerationAction.delete) {
-        _loadDailyFeed(refresh: true);
-      }
+      // Both personas are cubit-backed now: item removal lives inside
+      // ActivityFeedCubit's state, which has no local-splice API — a full
+      // refetch reconciles it instead (approve/reject already took this
+      // path; delete now does too, for both STAFF and GUARDIAN/parent).
+      _loadDailyFeed(refresh: true);
     } else if (state is ActivityModerationFailure) {
       CoreUtils.logApiError(
         state.message,
@@ -2548,6 +2241,161 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions = <String>[..._classroomOptions, cls]..sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
+    }
+    _pinProfileStudent();
+  }
+
+  bool _highlightScrollScheduled = false;
+
+  /// Scrolls the deep-linked card into view.
+  ///
+  /// Driven by the DATA (the target's index in [_displayedActivities]), never by the
+  /// item builder. `ListView.builder` builds lazily, so a target further down
+  /// the list is never built while off-screen — its `itemBuilder` doesn't run,
+  /// and `Scrollable.ensureVisible` has no element to scroll to. That's why the
+  /// card only ever flashed once the user scrolled to it by hand.
+  ///
+  /// Converges in two phases: jump proportionally to bring the target into the
+  /// build window, then fine-tune with `ensureVisible` once it exists, plus a
+  /// settle pass for rows that grow when attachment thumbnails resolve.
+  void _scheduleHighlightScroll() {
+    if (_highlightApplied || _highlightScrollScheduled) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+    final displayed = _displayedActivities;
+    final index = displayed.indexWhere(
+      (a) => _isHighlightTarget(a.activityCode),
+    );
+    if (index < 0) return; // not in this page yet — retried on the next load
+    _highlightScrollScheduled = true;
+
+    var passes = 0;
+    void step() {
+      if (!mounted) return;
+      if (passes++ > 25) {
+        _highlightScrollScheduled = false; // let a later load try again
+        return;
+      }
+      if (!_feedScrollController.hasClients) {
+        Future.delayed(const Duration(milliseconds: 100), step);
+        return;
+      }
+
+      final ctx = _highlightCardKey.currentContext;
+      if (ctx != null) {
+        // Built: fine-tune to the exact position.
+        _highlightApplied = true;
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.1,
+          curve: Curves.easeOut,
+        );
+        // One settle pass after layout stabilises.
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (!mounted) return;
+          final c = _highlightCardKey.currentContext;
+          if (c != null) {
+            Scrollable.ensureVisible(
+              c,
+              duration: const Duration(milliseconds: 200),
+              alignment: 0.1,
+              curve: Curves.easeOut,
+            );
+          }
+        });
+        return;
+      }
+
+      // Not built yet: jump proportionally so it enters the build window.
+      final pos = _feedScrollController.position;
+      final total = displayed.length;
+      final target = total <= 1
+          ? 0.0
+          : pos.maxScrollExtent * (index / (total - 1)).clamp(0.0, 1.0);
+      if ((target - pos.pixels).abs() > 1) {
+        _feedScrollController.jumpTo(target.clamp(0.0, pos.maxScrollExtent));
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => step());
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => step());
+  }
+
+  /// Selects the classroom of a notification-deep-linked activity, so the feed
+  /// loads the room that actually contains the card being highlighted rather
+  /// than the viewer's default room.
+  ///
+  /// Called from [_bootstrap] once `_classroomNameByCode` is populated and
+  /// BEFORE the default-classroom `keep` check, so the resolved name survives as
+  /// the selection. No-op when there's no deep link or the code isn't in the
+  /// viewer's (possibly staff-scoped) classroom list.
+  void _applyDeepLinkClassroom() {
+    final code = (widget.highlightClassroomCode ?? '').trim();
+    if (code.isEmpty) return;
+    if (_deepLinkClassroomApplied) return;
+    final name = (_classroomNameByCode[code] ?? '').trim();
+    if (name.isEmpty || !_classroomOptions.contains(name)) return;
+    _deepLinkClassroomApplied = true;
+    _selectdClassroom = name;
+    _selectedClassrooms = <String>[name];
+  }
+
+  /// Applied once, so a later refresh can't yank the user off a room they
+  /// switched to after arriving via the deep link.
+  bool _deepLinkClassroomApplied = false;
+
+  /// One-shot, like [_deepLinkClassroomApplied]: the deep-link's student is the
+  /// subject of the TAP, not a standing override. Without this latch a later
+  /// re-bootstrap — the one `_syncWithGlobalChildSelection` triggers when the
+  /// user picks a child whose classroom isn't cached yet — would resolve back
+  /// to the notification's child and fight the dropdown the user just used.
+  bool _deepLinkStudentApplied = false;
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
@@ -2565,18 +2413,16 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       return;
     }
     final classroomCode = _classroomCodeByName[classroomName]!;
-    final result = await Navigator.push<Map<String, List<String>>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ActivityFilterScreen(
-          schoolCode: school,
-          classroomCode: classroomCode,
-          initialFilters: {
-            'Tags': List<String>.from(_filterTags),
-            'Activity Type': List<String>.from(_filterActivityTypes),
-            'Status': List<String>.from(_filterApprovalStatuses),
-          },
-        ),
+    final result = await context.push<Map<String, List<String>>>(
+      ActivityFilterScreen.routeName,
+      extra: ActivityFilterArgs(
+        schoolCode: school,
+        classroomCode: classroomCode,
+        initialFilters: {
+          'Tags': List<String>.from(_filterTags),
+          'Activity Type': List<String>.from(_filterActivityTypes),
+          'Status': List<String>.from(_filterApprovalStatuses),
+        },
       ),
     );
     if (!mounted || result == null) return;
@@ -2644,7 +2490,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: activity.name,
@@ -2669,9 +2515,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
-      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _getTagNameCodeMapForSchoolUseCase,
+      final map = await _feedScope.loadTagNameCodeMap(
         schoolCode: school,
         forceRefresh: forceRefresh,
       );
@@ -2705,14 +2549,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.dividerColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.cardColor,
       ),
       alignment: Alignment.center,
       child: const PrimaryCircularLoader(size: 40, strokeWidth: 3.5),
     );
 
     return Padding(
-      padding: ResponsiveSizing.contentPadding(context),
+      padding: ResponsiveHelper(context).contentPadding,
       child: expandToParentHeight ? SizedBox.expand(child: sheet) : sheet,
     );
   }
@@ -2748,6 +2592,20 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _syncWithGlobalChildSelection();
       });
     }
+    // BlocBuilder (not the old manual `cubit.stream.listen((_) { setState() })`
+    // + StreamSubscription pair) is what actually subscribes to feed-cubit
+    // emissions now — Mandate 2's named anti-pattern. `_feedCubit` still
+    // lazily constructs the cubit on first access (deliberately deferred past
+    // `viewerStaffDisplayName`/`schoolIana` bootstrap, per the doc on that
+    // getter), so touching it here to supply `bloc:` is exactly the same
+    // trigger point the old getter-based read already was.
+    return BlocBuilder<ActivityFeedCubit, ActivityFeedState>(
+      bloc: _feedCubit,
+      builder: (context, _) => _buildTabBody(context),
+    );
+  }
+
+  Widget _buildTabBody(BuildContext context) {
     return OrientationBuilder(
       builder: (context, orientation) {
         if (orientation == Orientation.landscape) {
@@ -2759,13 +2617,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
+                    padding: ResponsiveHelper(context).contentPadding,
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.dividerColor),
                         borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
+                        color: AppColors.cardColor,
                       ),
                       child: widget.fromStudentProfile && !isNotParent
                           ? Column(
@@ -2774,7 +2632,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                 SizedBox(
                                   height: 40,
                                   child: AbsorbPointer(
-                                    child: _buildCustomDropdown(
+                                    child: buildActivityTabCustomDropdown(
                                       'Select Student',
                                       widget.studentName != null
                                           ? [widget.studentName!]
@@ -2808,7 +2666,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: _buildCustomMultiDropdown(
+                                      child: buildActivityTabCustomMultiDropdown(
                                         'Select Classroom',
                                         _classroomOptions,
                                         _selectedClassrooms,
@@ -2848,32 +2706,26 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      // child: _buildCustomDropdown(
-                                      //   'Select Student',
-                                      //   _allStudents,
-                                      //   _selectedStudent,
-                                      //   (v) => setState(() {
-                                      //     _selectedStudent = v;
-                                      //   }),
-                                      // ),
-                                      child: _buildCustomMultiDropdown(
-                                        'Select Student',
-                                        _availableStudents,
-                                        _selectedStudents,
-                                        (values) {
-                                          setState(() {
-                                            _selectedStudents = values;
-                                            _selectedStudent = values.isNotEmpty
-                                                ? values.first
-                                                : null;
-                                          });
-                                          _loadDailyFeed();
-                                        },
-                                      ),
+                                      child:
+                                          buildActivityTabCustomMultiDropdown(
+                                            'Select Student',
+                                            _availableStudents,
+                                            _selectedStudents,
+                                            (values) {
+                                              setState(() {
+                                                _selectedStudents = values;
+                                                _selectedStudent =
+                                                    values.isNotEmpty
+                                                    ? values.first
+                                                    : null;
+                                              });
+                                              _loadDailyFeed();
+                                            },
+                                          ),
                                     ),
                                     const SizedBox(width: 8),
                                     Material(
-                                      color: Colors.transparent,
+                                      color: AppColors.transparentColor,
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(
                                           100,
@@ -2922,12 +2774,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                       badgeCount > 99
                                                           ? '99+'
                                                           : '$badgeCount',
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
+                                                      style: AppTextStyles
+                                                          .activitySmallBadgeText,
                                                     ),
                                                   ),
                                                 );
@@ -2959,7 +2807,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () async {
                                         setState(() {
-                                          final now = DateTime.now();
+                                          final now = AppTime.now();
                                           _selectedDate = DateTime(
                                             now.year,
                                             now.month,
@@ -3000,12 +2848,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 SliverToBoxAdapter(
                   child: SizedBox(height: _parentHome ? 0 : 12),
                 ),
-                if ((_loadingFeed || _loadingParentContext) &&
-                    _activities.isEmpty)
+                if (_showFeedLoadingPlaceholder && _displayedActivities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: SizedBox.expand(
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -3015,7 +2862,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.cardColor,
                           ),
                           alignment: Alignment.center,
                           child: const PrimaryCircularLoader(
@@ -3026,22 +2873,21 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                       ),
                     ),
                   ),
-                if (!_loadingFeed &&
-                    !_loadingParentContext &&
-                    _activities.isEmpty)
+                if (!_showFeedLoadingPlaceholder &&
+                    _displayedActivities.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
+                          color: AppColors.cardColor,
                         ),
                         child: Center(
                           child: AppText.title(
-                            _feedError ?? 'No Activities found',
+                            _displayedFeedError ?? 'No Activities found',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.title.copyWith(
                               color: AppColors.primaryColor.withValues(
@@ -3053,461 +2899,327 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                       ),
                     ),
                   ),
-
-                // if (activities.isNotEmpty)
-                //   SliverPadding(
-                //     padding: EdgeInsets.all(16),
-                //     sliver: SliverList(
-                //       delegate: SliverChildBuilderDelegate(
-                //             (context, index) => Container(
-                //           height: 100,
-                //           margin: EdgeInsets.only(bottom: 16),
-                //           color: Colors.blue[100 * (index % 9 + 1)],
-                //           child: Center(child: Text('Test Item $index')),
-                //         ),
-                //         childCount: _activities.length,
-                //       ),
-                //     ),
-                //   ),
-                if (_activities.isNotEmpty)
+                if (_displayedActivities.isNotEmpty)
                   SliverPadding(
-                    padding: ResponsiveSizing.activityFeedListPadding(context),
+                    padding: ResponsiveHelper(context).contentPadding,
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        if (index == _activities.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Center(
-                              child: PrimaryCircularLoader(
-                                size: 28,
-                                strokeWidth: 3,
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final displayedActivities = _displayedActivities;
+                          if (index == displayedActivities.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Center(
+                                child: PrimaryCircularLoader(
+                                  size: 28,
+                                  strokeWidth: 3,
+                                ),
                               ),
-                            ),
+                            );
+                          }
+                          final activity = displayedActivities[index];
+                          final students = activity.studentList;
+                          final Color activityColor =
+                              _colorPalette[index % _colorPalette.length];
+                          final bool isHighlightTarget = _isHighlightTarget(
+                            activity.activityCode,
                           );
-                        }
-                        final activity = _activities[index];
-                        final students = activity.studentList;
-                        final Color activityColor =
-                            _colorPalette[index % _colorPalette.length];
-                        final bool isHighlightTarget = _isHighlightTarget(
-                          activity.activityCode,
-                        );
-                        if (isHighlightTarget && !_highlightApplied) {
-                          _highlightApplied = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            final ctx = _highlightCardKey.currentContext;
-                            if (ctx != null) {
-                              Scrollable.ensureVisible(
-                                ctx,
-                                duration: const Duration(milliseconds: 400),
-                                alignment: 0.1,
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          });
-                        }
+                          if (isHighlightTarget) _scheduleHighlightScroll();
 
-                        return HighlightableCard(
-                          key: isHighlightTarget ? _highlightCardKey : null,
-                          code: activity.activityCode,
-                          highlightCode: widget.highlightCode,
-                          borderRadius: 12,
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Column(
-                                    children: [
-                                      Container(
-                                        width: 18,
-                                        height: 18,
-                                        decoration: BoxDecoration(
+                          return HighlightableCard(
+                            key: isHighlightTarget ? _highlightCardKey : null,
+                            code: activity.activityCode,
+                            highlightCode: widget.highlightCode,
+                            borderRadius: 12,
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Column(
+                                      children: [
+                                        Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            //color: activity.color,
+                                            color: activityColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 4,
+                                          height: 2,
                                           //color: activity.color,
                                           color: activityColor,
-                                          shape: BoxShape.circle,
                                         ),
-                                      ),
-                                      Container(
-                                        width: 4,
-                                        height: 2,
-                                        //color: activity.color,
-                                        color: activityColor,
-                                      ),
-                                    ],
-                                  ),
-                                  Container(
-                                    width: 100,
-                                    height: 4,
-                                    //color: activity.color,
-                                    color: activityColor,
-                                  ),
-                                  Container(
-                                    width: 18,
-                                    height: 18,
-                                    decoration: BoxDecoration(
+                                      ],
+                                    ),
+                                    Container(
+                                      width: 100,
+                                      height: 4,
                                       //color: activity.color,
                                       color: activityColor,
-                                      shape: BoxShape.circle,
                                     ),
-                                  ),
-                                  const SizedBox(width: 20),
-                                  SizedBox(
-                                    height: 20,
-                                    child: AppText.small(
-                                      activity.time,
-                                      style: AppTextStyles.small.copyWith(
-                                        color: AppColors.primaryColor,
-                                        fontWeight: FontWeight.w500,
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        //color: activity.color,
+                                        color: activityColor,
+                                        shape: BoxShape.circle,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(width: 7),
-                                  Container(
-                                    width: 4,
-                                    height: 220,
-                                    //color: activity.color,
-                                    color: activityColor,
-                                  ),
-
-                                  const SizedBox(width: 16),
-
-                                  // Activity Card
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 16,
-                                        right: 0,
+                                    const SizedBox(width: 20),
+                                    SizedBox(
+                                      height: 20,
+                                      child: AppText.small(
+                                        activity.time,
+                                        style: AppTextStyles.small.copyWith(
+                                          color: AppColors.primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                      child: Column(
-                                        children: [
-                                          const SizedBox(height: 15),
-                                          InkWell(
-                                            onTap: () async {
-                                              final hasStatusBadge =
-                                                  activityApprovalStatusBadgeLabel(
-                                                    activity.approvalStatus,
-                                                  ) !=
-                                                  null;
-                                              final canOpenEdit =
-                                                  hasStatusBadge &&
-                                                  isNotParent &&
-                                                  widget.allowActivityWrite &&
-                                                  canEditActivityItem(
-                                                    activity,
-                                                    isAdminPersona:
-                                                        _isAdminPersona,
-                                                    viewerStaffCode:
-                                                        _viewerStaffCode,
-                                                  );
-                                              final destinationBuilder =
-                                                  canOpenEdit
-                                                  ? editActivityRoutes[activity
-                                                        .name]
-                                                  : activityRoutes[activity
-                                                        .name];
-                                              if (destinationBuilder != null) {
-                                                final nextScreen =
-                                                    destinationBuilder(
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(width: 7),
+                                    Container(
+                                      width: 4,
+                                      height: 220,
+                                      //color: activity.color,
+                                      color: activityColor,
+                                    ),
+
+                                    const SizedBox(width: 16),
+
+                                    // Activity Card
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                          right: 0,
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            const SizedBox(height: 15),
+                                            InkWell(
+                                              onTap: () async {
+                                                final hasStatusBadge =
+                                                    activityApprovalStatusBadgeLabel(
+                                                      activity.approvalStatus,
+                                                    ) !=
+                                                    null;
+                                                final canOpenEdit =
+                                                    hasStatusBadge &&
+                                                    isNotParent &&
+                                                    widget.allowActivityWrite &&
+                                                    canEditActivityItem(
                                                       activity,
+                                                      isAdminPersona:
+                                                          _isAdminPersona,
+                                                      viewerStaffCode:
+                                                          _viewerStaffCode,
                                                     );
-                                                await Navigator.of(
-                                                  context,
-                                                ).push(
-                                                  MaterialPageRoute(
-                                                    builder: (_) => nextScreen,
-                                                  ),
-                                                );
-                                                if (mounted) {
-                                                  await _loadDailyFeed(
-                                                    refresh: true,
+                                                final destinationBuilder =
+                                                    canOpenEdit
+                                                    ? editActivityRoutes[activity
+                                                          .name]
+                                                    : activityRoutes[activity
+                                                          .name];
+                                                if (destinationBuilder !=
+                                                    null) {
+                                                  final (
+                                                    routeName,
+                                                    args,
+                                                  ) = destinationBuilder(
+                                                    activity,
                                                   );
+                                                  await context.push(
+                                                    routeName,
+                                                    extra: args,
+                                                  );
+                                                  if (mounted) {
+                                                    await _loadDailyFeed(
+                                                      refresh: true,
+                                                    );
+                                                  }
                                                 }
-                                              }
-                                            },
-                                            child: Container(
-                                              constraints: const BoxConstraints(
-                                                minHeight: 180,
-                                              ),
-                                              margin: const EdgeInsets.only(
-                                                bottom: 10,
-                                              ),
-                                              padding: const EdgeInsets.all(12),
-                                              decoration: BoxDecoration(
-                                                color: activityColor.withValues(
-                                                  alpha: 0.15,
+                                              },
+                                              child: Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minHeight: 180,
+                                                    ),
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 10,
                                                 ),
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                border: Border.all(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
                                                   color: activityColor
-                                                      .withValues(alpha: 0.4),
+                                                      .withValues(alpha: 0.15),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                    color: activityColor
+                                                        .withValues(alpha: 0.4),
+                                                  ),
                                                 ),
-                                              ),
-                                              child: Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    child: SizedBox(
-                                                      width: 140,
-                                                      height: 120,
-                                                      child:
-                                                          activityHasMediaOrProcessing(
-                                                            activity,
-                                                          )
-                                                          ? ActivityMediaPreview(
-                                                              activity:
-                                                                  activity,
-                                                              activityColor:
-                                                                  activityColor,
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      child: SizedBox(
+                                                        width: 140,
+                                                        height: 120,
+                                                        child:
+                                                            activityHasMediaOrProcessing(
+                                                              activity,
                                                             )
-                                                          // ? Image.network(
-                                                          //     activity.photoUrl!,
-                                                          //     fit: BoxFit.cover,
-                                                          //     loadingBuilder:
-                                                          //         (
-                                                          //           context,
-                                                          //           child,
-                                                          //           loadingProgress,
-                                                          //         ) {
-                                                          //           if (loadingProgress ==
-                                                          //               null)
-                                                          //             return child;
-                                                          //           return Container(
-                                                          //             color: Colors
-                                                          //                 .transparent,
-                                                          //             child: const Center(
-                                                          //               child: CircularProgressIndicator(
-                                                          //                 strokeWidth:
-                                                          //                     2,
-                                                          //               ),
-                                                          //             ),
-                                                          //           );
-                                                          //         },
-                                                          //     errorBuilder:
-                                                          //         (
-                                                          //           context,
-                                                          //           error,
-                                                          //           stackTrace,
-                                                          //         ) {
-                                                          //           return Container(
-                                                          //             width: 122,
-                                                          //             height: 76,
-                                                          //             color: activity
-                                                          //                 .color
-                                                          //                 .withValues(alpha:
-                                                          //                   0.25,
-                                                          //                 ),
-                                                          //             child: Center(
-                                                          //               child: Image.asset(
-                                                          //                 activityIcons[activity
-                                                          //                     .name],
-                                                          //                 //'assets/icons/activity-nap-icon.png',
-                                                          //                 fit: BoxFit
-                                                          //                     .fill,
-                                                          //               ),
-                                                          //             ),
-                                                          //           );
-                                                          //         },
-                                                          //   )
-                                                          : Container(
-                                                              width: 122,
-                                                              height: 76,
-                                                              color:
-                                                                  Colors.white,
-                                                              // color: activityColor
-                                                              //     .withValues(alpha:0.25),
-                                                              child: Center(
-                                                                child: Builder(
-                                                                  builder: (_) {
-                                                                    final iconPath =
-                                                                        (activityIcons[activity.name] ??
-                                                                                MediaRes.notesActivityIcon)
-                                                                            .toString();
-                                                                    if (iconPath
-                                                                        .toLowerCase()
-                                                                        .endsWith(
-                                                                          '.svg',
-                                                                        )) {
-                                                                      return SvgPicture.asset(
+                                                            ? ActivityMediaPreview(
+                                                                activity:
+                                                                    activity,
+                                                                activityColor:
+                                                                    activityColor,
+                                                              )
+                                                            : Container(
+                                                                width: 122,
+                                                                height: 76,
+                                                                color: AppColors
+                                                                    .cardColor,
+                                                                child: Center(
+                                                                  child: Builder(
+                                                                    builder: (_) {
+                                                                      final iconPath =
+                                                                          (activityIcons[activity.name] ??
+                                                                                  MediaRes.notesActivityIcon)
+                                                                              .toString();
+                                                                      if (iconPath
+                                                                          .toLowerCase()
+                                                                          .endsWith(
+                                                                            '.svg',
+                                                                          )) {
+                                                                        return SvgPicture.asset(
+                                                                          iconPath,
+                                                                          fit: BoxFit
+                                                                              .contain,
+                                                                        );
+                                                                      }
+                                                                      return Image.asset(
                                                                         iconPath,
                                                                         fit: BoxFit
-                                                                            .contain,
+                                                                            .fill,
                                                                       );
-                                                                    }
-                                                                    return Image.asset(
-                                                                      iconPath,
-                                                                      fit: BoxFit
-                                                                          .fill,
-                                                                    );
-                                                                  },
-                                                                ),
-                                                              ),
-                                                            ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .spaceBetween,
-                                                          children: [
-                                                            Expanded(
-                                                              child: Align(
-                                                                alignment: Alignment
-                                                                    .centerLeft,
-                                                                child: Container(
-                                                                  padding:
-                                                                      const EdgeInsets.symmetric(
-                                                                        horizontal:
-                                                                            12,
-                                                                        vertical:
-                                                                            6,
-                                                                      ),
-                                                                  decoration: BoxDecoration(
-                                                                    color: activityColor
-                                                                        .withValues(
-                                                                          alpha:
-                                                                              0.5,
-                                                                        ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          4,
-                                                                        ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    activity
-                                                                        .name,
-                                                                    maxLines: 1,
-                                                                    overflow:
-                                                                        TextOverflow
-                                                                            .ellipsis,
-                                                                    style: const TextStyle(
-                                                                      color: AppColors
-                                                                          .primaryColor,
-                                                                      fontSize:
-                                                                          12,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            if (!isAttendanceCardActivityItem(
-                                                              activity,
-                                                            ))
-                                                              PopupMenuButton<
-                                                                String
-                                                              >(
-                                                                icon: const Icon(
-                                                                  Icons
-                                                                      .more_horiz,
-                                                                  size: 20,
-                                                                ),
-                                                                onSelected:
-                                                                    null,
-                                                                itemBuilder: (context) => [
-                                                                  PopupMenuItem<
-                                                                    String
-                                                                  >(
-                                                                    value:
-                                                                        'view',
-                                                                    child: PopupItem(
-                                                                      title:
-                                                                          'View',
-                                                                      icon: Icon(
-                                                                        Icons
-                                                                            .visibility_outlined,
-                                                                        color: AppColors
-                                                                            .themeColor,
-                                                                      ),
-                                                                    ),
-                                                                    onTap: () async {
-                                                                      final destinationBuilder =
-                                                                          activityRoutes[activity
-                                                                              .name];
-                                                                      if (destinationBuilder !=
-                                                                          null) {
-                                                                        final nextScreen =
-                                                                            destinationBuilder(
-                                                                              activity,
-                                                                            );
-                                                                        await Navigator.of(
-                                                                          context,
-                                                                        ).push(
-                                                                          MaterialPageRoute(
-                                                                            builder: (_) =>
-                                                                                nextScreen,
-                                                                          ),
-                                                                        );
-                                                                        if (mounted) {
-                                                                          await _loadDailyFeed(
-                                                                            refresh:
-                                                                                true,
-                                                                          );
-                                                                        }
-                                                                      }
                                                                     },
                                                                   ),
-                                                                  if (isNotParent &&
-                                                                      widget
-                                                                          .allowActivityWrite &&
-                                                                      canEditActivityItem(
-                                                                        activity,
-                                                                        isAdminPersona:
-                                                                            _isAdminPersona,
-                                                                        viewerStaffCode:
-                                                                            _viewerStaffCode,
-                                                                      ))
+                                                                ),
+                                                              ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .spaceBetween,
+                                                            children: [
+                                                              Expanded(
+                                                                child: Align(
+                                                                  alignment:
+                                                                      Alignment
+                                                                          .centerLeft,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                      vertical:
+                                                                          6,
+                                                                    ),
+                                                                    decoration: BoxDecoration(
+                                                                      color: activityColor.withValues(
+                                                                        alpha:
+                                                                            0.5,
+                                                                      ),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            4,
+                                                                          ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      activity
+                                                                          .name,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: AppTextStyles
+                                                                          .activitySmallText,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              if (!isAttendanceCardActivityItem(
+                                                                activity,
+                                                              ))
+                                                                PopupMenuButton<
+                                                                  String
+                                                                >(
+                                                                  icon: const Icon(
+                                                                    Icons
+                                                                        .more_horiz,
+                                                                    size: 20,
+                                                                  ),
+                                                                  onSelected:
+                                                                      null,
+                                                                  itemBuilder: (context) => [
                                                                     PopupMenuItem<
                                                                       String
                                                                     >(
                                                                       value:
-                                                                          'edit',
+                                                                          'view',
                                                                       child: PopupItem(
                                                                         title:
-                                                                            'Edit',
+                                                                            'View',
                                                                         icon: Icon(
                                                                           Icons
-                                                                              .edit,
+                                                                              .visibility_outlined,
                                                                           color:
                                                                               AppColors.themeColor,
                                                                         ),
                                                                       ),
                                                                       onTap: () async {
                                                                         final destinationBuilder =
-                                                                            editActivityRoutes[activity.name];
+                                                                            activityRoutes[activity.name];
                                                                         if (destinationBuilder !=
                                                                             null) {
-                                                                          final nextScreen = destinationBuilder(
+                                                                          final (
+                                                                            routeName,
+                                                                            args,
+                                                                          ) = destinationBuilder(
                                                                             activity,
                                                                           );
-                                                                          await Navigator.of(
-                                                                            context,
-                                                                          ).push(
-                                                                            MaterialPageRoute(
-                                                                              builder:
-                                                                                  (
-                                                                                    _,
-                                                                                  ) => nextScreen,
-                                                                            ),
+                                                                          await context.push(
+                                                                            routeName,
+                                                                            extra:
+                                                                                args,
                                                                           );
                                                                           if (mounted) {
                                                                             await _loadDailyFeed(
@@ -3517,924 +3229,287 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                         }
                                                                       },
                                                                     ),
-                                                                  if (canAdminApproveOrRejectActivityItem(
-                                                                        activity,
-                                                                        isAdminPersona:
-                                                                            _isAdminPersona,
-                                                                      ) &&
-                                                                      !isIncidentActivityItem(
-                                                                        activity,
-                                                                      )) ...[
-                                                                    PopupMenuItem<
-                                                                      String
-                                                                    >(
-                                                                      value:
-                                                                          'approve',
-                                                                      child: PopupItem(
-                                                                        title:
-                                                                            'Approve',
-                                                                        icon: Icon(
-                                                                          Icons
-                                                                              .check_circle_outline,
-                                                                          color:
-                                                                              AppColors.themeColor,
+                                                                    if (isNotParent &&
+                                                                        widget
+                                                                            .allowActivityWrite &&
+                                                                        canEditActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                          viewerStaffCode:
+                                                                              _viewerStaffCode,
+                                                                        ))
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'edit',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Edit',
+                                                                          icon: Icon(
+                                                                            Icons.edit,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
                                                                         ),
-                                                                      ),
-                                                                      onTap: () async {
-                                                                        await _showApprovalActionBottomSheet(
-                                                                          activity:
+                                                                        onTap: () async {
+                                                                          final destinationBuilder =
+                                                                              editActivityRoutes[activity.name];
+                                                                          if (destinationBuilder !=
+                                                                              null) {
+                                                                            final (
+                                                                              routeName,
+                                                                              args,
+                                                                            ) = destinationBuilder(
                                                                               activity,
-                                                                          isApprove:
-                                                                              true,
-                                                                        );
-                                                                      },
-                                                                    ),
-                                                                    PopupMenuItem<
-                                                                      String
-                                                                    >(
-                                                                      value:
-                                                                          'reject',
-                                                                      child: PopupItem(
-                                                                        title:
-                                                                            'Reject',
-                                                                        icon: Icon(
-                                                                          Icons
-                                                                              .cancel_outlined,
-                                                                          color:
-                                                                              AppColors.themeColor,
-                                                                        ),
-                                                                      ),
-                                                                      onTap: () async {
-                                                                        await _showApprovalActionBottomSheet(
-                                                                          activity:
-                                                                              activity,
-                                                                          isApprove:
-                                                                              false,
-                                                                        );
-                                                                      },
-                                                                    ),
-                                                                  ],
-                                                                  if (isNotParent &&
-                                                                      widget
-                                                                          .allowActivityWrite &&
-                                                                      canDeleteActivityItem(
-                                                                        activity,
-                                                                        isAdminPersona:
-                                                                            _isAdminPersona,
-                                                                      ))
-                                                                    PopupMenuItem<
-                                                                      String
-                                                                    >(
-                                                                      value:
-                                                                          'delete',
-                                                                      child: PopupItem(
-                                                                        title:
-                                                                            'Delete',
-                                                                        icon: Icon(
-                                                                          Icons
-                                                                              .delete,
-                                                                          color:
-                                                                              AppColors.themeColor,
-                                                                        ),
-                                                                      ),
-                                                                      onTap: () {
-                                                                        showModalBottomSheet(
-                                                                          context:
-                                                                              context,
-                                                                          isScrollControlled:
-                                                                              true,
-                                                                          backgroundColor:
-                                                                              Colors.transparent,
-                                                                          builder: (ctx) {
-                                                                            return DeleteConfirmationBottomSheet(
-                                                                              name: activity.name,
-                                                                              type: 'Activity',
-                                                                              onDelete: () => _deleteActivityFromSheet(
-                                                                                ctx,
-                                                                                activity,
-                                                                              ),
-                                                                              onCancel: () {
-                                                                                Navigator.of(
-                                                                                  ctx,
-                                                                                ).pop();
-                                                                              },
                                                                             );
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    ),
-                                                                ],
-                                                              ),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-
-                                                        activityFeedStudentAvatarStack(
-                                                          students,
-                                                          studentCodes:
-                                                              feedStudentCodesForNames(
-                                                                activity,
-                                                              ),
-                                                          onOpenStudentList: () =>
-                                                              showActivityStudentListSheet(
-                                                                context,
-                                                                students,
-                                                                studentCodes:
-                                                                    feedStudentCodesForNames(
-                                                                      activity,
-                                                                    ),
-                                                              ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-
-                                                        Text(
-                                                          activityFeedCardBodyLine(
-                                                            activity,
+                                                                            await context.push(
+                                                                              routeName,
+                                                                              extra: args,
+                                                                            );
+                                                                            if (mounted) {
+                                                                              await _loadDailyFeed(
+                                                                                refresh: true,
+                                                                              );
+                                                                            }
+                                                                          }
+                                                                        },
+                                                                      ),
+                                                                    if (canAdminApproveOrRejectActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ) &&
+                                                                        !isIncidentActivityItem(
+                                                                          activity,
+                                                                        )) ...[
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'approve',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Approve',
+                                                                          icon: Icon(
+                                                                            Icons.check_circle_outline,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                true,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'reject',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Reject',
+                                                                          icon: Icon(
+                                                                            Icons.cancel_outlined,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () async {
+                                                                          await _showApprovalActionBottomSheet(
+                                                                            activity:
+                                                                                activity,
+                                                                            isApprove:
+                                                                                false,
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ],
+                                                                    if (isNotParent &&
+                                                                        widget
+                                                                            .allowActivityWrite &&
+                                                                        canDeleteActivityItem(
+                                                                          activity,
+                                                                          isAdminPersona:
+                                                                              _isAdminPersona,
+                                                                        ))
+                                                                      PopupMenuItem<
+                                                                        String
+                                                                      >(
+                                                                        value:
+                                                                            'delete',
+                                                                        child: PopupItem(
+                                                                          title:
+                                                                              'Delete',
+                                                                          icon: Icon(
+                                                                            Icons.delete,
+                                                                            color:
+                                                                                AppColors.themeColor,
+                                                                          ),
+                                                                        ),
+                                                                        onTap: () {
+                                                                          showModalBottomSheet(
+                                                                            context:
+                                                                                context,
+                                                                            isScrollControlled:
+                                                                                true,
+                                                                            backgroundColor:
+                                                                                AppColors.transparentColor,
+                                                                            builder:
+                                                                                (
+                                                                                  ctx,
+                                                                                ) {
+                                                                                  return DeleteConfirmationBottomSheet(
+                                                                                    name: activity.name,
+                                                                                    type: 'Activity',
+                                                                                    onDelete: () => _deleteActivityFromSheet(
+                                                                                      ctx,
+                                                                                      activity,
+                                                                                    ),
+                                                                                    onCancel: () {
+                                                                                      Navigator.of(
+                                                                                        ctx,
+                                                                                      ).pop();
+                                                                                    },
+                                                                                  );
+                                                                                },
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                            ],
                                                           ),
-                                                          style: AppTextStyles
-                                                              .body
-                                                              .copyWith(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                height: 1.0,
-                                                              ),
-                                                          strutStyle: StrutStyle(
-                                                            fontFamily:
-                                                                Fonts.manrope,
-                                                            fontSize: 14,
-                                                            height: 1.0,
-                                                            leading: 0,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            forceStrutHeight:
-                                                                true,
+                                                          const SizedBox(
+                                                            height: 10,
                                                           ),
-                                                          textHeightBehavior:
-                                                              const TextHeightBehavior(
-                                                                applyHeightToFirstAscent:
-                                                                    false,
-                                                                applyHeightToLastDescent:
-                                                                    false,
-                                                              ),
-                                                          maxLines:
-                                                              activityFeedCardBodyMaxLines(
-                                                                activity,
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 10,
-                                                        ),
-                                                        AppText.small(
-                                                          'Created By - ${activity.createdBy}',
-                                                          style: AppTextStyles
-                                                              .small
-                                                              .copyWith(
-                                                                color: AppColors
-                                                                    .primaryColor,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ],
+
+                                                          activityFeedStudentAvatarStack(
+                                                            students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                                  activity,
+                                                                ),
+                                                            onOpenStudentList: () =>
+                                                                showActivityStudentListSheet(
+                                                                  context,
+                                                                  students,
+                                                                  studentCodes:
+                                                                      feedStudentCodesForNames(
+                                                                        activity,
+                                                                      ),
+                                                                ),
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+
+                                                          Text(
+                                                            activityFeedCardBodyLine(
+                                                              activity,
+                                                            ),
+                                                            style: AppTextStyles
+                                                                .body
+                                                                .copyWith(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  height: 1.0,
+                                                                ),
+                                                            strutStyle: StrutStyle(
+                                                              fontFamily:
+                                                                  Fonts.manrope,
+                                                              fontSize: 14,
+                                                              height: 1.0,
+                                                              leading: 0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              forceStrutHeight:
+                                                                  true,
+                                                            ),
+                                                            textHeightBehavior:
+                                                                const TextHeightBehavior(
+                                                                  applyHeightToFirstAscent:
+                                                                      false,
+                                                                  applyHeightToLastDescent:
+                                                                      false,
+                                                                ),
+                                                            maxLines:
+                                                                activityFeedCardBodyMaxLines(
+                                                                  activity,
+                                                                ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 10,
+                                                          ),
+                                                          AppText.small(
+                                                            'Created By - ${activity.createdBy}',
+                                                            style: AppTextStyles
+                                                                .small
+                                                                .copyWith(
+                                                                  color: AppColors
+                                                                      .primaryColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      }, childCount: _activities.length + (_loadingMoreFeed ? 1 : 0)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        childCount:
+                            _displayedActivities.length +
+                            (_displayedLoadingMoreFeed ? 1 : 0),
+                      ),
                     ),
                   ),
                 const SliverToBoxAdapter(child: SizedBox(height: 10)),
               ],
             ),
           );
-          // return SingleChildScrollView(
-          //   child: Column(
-          //     children: [
-          //       Padding(
-          //         padding: ResponsiveSizing.contentPadding(context),
-          //         child: Container(
-          //           padding: const EdgeInsets.all(12),
-          //           decoration: BoxDecoration(
-          //             border: Border.all(color: AppColors.cardBorderColor),
-          //             borderRadius: BorderRadius.circular(12),
-          //             color: AppColors.cardColor,
-          //           ),
-          //           child: widget.fromStudentProfile
-          //               ? Column(
-          //             crossAxisAlignment: CrossAxisAlignment.stretch,
-          //             children: [
-          //               SizedBox(
-          //                 height: 40,
-          //                 child: AbsorbPointer(
-          //                   child: _buildCustomDropdown(
-          //                     'Select Student',
-          //                     [?widget.studentName],
-          //                     widget.studentName,
-          //                         (v) => setState(() {
-          //                       _selectedStudent = v;
-          //                     }),
-          //                     height: 40,
-          //                   ),
-          //                 ),
-          //               ),
-          //               const SizedBox(height: 8),
-          //               SizedBox(
-          //                 height: 40,
-          //                 child: _datePickerFilter(
-          //                   selectedDate: _selectedDate,
-          //                   onDateSelected: (date) {
-          //                     setState(() {
-          //                       _selectedDate = date;
-          //                     });
-          //                   },
-          //                 ),
-          //               ),
-          //             ],
-          //           )
-          //               : isNotParent
-          //               ? Column(
-          //             children: [
-          //               Row(
-          //                 children: [
-          //                   Expanded(
-          //                     child: _buildCustomDropdown(
-          //                       'Select Classroom',
-          //                       _classroomOptions,
-          //                       _selectdClassroom,
-          //                           (v) => setState(() {
-          //                         _selectdClassroom = v;
-          //                         _updateAvailableStudents();
-          //                       }),
-          //                     ),
-          //                   ),
-          //                   const SizedBox(width: 8),
-          //                   Expanded(
-          //                     // child: _buildCustomDropdown(
-          //                     //   'Select Student',
-          //                     //   _allStudents,
-          //                     //   _selectedStudent,
-          //                     //   (v) => setState(() {
-          //                     //     _selectedStudent = v;
-          //                     //   }),
-          //                     // ),
-          //                     child: _buildCustomDropdown(
-          //                       _selectdClassroom == null
-          //                           ? 'Select Classroom First'
-          //                           : 'Select Student',
-          //                       _availableStudents,
-          //                       _selectedStudent,
-          //                           (value) {
-          //                         if (_selectdClassroom != null) {
-          //                           setState(() {
-          //                             _selectedStudent = value;
-          //                           });
-          //                         }
-          //                       },
-          //                     ),
-          //                   ),
-          //                   const SizedBox(width: 8),
-          //                   Material(
-          //                     color: Colors.transparent,
-          //                     child: InkWell(
-          //                       borderRadius: BorderRadius.circular(100),
-          //                       onTap: () async {
-          //                         final result = await Navigator.push(
-          //                           context,
-          //                           MaterialPageRoute(
-          //                             builder: (_) => FilterScreen(
-          //                               sections: [
-          //                                 FilerSection(
-          //                                   label: 'Tags',
-          //                                   hintText: 'Select tags',
-          //                                   items: [
-          //                                     '5 Days',
-          //                                     'Full Day',
-          //                                     'Photo Permission',
-          //                                     'Vegetarian',
-          //                                     'First Aid',
-          //                                     'Allergy',
-          //                                     'Pickup Authorized',
-          //                                     'Medication',
-          //                                     'Half Day',
-          //                                     'Boy',
-          //                                     'Girl',
-          //                                   ],
-          //                                   initialSelected: _filterTags,
-          //                                   isMultiSelectDropDown: false,
-          //                                 ),
-          //                                 FilerSection(
-          //                                   label: 'Activity Type',
-          //                                   hintText: 'Select Activity',
-          //                                   items: [
-          //                                     'Nap Start',
-          //                                     'Nap End',
-          //                                     'Bathroom',
-          //                                     'Bottle',
-          //                                     'Meal',
-          //                                     'Incident',
-          //                                     'Photo',
-          //                                     'Outdoor',
-          //                                     'Medication',
-          //                                     'Notes',
-          //                                     'Learning',
-          //                                     'Sign-in',
-          //                                     'Sign-out',
-          //                                     'Absent',
-          //                                   ],
-          //                                   initialSelected: _filterActivityTypes,
-          //                                   isMultiSelectDropDown: false,
-          //                                 ),
-          //                               ],
-          //                               onApply: (filters) {
-          //                                 setState(() {
-          //                                   _filterTags = filters['Tags']!;
-          //                                   _filterActivityTypes =
-          //                                   filters['Activity Type']!;
-          //                                 });
-          //                                 //AppLogger.d(_filterTags);
-          //                                 //AppLogger.d(_filterActivityTypes);
-          //                               },
-          //                             ),
-          //                           ),
-          //                         );
-          //                         if (!mounted) return;
-          //                         if (result is Map) {
-          //                           // TODO: apply filters to list
-          //                           setState(() {});
-          //                         }
-          //                       },
-          //                       child: Padding(
-          //                         padding: const EdgeInsets.all(8),
-          //                         child: SvgPicture.asset(
-          //                           MediaRes.filterIcon,
-          //                           height: 20,
-          //                         ),
-          //                       ),
-          //                     ),
-          //                   ),
-          //                 ],
-          //               ),
-          //               const SizedBox(height: 16),
-          //               Row(
-          //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //                 children: [
-          //                   Expanded(
-          //                     child: _datePickerFilter(
-          //                       selectedDate: _selectedDate,
-          //                       onDateSelected: (date) {
-          //                         setState(() {
-          //                           _selectedDate = date;
-          //                         });
-          //                       },
-          //                     ),
-          //                   ),
-          //                   const SizedBox(width: 8),
-          //                   CustomClearAllChip(
-          //                     onTap: () {
-          //                       setState(() {
-          //                         _selectdClassroom = _classroomOptions[0];
-          //                         _selectedStudent = null;
-          //                         _filterActivityTypes.clear();
-          //                         _filterTags.clear();
-          //                       });
-          //                       //AppLogger.d(_filterTags);
-          //                     },
-          //                     label: 'Clear All',
-          //                   ),
-          //                 ],
-          //               ),
-          //             ],
-          //           )
-          //               : Row(
-          //             children: [
-          //               Expanded(
-          //                 child: SizedBox(
-          //                   height: 40,
-          //                   child: _datePickerFilter(
-          //                     selectedDate: _selectedDate,
-          //                     onDateSelected: (date) {
-          //                       setState(() {
-          //                         _selectedDate = date;
-          //                       });
-          //                     },
-          //                   ),
-          //                 ),
-          //               ),
-          //               const SizedBox(width: 8),
-          //               Expanded(
-          //                 child: SizedBox(
-          //                   height: 40,
-          //                   child: _buildCustomDropdown(
-          //                     'Activity Type',
-          //                     activityType,
-          //                     _selectedActivityType,
-          //                         (v) => setState(() {
-          //                       _selectedActivityType = v;
-          //                     }),
-          //                     height: 40,
-          //                   ),
-          //                 ),
-          //               ),
-          //             ],
-          //           ),
-          //         ),
-          //       ),
-          //
-          //       const SizedBox(height: 12),
-          //
-          //       if (activities.length == 0)
-          //         Padding(
-          //           padding: ResponsiveSizing.contentPadding(context),
-          //           child: Container(
-          //             padding: const EdgeInsets.all(12),
-          //             decoration: BoxDecoration(
-          //               border: Border.all(color: AppColors.cardBorderColor),
-          //               borderRadius: BorderRadius.circular(12),
-          //               color: AppColors.cardColor,
-          //             ),
-          //             child: Center(
-          //               child: Text(
-          //                 'No Activities found',
-          //                 style: TextStyle(
-          //                   color: Colors.black,
-          //                   fontFamily: 'Manrope',
-          //                   fontSize: 16,
-          //                   fontWeight: FontWeight.w500,
-          //                 ),
-          //               ),
-          //             ),
-          //           ),
-          //         ),
-          //
-          //       if (activities.length != 0)
-          //         Padding(
-          //           padding: ResponsiveSizing.contentPadding(context),
-          //           child: Column(
-          //             children: [
-          //               const SizedBox(height: 10),
-          //               ListView.builder(
-          //                 padding: const EdgeInsets.only(right: 16),
-          //                 itemCount: activities.length,
-          //                 itemBuilder: (context, index) {
-          //                   final activity = _activities[index];
-          //                   final students = activity.studentList;
-          //                   final Color activityColor =
-          //                   _colorPalette[index % _colorPalette.length];
-          //
-          //                   return Column(
-          //                     children: [
-          //                       Row(
-          //                         children: [
-          //                           Column(
-          //                             children: [
-          //                               Container(
-          //                                 width: 18,
-          //                                 height: 18,
-          //                                 decoration: BoxDecoration(
-          //                                   //color: activity.color,
-          //                                   color: activityColor,
-          //                                   shape: BoxShape.circle,
-          //                                 ),
-          //                               ),
-          //                               Container(
-          //                                 width: 4,
-          //                                 height: 2,
-          //                                 //color: activity.color,
-          //                                 color: activityColor,
-          //                               ),
-          //                             ],
-          //                           ),
-          //                           Container(
-          //                             width: 100,
-          //                             height: 4,
-          //                             //color: activity.color,
-          //                             color: activityColor,
-          //                           ),
-          //                           Container(
-          //                             width: 18,
-          //                             height: 18,
-          //                             decoration: BoxDecoration(
-          //                               //color: activity.color,
-          //                               color: activityColor,
-          //                               shape: BoxShape.circle,
-          //                             ),
-          //                           ),
-          //                           const SizedBox(width: 20),
-          //                           SizedBox(
-          //                             height: 20,
-          //                             child: Text(
-          //                               activity.time,
-          //                               style: TextStyle(
-          //                                 fontSize: 14,
-          //                                 color: AppColors.primaryColor,
-          //                                 fontWeight: FontWeight.w500,
-          //                               ),
-          //                             ),
-          //                           ),
-          //                         ],
-          //                       ),
-          //                       Row(
-          //                         crossAxisAlignment: CrossAxisAlignment.start,
-          //                         children: [
-          //                           const SizedBox(width: 7),
-          //                           Container(
-          //                             width: 4,
-          //                             height: 220,
-          //                             //color: activity.color,
-          //                             color: activityColor,
-          //                           ),
-          //
-          //                           const SizedBox(width: 16),
-          //
-          //                           // Activity Card
-          //                           Column(
-          //                             children: [
-          //                               const SizedBox(height: 15),
-          //                               InkWell(
-          //                                 onTap: () {
-          //                                   final destinationBuilder =
-          //                                   activityRoutes[activity
-          //                                       .name];
-          //                                   if (destinationBuilder !=
-          //                                       null) {
-          //                                     final nextScreen =
-          //                                     destinationBuilder(
-          //                                       activity,
-          //                                     );
-          //                                     Navigator.of(
-          //                                       context,
-          //                                     ).push(
-          //                                       MaterialPageRoute(
-          //                                         builder: (_) =>
-          //                                         nextScreen,
-          //                                       ),
-          //                                     );
-          //                                   }
-          //                                 },
-          //                                 child: Container(
-          //                                   height: 180,
-          //                                   margin: const EdgeInsets.only(
-          //                                     bottom: 24,
-          //                                   ),
-          //                                   padding: const EdgeInsets.all(12),
-          //                                   decoration: BoxDecoration(
-          //                                     color: activityColor.withValues(alpha:
-          //                                       0.15,
-          //                                     ),
-          //                                     borderRadius: BorderRadius.circular(
-          //                                       16,
-          //                                     ),
-          //                                     border: Border.all(
-          //                                       color: activityColor.withValues(alpha:
-          //                                         0.4,
-          //                                       ),
-          //                                     ),
-          //                                   ),
-          //                                   child: Row(
-          //                                     // crossAxisAlignment:
-          //                                     //     CrossAxisAlignment.center,
-          //                                     children: [
-          //                                       ClipRRect(
-          //                                         borderRadius:
-          //                                         BorderRadius.circular(12),
-          //                                         child: SizedBox(
-          //                                           width: 140,
-          //                                           height: 120,
-          //                                           child:
-          //                                           activity.photoUrl != null ||
-          //                                               activity.videoUrl !=
-          //                                                   null
-          //                                               ? ActivityMediaPreview(
-          //                                             activity: activity,
-          //                                             activityColor:
-          //                                             activityColor,
-          //                                           )
-          //                                           // ? Image.network(
-          //                                           //     activity.photoUrl!,
-          //                                           //     fit: BoxFit.cover,
-          //                                           //     loadingBuilder:
-          //                                           //         (
-          //                                           //           context,
-          //                                           //           child,
-          //                                           //           loadingProgress,
-          //                                           //         ) {
-          //                                           //           if (loadingProgress ==
-          //                                           //               null)
-          //                                           //             return child;
-          //                                           //           return Container(
-          //                                           //             color: Colors
-          //                                           //                 .transparent,
-          //                                           //             child: const Center(
-          //                                           //               child: CircularProgressIndicator(
-          //                                           //                 strokeWidth:
-          //                                           //                     2,
-          //                                           //               ),
-          //                                           //             ),
-          //                                           //           );
-          //                                           //         },
-          //                                           //     errorBuilder:
-          //                                           //         (
-          //                                           //           context,
-          //                                           //           error,
-          //                                           //           stackTrace,
-          //                                           //         ) {
-          //                                           //           return Container(
-          //                                           //             width: 122,
-          //                                           //             height: 76,
-          //                                           //             color: activity
-          //                                           //                 .color
-          //                                           //                 .withValues(alpha:
-          //                                           //                   0.25,
-          //                                           //                 ),
-          //                                           //             child: Center(
-          //                                           //               child: Image.asset(
-          //                                           //                 activityIcons[activity
-          //                                           //                     .name],
-          //                                           //                 //'assets/icons/activity-nap-icon.png',
-          //                                           //                 fit: BoxFit
-          //                                           //                     .fill,
-          //                                           //               ),
-          //                                           //             ),
-          //                                           //           );
-          //                                           //         },
-          //                                           //   )
-          //                                               : Container(
-          //                                             width: 122,
-          //                                             height: 76,
-          //                                             color: Colors.white,
-          //                                             // color: activityColor
-          //                                             //     .withValues(alpha:0.25),
-          //                                             child: Center(
-          //                                               child: Image.asset(
-          //                                                 activityIcons[activity
-          //                                                     .name],
-          //                                                 //'assets/icons/activity-nap-icon.png',
-          //                                                 fit: BoxFit.fill,
-          //                                               ),
-          //                                             ),
-          //                                           ),
-          //                                         ),
-          //                                       ),
-          //                                       const SizedBox(width: 12),
-          //                                       Expanded(
-          //                                         child: Column(
-          //                                           crossAxisAlignment:
-          //                                           CrossAxisAlignment.start,
-          //                                           mainAxisAlignment:
-          //                                           MainAxisAlignment
-          //                                               .spaceEvenly,
-          //                                           children: [
-          //                                             Row(
-          //                                               mainAxisAlignment:
-          //                                               MainAxisAlignment
-          //                                                   .spaceBetween,
-          //                                               children: [
-          //                                                 Container(
-          //                                                   padding:
-          //                                                   const EdgeInsets.symmetric(
-          //                                                     horizontal: 12,
-          //                                                     vertical: 6,
-          //                                                   ),
-          //                                                   decoration: BoxDecoration(
-          //                                                     color: activityColor,
-          //                                                     borderRadius:
-          //                                                     BorderRadius.circular(
-          //                                                       20,
-          //                                                     ),
-          //                                                   ),
-          //                                                   child: Text(
-          //                                                     activity.name,
-          //                                                     style:
-          //                                                     const TextStyle(
-          //                                                       color: Colors
-          //                                                           .white,
-          //                                                       fontSize: 11,
-          //                                                       fontWeight:
-          //                                                       FontWeight
-          //                                                           .bold,
-          //                                                     ),
-          //                                                   ),
-          //                                                 ),
-          //                                                 PopupMenuButton<String>(
-          //                                                   icon: const Icon(
-          //                                                     Icons.more_horiz,
-          //                                                     size: 20,
-          //                                                   ),
-          //                                                   onSelected: null,
-          //                                                   itemBuilder: (context) => [
-          //                                                     PopupMenuItem<String>(
-          //                                                       value: 'view',
-          //                                                       child: PopupItem(
-          //                                                         title: 'View',
-          //                                                         icon: Icon(
-          //                                                           Icons
-          //                                                               .visibility_outlined,
-          //                                                           color: AppColors
-          //                                                               .themeColor,
-          //                                                         ),
-          //                                                       ),
-          //                                                       onTap: () {
-          //                                                         final destinationBuilder =
-          //                                                         activityRoutes[activity
-          //                                                             .name];
-          //                                                         if (destinationBuilder !=
-          //                                                             null) {
-          //                                                           final nextScreen =
-          //                                                           destinationBuilder(
-          //                                                             activity,
-          //                                                           );
-          //                                                           Navigator.of(
-          //                                                             context,
-          //                                                           ).push(
-          //                                                             MaterialPageRoute(
-          //                                                               builder: (_) =>
-          //                                                               nextScreen,
-          //                                                             ),
-          //                                                           );
-          //                                                         }
-          //                                                       },
-          //                                                     ),
-          //                                                     PopupMenuItem<String>(
-          //                                                       value: 'edit',
-          //                                                       child: PopupItem(
-          //                                                         title: 'Edit',
-          //                                                         icon: Icon(
-          //                                                           Icons.edit,
-          //                                                           color: AppColors
-          //                                                               .themeColor,
-          //                                                         ),
-          //                                                       ),
-          //                                                       onTap: () {
-          //                                                         final destinationBuilder =
-          //                                                         editActivityRoutes[activity
-          //                                                             .name];
-          //                                                         if (destinationBuilder !=
-          //                                                             null) {
-          //                                                           final nextScreen =
-          //                                                           destinationBuilder(
-          //                                                             activity,
-          //                                                           );
-          //                                                           Navigator.of(
-          //                                                             context,
-          //                                                           ).push(
-          //                                                             MaterialPageRoute(
-          //                                                               builder: (_) =>
-          //                                                               nextScreen,
-          //                                                             ),
-          //                                                           );
-          //                                                         }
-          //                                                       },
-          //                                                     ),
-          //                                                     PopupMenuItem<String>(
-          //                                                       value: 'delete',
-          //                                                       child: PopupItem(
-          //                                                         title: 'Delete',
-          //                                                         icon: Icon(
-          //                                                           Icons.delete,
-          //                                                           color: AppColors
-          //                                                               .themeColor,
-          //                                                         ),
-          //                                                       ),
-          //                                                     ),
-          //                                                   ],
-          //                                                 ),
-          //                                               ],
-          //                                             ),
-          //                                             const SizedBox(height: 10),
-          //
-          //                                             SizedBox(
-          //                                               height: 32,
-          //                                               child: Stack(
-          //                                                 children: [
-          //                                                   for (
-          //                                                   int i = 0;
-          //                                                   i < students.length &&
-          //                                                       i < 4;
-          //                                                   i++
-          //                                                   )
-          //                                                     Positioned(
-          //                                                       left: i * 20,
-          //                                                       child:
-          //                                                       DocumentImageWidget(
-          //                                                         fileUuid: '',
-          //                                                         name:
-          //                                                         students[i],
-          //                                                         size: 28,
-          //                                                         fontSize: 10,
-          //                                                       ),
-          //                                                     ),
-          //
-          //                                                   // Extra count tooltip
-          //                                                   if (students.length > 4)
-          //                                                     Positioned(
-          //                                                       left:
-          //                                                       4 *
-          //                                                           20, // after 4 avatars
-          //                                                       child: Tooltip(
-          //                                                         message: students
-          //                                                             .skip(4)
-          //                                                             .join(', '),
-          //                                                         child: DocumentImageWidget(
-          //                                                           fileUuid: '',
-          //                                                           name:
-          //                                                           '+${students.length - 4}',
-          //                                                           size: 28,
-          //                                                           fontSize: 10,
-          //                                                         ),
-          //                                                       ),
-          //                                                     ),
-          //                                                 ],
-          //                                               ),
-          //                                             ),
-          //                                             const SizedBox(height: 10),
-          //
-          //                                             Text(
-          //                                               activity.description!,
-          //
-          //                                               style: TextStyle(
-          //                                                 color: AppColors
-          //                                                     .primaryColor,
-          //                                                 fontSize: 14,
-          //                                                 fontWeight:
-          //                                                 FontWeight.w600,
-          //                                               ),
-          //                                               maxLines: 1,
-          //                                               overflow:
-          //                                               TextOverflow.ellipsis,
-          //                                             ),
-          //                                             const SizedBox(height: 10),
-          //                                             Text(
-          //                                               'Created By - ${activity.createdBy}',
-          //
-          //                                               style: TextStyle(
-          //                                                 color: AppColors
-          //                                                     .primaryColor,
-          //                                                 fontSize: 12,
-          //                                                 fontWeight:
-          //                                                 FontWeight.w500,
-          //                                               ),
-          //                                               maxLines: 1,
-          //                                               overflow:
-          //                                               TextOverflow.ellipsis,
-          //                                             ),
-          //                                           ],
-          //                                         ),
-          //                                       ),
-          //                                     ],
-          //                                   ),
-          //                                 ),
-          //                               ),
-          //                             ],
-          //                           ),
-          //                         ],
-          //                       ),
-          //                     ],
-          //                   );
-          //                 },
-          //               ),
-          //             ],
-          //           ),
-          //         ),
-          //     ],
-          //   ),
-          // );
         } else {
           return CustomRefreshIndicator(
             onRefresh: _onRefresh,
             child: Column(
               children: [
                 Padding(
-                  padding: ResponsiveSizing.contentPadding(context),
+                  padding: ResponsiveHelper(context).contentPadding,
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
+                      color: AppColors.cardColor,
                     ),
                     child: widget.fromStudentProfile && !isNotParent
                         ? Column(
@@ -4443,7 +3518,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               SizedBox(
                                 height: 40,
                                 child: AbsorbPointer(
-                                  child: _buildCustomDropdown(
+                                  child: buildActivityTabCustomDropdown(
                                     'Select Student',
                                     widget.studentName != null
                                         ? [widget.studentName!]
@@ -4477,7 +3552,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildCustomMultiDropdown(
+                                    child: buildActivityTabCustomMultiDropdown(
                                       'Select Classroom',
                                       _classroomOptions,
                                       _selectedClassrooms,
@@ -4506,15 +3581,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    // child: _buildCustomDropdown(
-                                    //   'Select Student',
-                                    //   _allStudents,
-                                    //   _selectedStudent,
-                                    //   (v) => setState(() {
-                                    //     _selectedStudent = v;
-                                    //   }),
-                                    // ),
-                                    child: _buildCustomMultiDropdown(
+                                    child: buildActivityTabCustomMultiDropdown(
                                       'Select Student',
                                       _availableStudents,
                                       _selectedStudents,
@@ -4531,7 +3598,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   ),
                                   const SizedBox(width: 8),
                                   Material(
-                                    color: Colors.transparent,
+                                    color: AppColors.transparentColor,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(100),
                                       onTap: _openActivityFilter,
@@ -4577,12 +3644,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                     badgeCount > 99
                                                         ? '99+'
                                                         : '$badgeCount',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
+                                                    style: AppTextStyles
+                                                        .activitySmallBadgeText,
                                                   ),
                                                 ),
                                               );
@@ -4614,7 +3677,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () async {
                                       setState(() {
-                                        final now = DateTime.now();
+                                        final now = AppTime.now();
                                         _selectedDate = DateTime(
                                           now.year,
                                           now.month,
@@ -4654,31 +3717,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
                 const SizedBox(height: 12),
 
-                if ((_loadingFeed || _loadingParentContext) &&
-                    _activities.isEmpty)
+                if (_showFeedLoadingPlaceholder && _displayedActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
                       child: _dailyFeedLoadingSheet(context),
                     ),
                   ),
 
-                if (!_loadingFeed &&
-                    !_loadingParentContext &&
-                    _activities.length == 0)
+                if (!_showFeedLoadingPlaceholder &&
+                    _displayedActivities.isEmpty)
                   Expanded(
                     child: _portraitOverscrollFeedWrapper(
                       child: Padding(
-                        padding: ResponsiveSizing.contentPadding(context),
+                        padding: ResponsiveHelper(context).contentPadding,
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.cardColor,
                           ),
                           child: Center(
                             child: AppText.title(
-                              _feedError ?? 'No Activities found',
+                              _displayedFeedError ?? 'No Activities found',
                               textAlign: TextAlign.center,
                               style: AppTextStyles.title.copyWith(
                                 color: AppColors.primaryColor.withValues(
@@ -4692,12 +3753,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     ),
                   ),
 
-                if (_activities.length != 0)
+                if (_displayedActivities.isNotEmpty)
                   Expanded(
                     child: Padding(
-                      padding: ResponsiveSizing.activityFeedListPadding(
-                        context,
-                      ),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: Column(
                         children: [
                           const SizedBox(height: 10),
@@ -4707,10 +3766,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               controller: _feedScrollController,
                               padding: EdgeInsets.zero,
                               itemCount:
-                                  _activities.length +
-                                  (_loadingMoreFeed ? 1 : 0),
+                                  _displayedActivities.length +
+                                  (_displayedLoadingMoreFeed ? 1 : 0),
                               itemBuilder: (context, index) {
-                                if (index == _activities.length) {
+                                final displayedActivities =
+                                    _displayedActivities;
+                                if (index == displayedActivities.length) {
                                   return const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 24),
                                     child: Center(
@@ -4721,30 +3782,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     ),
                                   );
                                 }
-                                final activity = _activities[index];
+                                final activity = displayedActivities[index];
                                 final students = activity.studentList;
                                 final Color activityColor =
                                     _colorPalette[index % _colorPalette.length];
                                 final bool isHighlightTarget =
                                     _isHighlightTarget(activity.activityCode);
-                                if (isHighlightTarget && !_highlightApplied) {
-                                  _highlightApplied = true;
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    final ctx =
-                                        _highlightCardKey.currentContext;
-                                    if (ctx != null) {
-                                      Scrollable.ensureVisible(
-                                        ctx,
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        alignment: 0.1,
-                                        curve: Curves.easeOut,
-                                      );
-                                    }
-                                  });
+                                if (isHighlightTarget) {
+                                  _scheduleHighlightScroll();
                                 }
 
                                 return HighlightableCard(
@@ -4854,17 +3899,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                               .name];
                                                     if (destinationBuilder !=
                                                         null) {
-                                                      final nextScreen =
-                                                          destinationBuilder(
-                                                            activity,
-                                                          );
-                                                      await Navigator.of(
-                                                        context,
-                                                      ).push(
-                                                        MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              nextScreen,
-                                                        ),
+                                                      final (
+                                                        routeName,
+                                                        args,
+                                                      ) = destinationBuilder(
+                                                        activity,
+                                                      );
+                                                      await context.push(
+                                                        routeName,
+                                                        extra: args,
                                                       );
                                                       if (mounted) {
                                                         await _loadDailyFeed(
@@ -4925,62 +3968,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                     activityColor:
                                                                         activityColor,
                                                                   )
-                                                                // ? Image.network(
-                                                                //     activity.photoUrl!,
-                                                                //     fit: BoxFit.cover,
-                                                                //     loadingBuilder:
-                                                                //         (
-                                                                //           context,
-                                                                //           child,
-                                                                //           loadingProgress,
-                                                                //         ) {
-                                                                //           if (loadingProgress ==
-                                                                //               null)
-                                                                //             return child;
-                                                                //           return Container(
-                                                                //             color: Colors
-                                                                //                 .transparent,
-                                                                //             child: const Center(
-                                                                //               child: CircularProgressIndicator(
-                                                                //                 strokeWidth:
-                                                                //                     2,
-                                                                //               ),
-                                                                //             ),
-                                                                //           );
-                                                                //         },
-                                                                //     errorBuilder:
-                                                                //         (
-                                                                //           context,
-                                                                //           error,
-                                                                //           stackTrace,
-                                                                //         ) {
-                                                                //           return Container(
-                                                                //             width: 122,
-                                                                //             height: 76,
-                                                                //             color: activity
-                                                                //                 .color
-                                                                //                 .withValues(alpha:
-                                                                //                   0.25,
-                                                                //                 ),
-                                                                //             child: Center(
-                                                                //               child: Image.asset(
-                                                                //                 activityIcons[activity
-                                                                //                     .name],
-                                                                //                 //'assets/icons/activity-nap-icon.png',
-                                                                //                 fit: BoxFit
-                                                                //                     .fill,
-                                                                //               ),
-                                                                //             ),
-                                                                //           );
-                                                                //         },
-                                                                //   )
                                                                 : Container(
                                                                     width: 122,
                                                                     height: 76,
                                                                     color: Colors
                                                                         .white,
-                                                                    // color: activityColor
-                                                                    //     .withValues(alpha:0.25),
                                                                     child: Center(
                                                                       child: Builder(
                                                                         builder: (_) {
@@ -5054,10 +4046,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                               activity.name,
                                                                               maxLines: 1,
                                                                               overflow: TextOverflow.ellipsis,
-                                                                              style: const TextStyle(
-                                                                                color: AppColors.primaryColor,
-                                                                                fontSize: 12,
-                                                                              ),
+                                                                              style: AppTextStyles.activitySmallText,
                                                                             ),
                                                                           ),
                                                                           if (activityApprovalStatusBadgeLabel(
@@ -5082,11 +4071,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                                       activity.approvalStatus,
                                                                                     ) ??
                                                                                     '',
-                                                                                style: const TextStyle(
-                                                                                  color: AppColors.primaryColor,
-                                                                                  fontSize: 12,
-                                                                                  fontWeight: FontWeight.w500,
-                                                                                ),
+                                                                                style: AppTextStyles.activityMetaText,
                                                                               ),
                                                                             ),
                                                                         ],
@@ -5126,18 +4111,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                                 activityRoutes[activity.name];
                                                                             if (destinationBuilder !=
                                                                                 null) {
-                                                                              final nextScreen = destinationBuilder(
+                                                                              final (
+                                                                                routeName,
+                                                                                args,
+                                                                              ) = destinationBuilder(
                                                                                 activity,
                                                                               );
-                                                                              await Navigator.of(
-                                                                                context,
-                                                                              ).push(
-                                                                                MaterialPageRoute(
-                                                                                  builder:
-                                                                                      (
-                                                                                        _,
-                                                                                      ) => nextScreen,
-                                                                                ),
+                                                                              await context.push(
+                                                                                routeName,
+                                                                                extra: args,
                                                                               );
                                                                               if (mounted) {
                                                                                 await _loadDailyFeed(
@@ -5170,18 +4152,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                               final destinationBuilder = editActivityRoutes[activity.name];
                                                                               if (destinationBuilder !=
                                                                                   null) {
-                                                                                final nextScreen = destinationBuilder(
+                                                                                final (
+                                                                                  routeName,
+                                                                                  args,
+                                                                                ) = destinationBuilder(
                                                                                   activity,
                                                                                 );
-                                                                                await Navigator.of(
-                                                                                  context,
-                                                                                ).push(
-                                                                                  MaterialPageRoute(
-                                                                                    builder:
-                                                                                        (
-                                                                                          _,
-                                                                                        ) => nextScreen,
-                                                                                  ),
+                                                                                await context.push(
+                                                                                  routeName,
+                                                                                  extra: args,
                                                                                 );
                                                                                 if (mounted) {
                                                                                   await _loadDailyFeed(
@@ -5252,7 +4231,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                               showModalBottomSheet(
                                                                                 context: context,
                                                                                 isScrollControlled: true,
-                                                                                backgroundColor: Colors.transparent,
+                                                                                backgroundColor: AppColors.transparentColor,
                                                                                 builder:
                                                                                     (
                                                                                       ctx,
@@ -5417,7 +4396,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       child: Container(
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+          color: AppColors.activitySoftPurpleFieldColor.withValues(
+            alpha: 0.102,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
@@ -5431,13 +4412,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                   selectedDate != null
                       ? DateFormat('MMM dd, yyyy').format(selectedDate)
                       : 'Select Date',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
-                    color: selectedDate == null
-                        ? Colors.grey[600]
-                        : Colors.black87,
+                  style: AppTextStyles.activityDropdownValueText(
+                    hasValue: selectedDate != null,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -5457,60 +4433,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       ),
     );
   }
-
-  Widget _buildCustomDropdown(
-    String hintText,
-    List<String> items,
-    String? selectedItem,
-    ValueChanged<String?> onSelect, {
-    bool isRequired = false,
-    double? height,
-  }) {
-    return CustomDropdown(
-      label: null,
-      hintText: hintText,
-      height: height ?? 40,
-      items: items,
-      selectedItem: selectedItem,
-      onSelect: onSelect,
-      showAsterisk: isRequired,
-      selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 15,
-        fontWeight: FontWeight.w400,
-        color: selectedItem != null && selectedItem.trim().isNotEmpty
-            ? Colors.black87
-            : Colors.grey[600],
-      ),
-      popupItemTextStyle: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: Colors.black87,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    );
-  }
-
-  Widget _buildCustomMultiDropdown(
-    String hintText,
-    List<String> items,
-    List<String> selectedItems,
-    ValueChanged<List<String>> onChanged, {
-    double? height,
-  }) {
-    return SizedBox(
-      height: height ?? 40,
-      child: CustomMultiSelectDropdown(
-        hintText: hintText,
-        items: items,
-        selectedItems: selectedItems,
-        onChanged: onChanged,
-        gapHeight: 8,
-        maxDropdownHeight: 280,
-      ),
-    );
-  }
 }
 
 class PopupItem extends StatelessWidget {
@@ -5525,15 +4447,7 @@ class PopupItem extends StatelessWidget {
       children: [
         icon,
         const SizedBox(width: 5),
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
+        Text(title, style: AppTextStyles.activityPopupItemTitle),
       ],
     );
   }
@@ -5830,277 +4744,6 @@ String? _formatBottleOzConsumedLine(String? raw) {
 String? formatBottleAmountForDisplay(String? raw) =>
     _formatBottleOzCompact(raw);
 
-/// Activity types where the API may return one feed row per student; adjacent
-/// rows that match the same logged event are merged for display.
-const Set<String> _mergeableMultiStudentActivityNames = {
-  'Meal',
-  'Bottle',
-  'Notes',
-  'Nap Start',
-  'Nap End',
-  'Nap',
-  'Bathroom',
-  'Learning',
-  'Outdoor',
-  'Medication',
-  'Photo',
-  'Video',
-};
-
-const Set<String> _attendanceMergeableActivityNames = {
-  'Sign-in',
-  'Sign-out',
-  'Transfer',
-  'Marked Absent',
-};
-
-bool activityItemsMergeableForFeedDisplay(ActivityItem a, ActivityItem b) {
-  if (_attendanceMergeableActivityNames.contains(a.name)) {
-    if (a.name != b.name) return false;
-    if (a.time != b.time) return false;
-    if (a.date != b.date) return false;
-    if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
-    if ((a.description ?? '') != (b.description ?? '')) return false;
-    final scA = a.studentCode?.trim() ?? '';
-    final scB = b.studentCode?.trim() ?? '';
-    if (scA.isNotEmpty && scA == scB) return false;
-    return true;
-  }
-
-  if (!_mergeableMultiStudentActivityNames.contains(a.name)) return false;
-  if (a.name != b.name) return false;
-  if ((a.activityTypeCode ?? '') != (b.activityTypeCode ?? '')) return false;
-  if ((a.classroomCode ?? '') != (b.classroomCode ?? '')) return false;
-  if ((a.activityDateIso ?? '') != (b.activityDateIso ?? '')) return false;
-  if ((a.description ?? '') != (b.description ?? '')) return false;
-  if (a.name == 'Photo' || a.name == 'Video') {
-    final aMedia = (a.photoUrl ?? a.videoUrl ?? '').trim();
-    final bMedia = (b.photoUrl ?? b.videoUrl ?? '').trim();
-    if (aMedia.isEmpty || aMedia != bMedia) return false;
-  }
-  final scA = a.studentCode?.trim() ?? '';
-  final scB = b.studentCode?.trim() ?? '';
-  if (scA.isNotEmpty && scA == scB) return false;
-  if (a.name == 'Meal') {
-    if (a.mealType != b.mealType) return false;
-    if (a.mealQuantity != b.mealQuantity) return false;
-  }
-  if (a.name == 'Bottle') {
-    if (a.amountConsumed != b.amountConsumed) return false;
-    if (a.bottleConsumptionStatus != b.bottleConsumptionStatus) return false;
-  }
-  if (a.name == 'Bathroom') {
-    if ((a.bathroomType ?? '') != (b.bathroomType ?? '')) return false;
-    if ((a.bathroomSubType ?? '') != (b.bathroomSubType ?? '')) return false;
-    if ((a.bathroomDiaperSize ?? '') != (b.bathroomDiaperSize ?? '')) {
-      return false;
-    }
-  }
-  return true;
-}
-
-List<Map<String, String>>? _mergedStudentActivityRefsForFeed(
-  ActivityItem a,
-  ActivityItem b,
-) {
-  final out = <Map<String, String>>[];
-  void add(ActivityItem x) {
-    final r = x.studentActivityRefs;
-    if (r != null && r.isNotEmpty) {
-      for (final m in r) {
-        out.add(Map<String, String>.from(m));
-      }
-    } else {
-      for (final name in x.studentList) {
-        final nm = name.trim();
-        if (nm.isEmpty) continue;
-        out.add({
-          'name': nm,
-          'studentCode': x.studentCode?.trim() ?? '',
-          'activityCode': x.activityCode?.trim() ?? '',
-        });
-      }
-    }
-  }
-
-  add(a);
-  add(b);
-  final seen = <String>{};
-  final unique = <Map<String, String>>[];
-  for (final m in out) {
-    final ac = (m['activityCode'] ?? '').trim();
-    if (ac.isNotEmpty) {
-      if (seen.contains(ac)) continue;
-      seen.add(ac);
-      unique.add(m);
-      continue;
-    }
-    final sc = (m['studentCode'] ?? '').trim();
-    final nm = (m['name'] ?? '').trim();
-    final key = '$sc|$nm';
-    if (seen.contains(key)) continue;
-    seen.add(key);
-    unique.add(m);
-  }
-  return unique.isEmpty ? null : unique;
-}
-
-ActivityItem mergeTwoActivityItemsForFeed(ActivityItem a, ActivityItem b) {
-  final names = <String>[];
-  void addUnique(Iterable<String> list) {
-    for (final n in list) {
-      final t = n.trim();
-      if (t.isEmpty) continue;
-      if (!names.contains(t)) names.add(t);
-    }
-  }
-
-  addUnique(a.studentList);
-  addUnique(b.studentList);
-  if (names.isEmpty) names.add('Student');
-
-  final mergedRefs = _mergedStudentActivityRefsForFeed(a, b);
-
-  return ActivityItem(
-    time: a.time,
-    date: a.date,
-    name: a.name,
-    description: a.description,
-    photoUrl: a.photoUrl ?? b.photoUrl,
-    videoUrl: a.videoUrl ?? b.videoUrl,
-    studentList: names,
-    createdBy: preferActivityAuthorLabel(a.createdBy, b.createdBy),
-    activityType: a.activityType,
-    categoryType: a.categoryType,
-    mealType: a.mealType,
-    mealQuantity: a.mealQuantity,
-    amountConsumed: a.amountConsumed,
-    bottleConsumptionStatus: a.bottleConsumptionStatus,
-    napStartTime: a.napStartTime,
-    remainderOn: a.remainderOn,
-    napEndTime: a.napEndTime,
-    whatHappened: a.whatHappened,
-    firstAidAdministered: a.firstAidAdministered,
-    staffPresent: preferActivityAuthorLabel(
-      a.staffPresent ?? '',
-      b.staffPresent ?? '',
-    ),
-    staffPresentCode: (a.staffPresentCode ?? '').trim().isNotEmpty
-        ? a.staffPresentCode!.trim()
-        : ((b.staffPresentCode ?? '').trim().isNotEmpty
-              ? b.staffPresentCode!.trim()
-              : null),
-    additionalNotes: a.additionalNotes,
-    bathroomType: a.bathroomType,
-    bathroomSubType: a.bathroomSubType,
-    bathroomDiaperSize: a.bathroomDiaperSize ?? b.bathroomDiaperSize,
-    activityTypeCode: a.activityTypeCode,
-    activityCode: a.activityCode,
-    studentCode: a.studentCode,
-    classroomCode: a.classroomCode,
-    activityDateIso: a.activityDateIso,
-    snapshotAttachments: a.snapshotAttachments ?? b.snapshotAttachments,
-    studentActivityRefs: mergedRefs,
-    approvalStatus: a.approvalStatus ?? b.approvalStatus,
-  );
-}
-
-List<ActivityItem> mergeAdjacentMultiStudentFeedItems(
-  List<ActivityItem> items,
-) {
-  if (items.length < 2) return items;
-  final out = <ActivityItem>[items.first];
-  for (var i = 1; i < items.length; i++) {
-    final prev = out.last;
-    final cur = items[i];
-    if (activityItemsMergeableForFeedDisplay(prev, cur)) {
-      out[out.length - 1] = mergeTwoActivityItemsForFeed(prev, cur);
-    } else {
-      out.add(cur);
-    }
-  }
-  return out;
-}
-
-String? _feedGroupKeyForItem(
-  ActivityItem x, {
-  required bool attendanceRequireDateAndTimeMatch,
-}) {
-  final name = x.name;
-  if (_attendanceMergeableActivityNames.contains(name)) {
-    final time = x.time.trim();
-    if (time.isEmpty) return null;
-    final date = x.date.trim();
-    final cc = (x.classroomCode ?? '').trim();
-    final desc = (x.description ?? '').trim();
-    final dtPart = attendanceRequireDateAndTimeMatch
-        ? '|$date|$time'
-        : '|$time';
-    return 'ATT|$name$dtPart|$cc|$desc';
-  }
-
-  if (!_mergeableMultiStudentActivityNames.contains(name)) return null;
-
-  final typeCode = (x.activityTypeCode ?? '').trim();
-  final cc = (x.classroomCode ?? '').trim();
-  final iso = (x.activityDateIso ?? '').trim();
-  final desc = (x.description ?? '').trim();
-  final media = (x.photoUrl ?? x.videoUrl ?? '').trim();
-  final mealType = (x.mealType ?? '').trim();
-  final mealQty = (x.mealQuantity ?? '').trim();
-  final bottleAmt = (x.amountConsumed ?? '').trim();
-  final bottleStatus = (x.bottleConsumptionStatus ?? '').trim();
-  final bathType = (x.bathroomType ?? '').trim();
-  final bathSub = (x.bathroomSubType ?? '').trim();
-  final bathSize = (x.bathroomDiaperSize ?? '').trim();
-
-  return [
-    'ACT',
-    name,
-    typeCode,
-    cc,
-    iso,
-    desc,
-    media,
-    mealType,
-    mealQty,
-    bottleAmt,
-    bottleStatus,
-    bathType,
-    bathSub,
-    bathSize,
-  ].join('|');
-}
-
-List<ActivityItem> groupMultiStudentFeedItems(
-  List<ActivityItem> items, {
-  required bool attendanceRequireDateAndTimeMatch,
-}) {
-  if (items.length < 2) return items;
-
-  final out = <ActivityItem>[];
-  final indexByKey = <String, int>{};
-
-  for (final item in items) {
-    final key = _feedGroupKeyForItem(
-      item,
-      attendanceRequireDateAndTimeMatch: attendanceRequireDateAndTimeMatch,
-    );
-    if (key == null) {
-      out.add(item);
-      continue;
-    }
-    final existingIndex = indexByKey[key];
-    if (existingIndex == null) {
-      indexByKey[key] = out.length;
-      out.add(item);
-      continue;
-    }
-    out[existingIndex] = mergeTwoActivityItemsForFeed(out[existingIndex], item);
-  }
-
-  return out;
-}
 
 String? activityApprovalStatusBadgeLabel(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();
@@ -6131,654 +4774,23 @@ Color activityApprovalStatusBadgeColor(String? rawStatus) {
   final raw = (rawStatus ?? '').trim().toUpperCase();
   switch (raw) {
     case 'NOT_REQUIRED':
-      return const Color(0xFFE7E7E7);
+      return AppColors.activityApprovalStatusNotRequiredColor;
     case 'PENDING_ADMIN_APPROVAL':
-      return const Color(0xFFF3DE8A);
+      return AppColors.activityApprovalStatusPendingColor;
     case 'APPROVED':
-      return const Color(0xFFBFE9D0);
+      return AppColors.activityApprovalStatusApprovedColor;
     case 'REJECTED':
-      return const Color(0xFFFFC8C8);
+      return AppColors.activityApprovalStatusRejectedColor;
     case 'PARENT_ACKNOWLEDGEMENT_PENDING':
-      return const Color(0xFFF3DE8A);
+      return AppColors.activityApprovalStatusPendingColor;
     case 'ACKNOWLEDGED':
-      return const Color(0xFFBFE9D0);
+      return AppColors.activityApprovalStatusApprovedColor;
     default:
-      return const Color(0xFFE9E2F7);
+      return AppColors.activityApprovalStatusDefaultColor;
   }
-}
-
-/// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
-ActivityItem activityItemFromActivityDetail(
-  ActivityDetail detail, {
-  String? viewerDisplayName,
-}) {
-  return activityItemFromFeedRow(
-    ActivityFeedRow.fromActivityDetail(detail),
-    viewerDisplayName: viewerDisplayName,
-    activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
-      detail.activityTypeCode,
-    ),
-  );
-}
-
-/// Maps [ActivityItem] to student maps used by create/edit activity screens.
-List<Map<String, dynamic>> studentDataMapsForActivityEdit(
-  ActivityItem activity,
-) {
-  final room = activity.classroomCode?.trim();
-  final refs = activity.studentActivityRefs;
-  if (refs != null && refs.isNotEmpty) {
-    return refs
-        .map(
-          (r) => <String, dynamic>{
-            'name': (r['name'] ?? '').trim().isEmpty
-                ? 'Student'
-                : (r['name'] ?? '').trim(),
-            if ((r['studentCode'] ?? '').trim().isNotEmpty)
-              'studentCode': r['studentCode']!.trim(),
-            if (room != null && room.isNotEmpty) 'classroomCode': room,
-            if ((r['activityCode'] ?? '').trim().isNotEmpty)
-              'activityCode': r['activityCode']!.trim(),
-          },
-        )
-        .toList();
-  }
-  final code = activity.studentCode?.trim();
-  final maps = <Map<String, dynamic>>[];
-  for (final name in activity.studentList) {
-    maps.add({
-      'name': name,
-      if (code != null && code.isNotEmpty) 'studentCode': code,
-      if (room != null && room.isNotEmpty) 'classroomCode': room,
-      if ((activity.activityCode ?? '').trim().isNotEmpty)
-        'activityCode': activity.activityCode!.trim(),
-    });
-  }
-  if (maps.isEmpty && activity.studentList.isEmpty) {
-    maps.add({'name': 'Student'});
-  }
-  return maps;
 }
 
 /// Student codes aligned (by index) to [activity.studentList], so feed-card
 /// avatars can resolve the real profile photo instead of showing initials.
 /// Uses [ActivityItem.studentActivityRefs] (name→code), falling back to the
 /// single `studentCode` for single-student activities.
-List<String?> feedStudentCodesForNames(ActivityItem activity) {
-  final refs = activity.studentActivityRefs;
-  final byName = <String, String>{};
-  if (refs != null) {
-    for (final r in refs) {
-      final n = (r['name'] ?? '').trim();
-      final c = (r['studentCode'] ?? '').trim();
-      if (n.isNotEmpty && c.isNotEmpty) byName[n] = c;
-    }
-  }
-  final fallback = (activity.studentCode ?? '').trim();
-  final single = activity.studentList.length == 1;
-  return activity.studentList.map<String?>((name) {
-    final c = byName[name.trim()];
-    if (c != null && c.isNotEmpty) return c;
-    if (single && fallback.isNotEmpty) return fallback;
-    return null;
-  }).toList();
-}
-
-/// Option code → label for activity type definitions (`GET …/activity-types/{code}`).
-final Map<String, Map<String, String>> _activityFeedOptionLabelCache = {};
-
-Future<void> ensureActivityFeedOptionLabelsForType(
-  String activityTypeCode,
-) async {
-  final c = activityTypeCode.trim();
-  if (c.isEmpty) return;
-  if (_activityFeedOptionLabelCache.containsKey(c)) return;
-  try {
-    final uc = serviceLocator<GetActivityTypeDetailsUseCase>();
-    final d = await uc(code: c);
-    final map = <String, String>{};
-    for (final param in d.parameters) {
-      for (final o in param.options) {
-        final lbl = (o.optionLabel ?? '').trim();
-        if (lbl.isEmpty) continue;
-        final oc = (o.optionCode ?? '').trim();
-        final rawCode = o.code.trim();
-        if (oc.isNotEmpty) map[oc] = lbl;
-        if (rawCode.isNotEmpty && rawCode != oc) map[rawCode] = lbl;
-      }
-    }
-    _activityFeedOptionLabelCache[c] = map;
-  } catch (_) {
-    _activityFeedOptionLabelCache[c] = {};
-  }
-}
-
-Future<void> primeActivityFeedOptionLabelsFromRows(
-  Iterable<ActivityFeedRow> rows,
-) async {
-  final codes = <String>{};
-  for (final r in rows) {
-    if (mapApiActivityTypeNameToUiLabel(r.activityTypeName) != 'Learning')
-      continue;
-    final code = r.activityTypeCode.trim();
-    if (code.isNotEmpty) codes.add(code);
-  }
-  await Future.wait(codes.map(ensureActivityFeedOptionLabelsForType));
-}
-
-Map<String, String>? activityFeedOptionLabelsForType(String activityTypeCode) {
-  final map = _activityFeedOptionLabelCache[activityTypeCode.trim()];
-  if (map == null || map.isEmpty) return null;
-  return map;
-}
-
-String? _resolveLearningFeedParamDisplay(
-  Map<String, dynamic> p,
-  Map<String, String> codeToLabel,
-) {
-  for (final key in ['selectedOptionLabel', 'optionLabel']) {
-    final v = (p[key] ?? '').toString().trim();
-    if (v.isNotEmpty) return v;
-  }
-
-  final dt = (p['dataType'] ?? '').toString().toUpperCase();
-  if (dt == 'DATE') {
-    final d = (p['valueDate'] ?? '').toString().trim();
-    if (d.isNotEmpty) return d;
-  }
-  if (dt == 'TIME') {
-    final t = (p['valueTime'] ?? '').toString().trim();
-    if (t.isNotEmpty) return t;
-  }
-
-  final sel = (p['selectedOptionCode'] ?? '').toString().trim();
-  if (sel.isNotEmpty) {
-    final hit = codeToLabel[sel];
-    if (hit != null && hit.isNotEmpty) return hit;
-  }
-
-  for (final key in ['valueText', 'valueNumber']) {
-    final raw = (p[key] ?? '').toString().trim();
-    if (raw.isEmpty) continue;
-    final hit = codeToLabel[raw];
-    if (hit != null && hit.isNotEmpty) return hit;
-    return raw;
-  }
-  return null;
-}
-
-/// Maps backend [ActivityFeedRow.activityTypeName] to UI keys used in [activityRoutes].
-String mapApiActivityTypeNameToUiLabel(String apiName) {
-  final s = apiName.toLowerCase().trim();
-  if (s.isEmpty) return 'Notes';
-  if (s.contains('nap')) {
-    if (s.contains('start')) return 'Nap Start';
-    if (s.contains('end') || s.contains('stop') || s.contains('wake')) {
-      return 'Nap End';
-    }
-    return 'Nap Start';
-  }
-  if (s.contains('bathroom') || s.contains('potty') || s.contains('diaper')) {
-    return 'Bathroom';
-  }
-  if (s.contains('bottle')) return 'Bottle';
-  if (s.contains('meal') ||
-      s.contains('lunch') ||
-      s.contains('breakfast') ||
-      s.contains('snack')) {
-    return 'Meal';
-  }
-  if (s.contains('incident')) return 'Incident';
-  if (s.contains('medication') || s.contains('medicine')) {
-    return 'Medication';
-  }
-  if (s.contains('outdoor') || s.contains('outside')) return 'Outdoor';
-  if (s.contains('learning')) return 'Learning';
-  if (s.contains('photo') && !s.contains('video')) return 'Photo';
-  if (s.contains('video')) return 'Video';
-  if (s.contains('note')) return 'Notes';
-  if (s.contains('sign') && s.contains('in')) return 'Sign-in';
-  if (s.contains('sign') && s.contains('out')) return 'Sign-out';
-  if (s.contains('absent')) return 'Marked Absent';
-  return apiName.trim();
-}
-
-ActivityItem activityItemFromFeedRow(
-  ActivityFeedRow row, {
-  String? viewerDisplayName,
-  String? schoolIana,
-  Map<String, String>? staffDisplayNameByCode,
-  Map<String, String>? activityTypeOptionCodeToLabel,
-}) {
-  bool? _boolFromAny(dynamic raw) {
-    if (raw is bool) return raw;
-    final v = (raw ?? '').toString().trim().toLowerCase();
-    if (v == 'true') return true;
-    if (v == 'false') return false;
-    return null;
-  }
-
-  bool? _pickNapFlagFromParameters(bool wantEnd) {
-    for (final p in row.parameterValues) {
-      final name = (p['parameterName'] ?? '').toString().toLowerCase().trim();
-      if (!name.contains('nap')) continue;
-      final hasTarget = wantEnd
-          ? (name.contains('end') ||
-                name.contains('wake') ||
-                name.contains('stop'))
-          : (name.contains('start') || name.contains('begin'));
-      if (!hasTarget) continue;
-      final fromBool = _boolFromAny(p['valueBool']);
-      if (fromBool != null) return fromBool;
-      final fromText = _boolFromAny(p['valueText']);
-      if (fromText != null) return fromText;
-      final fromOption = _boolFromAny(p['selectedOptionLabel']);
-      if (fromOption != null) return fromOption;
-    }
-    return null;
-  }
-
-  DateTime dt;
-  try {
-    final parsed = DateTime.parse(row.activityDateIso);
-    final iana = (schoolIana ?? '').trim();
-    dt = iana.isEmpty
-        ? parsed.toLocal()
-        : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);
-  } catch (_) {
-    dt = DateTime.now();
-  }
-  final time = DateFormat.jm().format(dt);
-  final date = DateFormat('MMMM d, yyyy').format(dt);
-  var name = mapApiActivityTypeNameToUiLabel(row.activityTypeName);
-  final rowNapEnd = row.napEnd ?? _pickNapFlagFromParameters(true);
-  final rowNapStart = row.napStart ?? _pickNapFlagFromParameters(false);
-  if (name == 'Nap Start' || name == 'Nap End') {
-    if (rowNapEnd == true) {
-      name = 'Nap End';
-    } else if (rowNapStart == true) {
-      name = 'Nap Start';
-    }
-  }
-
-  String? photoUrl;
-  String? videoUrl;
-  for (final a in row.attachments) {
-    final mt = (a['mediaType'] ?? '').toString().toLowerCase();
-    // Fall back to processed variant URLs so images already render even while
-    // the backend still reports status == PROCESSING (deliveryUrl null).
-    final u = attachmentUsableDeliveryUrl(a);
-    if (u.isEmpty) continue;
-    if (mt.contains('video') ||
-        u.toLowerCase().endsWith('.mp4') ||
-        u.toLowerCase().endsWith('.mov')) {
-      videoUrl ??= u;
-    } else {
-      photoUrl ??= u;
-    }
-  }
-
-  String? pickParam(bool Function(String n) match) {
-    for (final p in row.parameterValues) {
-      final n = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (!match(n)) continue;
-      if (name == 'Learning') {
-        final m = activityTypeOptionCodeToLabel;
-        if (m != null && m.isNotEmpty) {
-          final resolved = _resolveLearningFeedParamDisplay(p, m);
-          if (resolved != null && resolved.isNotEmpty) return resolved;
-        }
-      }
-      // Prefer human-readable labels (dropdowns) before option codes in valueText.
-      for (final key in <String>[
-        'selectedOptionLabel',
-        'optionLabel',
-        'valueText',
-        'valueNumber',
-        'valueTime',
-        'valueDatetime',
-      ]) {
-        final v = (p[key] ?? '').toString().trim();
-        if (v.isNotEmpty) return v;
-      }
-    }
-    return null;
-  }
-
-  String? pickStaffPresentFromParameters() {
-    for (final p in row.parameterValues) {
-      final n = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (n != 'staff present') continue;
-      final dt = (p['dataType'] ?? '').toString().toUpperCase();
-      if (dt == 'DATE' || dt == 'TIME') continue;
-      for (final key in <String>[
-        'selectedOptionCode',
-        'selectedOptionLabel',
-        'optionLabel',
-        'valueText',
-        'valueNumber',
-      ]) {
-        final v = (p[key] ?? '').toString().trim();
-        if (v.isNotEmpty) return v;
-      }
-    }
-    return null;
-  }
-
-  String? paramDisplay(Map<String, dynamic> p) {
-    for (final key in <String>[
-      'selectedOptionLabel',
-      'valueText',
-      'valueNumber',
-      'valueTime',
-      'valueDatetime',
-    ]) {
-      final v = (p[key] ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    }
-    return null;
-  }
-
-  /// Prefer [valueNumber] when present so fractional oz (e.g. 0.5) is not
-  /// replaced by a stale [valueText] such as "0".
-  String? bottleVolumeSingleParam(Map<String, dynamic> p) {
-    final vnRaw = p['valueNumber'];
-    final vnStr = vnRaw != null ? vnRaw.toString().trim() : '';
-    final vn = vnStr.isNotEmpty
-        ? double.tryParse(vnStr.replaceAll(',', ''))
-        : null;
-
-    String? textVal;
-    for (final key in <String>[
-      'selectedOptionLabel',
-      'optionLabel',
-      'valueText',
-    ]) {
-      final v = (p[key] ?? '').toString().trim();
-      if (v.isNotEmpty) {
-        textVal = v;
-        break;
-      }
-    }
-
-    double? numFromText;
-    if (textVal != null) {
-      final m = RegExp(
-        r'(\d+(?:\.\d+)?)',
-      ).firstMatch(textVal.replaceAll(',', ''));
-      if (m != null) {
-        numFromText = double.tryParse(m.group(1)!);
-      }
-    }
-
-    if (vn != null && numFromText != null && numFromText > 0) {
-      if ((vn - 2 * numFromText).abs() < 0.001) {
-        return numFromText == numFromText.roundToDouble()
-            ? numFromText.round().toString()
-            : numFromText.toString();
-      }
-    }
-
-    if (vnRaw != null && vnStr.isNotEmpty) {
-      return vnStr;
-    }
-    for (final key in <String>[
-      'selectedOptionLabel',
-      'optionLabel',
-      'valueText',
-      'valueTime',
-      'valueDatetime',
-    ]) {
-      final v = (p[key] ?? '').toString().trim();
-      if (v.isNotEmpty) return v;
-    }
-    return null;
-  }
-
-  String? pickParamBottleVolume() {
-    for (final p in row.parameterValues) {
-      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
-      final isVol =
-          pn.contains('amount') ||
-          pn.contains('ounce') ||
-          pn.contains('volume') ||
-          pn.contains(' ml') ||
-          RegExp(r'\boz\b').hasMatch(pn);
-      if (!isVol || pn.contains('consumption')) continue;
-      final vol = bottleVolumeSingleParam(p);
-      if (vol != null && vol.isNotEmpty) return vol;
-    }
-    return null;
-  }
-
-  String? bottleVolumeFromParams;
-  String? bottleStatusFromParams;
-  if (name == 'Bottle') {
-    for (final p in row.parameterValues) {
-      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
-      final dt = (p['dataType'] ?? '').toString().toUpperCase();
-      if (pn.contains('staff')) continue;
-      if (dt == 'DATE' || dt == 'TIME') continue;
-      if (pn == 'description' || (pn.contains('description') && dt == 'TEXT'))
-        continue;
-      final isConsumptionDropdown =
-          dt == 'DROPDOWN' &&
-          (pn.contains('consum') ||
-              pn.contains('intake') ||
-              pn.contains('status') ||
-              pn.contains('left'));
-      final isConsumptionText =
-          !pn.contains('amount') &&
-          !pn.contains('ounce') &&
-          !pn.contains('volume') &&
-          (pn.contains('consum') || pn.contains('intake'));
-      if (isConsumptionDropdown || isConsumptionText) {
-        final val = paramDisplay(p);
-        if (val == null || val.isEmpty) continue;
-        bottleStatusFromParams ??= val;
-        continue;
-      }
-      final isVolume =
-          pn.contains('amount') ||
-          pn.contains('ounce') ||
-          pn.contains('volume') ||
-          pn.contains(' ml') ||
-          RegExp(r'\boz\b').hasMatch(pn);
-      if (isVolume) {
-        final vol = bottleVolumeSingleParam(p);
-        if (vol != null && vol.isNotEmpty) {
-          bottleVolumeFromParams ??= vol;
-        }
-      }
-    }
-  }
-
-  final amountConsumed = name == 'Bottle'
-      ? (bottleVolumeFromParams ??
-            pickParamBottleVolume() ??
-            pickParam(
-              (n) =>
-                  (n.contains('amount') ||
-                      n.contains('ounce') ||
-                      n.contains('oz')) &&
-                  !n.contains('consumption'),
-            ))
-      : pickParam(
-          (n) =>
-              n.contains('amount') ||
-              n.contains('ounce') ||
-              n.contains('oz') ||
-              n.contains('consumed'),
-        );
-  final mealType =
-      pickParam((n) => n.contains('meal') && n.contains('type')) ??
-      pickParam((n) => n.contains('meal') && !n.contains('quantity'));
-  final mealQuantity = name == 'Meal'
-      ? pickParam(
-          (n) =>
-              (n.contains('quant') || n.contains('portion')) &&
-              !n.contains('meal type'),
-        )
-      : pickParam((n) => n.contains('quantity') || n.contains('portion'));
-  final napStartTime =
-      pickParam((n) => n.contains('nap') && n.contains('start')) ??
-      pickParam((n) => n.contains('start') && n.contains('nap'));
-  final napEndTime =
-      pickParam(
-        (n) => n.contains('nap') && (n.contains('end') || n.contains('stop')),
-      ) ??
-      pickParam(
-        (n) =>
-            n.contains('end') &&
-            n.contains('nap') &&
-            (n.contains('time') || n.contains('stop')),
-      );
-
-  /// Single "Time" param (e.g. PM_027) when nap start/end params are absent.
-  final napTimeParam = pickParam((n) => n.trim().toLowerCase() == 'time');
-  final bathroomType =
-      pickParam((n) => n.contains('bathroom') && n.contains('type')) ??
-      pickParam((n) => n.contains('potty') || n.contains('diaper'));
-  final bathroomSubType =
-      pickParam((n) => n.contains('sub') && n.contains('type')) ??
-      pickParam((n) => n.contains('subtype'));
-
-  String? pickBathroomDiaperSizeFromParams() {
-    for (final p in row.parameterValues) {
-      final pn = (p['parameterName'] ?? '').toString().toLowerCase();
-      if (!pn.contains('size')) continue;
-      if (pn.contains('subtype')) continue;
-      if (pn.contains('sub type')) continue;
-      for (final key in <String>[
-        'selectedOptionLabel',
-        'optionLabel',
-        'valueText',
-        'valueNumber',
-      ]) {
-        final v = (p[key] ?? '').toString().trim();
-        if (v.isNotEmpty) return v;
-      }
-    }
-    return null;
-  }
-
-  final bathroomDiaperSizeLabel = name == 'Bathroom'
-      ? pickBathroomDiaperSizeFromParams()
-      : null;
-
-  final desc = row.description.trim();
-  final napDescription = (name == 'Nap End')
-      ? 'Nap Ended'
-      : (name == 'Nap Start' ? 'Nap Started' : '');
-  final effectiveDescription = desc.isNotEmpty
-      ? desc
-      : (napDescription.isNotEmpty ? napDescription : '');
-  final studentNamesFromApi = row.students
-      .map((s) => (s['name'] ?? '').trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-  final studentName = row.studentDisplayName.isEmpty
-      ? 'Student'
-      : row.studentDisplayName;
-  final studentListForItem = studentNamesFromApi.isNotEmpty
-      ? studentNamesFromApi
-      : [studentName];
-  final staffFromParams = pickStaffPresentFromParameters();
-  final mappedStaffName = (() {
-    final raw = (staffFromParams ?? '').trim();
-    if (raw.isEmpty) return null;
-    final resolved = staffDisplayNameByCode?[raw]?.trim() ?? '';
-    if (resolved.isNotEmpty) return resolved;
-    return raw;
-  })();
-  final by = resolveActivityCreatedByForUi(
-    rawCreatedBy: '',
-    staffLabelFromParameters: mappedStaffName,
-    viewerDisplayNameFallback: null,
-  );
-
-  /// Learning: API stores these in [parameterValues] (e.g. PM_054 Activity Name, PM_055 Categories).
-  final String? learningActivityName = name == 'Learning'
-      ? (pickParam(
-              (n) =>
-                  n.contains('activity') &&
-                  (n.contains('name') || n.contains('type')),
-            ) ??
-            pickParam((n) => n.contains('learning') && !n.contains('categor')))
-      : null;
-  final String? learningCategory = name == 'Learning'
-      ? pickParam((n) => n.contains('categor'))
-      : null;
-
-  final sc = (row.studentCode ?? '').trim();
-  final ac = (row.activityCode ?? '').trim();
-
-  return ActivityItem(
-    time: time,
-    date: date,
-    name: name,
-    description: effectiveDescription.isEmpty ? null : effectiveDescription,
-    photoUrl: photoUrl,
-    videoUrl: videoUrl,
-    studentList: studentListForItem,
-    createdBy: by,
-    activityType: learningActivityName,
-    categoryType: learningCategory != null && learningCategory.isNotEmpty
-        ? [learningCategory]
-        : null,
-    mealType: name == 'Meal' ? mealType : null,
-    mealQuantity: name == 'Meal' ? mealQuantity : null,
-    amountConsumed: name == 'Bottle' ? amountConsumed : null,
-    bottleConsumptionStatus: name == 'Bottle' ? bottleStatusFromParams : null,
-    napStartTime: (name == 'Nap Start' || name == 'Nap End')
-        ? (napStartTime ?? napTimeParam)
-        : null,
-    napEndTime: name == 'Nap End' ? (napEndTime ?? napTimeParam) : null,
-    whatHappened:
-        (name == 'Incident' || name == 'Notes') &&
-            effectiveDescription.isNotEmpty
-        ? effectiveDescription
-        : null,
-    staffPresent: by,
-    staffPresentCode: (staffFromParams ?? '').trim().isEmpty
-        ? null
-        : staffFromParams!.trim(),
-    bathroomType: name == 'Bathroom' ? bathroomType : null,
-    bathroomSubType: name == 'Bathroom' ? bathroomSubType : null,
-    bathroomDiaperSize: name == 'Bathroom' ? bathroomDiaperSizeLabel : null,
-    activityTypeCode: row.activityTypeCode.trim().isEmpty
-        ? null
-        : row.activityTypeCode.trim(),
-    activityCode: ac.isEmpty ? null : ac,
-    studentCode: sc.isEmpty ? null : sc,
-    classroomCode: (row.classroomCode ?? '').trim().isEmpty
-        ? null
-        : row.classroomCode!.trim(),
-    activityDateIso: row.activityDateIso.trim().isEmpty
-        ? null
-        : row.activityDateIso.trim(),
-    snapshotAttachments: row.attachments.isEmpty
-        ? null
-        : row.attachments.map((e) => Map<String, dynamic>.from(e)).toList(),
-    studentActivityRefs: row.students.isNotEmpty
-        ? row.students
-              .map(
-                (s) => <String, String>{
-                  'name': (s['name'] ?? '').trim(),
-                  if ((s['studentCode'] ?? '').trim().isNotEmpty)
-                    'studentCode': s['studentCode']!.trim(),
-                  if (ac.isNotEmpty) 'activityCode': ac,
-                },
-              )
-              .where((m) => (m['name'] ?? '').isNotEmpty)
-              .toList()
-        : [
-            {
-              'name': studentName,
-              if (sc.isNotEmpty) 'studentCode': sc,
-              if (ac.isNotEmpty) 'activityCode': ac,
-            },
-          ],
-    approvalStatus: row.approvalStatus,
-  );
-}

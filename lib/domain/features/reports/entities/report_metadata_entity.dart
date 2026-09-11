@@ -33,5 +33,11 @@ class ReportMetadataEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName];
+  List<Object?> get props => [
+    reportId,
+    reportType,
+    generatedAt,
+    assetCode,
+    fileName,
+  ];
 }

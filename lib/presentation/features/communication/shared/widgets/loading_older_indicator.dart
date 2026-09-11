@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Small pill shown at the top of the message list while an older-history
 /// page is being fetched. Rendered as an overlay (not a list item) so it
@@ -24,24 +25,17 @@ class LoadingOlderIndicator extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
+                    color: AppColors.blackColor.withValues(alpha: 0.12),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primaryColor,
-                ),
-              ),
+              child: const PrimaryCircularLoader(size: 16, strokeWidth: 2),
             ),
           ),
         ),

@@ -76,6 +76,7 @@ class NotificationCategoryStyle {
           foreground: Color(0xFF2E7D32),
           background: Color(0xFFE7F5E9),
         );
+      case 'ACTIVITY':
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
         return const NotificationCategoryStyle(

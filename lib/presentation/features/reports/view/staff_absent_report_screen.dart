@@ -1,17 +1,20 @@
 import 'dart:async';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
-import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/presentation/features/reports/widgets/classroom_range_report_submit.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StaffAbsentReportScreen extends StatefulWidget {
   const StaffAbsentReportScreen({super.key, required this.classrooms});
@@ -30,14 +33,24 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   late final ValueNotifier<DateTime> _toDate;
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Staff reports need the wider list that also contains Office and
+        // primary rooms (onlyTypeClassroom: false).
+        context.read<ReportsCubit>().loadFormClassrooms(
+          includeNonClassroomTypes: true,
+        );
+      }
+    });
   }
 
   @override
@@ -49,40 +62,33 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
-    AppLogger.d('[STAFF-ABSENT-UI] Generate button tapped');
-
-    if (_toDate.value.isBefore(_fromDate.value)) {
-      AppLogger.w('[STAFF-ABSENT-UI] Generation blocked: To date before From date');
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'To date cannot be before From date',
-        isError: true,
-      );
-      return;
-    }
-
-    AppLogger.d('[STAFF-ABSENT-UI] Creating report params');
-    final cubit = context.read<ReportsCubit>();
-    final params = ReportRequestParams(
-      reportType: ReportType.staffAbsent,
-      startDate: _fromDate.value,
-      endDate: _toDate.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
-    );
-
-    AppLogger.d('[STAFF-ABSENT-UI] Calling cubit.generateReport()');
-    unawaited(cubit.generateReport(params));
-  }
+  Future<void> _onGenerate() => submitClassroomRangeReport(
+    context: context,
+    reportType: ReportType.staffAbsent,
+    fromDate: _fromDate.value,
+    toDate: _toDate.value,
+    format: _format.value,
+    selectedClassrooms: _selectedClassrooms.value,
+    logTag: 'STAFF-ABSENT-UI',
+    useWiderClassroomSet: true,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-
     return MultiBlocListener(
       listeners: [
+        // Drop selections that no longer exist when a refreshed classroom
+        // list arrives. Never re-expands to "all" — an empty filter already
+        // means every classroom.
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.allClassroomNames != current.allClassroomNames,
+          listener: (context, state) {
+            _selectedClassrooms.value = _selectedClassrooms.value
+                .where(state.allClassroomNames.contains)
+                .toList();
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -107,7 +113,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                 state.generatedReport != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -115,8 +121,11 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             }
@@ -127,50 +136,69 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
-            title: 'Absent Report',
+            title: ReportsStrings.staffAbsentName,
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ReportFieldLabel(label: 'From'),
+                const ReportFieldLabel(label: ReportsStrings.from),
                 ValueListenableBuilder<DateTime>(
                   valueListenable: _fromDate,
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
                     fetchInitialTime: false,
                     initialDate: date,
                     onDateSelected: (d) => _fromDate.value = d,
                   ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
                 const ReportFieldLabel(label: 'To'),
                 ValueListenableBuilder<DateTime>(
                   valueListenable: _toDate,
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
                     fetchInitialTime: false,
+                    dateFormat: 'MM/dd/yyyy',
                     initialDate: date,
                     onDateSelected: (d) => _toDate.value = d,
                   ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                ValueListenableBuilder<List<String>>(
-                  valueListenable: _selectedClassrooms,
-                  builder: (_, selected, __) => CustomMultiSelectDropdown(
-                    label: 'Classroom',
-                    hintText: 'Select Classroom',
-                    items: widget.classrooms,
-                    selectedItems: selected,
-                    onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                FormClassroomsField(
+                  includeNonClassroomTypes: true,
+                  child: BlocSelector<ReportsCubit, ReportsState, List<String>>(
+                    selector: (state) => state.allClassroomNames.isNotEmpty
+                        ? state.allClassroomNames
+                        : widget.classrooms,
+                    builder: (context, classroomItems) =>
+                        ValueListenableBuilder<List<String>>(
+                          valueListenable: _selectedClassrooms,
+                          builder: (_, selected, __) =>
+                              CustomMultiSelectDropdown(
+                                label: ReportsStrings.classroom,
+                                hintText: ReportsStrings.allClassrooms,
+                                items: classroomItems,
+                                selectedItems: selected,
+                                onChanged: (s) =>
+                                    _selectedClassrooms.value = s,
+                                showSelectAll: true,
+                              ),
+                        ),
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportFieldLabel(label: ReportsStrings.exportFormat),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(

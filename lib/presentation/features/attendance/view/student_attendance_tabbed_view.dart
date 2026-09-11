@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/student_attendance_absent_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class StudentAttendanceTabbedView extends StatefulWidget {
   const StudentAttendanceTabbedView({
@@ -31,7 +33,7 @@ class StudentAttendanceTabbedView extends StatefulWidget {
     this.hasBackButton = false,
   });
 
-  static const String routeName = '/dashboard/student-attendance-tabbed-view';
+  static const String routeName = DashboardRoutes.studentAttendanceTabbedView;
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
@@ -85,7 +87,7 @@ class _StudentAttendanceTabbedViewState
     // Shared app-session singleton (registered in di.dart) — `startWatching`
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
-    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -103,7 +105,7 @@ class _StudentAttendanceTabbedViewState
       context.read<GeofenceCubit>().checkStaffSignInStatus();
     });
 
-    debugPrint(
+    AppLogger.d(
       '[StudentAttendanceTabbedView] initialized: '
       'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
       'routeName=${StudentAttendanceTabbedView.routeName}',
@@ -131,15 +133,13 @@ class _StudentAttendanceTabbedViewState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
-    final safeAreaTop = mediaQuery.padding.top;
+    final contentPadding = ResponsiveHelper(context).contentPadding;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -173,24 +173,19 @@ class _StudentAttendanceTabbedViewState
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
                   tabAlignment: TabAlignment.start,
                   isScrollable: true,
-                  labelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: Colors.black,
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w600,
+                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                    isTablet: responsive.isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendanceTabLabelUnselected(
+                        isTablet: responsive.isTablet,
+                      ),
                 ),
                 tabs: const [
                   Tab(text: 'Daily'),
@@ -223,14 +218,14 @@ class _StudentAttendanceTabbedViewState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxs,
+                              bottom: AppSpacing.xs,
+                            ),
                             child: Text(
                               'Student Attendance',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: responsive.isTablet ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryColor,
+                              style: AppTextStyles.attendanceScreenTitle(
+                                isTablet: responsive.isTablet,
                               ),
                             ),
                           ),
@@ -283,7 +278,9 @@ class _StudentAttendanceTabbedViewState
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 child: _showBars
-                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
                     : const SizedBox.shrink(),
               ),
             ),
@@ -298,7 +295,7 @@ class _StudentAttendanceTabbedViewState
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: AppColors.attendanceCardShadowColor,
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

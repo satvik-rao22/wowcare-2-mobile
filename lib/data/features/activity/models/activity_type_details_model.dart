@@ -1,4 +1,4 @@
-import '../../../../domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
 
 class ActivityTypeDetailsModel {
   ActivityTypeDetailsModel({
@@ -207,18 +207,11 @@ class ActivityTypeParameterOptionModel {
 
   factory ActivityTypeParameterOptionModel.fromJson(Map<String, dynamic> json) {
     final code = (json['code'] ?? json['optionCode'] ?? '').toString().trim();
-    final optCode = (json['optionCode'] ??
-            json['value'] ??
-            json['optionValue'] ??
-            json['code'])
-        ?.toString()
-        .trim();
+    final optCode = _resolveOptionCodeAlias(json);
     return ActivityTypeParameterOptionModel(
       code: code.isNotEmpty ? code : (optCode ?? ''),
       optionCode: (optCode != null && optCode.isNotEmpty) ? optCode : null,
-      optionLabel: (json['optionLabel'] ?? json['label'] ?? json['name'])
-          ?.toString()
-          .trim(),
+      optionLabel: _resolveOptionLabelAlias(json),
       displayOrder: json['displayOrder'] as int? ?? 0,
       icon: json['icon'] as String?,
       color: json['color'] as String?,
@@ -240,6 +233,24 @@ class ActivityTypeParameterOptionModel {
       status: status,
       parentOptionCode: parentOptionCode,
     );
+  }
+
+  /// The option's value under whichever key this activity type's config
+  /// used (`optionCode`, `value`, `optionValue`, or `code`). Declared once
+  /// here instead of re-derived inline, so a new alias is added in one place.
+  static String? _resolveOptionCodeAlias(Map<String, dynamic> json) {
+    return (json['optionCode'] ??
+            json['value'] ??
+            json['optionValue'] ??
+            json['code'])
+        ?.toString()
+        .trim();
+  }
+
+  static String? _resolveOptionLabelAlias(Map<String, dynamic> json) {
+    return (json['optionLabel'] ?? json['label'] ?? json['name'])
+        ?.toString()
+        .trim();
   }
 }
 

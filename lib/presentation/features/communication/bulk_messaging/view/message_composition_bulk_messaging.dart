@@ -1,21 +1,25 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:rich_field_controller/rich_field_controller.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../app/theme/media_res.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../shared/common/widgets/selected_student_tile.dart';
-import '../../../../../app/di/di.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -24,7 +28,7 @@ class MessageCompositionBulkMessaging extends StatefulWidget {
     required this.isStaff,
     this.conversationType = 'ROOM_CHAT',
   });
-  final List<Map<String, dynamic>> selectedRecipients;
+  final List<MessagingRecipient> selectedRecipients;
   final bool isStaff;
   final String conversationType;
 
@@ -37,45 +41,70 @@ class _MessageCompositionBulkMessagingState
     extends State<MessageCompositionBulkMessaging> {
   late final BulkMessagingCompositionCubit _compositionCubit;
   late final FocusNode _focusNode;
-  late final RichFieldController _controller;
+  late final HtmlAwareTextController _controller;
 
   static const int maxChars = 2000;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    final picked = await picker.pickMultiImage();
+    if (picked.isEmpty) return;
 
-    final file = File(picked.path);
-    if (await file.length() > 10 * 1024 * 1024) {
-      if (!mounted) return;
-      _showWarningMessage('File too large (max 10 MB)');
-      return;
+    final valid = <File>[];
+    var anyTooLarge = false;
+    for (final xfile in picked) {
+      final file = File(xfile.path);
+      if (await file.length() > 10 * 1024 * 1024) {
+        anyTooLarge = true;
+        continue;
+      }
+      valid.add(file);
     }
 
     if (!mounted) return;
-    _compositionCubit.addAttachment(file, isImage: true);
+    if (anyTooLarge) {
+      _showWarningMessage(
+        valid.isEmpty
+            ? AppStrings.fileTooLarge
+            : AppStrings.someFilesSkipped,
+      );
+    }
+    if (valid.isEmpty) return;
+    _compositionCubit.addAttachments(valid, isImage: true);
   }
 
   Future<void> _pickFile() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      allowMultiple: true,
     );
 
     if (result == null || result.files.isEmpty) return;
 
-    final platformFile = result.files.single;
-    final file = File(platformFile.path!);
-
-    if (await file.length() > 10 * 1024 * 1024) {
-      if (!mounted) return;
-      _showWarningMessage('File too large (max 10 MB)');
-      return;
+    final valid = <File>[];
+    var anyTooLarge = false;
+    for (final platformFile in result.files) {
+      final path = platformFile.path;
+      if (path == null) continue;
+      final file = File(path);
+      if (await file.length() > 10 * 1024 * 1024) {
+        anyTooLarge = true;
+        continue;
+      }
+      valid.add(file);
     }
 
     if (!mounted) return;
-    _compositionCubit.addAttachment(file, isImage: false);
+    if (anyTooLarge) {
+      _showWarningMessage(
+        valid.isEmpty
+            ? AppStrings.fileTooLarge
+            : AppStrings.someFilesSkipped,
+      );
+    }
+    if (valid.isEmpty) return;
+    _compositionCubit.addAttachments(valid, isImage: false);
   }
 
   void _removeAttachment(int index) {
@@ -98,16 +127,13 @@ class _MessageCompositionBulkMessagingState
   @override
   void initState() {
     super.initState();
-    _compositionCubit = BulkMessagingCompositionCubit(
-      initialRecipients: widget.selectedRecipients,
-      isStaff: widget.isStaff,
-      conversationType: widget.conversationType,
-      createOrOpenConversationUseCase: serviceLocator(),
-      sendMessageUseCase: serviceLocator(),
-      storageService: serviceLocator(),
-    );
+    // Cubit is constructed by the route's BlocProvider (Mandate 5) and read
+    // here — same instance, same creation moment (first read). context.read is
+    // safe in initState with flutter_bloc. BlocProvider owns its lifecycle, so
+    // this State no longer closes it.
+    _compositionCubit = context.read<BulkMessagingCompositionCubit>();
     _focusNode = FocusNode();
-    _controller = RichFieldController(focusNode: _focusNode);
+    _controller = HtmlAwareTextController();
 
     _controller.addListener(_onTextChanged);
   }
@@ -117,38 +143,14 @@ class _MessageCompositionBulkMessagingState
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
-    _compositionCubit.close();
+    // Not closed here — the route's BlocProvider owns the cubit's lifecycle.
     super.dispose();
   }
 
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
     });
   }
 
@@ -160,7 +162,7 @@ class _MessageCompositionBulkMessagingState
       child: BlocBuilder<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
         builder: (context, compositionState) {
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.cardColor,
             resizeToAvoidBottomInset: true,
             appBar: const CustomAppBar(hasBackButton: true),
             body: GestureDetector(
@@ -178,7 +180,7 @@ class _MessageCompositionBulkMessagingState
                       context: context,
                       isSuccess: true,
                       message:
-                          'Bulk message is being processed in the background.',
+                          AppStrings.bulkMessageProcessing,
                     );
                   } else if (state.errorMessage != null) {
                     CoreUtils.showTopSnackBar(
@@ -219,7 +221,7 @@ class _MessageCompositionBulkMessagingState
                                   child: Align(
                                     alignment: Alignment.centerLeft,
                                     child: CustomTextWidget(
-                                      text: 'Create Message',
+                                      text: AppStrings.createMessage,
                                     ),
                                   ),
                                 ),
@@ -235,7 +237,7 @@ class _MessageCompositionBulkMessagingState
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.cardColor,
                                     borderRadius: BorderRadius.all(
                                       Radius.circular(
                                         responsive.isTablet ? 30.0 : 20.0,
@@ -243,7 +245,7 @@ class _MessageCompositionBulkMessagingState
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(
+                                        color: AppColors.blackColor.withValues(
                                           alpha: 0.05,
                                         ),
                                         blurRadius: 8,
@@ -259,7 +261,7 @@ class _MessageCompositionBulkMessagingState
                                         physics:
                                             const NeverScrollableScrollPhysics(),
                                         shrinkWrap: true,
-                                        padding: const EdgeInsets.all(10),
+                                        padding: const EdgeInsets.all(AppSizes.xsPlus),
                                         gridDelegate:
                                             SliverGridDelegateWithFixedCrossAxisCount(
                                               crossAxisCount:
@@ -282,8 +284,7 @@ class _MessageCompositionBulkMessagingState
                                                       .selectedRecipients
                                                       .length
                                               ? compositionState
-                                                      .selectedRecipients[index]['avatar']
-                                                  as String?
+                                                      .selectedRecipients[index].avatar
                                               : null;
 
                                           return SelectedStudentTile(
@@ -305,10 +306,32 @@ class _MessageCompositionBulkMessagingState
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
-                                          color: Colors.white,
+                                          color: AppColors.cardColor,
                                         ),
                                         child: Column(
                                           children: [
+                                            // Same persistent formatting
+                                            // toolbar as the 1:1 chat
+                                            // composer (ChatInputBar) —
+                                            // wraps the selection/cursor in
+                                            // the same <b>/<i>/<u>/<s> tags
+                                            // MessageContentProcessor.enrich
+                                            // renders on the recipient side,
+                                            // unlike the previous
+                                            // RichFieldController.updateStyle
+                                            // calls, which only restyled the
+                                            // field visually and never
+                                            // touched the plain text this
+                                            // screen actually sends.
+                                            ClipRRect(
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                    top: Radius.circular(11),
+                                                  ),
+                                              child: RichTextToolbar(
+                                                controller: _controller,
+                                              ),
+                                            ),
                                             TextField(
                                               controller: _controller,
                                               focusNode: _focusNode,
@@ -316,92 +339,21 @@ class _MessageCompositionBulkMessagingState
                                               minLines: 5,
                                               textCapitalization:
                                                   TextCapitalization.sentences,
-                                              contextMenuBuilder: (context, editableTextState) {
-                                                return AdaptiveTextSelectionToolbar.buttonItems(
-                                                  anchors: editableTextState
-                                                      .contextMenuAnchors,
-                                                  buttonItems: <ContextMenuButtonItem>[
-                                                    ContextMenuButtonItem(
-                                                      label: 'Bold',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Italic',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            fontStyle: FontStyle
-                                                                .italic,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Underline',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .underline,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Strikethrough',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .lineThrough,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Link',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            color: Colors.blue,
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .underline,
-                                                            decorationColor:
-                                                                Colors.blue,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-
-                                                    ...editableTextState
-                                                        .contextMenuButtonItems,
-                                                  ],
-                                                );
-                                              },
+                                              // Copy/Cut/Paste/Select All that
+                                              // work against the plain text
+                                              // (tags stripped), matching the
+                                              // 1:1 chat composer.
+                                              contextMenuBuilder:
+                                                  (context, editableTextState) =>
+                                                      HtmlAwareTextSelectionControls
+                                                          .buildContextMenu(
+                                                        context,
+                                                        editableTextState,
+                                                        _controller,
+                                                      ),
                                               maxLength: maxChars,
                                               decoration: const InputDecoration(
-                                                hintText:
-                                                    'Hello Parents, children had a good day today!',
+                                                hintText: 'Type a message…',
                                                 border: InputBorder.none,
                                                 contentPadding: EdgeInsets.all(
                                                   16,
@@ -413,18 +365,18 @@ class _MessageCompositionBulkMessagingState
                                         ),
                                       ),
 
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: AppSizes.xs),
                                       Align(
                                         alignment: Alignment.centerRight,
                                         child: Text(
                                           '${compositionState.charCount} / $maxChars',
-                                          style: TextStyle(
+                                          style: AppTextStyles.size14.copyWith(
                                             fontSize: 12,
                                             color:
                                                 compositionState.charCount >
                                                     maxChars
-                                                ? Colors.red
-                                                : Colors.grey[700],
+                                                ? AppColors.messagingCounterExceeded
+                                                : AppColors.messagingMetaStrong,
                                           ),
                                         ),
                                       ),
@@ -436,26 +388,26 @@ class _MessageCompositionBulkMessagingState
                                               Icons.photo_library,
                                             ),
                                             onPressed: _pickImage,
-                                            tooltip: 'Add Photo',
+                                            tooltip: AppStrings.addPhoto,
                                           ),
                                           IconButton(
                                             icon: const Icon(Icons.attach_file),
                                             onPressed: _pickFile,
-                                            tooltip: 'Attach File',
+                                            tooltip: AppStrings.attachFile,
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: AppSizes.xsPlus),
                                       if (compositionState
                                           .attachments
                                           .isNotEmpty) ...[
                                         const Text(
-                                          'Attachments',
+                                          AppStrings.attachments,
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: AppSizes.xs),
                                         Wrap(
                                           spacing: 12,
                                           runSpacing: 12,
@@ -471,7 +423,7 @@ class _MessageCompositionBulkMessagingState
                                             },
                                           ),
                                         ),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: AppSizes.md),
                                       ],
                                     ],
                                   ),
@@ -503,7 +455,7 @@ class _MessageCompositionBulkMessagingState
     ResponsiveHelper responsive,
     BulkMessagingCompositionState compositionState,
   ) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(
@@ -513,10 +465,10 @@ class _MessageCompositionBulkMessagingState
         top: 16,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.blackColor.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -542,7 +494,7 @@ class _MessageCompositionBulkMessagingState
                 padding: EdgeInsets.all(1),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 16.0 : 8.0,
                     ),
@@ -550,7 +502,7 @@ class _MessageCompositionBulkMessagingState
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      overlayColor: Colors.transparent,
+                      overlayColor: AppColors.transparentColor,
                     ),
                     child: ShaderMask(
                       shaderCallback: (bounds) {
@@ -559,12 +511,11 @@ class _MessageCompositionBulkMessagingState
                         );
                       },
                       child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
+                        AppStrings.cancel,
+                        style: AppTextStyles.size14.copyWith(
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.messagingOnAccent,
                         ),
                       ),
                     ),
@@ -573,7 +524,7 @@ class _MessageCompositionBulkMessagingState
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSizes.xsPlus),
           Expanded(
             child: Container(
               height: responsive.buttonHeight,
@@ -590,19 +541,18 @@ class _MessageCompositionBulkMessagingState
                   } else if (!compositionState.isLoading) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: 'Please enter your message',
+                      message: AppStrings.pleaseEnterMessage,
                       isWarning: true,
                     );
                   }
                 },
-                style: TextButton.styleFrom(overlayColor: Colors.transparent),
+                style: TextButton.styleFrom(overlayColor: AppColors.transparentColor),
                 child: Text(
-                  'Send',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
+                  AppStrings.send,
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.messagingOnAccent,
                   ),
                 ),
               ),
@@ -635,14 +585,14 @@ class _MessageCompositionBulkMessagingState
               },
               widgetSize: previewSize,
               decoration: WidgetDecoration(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.cardColor,
                 iconColor: AppColors.primaryColor,
                 textColor: AppColors.primaryColor,
-                wrapperBgColor: Colors.transparent,
+                wrapperBgColor: AppColors.transparentColor,
                 //wrapperSize: 84,
               ),
               errorBuilder: (context, error) => Container(
-                color: Colors.grey[200],
+                color: AppColors.messagingSurfaceMuted,
                 child: Center(
                   child: Icon(
                     att.isImage ? Icons.image : Icons.picture_as_pdf,
@@ -652,31 +602,7 @@ class _MessageCompositionBulkMessagingState
                 ),
               ),
             ),
-            // child: Image.file(
-            //   att.file,
-            //   fit: BoxFit.cover,
-            //   errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
-            // ),
           ),
-          //     : Center(
-          //   child: Column(
-          //     mainAxisSize: MainAxisSize.min,
-          //     children: [
-          //       const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
-          //       const SizedBox(height: 4),
-          //       Padding(
-          //         padding: const EdgeInsets.symmetric(horizontal: 4),
-          //         child: Text(
-          //           path.basename(att.file.path),
-          //           style: const TextStyle(fontSize: 11),
-          //           textAlign: TextAlign.center,
-          //           maxLines: 2,
-          //           overflow: TextOverflow.ellipsis,
-          //         ),
-          //       ),
-          //     ],
-          //   ),
-          // ),
         ),
 
         // Remove button
@@ -687,8 +613,8 @@ class _MessageCompositionBulkMessagingState
             onTap: () => _removeAttachment(index),
             child: CircleAvatar(
               radius: 12,
-              backgroundColor: Colors.red,
-              child: const Icon(Icons.close, size: 14, color: Colors.white),
+              backgroundColor: AppColors.messagingRemoveBadge,
+              child: const Icon(Icons.close, size: 14, color: AppColors.messagingOnAccent),
             ),
           ),
         ),

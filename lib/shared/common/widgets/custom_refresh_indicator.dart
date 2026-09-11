@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Accepts nested vertical scrollables (e.g. [Column] + [ListView]) so pull-to-refresh
 /// works when the scrollable is not the direct child of [RefreshIndicator].

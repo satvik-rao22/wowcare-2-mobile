@@ -1,89 +1,56 @@
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Callback for WorkManager to check geofence in background.
-/// This runs independently of the main app in an isolate.
+/// Name registered with WorkManager for the periodic health-check task.
+const String geofenceHealthCheckTaskUniqueName = 'geofence-health-check';
+
+/// Task name passed to `Workmanager().registerPeriodicTask` — matched against
+/// in [callbackDispatcher] to dispatch to [geofenceBackgroundCallback].
+const String geofenceHealthCheckTaskName = 'geofenceBackgroundTask';
+
+/// WorkManager health-check/recovery task — NOT the primary tracking
+/// mechanism. Real-time geofencing, GPS polling, and attendance decisions are
+/// owned entirely by native region monitoring (CLLocationManager region
+/// monitoring on iOS, GeofencingClient on Android) and the foreground
+/// GeofenceCubit. This task only re-invokes the same native registration
+/// call the app makes on init, as a best-effort recovery in case native
+/// monitoring was silently dropped by the OS (e.g. after certain reboots or
+/// OS updates) while the app was terminated.
+///
+/// This runs independently of the main app in a background isolate.
 Future<void> geofenceBackgroundCallback() async {
   try {
-    // Get last stored school coordinates and check from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final latitude = prefs.getDouble('geofence_school_lat');
     final longitude = prefs.getDouble('geofence_school_lon');
-    final lastNotifiedInside =
-        prefs.getBool('geofence_last_notified_inside') ?? false;
+    final radiusMeters = prefs.getDouble('geofence_school_radius_m');
+    final schoolCode = prefs.getString('geofence_school_code');
+    final gpsSignInEnabled =
+        prefs.getBool('geofence_gps_sign_in_enabled') ?? true;
 
-    // If no school coordinates stored, skip this task
-    if (latitude == null || longitude == null) {
+    // Nothing to recover if there's no persisted config, or the school has
+    // GPS sign-in turned off — do not re-register in that case.
+    if (latitude == null ||
+        longitude == null ||
+        schoolCode == null ||
+        !gpsSignInEnabled) {
       return;
     }
 
-    // Get last known position (doesn't require active location service)
-    final lastPosition = await Geolocator.getLastKnownPosition();
-    if (lastPosition == null) {
-      return;
-    }
-
-    // Calculate distance to school
-    final distanceMeters = Geolocator.distanceBetween(
-      lastPosition.latitude,
-      lastPosition.longitude,
-      latitude,
-      longitude,
-    );
-
-    final isWithinRange = distanceMeters <= 228.6; // 250 yards
-    final shouldNotify = isWithinRange != lastNotifiedInside;
-
-    if (shouldNotify) {
-      // Store notification state
-      await prefs.setBool('geofence_last_notified_inside', isWithinRange);
-
-      // Show local notification
-      final plugin = FlutterLocalNotificationsPlugin();
-      if (isWithinRange) {
-        await plugin.show(
-          id: 1001,
-          title: 'You are now within school sign-in range',
-          body: 'Tap to sign your child in or out.',
-          notificationDetails: NotificationDetails(
-            android: const AndroidNotificationDetails(
-              'geofence_channel',
-              'School Sign-In Zone Alerts',
-              importance: Importance.high,
-              priority: Priority.high,
-              enableVibration: true,
-              playSound: true,
-            ),
-            iOS: const DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: false,
-              presentSound: true,
-            ),
-          ),
-        );
-      } else {
-        await plugin.show(
-          id: 1002,
-          title: 'You left the school sign-in zone',
-          body: 'GPS sign-in is unavailable until you return.',
-          notificationDetails: NotificationDetails(
-            android: const AndroidNotificationDetails(
-              'geofence_channel',
-              'School Sign-In Zone Alerts',
-              importance: Importance.defaultImportance,
-              priority: Priority.defaultPriority,
-            ),
-            iOS: const DarwinNotificationDetails(
-              presentAlert: true,
-              presentBadge: false,
-              presentSound: true,
-            ),
-          ),
-        );
-      }
-    }
-  } catch (e) {
-    // Silently fail - background task should not crash the app
+    // Recovery only: re-invoke the SAME native registration path the app
+    // uses on init. Does NOT compute distance, does NOT decide geofence
+    // status, does NOT fire notifications — the native side
+    // (GeofencePlugin.swift / GeofencePlugin.kt) owns all of that, exactly as
+    // it does during a normal app-driven registration via GeofenceCubit.
+    const channel = MethodChannel('com.wowcare.geofencing/native');
+    await channel.invokeMethod('updateSchoolLocation', {
+      'latitude': latitude,
+      'longitude': longitude,
+      'radiusMeters': radiusMeters ?? 250.0,
+      'schoolCode': schoolCode,
+      'gpsSignInEnabled': gpsSignInEnabled,
+    });
+  } catch (_) {
+    // Best-effort recovery — never crash the background isolate.
   }
 }

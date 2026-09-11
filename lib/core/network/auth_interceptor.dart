@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 /// The five `x-role` buckets the backend validates against. Finer backend roles
 /// (TEACHER, DIRECTOR, ASSOCIATE_TEACHER …) are normalised into one of these so
@@ -58,13 +59,29 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // Token refresh rides the gateway's RELAXED path and must stay there.
+    //
+    // Strict validation is keyed on the PRESENCE of `x-sub-channel`: send it
+    // and the gateway then demands the full role-scoped matrix (x-role +
+    // x-staff-code/x-guardian-code + x-school-code). A PARTIAL strict set is
+    // 4xx'd — which the 401 handler would turn into a logout loop. So refresh
+    // sends Content-Type only, exactly like the web client's `refreshSession`,
+    // which uses a raw fetch to bypass its own header injection.
+    //
+    // Matched by suffix, not by the full ApiPaths constant: on UAT the path is
+    // `/api/v1/user/auth/refresh`, which does NOT contain `/api/v1/auth/refresh`
+    // — the same reason [_skipAuthPaths] silently no-ops on UAT.
+    if (path.contains('/auth/refresh')) {
+      handler.next(options);
+      return;
+    }
+
     // If the request already has an explicit Authorization header (e.g. login-context
     // right after login with the fresh token), keep it and avoid overriding.
     final existingAuth =
         options.headers['Authorization'] ?? options.headers['authorization'];
 
-    final token = (await _storage.getString(StorageKeys.accessToken) ?? '')
-        .trim();
+    final token = await TokenRefreshService.instance.readAccessToken();
 
     // Always add baseline JSON headers. Only attach Authorization when missing.
     final baseHeaders = ApiHeaders.authorizedJson(token);
@@ -99,7 +116,12 @@ class AuthInterceptor extends Interceptor {
 
     var rawRole = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
         .trim();
-    if (rawRole.isEmpty) rawRole = await _firstRoleFromRolesList();
+    if (rawRole.isEmpty) {
+      rawRole = await _firstRoleFromRolesList(
+        organizationCode: organizationCode,
+        schoolCode: resolvedSchoolCode,
+      );
+    }
     final bucket = _bucketFor(rawRole);
 
     // ── Always-required headers ──────────────────────────────────────────────
@@ -244,9 +266,28 @@ class AuthInterceptor extends Interceptor {
     }
   }
 
-  /// Fallback when [StorageKeys.activeSchoolRole] isn't set yet: the active
-  /// school is stored first in [StorageKeys.roles].
-  Future<String> _firstRoleFromRolesList() async {
+  /// Fallback when [StorageKeys.activeSchoolRole] isn't set yet. Prefers the
+  /// role scoped to the CURRENT org+school from the cached `/users/details`
+  /// snapshot (the same source RoleCubit and the notification inbox resolve
+  /// from) — for a dual-role account (e.g. SCHOOL_ADMIN at this school,
+  /// GUARDIAN at another), blindly taking [StorageKeys.roles]'s first entry
+  /// can grab a role for a DIFFERENT school and send an `x-role` the backend
+  /// rejects for this session. Only falls through to that blind pick when no
+  /// cached snapshot for this org+school exists at all.
+  Future<String> _firstRoleFromRolesList({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    if (organizationCode.isNotEmpty && schoolCode.isNotEmpty) {
+      final users = await readCachedUserAccessDetailsUsers(_storage);
+      final distinctRoles = distinctActiveRolesForCurrentSchoolFromUserDetails(
+        users,
+        organizationCode,
+        schoolCode,
+      );
+      if (distinctRoles.isNotEmpty) return distinctRoles.first.trim();
+    }
+
     final raw = (await _storage.getString(StorageKeys.roles) ?? '').trim();
     if (raw.isEmpty) return '';
     try {

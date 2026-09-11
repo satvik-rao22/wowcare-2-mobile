@@ -1,16 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+// The ratio kind is a domain concept (staffing compliance), so it is declared
+// in the domain layer and re-exported here — existing presentation imports of
+// this file keep resolving it unchanged.
+export 'package:wowcare/domain/features/scheduling/entities/scheduling_block_status_kind.dart';
+
+
 /// Ratio outcome for a classroom on a given day.
 enum ClassroomRatioStatus { inRatio, underRatio, overRatio }
-
-/// Canonical ratio kinds aligned with forecast API `blockStatus`.
-enum SchedulingBlockStatusKind {
-  inRatio,
-  underRatio,
-  extraStaff,
-  empty,
-}
 
 /// Top-level view mode for the schedule screen.
 enum SchedulingViewMode { week, day }

@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_physical_exam_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -38,8 +46,13 @@ class StudentDatesTabCard extends StatefulWidget {
 }
 
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
-  late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
+
+  // Single cubit instance for this card — the serviceLocator registers the
+  // cubit as a factory, so holding one instance (rather than resolving per
+  // call) is what keeps its single-flight guard effective. Closed in dispose.
+  final StudentPhysicalExamCubit _examCubit =
+      serviceLocator<StudentPhysicalExamCubit>();
 
   /// Display format for the checkup-date field in the add/edit dialog,
   /// e.g. "Jun 02, 2027". The API payload is built from the raw DateTime.
@@ -49,35 +62,19 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   @override
   void initState() {
     super.initState();
-    _physicalExamFuture = _buildPhysicalExamFuture();
+    _examCubit.load(widget.studentCode ?? '');
   }
 
-  Future<List<StudentPhysicalExam>> _buildPhysicalExamFuture({
-    bool forceRefresh = false,
-  }) async {
-    final code = widget.studentCode;
-    if (code == null || code.isEmpty) {
-      return const <StudentPhysicalExam>[];
-    }
-
-    final repo = serviceLocator<StudentRepository>();
-    return repo.getStudentPhysicalExams(
-      studentCode: code,
-      forceRefresh: forceRefresh,
-    );
+  @override
+  void dispose() {
+    _examCubit.close();
+    super.dispose();
   }
 
   /// Reload exams from API (bypasses cache). Use after add/edit/delete or pull-to-refresh.
   Future<void> _reloadPhysicalExams() async {
-    setState(() {
-      _physicalExamFuture = _buildPhysicalExamFuture(forceRefresh: true);
-      _hasShownErrorSnackBar = false;
-    });
-    try {
-      await _physicalExamFuture;
-    } catch (_) {
-      // Errors surface via FutureBuilder.
-    }
+    _hasShownErrorSnackBar = false;
+    await _examCubit.load(widget.studentCode ?? '', forceRefresh: true);
   }
 
   String _formatExamDate(String? isoDate) {
@@ -152,11 +149,11 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (context) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final isLargeTablet = screenWidth > 900;
+        final responsive = ResponsiveHelper(context);
+        final isTablet = responsive.isTabletCompact;
+        final isLargeTablet = responsive.isWide;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
         final horizontalPadding = isLargeTablet
@@ -187,7 +184,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -201,12 +198,12 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Edit Physical Examination',
+                              StudentStrings.editPhysicalExamination,
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: Fonts.manrope,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                             ),
                           ),
@@ -225,7 +222,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           children: [
                             Expanded(
                               child: _DialogField(
-                                label: 'Physical Checkup Date',
+                                label: StudentStrings.physicalCheckupDate,
                                 isRequired: true,
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
@@ -257,10 +254,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            AppSpacing.gapHMd,
                             Expanded(
                               child: _DialogDropdown(
-                                label: 'Status',
+                                label: StudentStrings.status,
                                 isRequired: true,
                                 value: statusUi,
                                 options: const [
@@ -280,7 +277,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         Column(
                           children: [
                             _DialogField(
-                              label: 'Physical Checkup Date',
+                              label: StudentStrings.physicalCheckupDate,
                               isRequired: true,
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
@@ -310,9 +307,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 setLocalState(() => selectedDate = picked);
                               },
                             ),
-                            const SizedBox(height: 16),
+                            AppSpacing.gapVMd,
                             _DialogDropdown(
-                              label: 'Status',
+                              label: StudentStrings.status,
                               isRequired: true,
                               value: statusUi,
                               options: const ['Due', 'Scheduled', 'Completed'],
@@ -325,8 +322,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         ),
                       SizedBox(height: verticalPadding),
                       CustomButtonLayout(
-                        confirmButtonLabel: 'Save',
-                        cancelButtonLabel: 'Cancel',
+                        confirmButtonLabel: StudentStrings.save,
+                        cancelButtonLabel: StudentStrings.cancel,
                         isForm: false,
                         isLoading: isSaving,
                         onPressedCancel: () => Navigator.of(context).pop(),
@@ -346,7 +343,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 // the client so we can show a friendly warning
                                 // instead of the raw backend error. Today is
                                 // always allowed for every status.
-                                final now = DateTime.now();
+                                final now = AppTime.now();
                                 final today = DateTime(
                                   now.year,
                                   now.month,
@@ -361,8 +358,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                     picked.isAfter(today)) {
                                   CoreUtils.showTopSnackBar(
                                     context: context,
-                                    message:
-                                        'Completed date cannot be a future date. Please select today or a past date.',
+                                    message: StudentStrings
+                                        .completedDateCannotBeAFutureDatePleaseSelectTo,
                                     isWarning: true,
                                   );
                                   return;
@@ -381,18 +378,16 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
                                 setLocalState(() => isSaving = true);
                                 try {
-                                  final repo =
-                                      serviceLocator<StudentRepository>();
                                   if (examCode != null &&
                                       examCode.trim().isNotEmpty) {
-                                    await repo.updateStudentPhysicalExam(
+                                    await _examCubit.update(
                                       studentCode: studentCode,
                                       examCode: examCode.trim(),
                                       examDate: selectedDate!,
                                       status: statusApi,
                                     );
                                   } else {
-                                    await repo.addStudentPhysicalExam(
+                                    await _examCubit.add(
                                       studentCode: studentCode,
                                       examDate: selectedDate!,
                                       status: statusApi,
@@ -401,7 +396,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                   if (!context.mounted) return;
                                   CoreUtils.showTopSnackBar(
                                     context: context,
-                                    message: 'Physical exam saved successfully',
+                                    message: StudentStrings
+                                        .physicalExamSavedSuccessfully,
                                     isSuccess: true,
                                   );
                                   Navigator.of(context).pop();
@@ -444,18 +440,18 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentPhysicalExam>>(
-          future: _physicalExamFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        child: BlocBuilder<StudentPhysicalExamCubit, StudentPhysicalExamState>(
+          bloc: _examCubit,
+          builder: (context, state) {
+            if (state.isLoading && state.exams.isEmpty) {
               return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: StudentExamCardsShimmer(),
               );
             }
 
-            if (snapshot.hasError) {
-              final msg = ApiErrorHandler.extractErrorMessage(snapshot.error);
+            if (state.errorMessage != null && state.exams.isEmpty) {
+              final msg = state.errorMessage!;
               if (!_hasShownErrorSnackBar) {
                 _hasShownErrorSnackBar = true;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -467,7 +463,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                 });
               }
               return Padding(
-                padding: const EdgeInsets.only(top: 24),
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
                 child: Center(
                   child: Text(
                     msg,
@@ -480,7 +476,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               );
             }
 
-            final exams = snapshot.data ?? const <StudentPhysicalExam>[];
+            final exams = state.exams;
             final bool hasCompletedExam = exams.any(
               (e) => _isCompletedStatus(e.status),
             );
@@ -492,7 +488,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
             }
 
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.none,
+                vertical: AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -503,15 +502,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           : () async {
                               final code = widget.studentCode;
                               if (code == null || code.isEmpty) return;
-                              final result = await Navigator.of(context)
-                                  .push<bool>(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          EditStudentPhysicalExamScreen(
-                                            studentCode: code,
-                                          ),
-                                    ),
-                                  );
+                              final result = await context.push<bool>(
+                                EditStudentPhysicalExamScreen.routeName,
+                                extra: <String, dynamic>{'studentCode': code},
+                              );
                               if (!mounted || result != true) return;
                               await _reloadPhysicalExams();
                             },
@@ -520,7 +514,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Physical Exams', style: AppTextStyles.title),
+                            Text(
+                              StudentStrings.physicalExams,
+                              style: AppTextStyles.title,
+                            ),
                             Container(
                               width: 38,
                               height: 38,
@@ -528,28 +525,28 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 gradient: _disableAddPhysicalExam
                                     ? const LinearGradient(
                                         colors: [
-                                          Color(0xFFC9C5CE),
-                                          Color(0xFFB8B3BE),
+                                          AppColors.studentBorderGrey,
+                                          AppColors.studentDisabledGrey,
                                         ],
                                       )
                                     : AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: AppRadius.allSm,
                               ),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  AppSpacing.gapVMd,
                   if (exams.isEmpty)
                     Text(
-                      'No physical exams found',
+                      StudentStrings.noPhysicalExamsFound,
                       style: AppTextStyles.value.copyWith(
                         color: AppColors.primaryColor.withValues(alpha: 0.6),
                       ),
@@ -572,7 +569,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 );
                               },
                       ),
-                      const SizedBox(height: 20),
+                      AppSpacing.gapVLg,
                     ],
                 ],
               ),
@@ -599,23 +596,23 @@ class _PhysicalExamCard extends StatelessWidget {
   Color _statusLabelColor() {
     final upper = status.trim().toUpperCase();
     // Completed — dark forest green on mint (design reference)
-    if (upper == 'COMPLETED') return const Color(0xFF1B5E20);
+    if (upper == 'COMPLETED') return AppColors.studentHealthGreenDark;
     // Overdue — dark red on light rose
-    if (upper == 'OVERDUE') return const Color(0xFFC62828);
+    if (upper == 'OVERDUE') return AppColors.studentHealthRedDark;
     // Due — yellow (design reference)
-    if (upper == 'DUE') return const Color(0xFFEABA00);
+    if (upper == 'DUE') return AppColors.studentHealthYellowColor;
     // Scheduled — blue on light blue
-    if (upper == 'SCHEDULED') return const Color(0xFF3B82F6);
+    if (upper == 'SCHEDULED') return AppColors.studentHealthBlue;
     return AppColors.primaryColor.withValues(alpha: 0.85);
   }
 
   Color _statusBgColor() {
     final upper = status.trim().toUpperCase();
-    if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
-    if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
-    if (upper == 'DUE') return const Color(0xFFFFF8E1);
-    if (upper == 'SCHEDULED') return const Color(0xFFE8F1FE);
-    return const Color(0xFFF3F4FB);
+    if (upper == 'COMPLETED') return AppColors.studentStatusActiveBgSolid;
+    if (upper == 'OVERDUE') return AppColors.studentHealthRedBg;
+    if (upper == 'DUE') return AppColors.studentAmberBg;
+    if (upper == 'SCHEDULED') return AppColors.studentHealthBlueBg;
+    return AppColors.staffBadgeInactiveBg;
   }
 
   @override
@@ -624,19 +621,27 @@ class _PhysicalExamCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(
+              color: AppColors.themeColor,
+              width: AppDimensions.hairline,
+            ),
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.s14,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -654,8 +659,8 @@ class _PhysicalExamCard extends StatelessWidget {
                       onPressed: onMore,
                       icon: const Icon(
                         Icons.more_horiz,
-                        size: 20,
-                        color: Color(0xFF573353),
+                        size: AppDimensions.iconSm,
+                        color: AppColors.primaryColor,
                       ),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(
@@ -667,13 +672,13 @@ class _PhysicalExamCard extends StatelessWidget {
                     const SizedBox(width: 36, height: 36),
                 ],
               ),
-              const SizedBox(height: 20),
+              AppSpacing.gapVLg,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    'Checkup Date',
+                    StudentStrings.checkupDate,
                     style: AppTextStyles.value.copyWith(
                       color: AppColors.primaryColor.withValues(alpha: 0.7),
                       fontSize: 14,
@@ -709,11 +714,11 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s10,
+        vertical: AppSpacing.xxs,
       ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.allSm),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -754,32 +759,26 @@ class _DialogField extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
             children: [
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadius.r10),
           child: Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
-              borderRadius: BorderRadius.circular(10),
+              color: AppColors.staffLightBackgroundAltColor,
+              borderRadius: BorderRadius.circular(AppRadius.r10),
             ),
             child: Row(
               children: [
@@ -787,7 +786,7 @@ class _DialogField extends StatelessWidget {
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: Fonts.manrope,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -827,29 +826,23 @@ class _DialogDropdown extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
+            style: AppTextStyles.label,
             children: [
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapVXs,
         Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.staffLightBackgroundAltColor,
+            borderRadius: BorderRadius.circular(AppRadius.r10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -866,7 +859,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: Fonts.manrope,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

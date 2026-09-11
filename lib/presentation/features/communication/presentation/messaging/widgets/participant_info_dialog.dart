@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import '../../../../../../shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 /// Normalized participant data — works for both ConversationParticipant
 /// (used in ParentMessagingThread) and ParticipantEntity (ConversationThreadScreen).
@@ -19,6 +22,7 @@ class ParticipantDisplayData {
   final String displayName;
   final String role;
   final String? avatarUrl;
+
   /// Role-specific staff code (STF_*) for loading staff profile photos.
   final String? staffCode;
 }
@@ -53,7 +57,7 @@ class ParticipantInfoDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black45,
+      barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
       builder: (_) => ParticipantInfoDialog(
         participants: participants,
         studentName: studentName,
@@ -76,33 +80,33 @@ class ParticipantInfoDialog extends StatelessWidget {
   static Color _badgeBg(String role) {
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        return const Color(0xFFFEF3C7);
+        return AppColors.messagingBadgeAdminBg;
       case 'STAFF':
-        return const Color(0xFFD1FAE5);
+        return AppColors.messagingBadgeStaffBg;
       default:
-        return const Color(0xFFEDE9FE);
+        return AppColors.messagingBadgeGuardianBg;
     }
   }
 
   static Color _badgeFg(String role) {
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        return const Color(0xFF92400E);
+        return AppColors.messagingBadgeAdminFg;
       case 'STAFF':
-        return const Color(0xFF065F46);
+        return AppColors.messagingBadgeStaffFg;
       default:
-        return const Color(0xFF5B21B6);
+        return AppColors.messagingBadgeGuardianFg;
     }
   }
 
   static String _badgeLabel(String role) {
     switch (role.toUpperCase()) {
       case 'ADMIN':
-        return 'Admin';
+        return AppStrings.roleFallbackAdmin;
       case 'STAFF':
-        return 'Staff';
+        return AppStrings.roleFallbackStaff;
       default:
-        return 'Parent';
+        return AppStrings.roleFallbackParent;
     }
   }
 
@@ -116,13 +120,13 @@ class ParticipantInfoDialog extends StatelessWidget {
     final total = participants.length;
 
     return Dialog(
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: const EdgeInsets.all(AppSizes.md),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: const Color(0xFFF4F6FB),
+      backgroundColor: AppColors.messagingDialogBackground,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 520,
-          maxHeight: MediaQuery.of(context).size.height * 0.82,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -133,7 +137,12 @@ class ParticipantInfoDialog extends StatelessWidget {
             // ── Scrollable body ──────────────────────────────────────
             Flexible(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSizes.md,
+                  AppSizes.sm,
+                  AppSizes.md,
+                  AppSizes.md,
+                ),
                 children: [
                   // Student card
                   if (studentName != null && studentName!.isNotEmpty) ...[
@@ -141,32 +150,50 @@ class ParticipantInfoDialog extends StatelessWidget {
                       name: studentName!,
                       avatarUuid: studentAvatarUuid,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSizes.md),
                   ],
 
                   // Admins
                   if (admins.isNotEmpty) ...[
-                    _SectionHeader(label: 'ADMINS', count: admins.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
-                    const SizedBox(height: 4),
+                    _SectionHeader(
+                      label: AppStrings.participantsSectionAdmins,
+                      count: admins.length,
+                    ),
+                    const Divider(
+                      height: AppSizes.xs,
+                      color: AppColors.messagingInputBorder,
+                    ),
+                    const SizedBox(height: AppSizes.xxs),
                     ...admins.map((p) => _ParticipantTile(data: p)),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSizes.sm),
                   ],
 
                   // Staff
                   if (staff.isNotEmpty) ...[
-                    _SectionHeader(label: 'STAFFS', count: staff.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
-                    const SizedBox(height: 4),
+                    _SectionHeader(
+                      label: AppStrings.participantsSectionStaff,
+                      count: staff.length,
+                    ),
+                    const Divider(
+                      height: AppSizes.xs,
+                      color: AppColors.messagingInputBorder,
+                    ),
+                    const SizedBox(height: AppSizes.xxs),
                     ...staff.map((p) => _ParticipantTile(data: p)),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSizes.sm),
                   ],
 
                   // Guardians/Parents
                   if (guardians.isNotEmpty) ...[
-                    _SectionHeader(label: 'PARENTS', count: guardians.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
-                    const SizedBox(height: 4),
+                    _SectionHeader(
+                      label: AppStrings.participantsSectionParents,
+                      count: guardians.length,
+                    ),
+                    const Divider(
+                      height: AppSizes.xs,
+                      color: AppColors.messagingInputBorder,
+                    ),
+                    const SizedBox(height: AppSizes.xxs),
                     ...guardians.map((p) => _ParticipantTile(data: p)),
                   ],
                 ],
@@ -174,30 +201,9 @@ class ParticipantInfoDialog extends StatelessWidget {
             ),
 
             // ── Close button ─────────────────────────────────────────
-            // Padding(
-            //   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            //   child: SizedBox(
-            //     width: double.infinity,
-            //     height: 48,
-            //     child: OutlinedButton(
-            //       onPressed: () => Navigator.of(context).pop(),
-            //       style: OutlinedButton.styleFrom(
-            //         foregroundColor: AppColors.primaryColor,
-            //         side: BorderSide(color: AppColors.themeColor, width: 1.5),
-            //         shape: RoundedRectangleBorder(
-            //           borderRadius: BorderRadius.circular(12),
-            //         ),
-            //       ),
-            //       child: const Text(
-            //         'Close',
-            //         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            //       ),
-            //     ),
-            //   ),
-            // ),
             CustomButtonLayout(
               showCancelButton: false,
-              confirmButtonLabel: 'Close',
+              confirmButtonLabel: AppStrings.close,
               onPressedConfirm: () => Navigator.of(context).pop(),
             ),
           ],
@@ -217,20 +223,20 @@ class _DialogHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+      padding: const EdgeInsets.fromLTRB(AppSizes.lg, 18, AppSizes.sm, 14),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              'Group Chat Participants ($total)',
-              style: const TextStyle(
+              AppStrings.groupChatParticipants(total),
+              style: AppTextStyles.heading18.copyWith(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
+                color: AppColors.messagingTitleColor,
               ),
             ),
           ),
@@ -241,12 +247,12 @@ class _DialogHeader extends StatelessWidget {
               height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFCBD5E1)),
+                border: Border.all(color: AppColors.messagingCloseBorder),
               ),
               child: const Icon(
                 Icons.close_rounded,
                 size: 18,
-                color: Color(0xFF64748B),
+                color: AppColors.messagingCloseIcon,
               ),
             ),
           ),
@@ -265,13 +271,13 @@ class _StudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.blackColor.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -280,14 +286,13 @@ class _StudentCard extends StatelessWidget {
       child: Row(
         children: [
           DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             // `avatarUuid` is either a resolved URL or a raw media-asset
             // code depending on the caller — `fileUuid` is never actually
             // used to resolve an image (only `imageUrl`/`mediaAssetCode`
             // are), so route to whichever matches the value's shape.
-            imageUrl: (avatarUuid ?? '').startsWith('http')
-                ? avatarUuid
-                : null,
+            imageUrl: (avatarUuid ?? '').startsWith('http') ? avatarUuid : null,
             mediaAssetCode: (avatarUuid ?? '').startsWith('http')
                 ? null
                 : avatarUuid,
@@ -299,10 +304,10 @@ class _StudentCard extends StatelessWidget {
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(
+              style: AppTextStyles.heading18.copyWith(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
+                color: AppColors.messagingTitleColor,
               ),
             ),
           ),
@@ -321,10 +326,10 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      padding: const EdgeInsets.only(top: AppSizes.xxs, bottom: AppSizes.xxs),
       child: Text(
         '$label ($count)',
-        style: TextStyle(
+        style: AppTextStyles.size14.copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: AppColors.primaryColor,
@@ -346,7 +351,15 @@ class _ParticipantTile extends StatelessWidget {
     final badgeBg = ParticipantInfoDialog._badgeBg(role);
     final badgeFg = ParticipantInfoDialog._badgeFg(role);
     final badgeLabel = ParticipantInfoDialog._badgeLabel(role);
-    const staffRoles = {'STAFF', 'TEACHER', 'ADMIN', 'DIRECTOR', 'PRINCIPAL', 'ASSISTANT_DIRECTOR', 'LEAD_TEACHER'};
+    const staffRoles = {
+      'STAFF',
+      'TEACHER',
+      'ADMIN',
+      'DIRECTOR',
+      'PRINCIPAL',
+      'ASSISTANT_DIRECTOR',
+      'LEAD_TEACHER',
+    };
     final isStaffPersona = staffRoles.contains(role);
 
     return Padding(
@@ -355,6 +368,7 @@ class _ParticipantTile extends StatelessWidget {
         children: [
           // Avatar
           DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             imageUrl: (data.avatarUrl ?? '').startsWith('http')
                 ? data.avatarUrl
@@ -369,7 +383,7 @@ class _ParticipantTile extends StatelessWidget {
             size: 42,
             fontSize: 14,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSizes.sm),
 
           // Name + role
           Expanded(
@@ -378,33 +392,28 @@ class _ParticipantTile extends StatelessWidget {
               children: [
                 Text(
                   data.displayName,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: AppTextStyles.size14.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.messagingTextStrong,
                   ),
                 ),
-                // Text(
-                //   role,
-                //   style: const TextStyle(
-                //     fontSize: 11,
-                //     color: Color(0xFF94A3B8),
-                //   ),
-                // ),
               ],
             ),
           ),
 
           // Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSizes.xsPlus,
+              vertical: AppSizes.xxs,
+            ),
             decoration: BoxDecoration(
               color: badgeBg,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               badgeLabel,
-              style: TextStyle(
+              style: AppTextStyles.size14.copyWith(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: badgeFg,

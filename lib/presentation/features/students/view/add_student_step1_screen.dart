@@ -1,35 +1,44 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
-import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_create_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_age_rules.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/duplicate_student_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/same_last_name_siblings_dialog.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class AddStudentStep1Screen extends StatefulWidget {
   const AddStudentStep1Screen({
@@ -68,70 +77,41 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       10; // safety cap (25 * 10 = 250 scanned)
   static const int _maxParentsPerStudent = 4;
 
-  String? _selectedStatus;
-  String? _selectedClassroom;
-  DateTime? _selectedBirthdate;
-  DateTime? _selectedSchoolStartDate;
-  File? _profilePhoto;
-  int? _calculatedAge;
-  String? _calculatedAgeLabel;
-  bool _isSubmitting = false;
+  final StudentCreateCubit _createCubit = serviceLocator<StudentCreateCubit>();
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
-  bool get _isActive => (_selectedStatus ?? '').toLowerCase() == 'active';
-  bool get _isUpcoming => (_selectedStatus ?? '').toLowerCase() == 'upcoming';
+  // Read the status-derived flags off the cubit-owned form model.
+  bool get _isActive =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'active';
+  bool get _isUpcoming =>
+      (_createCubit.state.step1Status ?? '').toLowerCase() == 'upcoming';
 
   @override
   void initState() {
     super.initState();
-    _selectedStatus = widget.initialStatus ?? 'Active';
     if (widget.initialFirstName != null) {
       _firstNameController.text = widget.initialFirstName!.trim();
     }
     if (widget.initialLastName != null) {
       _lastNameController.text = widget.initialLastName!.trim();
     }
-    _selectedClassroom = widget.initialClassroom;
-    _selectedBirthdate = widget.initialBirthdate;
-    _selectedSchoolStartDate = widget.initialSchoolStartDate;
-    _profilePhoto = widget.initialProfilePhoto;
-    if (_selectedBirthdate != null) {
-      _calculateAge(_selectedBirthdate!);
-    }
+    // Controllers stay local; the rest of the step-1 form model seeds the cubit.
+    _createCubit.initializeStep1(
+      status: widget.initialStatus ?? 'Active',
+      classroom: widget.initialClassroom,
+      birthdate: widget.initialBirthdate,
+      schoolStartDate: widget.initialSchoolStartDate,
+      profilePhoto: widget.initialProfilePhoto,
+    );
   }
 
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _createCubit.close();
     super.dispose();
-  }
-
-  void _calculateAge(DateTime birthdate) {
-    final now = DateTime.now();
-    int years = now.year - birthdate.year;
-    int months = now.month - birthdate.month;
-    if (now.day < birthdate.day) {
-      months--;
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-    setState(() {
-      _calculatedAge = years;
-      _calculatedAgeLabel = _formatAgeLabel(years, months);
-    });
-  }
-
-  String _formatAgeLabel(int years, int months) {
-    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
-    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
-    if (years <= 0) {
-      return monthPart;
-    }
-    return '$yearPart $monthPart';
   }
 
   Future<void> _pickProfileImage() async {
@@ -152,15 +132,13 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Image size must be less than 10MB',
+          message: StudentStrings.imageSizeMustBeLessThan10mb,
           isError: true,
         );
         return;
       }
 
-      setState(() {
-        _profilePhoto = file;
-      });
+      _createCubit.setStep1ProfilePhoto(file);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -178,29 +156,27 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
-          initialDate: _selectedBirthdate,
+          initialDate: _createCubit.state.step1Birthdate,
         ),
       );
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Validate: must be past date only
         if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Birthdate must be a past date',
+            message: StudentStrings.birthdateMustBeAPastDate,
             isError: true,
           );
           return;
         }
 
-        setState(() {
-          _selectedBirthdate = selectedDate;
-        });
-        _calculateAge(selectedDate);
+        // Cubit sets the date AND derives the age label.
+        _createCubit.setStep1Birthdate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -209,9 +185,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final initial = _selectedSchoolStartDate;
+      final initial = _createCubit.state.step1SchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
           ? (initial == null || initial.isBefore(today) ? today : initial)
           : initial;
@@ -237,14 +213,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (_isUpcoming && selDay.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'School start date cannot be in the past',
+            message: StudentStrings.schoolStartDateCannotBeInThePast,
             isError: true,
           );
           return;
         }
-        setState(() {
-          _selectedSchoolStartDate = selectedDate;
-        });
+        _createCubit.setStep1SchoolStartDate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -262,7 +236,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_firstNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name is required',
+        message: StudentStrings.firstNameIsRequired2,
         isError: true,
       );
       return;
@@ -279,7 +253,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_firstNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
@@ -288,7 +262,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (_lastNameController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name is required',
+        message: StudentStrings.lastNameIsRequired2,
         isError: true,
       );
       return;
@@ -305,34 +279,34 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (!_nameRegex.hasMatch(_lastNameController.text)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters,
         isError: true,
       );
       return;
     }
 
-    if (_selectedClassroom == null) {
+    if (_createCubit.state.step1Classroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select a classroom',
+        message: StudentStrings.pleaseSelectAClassroom,
         isError: true,
       );
       return;
     }
 
-    if (_isActive && _selectedBirthdate == null) {
+    if (_isActive && _createCubit.state.step1Birthdate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Birthdate is required for active students',
+        message: StudentStrings.birthdateIsRequiredForActiveStudents,
         isError: true,
       );
       return;
     }
 
-    if (_isUpcoming && _selectedSchoolStartDate == null) {
+    if (_isUpcoming && _createCubit.state.step1SchoolStartDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'School start date is required for upcoming students',
+        message: StudentStrings.schoolStartDateIsRequiredForUpcomingStudents,
         isError: true,
       );
       return;
@@ -351,7 +325,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
     final selectedClassroom = classrooms.where(
-      (c) => c.name == _selectedClassroom,
+      (c) => c.name == _createCubit.state.step1Classroom,
     );
     final selectedClassroomCode = selectedClassroom.isNotEmpty
         ? selectedClassroom.first.code
@@ -359,40 +333,49 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected classroom is invalid. Please select again.',
+        message: StudentStrings.selectedClassroomIsInvalidPleaseSelectAgain,
         isError: true,
       );
       return;
     }
 
-    final step1Data = {
-      'status': _selectedStatus,
-      'firstName': _firstNameController.text.trim(),
-      'lastName': _lastNameController.text.trim(),
-      'classroom': _selectedClassroom,
-      'classroomCode': selectedClassroomCode,
-      'birthdate': _selectedBirthdate,
-      'schoolStartDate': _selectedSchoolStartDate,
-      'profilePhoto': _profilePhoto,
-      'age': _calculatedAge,
-      'siblingCodesToLink': siblingCodesToLink,
-    };
+    // WARN (never block) when the DOB is outside the classroom's age range.
+    // An out-of-range placement is a legitimate staff decision, so we surface it
+    // and let them proceed — matching the web "warn but allow" behaviour.
+    final ageWarning = classroomAgeRangeWarning(
+      classroom: selectedClassroom.first,
+      birthDate: _createCubit.state.step1Birthdate,
+      studentName: _firstNameController.text.trim(),
+    );
+    if (ageWarning != null) {
+      final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+      if (!proceedAnyway || !mounted) return;
+    }
 
-    // Navigate to step 2
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddStudentStep2Screen(
-          initialSelectFromExisting: false,
-          initialSelectedExistingParents: const [],
-        ),
+    await _createStudentAndContinue(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      classroomCode: selectedClassroomCode,
+      siblingCodesToLink: siblingCodesToLink,
+    );
+  }
+
+  /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
+  Future<bool> _confirmAgeOutsideRange(String message) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.transparentColor,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: StudentStrings.continueAnyway,
+        cancelText: StudentStrings.cancel,
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
       ),
-    ).then((step2Result) {
-      if (step2Result != null) {
-        // Handle step 2 result and continue to step 3 or complete
-        _handleStep2Result(step1Data, [step2Result]);
-      }
-    });
+    );
+    return result == true;
   }
 
   Future<bool> _confirmIfDuplicateNameExists({
@@ -407,8 +390,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return true;
 
-      final repo = serviceLocator<StudentRepository>();
-
       String norm(String s) => s.trim().toLowerCase();
       final firstNorm = norm(firstName);
       final lastNorm = norm(lastName);
@@ -418,7 +399,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       int pageIndex = 0;
       bool hasMore = true;
       while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-        final page = await repo.getStudentPage(
+        final page = await _createCubit.fetchStudentPage(
           schoolCode: schoolCode,
           firstName: firstName,
           lastName: lastName,
@@ -449,7 +430,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final result = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         builder: (ctx) {
           return DuplicateStudentBottomSheet(
             enteredName: enteredName,
@@ -464,20 +445,19 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 orElse: () => matches.first,
               );
               Navigator.of(ctx).pop(false);
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StudentProfileScreen(
-                    name: match.fullName.isNotEmpty
-                        ? match.fullName
-                        : enteredName,
-                    classroom: match.classroom,
-                    tags: match.tags,
-                    schedule: match.schedule,
-                    sibling: const {},
-                    studentCode: match.code,
-                    initialEnrollmentStatus: match.status,
-                  ),
-                ),
+              context.push(
+                StudentProfileScreen.routeName,
+                extra: <String, dynamic>{
+                  'name': match.fullName.isNotEmpty
+                      ? match.fullName
+                      : enteredName,
+                  'classroom': match.classroom,
+                  'tags': match.tags,
+                  'schedule': match.schedule,
+                  'sibling': const StudentSiblingInfo(),
+                  'studentCode': match.code,
+                  'initialEnrollmentStatus': match.status,
+                },
               );
             },
           );
@@ -500,7 +480,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
     if (schoolCode.isEmpty) return <Student>[];
 
-    final repo = serviceLocator<StudentRepository>();
     String norm(String s) => s.trim().toLowerCase();
     final firstNorm = norm(firstName);
     final lastNorm = norm(lastName);
@@ -509,7 +488,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     int pageIndex = 0;
     bool hasMore = true;
     while (hasMore && pageIndex < _duplicateQueryMaxPages) {
-      final page = await repo.getStudentPage(
+      final page = await _createCubit.fetchStudentPage(
         schoolCode: schoolCode,
         lastName: lastName,
         page: pageIndex,
@@ -521,6 +500,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         if (norm(s.firstName) == firstNorm && norm(s.lastName) == lastNorm) {
           continue;
         }
+        // Only offer active students as sibling candidates, matching web.
+        if (s.status.trim().toUpperCase() != 'ACTIVE') continue;
         matches.add(s);
       }
 
@@ -555,132 +536,45 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     }
   }
 
-  void _handleStep2Result(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-  ) async {
-    if (parents.length < _maxParentsPerStudent) {
-      final addAnother = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => ConfirmationBottomSheet(
-          title: 'Do you want to add another parent?',
-          confirmText: 'Yes',
-          cancelText: 'Skip',
-          icon: Icons.family_restroom,
-          onConfirm: () => Navigator.of(context).pop(true),
-          onCancel: () => Navigator.of(context).pop(false),
-        ),
-      );
-
-      if (addAnother == true) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddStudentStep2Screen(
-              initialSelectFromExisting: false,
-              initialSelectedExistingParents: const [],
-            ),
-          ),
-        ).then((nextParentResult) {
-          if (nextParentResult != null) {
-            final updatedParents = List<dynamic>.from(parents)
-              ..add(nextParentResult);
-            _handleStep2Result(step1Data, updatedParents);
-          }
-        });
-        return;
-      }
-    }
-
-    // After parent completion (or max parents), ask for schedule.
-    final addSchedule = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConfirmationBottomSheet(
-        title: 'Do you want to add schedule?',
-        confirmText: 'Yes',
-        cancelText: 'Skip',
-        icon: Icons.schedule,
-        onConfirm: () => Navigator.of(context).pop(true),
-        onCancel: () => Navigator.of(context).pop(false),
-      ),
-    );
-
-    dynamic scheduleData;
-    if (addSchedule == true) {
-      final step3Result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AddStudentStep3Screen()),
-      );
-      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
-        scheduleData = step3Result;
-      } else if (step3Result is Map) {
-        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
-          step3Result.map(
-            (k, v) =>
-                MapEntry(k.toString(), Map<String, TimeOfDay>.from(v as Map)),
-          ),
-        );
-      }
-    }
-
-    _completeWizard(step1Data, parents, scheduleData);
-  }
-
-  Future<void> _completeWizard(
-    Map<String, dynamic> step1Data,
-    List<dynamic> parents,
-    dynamic schedule,
-  ) async {
-    setState(() {
-      _isSubmitting = true;
-    });
+  /// Creates the student via the student API immediately (Step 1's own
+  /// concern), then hands off to the now-optional Add Parent step. Parent
+  /// creation is Step 2's own API call — see [AddStudentStep2Screen] with
+  /// `createGuardianDirectly: true` — this method no longer touches guardian
+  /// endpoints at all.
+  Future<void> _createStudentAndContinue({
+    required String firstName,
+    required String lastName,
+    required String classroomCode,
+    required List<String> siblingCodesToLink,
+  }) async {
+    _createCubit.setStep1Submitting(true);
 
     try {
-      final firstName = (step1Data['firstName'] as String?)?.trim() ?? '';
-      final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
-      final rawStatus = (step1Data['status'] as String?) ?? 'Active';
+      final rawStatus = _createCubit.state.step1Status ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroomCode =
-          (step1Data['classroomCode'] as String?)?.trim() ?? '';
-      final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
-      final DateTime? schoolStartDate =
-          step1Data['schoolStartDate'] as DateTime?;
-      final siblingCodesToLink =
-          (step1Data['siblingCodesToLink'] as List<dynamic>?)
-              ?.map((e) => e.toString().trim())
-              .where((e) => e.isNotEmpty)
-              .toList() ??
-          <String>[];
 
       final storage = serviceLocator<StorageService>();
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       final organizationCode =
           await storage.getString(StorageKeys.organizationCode) ?? '';
-      final userCode = await storage.getString(StorageKeys.userCode) ?? '';
 
-      final repo = serviceLocator<StudentRepository>();
-
-      final Student student = await repo.createStudent(
+      final Student student = await _createCubit.createStudent(
         schoolCode: schoolCode,
         firstName: firstName,
         lastName: lastName,
         status: status,
         classroom: classroomCode,
-        dob: birthdate,
-        schoolStartDate: schoolStartDate,
+        dob: _createCubit.state.step1Birthdate,
+        schoolStartDate: _createCubit.state.step1SchoolStartDate,
         profilePhotoUrl: null,
       );
 
       // Upload the picked student photo in the BACKGROUND so creation returns
       // immediately; the upload keeps running even after this screen is closed.
-      final pickedPhoto = _profilePhoto;
+      final pickedPhoto = _createCubit.state.step1ProfilePhoto;
       if (pickedPhoto != null && student.code.trim().isNotEmpty) {
         unawaited(
-          uploadStudentPhotoInBackground(
+          _createCubit.uploadStudentPhotoInBackground(
             studentCode: student.code.trim(),
             file: pickedPhoto,
             schoolCode: schoolCode.trim(),
@@ -689,153 +583,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         );
       }
 
-      final studentName = student.fullName.isNotEmpty
-          ? student.fullName
-          : '$firstName $lastName'.trim();
-
-      // Create guardian-user records for each newly entered parent (step 2).
-      // Existing parents selected from the list are skipped here.
-      if (organizationCode.trim().isEmpty) {
-        if (mounted) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message:
-                'Organization is missing; cannot add guardians. Re-select your school and try again.',
-            isError: true,
-          );
-        }
-      } else {
-        for (final parent in parents) {
-          if (parent is! Map) continue;
-          final map = Map<String, dynamic>.from(parent);
-          final bool selectFromExisting =
-              map['selectFromExisting'] as bool? ?? false;
-          if (selectFromExisting) {
-            final selectedExistingParents =
-                (map['selectedExistingParents'] as List<dynamic>? ??
-                        const <dynamic>[])
-                    .map((e) => e.toString().trim())
-                    .where((e) => e.isNotEmpty)
-                    .toList();
-            if (selectedExistingParents.isEmpty) {
-              continue;
-            }
-            try {
-              final nameCodeMap = await repo.getGuardianNameCodeMapForSchool(
-                schoolCode: schoolCode,
-              );
-
-              final relationLabel = (map['relation'] as String?)?.trim() ?? '';
-              final relationOther =
-                  (map['relationOther'] as String?)?.trim() ?? '';
-              final relationEnum = relationLabel.isEmpty
-                  ? null
-                  : relationLabel.toUpperCase().replaceAll(' ', '_');
-              final relationDescription =
-                  relationLabel == 'Other' && relationOther.isNotEmpty
-                  ? relationOther
-                  : null;
-
-              for (final selectedName in selectedExistingParents) {
-                final guardianCode = (nameCodeMap[selectedName] ?? '').trim();
-                if (guardianCode.isEmpty) continue;
-                await repo.linkExistingGuardian(
-                  guardianCode: guardianCode,
-                  studentCode: student.code,
-                  relation: relationEnum,
-                  relationDescription: relationDescription,
-                );
-              }
-            } catch (e) {
-              final message = ApiErrorHandler.extractErrorMessage(e);
-              if (mounted) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Failed to link existing parent: $message',
-                  isError: true,
-                );
-              }
-            }
-            continue;
-          }
-
-          final parentFirst = (map['firstName'] as String?)?.trim() ?? '';
-          final parentLast = (map['lastName'] as String?)?.trim() ?? '';
-          final parentEmail =
-              (map['email'] as String?)?.trim().toLowerCase() ?? '';
-          final parentPhoneRaw = (map['phoneNumber'] as String?)?.trim() ?? '';
-          final parentPhoneDigits = parentPhoneRaw.replaceAll(
-            RegExp(r'\D'),
-            '',
-          );
-
-          if (parentFirst.isEmpty ||
-              parentLast.isEmpty ||
-              parentEmail.isEmpty ||
-              parentPhoneDigits.isEmpty) {
-            continue;
-          }
-
-          final relationLabel = (map['relation'] as String?)?.trim() ?? '';
-          final relationOther = (map['relationOther'] as String?)?.trim() ?? '';
-          final relationToStudent =
-              (relationLabel == 'Other' && relationOther.isNotEmpty
-                      ? relationOther
-                      : relationLabel)
-                  .toUpperCase();
-
-          final bool primaryContact =
-              map['isEmergencyContact'] as bool? ?? true;
-          final bool legalCustody = map['isChildCustody'] as bool? ?? true;
-
-          try {
-            final createdGuardian = await repo.createGuardianUser(
-              schoolCode: schoolCode,
-              studentCode: student.code,
-              firstName: parentFirst,
-              lastName: parentLast,
-              email: parentEmail,
-              mobile: parentPhoneDigits,
-              relationToStudent: relationToStudent,
-              primaryContact: primaryContact,
-              legalCustody: legalCustody,
-              profilePhotoUrl: null,
-              userCode: userCode.isEmpty ? null : userCode,
-              organizationCode: organizationCode.trim(),
-            );
-            // Upload this parent's photo (picked in step 2) in the background.
-            final parentPhoto = map['profilePhoto'];
-            if (parentPhoto is File) {
-              unawaited(
-                uploadGuardianPhotoInBackground(
-                  file: parentPhoto,
-                  guardianCode: (createdGuardian.guardianCode ?? '').trim(),
-                  studentCode: student.code,
-                  email: parentEmail,
-                  mobile: parentPhoneDigits,
-                  schoolCode: schoolCode,
-                  organizationCode: organizationCode.trim(),
-                  userCode: '',
-                ),
-              );
-            }
-          } catch (e) {
-            final message = ApiErrorHandler.extractErrorMessage(e);
-            if (mounted) {
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: 'Failed to add guardian: $message',
-                isError: true,
-              );
-            }
-          }
-        }
-      }
-
-      // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
+      // Link same-last-name siblings picked in Step 1
+      // (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.addStudentSibling(
+          await _createCubit.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
@@ -851,96 +603,225 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      // If a schedule was provided from Step 3, send it to the regular-schedules API.
-      try {
-        if (schedule is Map) {
-          final rawSchedule = Map<String, dynamic>.from(schedule);
-          final List<Map<String, dynamic>> payloadSchedule = [];
+      final studentName = student.fullName.isNotEmpty
+          ? student.fullName
+          : '$firstName $lastName'.trim();
 
-          String _formatLocalTime(TimeOfDay time) {
-            final h = time.hour.toString().padLeft(2, '0');
-            final m = time.minute.toString().padLeft(2, '0');
-            // Use HH:mm:ss which Jackson's LocalTime can parse by default.
-            return '$h:$m:00';
-          }
+      if (!mounted) return;
 
-          for (final entry in rawSchedule.entries) {
-            final dayName = entry.key.toString();
-            final timesMap = Map<String, dynamic>.from(entry.value as Map);
-            final start = timesMap['start'] as TimeOfDay?;
-            final end = timesMap['end'] as TimeOfDay?;
+      // Step 2 (Add Parent) is now optional: it calls the guardian API itself
+      // (createGuardianDirectly) and returns true only if a parent was saved.
+      final parentResult = await context.push<bool>(
+        AddStudentStep2Screen.routeName,
+        extra: <String, dynamic>{
+          'studentCode': student.code,
+          'schoolCode': schoolCode,
+          'createGuardianDirectly': true,
+          'isOptionalStep': true,
+        },
+      );
 
-            if (start == null || end == null) {
-              continue;
-            }
+      if (!mounted) return;
 
-            // Compute a simple mid-point time for halfDay between start and end.
-            final startMinutes = start.hour * 60 + start.minute;
-            final endMinutes = end.hour * 60 + end.minute;
-            final midMinutes = ((startMinutes + endMinutes) / 2).floor();
-            final halfDay = TimeOfDay(
-              hour: (midMinutes ~/ 60) % 24,
-              minute: midMinutes % 60,
-            );
+      await _onParentStepResult(
+        studentCode: student.code,
+        studentName: studentName,
+        justAddedParent: parentResult == true,
+        parentCount: parentResult == true ? 1 : 0,
+      );
+    } catch (e) {
+      final message = ApiErrorHandler.extractErrorMessage(e);
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        _createCubit.setStep1Submitting(false);
+      }
+    }
+  }
 
-            payloadSchedule.add({
-              'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
-              'startTime': _formatLocalTime(start),
-              'halfDay': _formatLocalTime(halfDay),
-              'endTime': _formatLocalTime(end),
-            });
-          }
+  /// After the (optional) Add Parent step returns, offer to add another
+  /// parent, then move on to the (optional) schedule step, then finish.
+  Future<void> _onParentStepResult({
+    required String studentCode,
+    required String studentName,
+    required bool justAddedParent,
+    required int parentCount,
+  }) async {
+    if (justAddedParent && parentCount < _maxParentsPerStudent) {
+      final addAnother = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.transparentColor,
+        builder: (context) => ConfirmationBottomSheet(
+          title: StudentStrings.doYouWantToAddAnotherParent,
+          confirmText: StudentStrings.yes,
+          cancelText: StudentStrings.skip,
+          icon: Icons.family_restroom,
+          onConfirm: () => Navigator.of(context).pop(true),
+          onCancel: () => Navigator.of(context).pop(false),
+        ),
+      );
 
-          if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
-            final remote = serviceLocator<StudentRemoteDataSource>();
-            await remote.updateStudentRegularSchedules(
-              schoolCode: schoolCode,
-              studentCode: student.code,
-              schedule: payloadSchedule,
-            );
-          }
+      if (addAnother == true) {
+        if (!mounted) return;
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        if (!mounted) return;
+
+        final nextParentResult = await context.push<bool>(
+          AddStudentStep2Screen.routeName,
+          extra: <String, dynamic>{
+            'studentCode': studentCode,
+            'schoolCode': schoolCode,
+            'createGuardianDirectly': true,
+            'isOptionalStep': true,
+          },
+        );
+
+        if (!mounted) return;
+        await _onParentStepResult(
+          studentCode: studentCode,
+          studentName: studentName,
+          justAddedParent: nextParentResult == true,
+          parentCount: nextParentResult == true ? parentCount + 1 : parentCount,
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
+    // After parent completion (or it being skipped/cancelled), ask for schedule.
+    final addSchedule = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.transparentColor,
+      builder: (context) => ConfirmationBottomSheet(
+        title: StudentStrings.doYouWantToAddSchedule,
+        confirmText: StudentStrings.yes,
+        cancelText: StudentStrings.skip,
+        icon: Icons.schedule,
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(false),
+      ),
+    );
+
+    dynamic scheduleData;
+    if (addSchedule == true) {
+      if (!mounted) return;
+      final step3Result = await context.push(AddStudentStep3Screen.routeName);
+      if (step3Result is Map<String, Map<String, TimeOfDay>>) {
+        scheduleData = step3Result;
+      } else if (step3Result is Map) {
+        scheduleData = Map<String, Map<String, TimeOfDay>>.from(
+          step3Result.map(
+            (k, v) =>
+                MapEntry(k.toString(), Map<String, TimeOfDay>.from(v as Map)),
+          ),
+        );
+      }
+    }
+
+    if (!mounted) return;
+    await _finalizeWizard(
+      studentCode: studentCode,
+      studentName: studentName,
+      schedule: scheduleData,
+    );
+  }
+
+  /// Student and parent are already saved by this point (each via its own
+  /// API call). This only saves the optional schedule and closes the wizard.
+  Future<void> _finalizeWizard({
+    required String studentCode,
+    required String studentName,
+    required dynamic schedule,
+  }) async {
+    try {
+      if (schedule is Map) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+        final rawSchedule = Map<String, dynamic>.from(schedule);
+        final List<Map<String, dynamic>> payloadSchedule = [];
+
+        String formatLocalTime(TimeOfDay time) {
+          final h = time.hour.toString().padLeft(2, '0');
+          final m = time.minute.toString().padLeft(2, '0');
+          // Use HH:mm:ss which Jackson's LocalTime can parse by default.
+          return '$h:$m:00';
         }
-      } catch (e) {
-        final message = ApiErrorHandler.extractErrorMessage(e);
-        if (mounted) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Student created but failed to save schedule: $message',
-            isError: true,
+
+        for (final entry in rawSchedule.entries) {
+          final dayName = entry.key.toString();
+          final timesMap = Map<String, dynamic>.from(entry.value as Map);
+          final start = timesMap['start'] as TimeOfDay?;
+          final end = timesMap['end'] as TimeOfDay?;
+
+          if (start == null || end == null) {
+            continue;
+          }
+
+          // Compute a simple mid-point time for halfDay between start and end.
+          final startMinutes = start.hour * 60 + start.minute;
+          final endMinutes = end.hour * 60 + end.minute;
+          final midMinutes = ((startMinutes + endMinutes) / 2).floor();
+          final halfDay = TimeOfDay(
+            hour: (midMinutes ~/ 60) % 24,
+            minute: midMinutes % 60,
+          );
+
+          payloadSchedule.add({
+            'dayOfWeek': dayName.toUpperCase(), // e.g. MONDAY
+            'startTime': formatLocalTime(start),
+            'halfDay': formatLocalTime(halfDay),
+            'endTime': formatLocalTime(end),
+          });
+        }
+
+        if (payloadSchedule.isNotEmpty && schoolCode.isNotEmpty) {
+          final remote = serviceLocator<StudentRemoteDataSource>();
+          await remote.updateStudentRegularSchedules(
+            schoolCode: schoolCode,
+            studentCode: studentCode,
+            schedule: payloadSchedule,
           );
         }
       }
-
-      final bool anyPhotoUploading =
-          _profilePhoto != null ||
-          parents.any((p) => p is Map && p['profilePhoto'] is File);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
-            '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
-        isSuccess: true,
-      );
-
-      Navigator.pop(context, {
-        'showPostAddPrompt': true,
-        'studentName': studentName,
-        'studentCode': student.code,
-      });
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
-    } finally {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Student created but failed to save schedule: $message',
+          isError: true,
+        );
       }
     }
+
+    if (!mounted) return;
+
+    final bool anyPhotoUploading = _createCubit.state.step1ProfilePhoto != null;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message:
+          'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
+          '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
+      isSuccess: true,
+    );
+
+    Navigator.pop(context, {
+      'showPostAddPrompt': true,
+      'studentName': studentName,
+      'studentCode': studentCode,
+    });
   }
 
   @override
@@ -949,194 +830,217 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
-    return BlocBuilder<ClassroomCubit, ClassroomState>(
-      builder: (context, classroomState) {
-        final classroomNames = classroomState.classrooms
-            .map((c) => c.name)
-            .toList();
+    return BlocBuilder<StudentCreateCubit, StudentCreateState>(
+      bloc: _createCubit,
+      builder: (context, createState) =>
+          BlocBuilder<ClassroomCubit, ClassroomState>(
+            builder: (context, classroomState) {
+              final classroomNames = classroomState.classrooms
+                  .map((c) => c.name)
+                  .toList();
 
-        return GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: const CustomAppBar(hasBackButton: true),
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildScaffoldGradient(),
-                    ),
-                    child: Image.asset(
-                      MediaRes.wowcareMobileBg,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                    ),
-                  ),
-                ),
-                Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Add Student - Step 1 of 3',
-                          style: TextStyle(
-                            fontFamily: "Manrope",
-                            fontSize: responsive.titleFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
+              return GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: Scaffold(
+                  backgroundColor: AppColors.whiteColor,
+                  appBar: const CustomAppBar(hasBackButton: true),
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildScaffoldGradient(),
+                          ),
+                          child: Image.asset(
+                            MediaRes.wowcareMobileBg,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                    Expanded(
-                      child: Container(
-                        width: responsive.containerWidth,
-                        margin: EdgeInsets.symmetric(
-                          horizontal: responsive.horizontalSpacing,
-                        ),
-                        padding: EdgeInsets.all(
-                          responsive.isTablet ? 32.0 : 16.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      Column(
+                        children: [
+                          AppSpacing.gapVMd,
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: responsive.horizontalSpacing,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: ListView(
-                                padding: EdgeInsets.zero,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                StudentStrings.addStudentStep1Of3,
+                                style: TextStyle(
+                                  fontFamily: Fonts.manrope,
+                                  fontSize: responsive.titleFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
+                          Expanded(
+                            child: Container(
+                              width: responsive.containerWidth,
+                              margin: EdgeInsets.symmetric(
+                                horizontal: responsive.horizontalSpacing,
+                              ),
+                              padding: EdgeInsets.all(
+                                responsive.isTablet ? 32.0 : 16.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.whiteColor,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(
+                                    responsive.isTablet ? 40.0 : 24.0,
+                                  ),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.blackColor.withValues(
+                                      alpha: 0.05,
+                                    ),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
                                 children: [
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Status
-                                  CustomDropdown(
-                                    label: "Status",
-                                    hintText: 'Select',
-                                    items: _statusOptions,
-                                    selectedItem: _selectedStatus,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
+                                  Expanded(
+                                    child: ListView(
+                                      padding: EdgeInsets.zero,
+                                      children: [
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Status
+                                        CustomDropdown(
+                                          label: StudentStrings.status,
+                                          hintText: StudentStrings.select,
+                                          items: _statusOptions,
+                                          selectedItem:
+                                              _createCubit.state.step1Status,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: Fonts.manrope,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) =>
+                                              _createCubit.setStep1Status(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // First Name and Last Name
+                                        _buildRowInputs(context),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Classroom
+                                        CustomDropdown(
+                                          label: StudentStrings.classroom,
+                                          hintText: StudentStrings.select,
+                                          items: classroomNames,
+                                          selectedItem:
+                                              _createCubit.state.step1Classroom,
+                                          labelStyle: TextStyle(
+                                            fontSize: responsive.labelFontSize,
+                                            fontFamily: Fonts.manrope,
+                                            fontWeight: FontWeight.w400,
+                                            color: AppColors.primaryColor,
+                                          ),
+                                          showAsterisk: true,
+                                          labelBottomSpacing:
+                                              responsive.isTablet ? 8.0 : 6.0,
+                                          onSelect: (val) => _createCubit
+                                              .setStep1Classroom(val),
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Profile Photo
+                                        _buildProfilePhotoField(responsive),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // Birthdate
+                                        _buildDateField(
+                                          StudentStrings.birthdate,
+                                          _createCubit.state.step1Birthdate,
+                                          _selectBirthdate,
+                                          isRequired: _isActive,
+                                          ageLabel:
+                                              _createCubit.state.step1AgeLabel,
+                                        ),
+                                        SizedBox(
+                                          height: responsive.verticalSpacing,
+                                        ),
+                                        // School Start Date
+                                        _buildDateField(
+                                          StudentStrings.schoolStartDate,
+                                          _createCubit
+                                              .state
+                                              .step1SchoolStartDate,
+                                          _selectSchoolStartDate,
+                                          isRequired: _isUpcoming,
+                                        ),
+                                        AppSpacing.gapVSm,
+                                      ],
                                     ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedStatus = val;
-                                      });
-                                    },
                                   ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // First Name and Last Name
-                                  _buildRowInputs(context),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Classroom
-                                  CustomDropdown(
-                                    label: "Classroom",
-                                    hintText: 'Select',
-                                    items: classroomNames,
-                                    selectedItem: _selectedClassroom,
-                                    labelStyle: TextStyle(
-                                      fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xff573353),
-                                    ),
-                                    showAsterisk: true,
-                                    labelBottomSpacing: responsive.isTablet
-                                        ? 8.0
-                                        : 6.0,
-                                    onSelect: (val) {
-                                      setState(() {
-                                        _selectedClassroom = val;
-                                      });
-                                    },
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Profile Photo
-                                  _buildProfilePhotoField(responsive),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // Birthdate
-                                  _buildDateField(
-                                    "Birthdate",
-                                    _selectedBirthdate,
-                                    _selectBirthdate,
-                                    isRequired: _isActive,
-                                    ageLabel: _calculatedAgeLabel,
-                                  ),
-                                  SizedBox(height: responsive.verticalSpacing),
-                                  // School Start Date
-                                  _buildDateField(
-                                    "School Start Date",
-                                    _selectedSchoolStartDate,
-                                    _selectSchoolStartDate,
-                                    isRequired: _isUpcoming,
-                                  ),
-                                  const SizedBox(height: 12),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
+                          AppSpacing.gapVSm,
+                        ],
+                      ),
+                    ],
+                  ),
+                  bottomNavigationBar: Container(
+                    padding: EdgeInsets.only(
+                      bottom: safeAreaBottom,
+                      left: AppSpacing.md,
+                      right: AppSpacing.md,
+                      top: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.whiteColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
+                          offset: const Offset(0, -4),
+                          blurRadius: 16,
+                        ),
+                      ],
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
+                        ),
+                        topRight: Radius.circular(
+                          responsive.isTablet ? 40.0 : 24.0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ],
-            ),
-            bottomNavigationBar: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
+                    child: CustomButtonLayout(
+                      confirmButtonLabel: StudentStrings.next,
+                      onPressedConfirm: _createCubit.state.step1Submitting
+                          ? null
+                          : _onNext,
+                      showCancelButton: false,
+                      isForm: false,
+                      isLoading: _createCubit.state.step1Submitting,
+                    ),
                   ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
-              ),
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Next',
-                onPressedConfirm: _isSubmitting ? null : _onNext,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSubmitting,
-              ),
-            ),
+              );
+            },
           ),
-        );
-      },
     );
   }
 
@@ -1146,8 +1050,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       children: [
         Expanded(
           child: _buildInputField(
-            "First Name",
-            "E.g. John",
+            StudentStrings.firstName,
+            StudentStrings.eGJohn,
             _firstNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1160,8 +1064,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
         Expanded(
           child: _buildInputField(
-            "Last Name",
-            "E.g. Smith",
+            StudentStrings.lastName,
+            StudentStrings.eGSmith,
             _lastNameController,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s\-']")),
@@ -1184,9 +1088,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1199,7 +1103,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.errorColor),
               ),
             ],
           ),
@@ -1208,8 +1112,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1218,15 +1122,17 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             controller: controller,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1244,12 +1150,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Profile Photo',
+          StudentStrings.profilePhoto,
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: "Manrope",
+            fontFamily: Fonts.manrope,
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -1259,42 +1165,45 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.attendanceShimmerHighlightColor,
+              borderRadius: AppRadius.allMd,
+              border: Border.all(color: AppColors.inputBorderColor),
             ),
-            child: _profilePhoto != null
+            child: _createCubit.state.step1ProfilePhoto != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                    borderRadius: AppRadius.allMd,
+                    child: Image.file(
+                      _createCubit.state.step1ProfilePhoto!,
+                      fit: BoxFit.cover,
+                    ),
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
-                        size: 32,
+                        color: AppColors.attendanceDialogHintTextColor,
+                        size: AppDimensions.iconLg,
                       ),
-                      const SizedBox(height: 8),
+                      AppSpacing.gapVXs,
                       Text(
-                        'Upload Photo',
+                        StudentStrings.uploadPhoto,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.attendanceDialogHintTextColor,
                         ),
                       ),
                     ],
                   ),
           ),
         ),
-        const SizedBox(height: 4),
+        AppSpacing.gapVXxs,
         Text(
-          'JPG, PNG, max 10MB (Optional)',
+          StudentStrings.jpgPngMax10mbOptional,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
+            color: AppColors.attendanceDialogHintTextColor,
+            fontFamily: Fonts.manrope,
           ),
         ),
       ],
@@ -1311,9 +1220,9 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1327,7 +1236,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -1339,8 +1248,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1360,34 +1269,34 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                         Text(
                           selectedDate != null
                               ? DateFormat('MM/dd/yyyy').format(selectedDate)
-                              : 'Select Date',
+                              : StudentStrings.selectDate,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: selectedDate != null
                                 ? FontWeight.w600
                                 : FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             height: 19 / 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (ageLabel != null && selectedDate != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
+                            padding: const EdgeInsets.only(top: AppSpacing.xxs),
                             child: Text(
                               'Age: $ageLabel',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
-                                fontFamily: 'Manrope',
+                                color: AppColors.attendanceDialogHintTextColor,
+                                fontFamily: Fonts.manrope,
                               ),
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  AppSpacing.gapHXxs,
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,
@@ -1402,55 +1311,6 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class NameCapitalizationFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    String text = newValue.text;
-
-    // Remove trailing spaces
-    text = text.replaceFirst(
-      RegExp(r"\s+"),
-      ' ',
-    ); // collapse multiple spaces inside
-    text = text.replaceAll(RegExp(r"\s{2,}"), ' ');
-    text = text.replaceAll(RegExp(r"\s+\z"), '');
-
-    if (text.isEmpty) {
-      return newValue.copyWith(
-        text: text,
-        selection: const TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    // Enforce first letter uppercase, remaining lowercase
-    final firstChar = text[0].toUpperCase();
-    final rest = text.length > 1 ? text.substring(1).toLowerCase() : '';
-    final formatted = firstChar + rest;
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-}
-
-class TrimFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final trimmed = newValue.text.trimLeft();
-    return TextEditingValue(
-      text: trimmed,
-      selection: TextSelection.collapsed(offset: trimmed.length),
     );
   }
 }

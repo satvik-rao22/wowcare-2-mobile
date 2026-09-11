@@ -9,9 +9,9 @@ import 'package:wowcare/domain/features/communication/entities/messaging_staff_r
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
 
 // ── Fake repo ─────────────────────────────────────────────────────────────────
 
@@ -44,18 +44,28 @@ class _FakeRepo implements ConversationEntityRepository {
       const Stream.empty();
 
   @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) =>
+      const Stream.empty();
+
+  @override
   Stream<int> watchTotalUnreadCount() => const Stream.empty();
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async => const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -160,6 +170,26 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement reconcileClassroomChat
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -168,13 +198,13 @@ PrivateModeToggleCubit _cubit(
   _FakeRepo repo, {
   bool initialEnabled = false,
   RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
-}) =>
-    PrivateModeToggleCubit(
-      togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-      conversationCode: 'CONV-001',
-      viewerRole: () => viewerRole,
-      initialEnabled: initialEnabled,
-    );
+}) => PrivateModeToggleCubit(
+  togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+  conversationCode: 'CONV-001',
+  viewerRole: () => viewerRole,
+  initialEnabled: initialEnabled,
+  currentUserCode: () => 'user1',
+);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -274,17 +304,20 @@ void main() {
       expect(cubit.state.errorMessage, isNull);
     });
 
-    test('staffOrAdmin viewer cannot toggle — use case is never invoked', () async {
-      final repo = _FakeRepo();
-      final cubit = _cubit(repo, viewerRole: RoomChatViewerRole.staffOrAdmin);
-      addTearDown(cubit.close);
+    test(
+      'staffOrAdmin viewer cannot toggle — use case is never invoked',
+      () async {
+        final repo = _FakeRepo();
+        final cubit = _cubit(repo, viewerRole: RoomChatViewerRole.staffOrAdmin);
+        addTearDown(cubit.close);
 
-      await cubit.toggle();
+        await cubit.toggle();
 
-      expect(cubit.state.isEnabled, isFalse, reason: 'state must not flip');
-      expect(cubit.state.errorMessage, isNotNull);
-      expect(repo.callCount, 0, reason: 'repository must never be called');
-    });
+        expect(cubit.state.isEnabled, isFalse, reason: 'state must not flip');
+        expect(cubit.state.errorMessage, isNotNull);
+        expect(repo.callCount, 0, reason: 'repository must never be called');
+      },
+    );
 
     test('guardian viewer can toggle', () async {
       final repo = _FakeRepo();
@@ -297,22 +330,26 @@ void main() {
       expect(repo.callCount, 1);
     });
 
-    test('authorization is re-checked on every call, not cached at construction', () async {
-      final repo = _FakeRepo();
-      var role = RoomChatViewerRole.staffOrAdmin;
-      final cubit = PrivateModeToggleCubit(
-        togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-        conversationCode: 'CONV-001',
-        viewerRole: () => role,
-      );
-      addTearDown(cubit.close);
+    test(
+      'authorization is re-checked on every call, not cached at construction',
+      () async {
+        final repo = _FakeRepo();
+        var role = RoomChatViewerRole.staffOrAdmin;
+        final cubit = PrivateModeToggleCubit(
+          togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+          conversationCode: 'CONV-001',
+          viewerRole: () => role,
+          currentUserCode: () => 'USER-001',
+        );
+        addTearDown(cubit.close);
 
-      await cubit.toggle();
-      expect(repo.callCount, 0, reason: 'unauthorized at first call');
+        await cubit.toggle();
+        expect(repo.callCount, 0, reason: 'unauthorized at first call');
 
-      role = RoomChatViewerRole.guardian;
-      await cubit.toggle();
-      expect(repo.callCount, 1, reason: 'authorized once role resolves');
-    });
+        role = RoomChatViewerRole.guardian;
+        await cubit.toggle();
+        expect(repo.callCount, 1, reason: 'authorized once role resolves');
+      },
+    );
   });
 }

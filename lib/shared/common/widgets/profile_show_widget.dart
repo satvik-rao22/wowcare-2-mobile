@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/string_utils.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
@@ -21,6 +23,17 @@ class DocumentImageWidget extends StatefulWidget {
 
   /// Optional staff code for attendance status dot.
   final String? staffCode;
+
+  /// Account code (`USR_*`) of the person this avatar belongs to.
+  ///
+  /// Messaging surfaces only ever know their counterpart by this code — the
+  /// conversation participant payload carries no `staffCode` and, for most
+  /// staff, no photo field either — so without this the whole staff-messaging
+  /// inbox fell back to initials. Mapped to a `staffCode` once per account
+  /// (cached for the session) and then resolved exactly like [staffCode].
+  /// Only consulted when no [imageUrl]/[mediaAssetCode]/[studentCode]/
+  /// [classroomCode]/[staffCode] is given.
+  final String? userCode;
 
   /// Employment/list status (e.g. `UPCOMING`) — shows amber dot, takes precedence over attendance API.
   final String? staffEmploymentStatus;
@@ -67,6 +80,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.mediaAssetCode,
     this.name,
     this.staffCode,
+    this.userCode,
     this.staffEmploymentStatus,
     this.studentEnrollmentStatus,
     this.studentCode,
@@ -98,27 +112,98 @@ class DocumentImageWidget extends StatefulWidget {
     _attendanceStatusRefreshTick.value++;
   }
 
-  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
+  /// Bumped whenever a profile photo is updated so every currently-mounted
+  /// avatar re-resolves its image. Clearing the URL cache alone is not enough:
+  /// avatars already on screen keep the URL they resolved earlier and only
+  /// re-fetch on rebuild — which is why a new photo used to appear only after
+  /// re-navigating or restarting the app.
+  static final ValueNotifier<int> _profilePhotoRefreshTick = ValueNotifier<int>(
+    0,
+  );
+
+  static void _removeProfilePhotoKey(String key) {
+    _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
+    _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+    _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+  }
+
+  /// Drops the cached photo URL for the given owner (or everyone when no code
+  /// is passed) AND notifies every mounted avatar to re-resolve, so a
+  /// just-updated photo shows immediately across the whole app.
+  static void clearProfilePhotoCache({
+    String? studentCode,
+    String? staffCode,
+    String? classroomCode,
+  }) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
-    if (student.isEmpty && staff.isEmpty) {
+    final classroom = (classroomCode ?? '').trim();
+    if (student.isEmpty && staff.isEmpty && classroom.isEmpty) {
       _DocumentImageWidgetState._profilePhotoUrlCache.clear();
       _DocumentImageWidgetState._profilePhotoFetchedAt.clear();
       _DocumentImageWidgetState._profilePhotoInFlight.clear();
+    } else {
+      if (student.isNotEmpty) _removeProfilePhotoKey('student:$student');
+      if (staff.isNotEmpty) _removeProfilePhotoKey('staff:$staff');
+      if (classroom.isNotEmpty) _removeProfilePhotoKey('classroom:$classroom');
+    }
+    // Wake every mounted avatar so the change is visible immediately.
+    _profilePhotoRefreshTick.value++;
+  }
+
+  /// Seeds the freshly-resolved [url] into the cache for the given owner and
+  /// wakes every mounted avatar, so a just-uploaded photo/logo shows
+  /// immediately WITHOUT each avatar re-hitting the (eventually-consistent)
+  /// resolve endpoint — which could otherwise re-cache the old image. Falls
+  /// back to a plain cache-clear when [url] is empty.
+  static void primeProfilePhotoUrl({
+    String? studentCode,
+    String? staffCode,
+    String? classroomCode,
+    required String url,
+  }) {
+    final u = url.trim();
+    if (u.isEmpty) {
+      clearProfilePhotoCache(
+        studentCode: studentCode,
+        staffCode: staffCode,
+        classroomCode: classroomCode,
+      );
       return;
     }
-    if (student.isNotEmpty) {
-      final key = 'student:$student';
-      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
-      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+    void prime(String key) {
+      _DocumentImageWidgetState._profilePhotoUrlCache[key] = u;
+      _DocumentImageWidgetState._profilePhotoFetchedAt[key] = AppTime.nowUtc();
       _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
     }
-    if (staff.isNotEmpty) {
-      final key = 'staff:$staff';
-      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
-      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
-      _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
-    }
+
+    final student = (studentCode ?? '').trim();
+    final staff = (staffCode ?? '').trim();
+    final classroom = (classroomCode ?? '').trim();
+    if (student.isNotEmpty) prime('student:$student');
+    if (staff.isNotEmpty) prime('staff:$staff');
+    if (classroom.isNotEmpty) prime('classroom:$classroom');
+
+    // Evict any previously-cached load of this URL from Flutter's image cache.
+    // Right after an upload the CDN can briefly 4xx the object; Flutter caches
+    // that failed load and never retries, so the avatar would keep showing the
+    // fallback even once the image is live. Evicting forces Image.network to
+    // re-fetch it fresh on the next paint (triggered by the tick below).
+    try {
+      PaintingBinding.instance.imageCache.evict(NetworkImage(u));
+    } catch (_) {}
+
+    _profilePhotoRefreshTick.value++;
+
+    // The CDN can still be propagating the freshly-processed image for a second
+    // or two after finalize. Retry the evict + refresh once shortly after so the
+    // avatar appears on its own if the first paint raced ahead of availability.
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      try {
+        PaintingBinding.instance.imageCache.evict(NetworkImage(u));
+      } catch (_) {}
+      _profilePhotoRefreshTick.value++;
+    });
   }
 
   @override
@@ -131,6 +216,16 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       <String, DateTime>{};
   static final Map<String, Future<String?>> _profilePhotoInFlight =
       <String, Future<String?>>{};
+
+  /// `USR_*` → `STF_*` for avatars that only know the account code (see
+  /// [DocumentImageWidget.userCode]). Session-scoped and never invalidated:
+  /// the mapping itself doesn't change while the user stays signed into the
+  /// same org/school, unlike the photo URL it leads to (which keeps its own
+  /// TTL'd entry under the resolved `staff:` key). Empty values are cached
+  /// too, so a non-staff account isn't re-queried on every list rebuild.
+  static final Map<String, String> _staffCodeByUserCode = <String, String>{};
+  static final Map<String, Future<String>> _staffCodeByUserCodeInFlight =
+      <String, Future<String>>{};
 
   Color? _avatarColor;
   Color? _statusDotColor;
@@ -149,20 +244,37 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     _resolvedImageUrl = _seedImageUrl();
     _resolveProfilePhotoIfNeeded();
     _loadAttendanceStatusIfNeeded();
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .addListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.addListener(
+      _onAttendanceStatusRefreshTick,
+    );
+    DocumentImageWidget._profilePhotoRefreshTick.addListener(
+      _onProfilePhotoRefreshTick,
+    );
   }
 
   @override
   void dispose() {
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .removeListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.removeListener(
+      _onAttendanceStatusRefreshTick,
+    );
+    DocumentImageWidget._profilePhotoRefreshTick.removeListener(
+      _onProfilePhotoRefreshTick,
+    );
     super.dispose();
   }
 
   void _onAttendanceStatusRefreshTick() {
     if (!mounted) return;
     _loadAttendanceStatusIfNeeded();
+  }
+
+  void _onProfilePhotoRefreshTick() {
+    if (!mounted) return;
+    // The URL cache for this avatar's owner may have just been cleared. Re-run
+    // resolution: cleared keys re-fetch the new photo (and setState to it),
+    // while still-cached ones return unchanged — so the new image appears
+    // immediately without a flash of the initials fallback.
+    _resolveProfilePhotoIfNeeded();
   }
 
   @override
@@ -181,8 +293,30 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         oldWidget.mediaAssetCode != widget.mediaAssetCode ||
         oldWidget.studentCode != widget.studentCode ||
         oldWidget.staffCode != widget.staffCode ||
+        oldWidget.userCode != widget.userCode ||
         oldWidget.classroomCode != widget.classroomCode) {
-      _resolvedImageUrl = _seedImageUrl();
+      // A parent rebuild (e.g. a BlocConsumer firing on pull-to-refresh, or
+      // this element getting reused at the same list position for a
+      // different item — e.g. a ListView.builder row after a pagination
+      // merge) can recompute these props. `_seedImageUrl()` returns null
+      // unless a fresh cache entry already exists for whatever owner is
+      // now being asked for, so unconditionally overwriting
+      // `_resolvedImageUrl` with it flashed the avatar back to its
+      // unresolved placeholder on every such rebuild, self-correcting only
+      // once the (often redundant) async re-resolution completed a moment
+      // later. Only skip that reset when the owner identity is actually
+      // unchanged — if this element got reused for a genuinely different
+      // person/asset, we must still clear immediately, or it would show
+      // the PREVIOUS owner's photo/initials on the new one instead of
+      // just a brief placeholder.
+      final sameOwner =
+          _ownerIdentityKey(oldWidget) == _ownerIdentityKey(widget);
+      final newSeed = _seedImageUrl();
+      if (newSeed != null && newSeed.isNotEmpty) {
+        _resolvedImageUrl = newSeed;
+      } else if (!sameOwner) {
+        _resolvedImageUrl = null;
+      }
       _resolveProfilePhotoIfNeeded();
     }
 
@@ -192,6 +326,28 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         oldWidget.studentCode != widget.studentCode) {
       _loadAttendanceStatusIfNeeded();
     }
+  }
+
+  /// Identifies WHO this widget is currently showing a photo for — same
+  /// precedence as [_seedImageUrl]'s lookup order. Used by
+  /// [didUpdateWidget] to tell "still the same person, just a redundant
+  /// prop recompute" apart from "this element got reused for someone
+  /// else", since only the latter must clear a stale resolved photo
+  /// immediately rather than preserve it.
+  String _ownerIdentityKey(DocumentImageWidget w) {
+    final explicit = w.imageUrl?.trim() ?? '';
+    if (explicit.isNotEmpty) return 'url:$explicit';
+    final mediaAssetCode = w.mediaAssetCode?.trim() ?? '';
+    if (mediaAssetCode.isNotEmpty) return 'asset:$mediaAssetCode';
+    final classroomCode = w.classroomCode?.trim() ?? '';
+    if (classroomCode.isNotEmpty) return 'classroom:$classroomCode';
+    final studentCode = w.studentCode?.trim() ?? '';
+    if (studentCode.isNotEmpty) return 'student:$studentCode';
+    final staffCode = w.staffCode?.trim() ?? '';
+    if (staffCode.isNotEmpty) return 'staff:$staffCode';
+    final userCode = w.userCode?.trim() ?? '';
+    if (userCode.isNotEmpty) return 'user:$userCode';
+    return '';
   }
 
   String? _seedImageUrl() {
@@ -221,6 +377,18 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final cached = _cachedUrlIfFresh(key);
       if (cached != null && cached.isNotEmpty) return cached;
     }
+    // An account code whose staff mapping was already resolved earlier this
+    // session seeds from that staff member's own cache entry — so scrolling
+    // the messaging inbox back over a row repaints its photo immediately
+    // instead of flashing the initials while the async lookup re-runs.
+    final userCode = widget.userCode?.trim() ?? '';
+    if (userCode.isNotEmpty) {
+      final mappedStaffCode = _staffCodeByUserCode[userCode] ?? '';
+      if (mappedStaffCode.isNotEmpty) {
+        final cached = _cachedUrlIfFresh('staff:$mappedStaffCode');
+        if (cached != null && cached.isNotEmpty) return cached;
+      }
+    }
     return null;
   }
 
@@ -228,7 +396,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) >
+    if (AppTime.nowUtc().difference(fetchedAt) >
         DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
@@ -241,11 +409,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     if ((widget.imageUrl ?? '').trim().isNotEmpty) return;
 
     final studentCode = widget.studentCode?.trim() ?? '';
-    final staffCode = widget.staffCode?.trim() ?? '';
+    var staffCode = widget.staffCode?.trim() ?? '';
+    final userCode = widget.userCode?.trim() ?? '';
     final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
     final classroomCode = widget.classroomCode?.trim() ?? '';
     if (studentCode.isEmpty &&
         staffCode.isEmpty &&
+        userCode.isEmpty &&
         mediaAssetCode.isEmpty &&
         classroomCode.isEmpty) {
       return;
@@ -257,6 +427,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         mediaAssetCode.isEmpty &&
         classroomCode.isEmpty) {
       return;
+    }
+
+    // Account code only (a messaging participant): map it to the staff code
+    // BEFORE picking a cache key, so the resolved photo is stored under the
+    // same `staff:<code>` entry every other avatar of this person uses —
+    // which also keeps [clearProfilePhotoCache]/[primeProfilePhotoUrl]
+    // working after that staff member updates their photo.
+    if (staffCode.isEmpty &&
+        userCode.isNotEmpty &&
+        studentCode.isEmpty &&
+        mediaAssetCode.isEmpty &&
+        classroomCode.isEmpty) {
+      staffCode = await _resolveStaffCodeForUserCode(userCode);
+      if (!mounted || staffCode.isEmpty) return;
     }
 
     final cacheKey = mediaAssetCode.isNotEmpty
@@ -286,6 +470,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final future = _fetchProfilePhotoUrl(
       studentCode: studentCode,
       staffCode: staffCode,
+      userCode: userCode,
       mediaAssetCode: mediaAssetCode,
       classroomCode: classroomCode,
     );
@@ -294,7 +479,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final resolved = await future;
       if ((resolved ?? '').trim().isNotEmpty) {
         _profilePhotoUrlCache[cacheKey] = resolved!.trim();
-        _profilePhotoFetchedAt[cacheKey] = DateTime.now();
+        _profilePhotoFetchedAt[cacheKey] = AppTime.nowUtc();
       }
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {
@@ -311,6 +496,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Future<String?> _fetchProfilePhotoUrl({
     required String studentCode,
     required String staffCode,
+    required String userCode,
     required String mediaAssetCode,
     required String classroomCode,
   }) async {
@@ -362,7 +548,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final documentUrl = await _fetchDocumentAssetUrl(assetCode);
       return documentUrl.isEmpty ? null : documentUrl;
     }
-    if (staffCode.isNotEmpty) {
+    // An avatar given only an account code (or one whose media-asset lookup
+    // above came up empty) resolves the staff code first, then follows the
+    // ordinary staff-photo path below.
+    var resolvedStaffCode = staffCode;
+    if (resolvedStaffCode.isEmpty && userCode.isNotEmpty) {
+      resolvedStaffCode = await _resolveStaffCodeForUserCode(userCode);
+    }
+    if (resolvedStaffCode.isNotEmpty) {
       String? directUrl;
       String assetCode = '';
       String schoolCode = '';
@@ -371,7 +564,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       // same way daily/custom views resolve the photo.
       try {
         final endpoint = ApiPaths.urlWithBase(
-          ApiPaths.staffProfileByCodePath(staffCode),
+          ApiPaths.staffProfileByCodePath(resolvedStaffCode),
           ApiConstants.staffBaseUrl,
         );
         final response = await apiClient.client.get<dynamic>(endpoint);
@@ -386,7 +579,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (assetCode.isEmpty) {
         if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStaffProfilePhotoAssetCode(
-          staffCode: staffCode,
+          staffCode: resolvedStaffCode,
           schoolCode: schoolCode,
         );
       }
@@ -516,6 +709,78 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     } catch (_) {
       return '';
     }
+  }
+
+  Future<String> _currentOrganizationCode() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      return (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// `USR_*` → `STF_*`, memoised per account for the session and de-duped
+  /// across the many avatars that ask for the same person at once (a
+  /// conversation list renders one row per counterpart). Returns '' when the
+  /// account has no staff mapping (e.g. a guardian) — cached too, so such an
+  /// account isn't re-queried on every rebuild.
+  Future<String> _resolveStaffCodeForUserCode(String userCode) async {
+    final cached = _staffCodeByUserCode[userCode];
+    if (cached != null) return cached;
+
+    final inFlight = _staffCodeByUserCodeInFlight[userCode];
+    if (inFlight != null) return inFlight;
+
+    final future = _fetchStaffCodeForUserCode(userCode);
+    _staffCodeByUserCodeInFlight[userCode] = future;
+    try {
+      final resolved = await future;
+      _staffCodeByUserCode[userCode] = resolved;
+      return resolved;
+    } catch (_) {
+      return '';
+    } finally {
+      _staffCodeByUserCodeInFlight.remove(userCode);
+    }
+  }
+
+  /// Hits the same `/api/v1/staff/code` mapping the logged-in user's own
+  /// staff code is resolved with ([resolveStaffCodeForLoggedInUser]), for an
+  /// arbitrary account. Org admins are mapped org-level, where the backend
+  /// expects `'-'` and 404s on a real school code, so both scopes are tried.
+  Future<String> _fetchStaffCodeForUserCode(String userCode) async {
+    final organizationCode = await _currentOrganizationCode();
+    if (organizationCode.isEmpty) return '';
+    final schoolCode = await _currentSchoolCode();
+
+    final StaffRepository repository;
+    try {
+      repository = serviceLocator<StaffRepository>();
+    } catch (_) {
+      return '';
+    }
+
+    for (final candidateSchoolCode in <String>{
+      if (schoolCode.isNotEmpty) schoolCode,
+      '-',
+    }) {
+      try {
+        final resolved =
+            (await repository.getStaffCodeForUser(
+                      userCode: userCode,
+                      organizationCode: organizationCode,
+                      schoolCode: candidateSchoolCode,
+                    ) ??
+                    '')
+                .trim();
+        if (resolved.isNotEmpty) return resolved;
+      } catch (_) {
+        // 404 for this scope (or offline) — try the next candidate.
+      }
+    }
+    return '';
   }
 
   /// Resolves the classroom's logo asset code from
@@ -762,7 +1027,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

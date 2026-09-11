@@ -5,34 +5,44 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../app/theme/colors.dart';
-import '../../../../../../core/util/core_utils.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/app/di/messaging_resolvers.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_state.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
-import '../widgets/thread_message_tile.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
-  final Map<String, dynamic> staffInfo;
+  final StaffThreadInfo staffInfo;
 
   @override
   State<StaffMessagingThread> createState() => _StaffMessagingThreadState();
@@ -40,7 +50,6 @@ class StaffMessagingThread extends StatefulWidget {
 
 class _StaffMessagingThreadState extends State<StaffMessagingThread>
     with WidgetsBindingObserver {
-  //final ScrollController _scrollController = ScrollController();
   final AutoScrollController _scrollController = AutoScrollController();
   final HtmlAwareTextController _controller = HtmlAwareTextController();
   late final ChatScrollBehavior _scrollBehavior = ChatScrollBehavior(
@@ -55,24 +64,106 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   bool _initialLoadInFlight = true;
   bool _ownSendPending = false;
 
+  /// True once the thread has successfully loaded at least once. Used to
+  /// tell a genuine initial-load failure (shown as a full-page error, see
+  /// `build()`) apart from a MID-thread action failure (reaction/delete/
+  /// send/etc.) — the latter's `CommunicationError` state is immediately
+  /// superseded by a follow-up `CommunicationLoaded` emit in the same
+  /// cubit call (see `CommunicationCubit._emitSendFailure`), so it never
+  /// survives to a painted frame; `build()` alone silently skips it. The
+  /// `listener` callback below fires synchronously per-emission regardless
+  /// of frame batching, so it's the only reliable place to catch it.
+  bool _hasLoadedThreadOnce = false;
+
   /// False until the very first scroll-to-bottom has actually landed on the
   /// true latest message. The real message list stays hidden behind the
   /// shimmer until this flips, so opening a thread shows the conversation
   /// already sitting at the latest message instead of visibly scrolling
   /// down to it from the top.
-  bool _isPositionedAtBottom = false;
+  // Screen view-flags (Mandate 2): scroll-position gate, delete permission,
+  // and the current user's inactive state. ValueNotifiers rather than
+  // `setState` so the BlocConsumer body rebuilds off one merged listenable.
+  final ValueNotifier<bool> _isPositionedAtBottom = ValueNotifier<bool>(false);
 
-  /// `staffInfo['avatar']` is either a resolved URL or a raw media-asset
+  /// `communication-settings`-driven Delete visibility — see
+  /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
+  final ValueNotifier<MessageDeletePermission> _deletePermission =
+      ValueNotifier<MessageDeletePermission>(MessageDeletePermission.none);
+
+  Future<void> _loadDeletePermission() async {
+    // Read identity through the ambient cubit (Mandate 5: no StorageService in
+    // views) — same underlying storage read.
+    final schoolCode =
+        (await context.read<CommunicationCubit>().readActiveSchoolCode() ?? '');
+    if (!mounted) return;
+    final isAdminViewer = context.read<RoleCubit>().role == 'admin';
+    final permission = await context.read<CommunicationCubit>().resolveDeletePermission(
+      schoolCode: schoolCode,
+      isAdminViewer: isAdminViewer,
+    );
+    if (!mounted) return;
+    _deletePermission.value = permission;
+  }
+
+  /// `staffInfo.avatar` is either a resolved URL or a raw media-asset
   /// code depending on which screen started the conversation — `fileUuid`
   /// on [DocumentImageWidget] is never actually used to resolve an image
   /// (only `imageUrl`/`mediaAssetCode` are), so route to whichever one
   /// matches the value's shape instead.
   String get _rawStaffAvatar =>
-      (widget.staffInfo['avatar'] as String?)?.trim() ?? '';
+      widget.staffInfo.avatar.trim();
   String? get _staffAvatarAsImageUrl =>
       _rawStaffAvatar.startsWith('http') ? _rawStaffAvatar : null;
   String? get _staffAvatarAsMediaAssetCode =>
       _rawStaffAvatar.startsWith('http') ? null : _rawStaffAvatar;
+
+  /// True when the staff counterpart of this 1:1 STAFF_DIRECT conversation
+  /// is no longer active (withdrawn/terminated) — the STAFF_DIRECT
+  /// equivalent of `ConversationThreadScreen`/`ParentMessagingThread`'s
+  /// `_studentInactive`. Only INACTIVE actually blocks sending — UPCOMING
+  /// is a normal, not-yet-started employment state and must behave like
+  /// ACTIVE here.
+  bool get _staffInactive {
+    final status = (widget.staffInfo.staffStatus)
+        ?.trim()
+        .toUpperCase();
+    if (status == 'INACTIVE') return true;
+    // Backend-authoritative "still active" flag, independent of
+    // staffStatus — a participant can be deactivated (e.g. account
+    // disabled) for a reason other than an INACTIVE employment status. See
+    // ConversationParticipant.isActive's doc comment. `false` (not just
+    // absent/null) is required to flip this — a missing signal fails open.
+    final isActiveParticipant =
+        widget.staffInfo.staffIsActiveParticipant;
+    return isActiveParticipant == false;
+  }
+
+  /// True when the CURRENT (logged-in) staff member's own employment status
+  /// is INACTIVE — distinct from [_staffInactive], which only covers the
+  /// COUNTERPART (`widget.staffInfo`) of this 1:1 conversation. Resolved
+  /// once in [initState] via [_loadCurrentUserStaffStatus]; defaults to
+  /// false (fail-open) until that completes or if it fails, matching
+  /// [ParentMessagingThread._amIActiveParticipant]'s "backend is the real
+  /// authority" reasoning.
+  final ValueNotifier<bool> _currentUserInactive = ValueNotifier<bool>(false);
+
+  Future<void> _loadCurrentUserStaffStatus() async {
+    try {
+      final staffCode =
+          await serviceLocator<ResolveLoggedInStaffCodeUseCase>()();
+      if (staffCode == null || staffCode.isEmpty) return;
+      final profile = await resolveStaffProfile(
+        staffCode: staffCode,
+      );
+      if (!mounted) return;
+      final inactive = profile.status.trim().toUpperCase() == 'INACTIVE';
+      // Notifier only fires on a real change — no manual diff needed.
+      _currentUserInactive.value = inactive;
+    } catch (_) {
+      // Best-effort: the composer stays enabled on failure — the backend
+      // is the actual authority and will reject the send if truly inactive.
+    }
+  }
 
   String? _currentUserCode;
 
@@ -86,7 +177,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   List<Message> get _messages {
     final state = context.read<CommunicationCubit>().state;
     if (state is CommunicationLoaded) {
-      final threadId = widget.staffInfo['code'] as String;
+      final threadId = widget.staffInfo.code;
       return state.threads[threadId] ?? [];
     }
     return [];
@@ -94,9 +185,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   late final ReactionsController _reactionsController;
 
-  Message? _quotedMessage = null;
-  String? _quotedMessageCode;
-  List<ChatAttachment> _pendingAttachments = [];
+  /// Composer state — reply target + staged attachments (Mandate 2, Bucket A).
+  /// The `_controller` (below/above) stays a plain field: it is a Flutter
+  /// controller, not screen state.
+  final ComposerCubit<Message> _composer = ComposerCubit<Message>();
 
   @override
   void initState() {
@@ -116,15 +208,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       currentUserId: _currentUserCode ?? 'me',
     );
 
+    unawaited(_loadCurrentUserStaffStatus());
+    unawaited(_loadDeletePermission());
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      final storage = serviceLocator<StorageService>();
-
       // senderUserCode from the backend is the USR-/STF-... userCode, not the
-      // JWT sub UUID. Use userCode for ownership comparison.
+      // JWT sub UUID. Use userCode for ownership comparison. Read through the
+      // ambient cubit (Mandate 5) — same underlying storage read.
       final storedUserCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+          (await context.read<CommunicationCubit>().readCurrentUserCode() ?? '')
+              .trim();
 
       _currentUserCode = userCodeFromAuth.isNotEmpty
           ? userCodeFromAuth
@@ -133,21 +228,29 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           : null;
 
       if (mounted) {
-        final threadId = widget.staffInfo['code'] as String;
-        await context.read<CommunicationCubit>().loadMessages(
+        final threadId = widget.staffInfo.code;
+        final communicationCubit = context.read<CommunicationCubit>();
+        // Fire an immediate, unawaited mark-read on open — BEFORE
+        // loadMessages, not after (see parent_messaging_thread.dart's
+        // matching fix for why): sequencing it after `await loadMessages`
+        // meant any failure/stall in that call silently skipped the read
+        // receipt entirely, leaving the conversation's unread count stuck
+        // even though the user genuinely opened and viewed it. As before,
+        // deliberately NOT gated on `mounted` either — a quick
+        // open-then-back tap must still record the read receipt even with
+        // no UI left to update.
+        unawaited(communicationCubit.markConversationRead(threadId));
+        await communicationCubit.loadMessages(
           threadId,
           currentUserId: _currentUserCode,
         );
         if (!mounted) return;
-        unawaited(
-          context.read<CommunicationCubit>().markConversationRead(threadId),
-        );
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
-        context.read<CommunicationCubit>().startWatchingThread(
+        communicationCubit.startWatchingThread(
           threadId,
-          organizationCode: widget.staffInfo['organizationCode'] as String?,
-          schoolCode: widget.staffInfo['schoolCode'] as String?,
+          organizationCode: widget.staffInfo.organizationCode,
+          schoolCode: widget.staffInfo.schoolCode,
         );
         final initialMessages = _messages;
         _lastMessageId = initialMessages.isNotEmpty
@@ -158,7 +261,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           animate: false,
           onSettled: () {
             if (!mounted) return;
-            setState(() => _isPositionedAtBottom = true);
+            _isPositionedAtBottom.value = true;
           },
         );
       }
@@ -173,6 +276,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     _scrollBehavior.dispose();
     _scrollController.dispose();
     _controller.dispose();
+    unawaited(_composer.close());
+    _isPositionedAtBottom.dispose();
+    _deletePermission.dispose();
+    _currentUserInactive.dispose();
     super.dispose();
   }
 
@@ -202,7 +309,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         ? _scrollController.offset
         : 0.0;
 
-    final threadId = widget.staffInfo['code'] as String;
+    final threadId = widget.staffInfo.code;
     await cubit.loadOlderMessages(threadId, currentUserId: _currentUserCode);
     _isLoadingOlder = false;
     if (!mounted) return;
@@ -225,7 +332,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -253,7 +360,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     if (!hasNewLatest) return;
     unawaited(
       context.read<CommunicationCubit>().markConversationRead(
-        widget.staffInfo['code'] as String,
+        widget.staffInfo.code,
       ),
     );
     // Sending always scrolls to bottom, regardless of scroll position.
@@ -268,9 +375,22 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   void _sendMessage() {
     final text = _controller.text.trim();
     final hasText = text.isNotEmpty;
-    final hasAttachments = _pendingAttachments.isNotEmpty;
+    final hasAttachments = _composer.state.hasAttachments;
 
     if (!hasText && !hasAttachments) return;
+
+    // Defense-in-depth — the composer already disables sending for this
+    // (see _buildMessageInput's `enabled:`), but the backend is the real
+    // authority so this is a client-side speed bump only.
+    if (_currentUserInactive.value) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Your staff account is inactive. You can no longer send messages.',
+        isError: true,
+      );
+      return;
+    }
 
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
@@ -279,20 +399,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
     _ownSendPending = true;
     context.read<CommunicationCubit>().sendMessage(
-      widget.staffInfo['code'] as String,
+      widget.staffInfo.code,
       text,
-      attachments: List.from(_pendingAttachments),
-      quotedMessageId: _quotedMessageCode,
+      attachments: List.from(_composer.state.pendingAttachments),
+      // Preserved from the old `_quotedMessageCode`, which held message.id.
+      quotedMessageId: _composer.state.quotedMessage?.id,
       senderName: senderName,
       senderUserCode: _currentUserCode,
     );
 
-    setState(() {
-      _controller.clear();
-      _pendingAttachments.clear();
-      _quotedMessage = null;
-      _quotedMessageCode = null;
-    });
+    _controller.clear();
+    _composer.reset();
   }
 
   int? _getMessageIndex(String messageId) {
@@ -331,7 +448,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   void _onReactionAdded(Message message, String emoji) {
     context.read<CommunicationCubit>().addReaction(
-      widget.staffInfo['code'] as String,
+      widget.staffInfo.code,
       message.code,
       emoji,
       currentUserCode: _currentUserCode,
@@ -341,16 +458,16 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   void _showEmojiPicker(BuildContext context, Message message) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       isScrollControlled: true,
       builder: (context) {
         final sheetHeight =
-            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
+            (MediaQuery.sizeOf(context).height * 0.55).clamp(240.0, 400.0) +
+            MediaQuery.paddingOf(context).bottom;
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: EmojiPicker(
@@ -380,6 +497,29 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
+  /// Delete a message and acknowledge the real outcome: a success toast, or
+  /// the server's reason (e.g. the delete window has passed) — mirrors
+  /// ParentMessagingThread's `_deleteMessageWithFeedback`. The two inline
+  /// `onDelete` handlers this replaces called `deleteMessage` without
+  /// awaiting it and showed an unconditional green "deleted successfully"
+  /// toast regardless of the outcome — a 403 (delete window passed) showed
+  /// as a false success and the user was never told it actually failed.
+  Future<void> _deleteMessageWithFeedback(String messageCode) async {
+    final failure = await context.read<CommunicationCubit>().deleteMessage(
+      widget.staffInfo.code,
+      messageCode,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: failure == null
+          ? 'Message deleted successfully'
+          : (failure.message ?? 'Failed to delete message.'),
+      isSuccess: failure == null,
+      isError: failure != null,
+    );
+  }
+
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(
       text: MessageContentProcessor.stripHtmlTags(message.text),
@@ -389,11 +529,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardColor,
 
         title: Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.sm, AppSizes.md),
           //height: 60,
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -401,8 +541,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
+                AppColors.messagingQuoteGradientStart,
+                AppColors.messagingQuoteGradientEnd,
               ],
             ),
           ),
@@ -418,7 +558,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ),
         ),
         content: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(AppSizes.xs),
           child: TextField(
             controller: editingController,
             autofocus: true,
@@ -450,18 +590,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(
-                  color: Colors.redAccent,
+                  color: AppColors.messagingErrorIcon,
                   width: 1.5,
                 ),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                borderSide: const BorderSide(color: AppColors.messagingErrorIcon, width: 2),
               ),
               //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
+                horizontal: AppSizes.md,
+                vertical: AppSizes.sm,
               ),
             ),
           ),
@@ -470,7 +610,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           Container(
             width: double.infinity,
             height: 60,
-            //padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            //padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.sm, AppSizes.md),
             decoration: BoxDecoration(
               gradient: AppColors.buildPrimaryGradient(),
               borderRadius: BorderRadius.circular(16.0),
@@ -481,27 +621,24 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                 if (newText.isNotEmpty && newText != message.text) {
                   if (!mounted) return;
                   context.read<CommunicationCubit>().editMessage(
-                    widget.staffInfo['code'] as String,
+                    widget.staffInfo.code,
                     message.code,
                     newText,
                   );
                   // Cubit's editMessage already applies the optimistic update.
                   CoreUtils.showTopSnackBar(
                     context: context,
-                    message: 'Message updated successfully',
+                    message: AppStrings.messageUpdatedSuccessfully,
                     isSuccess: true,
                   );
                 }
                 Navigator.pop(dialogContext);
               },
-              style: TextButton.styleFrom(overlayColor: Colors.transparent),
+              style: TextButton.styleFrom(overlayColor: AppColors.transparentColor),
               child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                AppStrings.save,
+                style: AppTextStyles.heading18.copyWith(
+                  color: AppColors.messagingOnAccent,
                 ),
               ),
             ),
@@ -516,79 +653,109 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {
         if (state is CommunicationLoaded) {
+          _hasLoadedThreadOnce = true;
           _onMessagesChanged(state.messages);
+        } else if (state is CommunicationError && _hasLoadedThreadOnce) {
+          // Mid-thread failure (the thread was already showing) — surface
+          // it as a snackbar. A true initial-load failure instead falls
+          // through to the full-page error branch in `build()` below.
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isError: true,
+          );
         }
       },
       builder: (context, state) {
-        final bool isLandscape =
-            MediaQuery.of(context).orientation == Orientation.landscape;
+        // Rebuild on the screen view-flags alongside the cubit state.
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            _isPositionedAtBottom,
+            _deletePermission,
+            _currentUserInactive,
+          ]),
+          builder: (context, _) {
+            final bool isLandscape =
+                MediaQuery.orientationOf(context) == Orientation.landscape;
 
-        if (state is CommunicationLoading && _messages.isEmpty) {
-          return Scaffold(body: const ChatThreadShimmer());
-        }
+            if (state is CommunicationError && _messages.isEmpty) {
+              return Scaffold(
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      _buildThreadHeader(context),
+                      Expanded(child: _buildErrorState(state.message)),
+                    ],
+                  ),
+                ),
+              );
+            }
 
-        if (state is CommunicationError && _messages.isEmpty) {
-          return Scaffold(
-            body: SafeArea(child: _buildErrorState(state.message)),
-          );
-        }
+            if (state is CommunicationLoaded && _messages.isEmpty) {
+              return Scaffold(
+                body: SafeArea(
+                  child: Column(
+                    children: [
+                      _buildThreadHeader(context),
+                      Expanded(
+                        child: _buildEmptyConversationState(context, state),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
 
-        if (state is CommunicationLoaded && _messages.isEmpty) {
-          return Scaffold(
-            body: SafeArea(child: _buildEmptyConversationState(context, state)),
-          );
-        }
-
-        // The list (and its ScrollController) must stay mounted — and
-        // therefore attached — the whole time, or `scrollToBottom()` has
-        // nothing to scroll and silently no-ops. So instead of swapping the
-        // shimmer in for the real list, keep the real list underneath at
-        // all times and just hide it with opacity until the first
-        // scroll-to-bottom has actually settled, with the shimmer painted
-        // on top in the meantime. That's also why this never visibly
-        // scrolls into place — the jump already happened before it's shown.
-        return Scaffold(
-          body: Stack(
-            children: [
-              Opacity(
-                opacity: _isPositionedAtBottom ? 1 : 0,
-                child: SafeArea(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => FocusScope.of(context).unfocus(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: isLandscape
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Flexible(
-                                  child: Stack(
-                                    children: [
-                                      Container(
+            // The list (and its ScrollController) must stay mounted — and
+            // therefore attached — the whole time, or `scrollToBottom()` has
+            // nothing to scroll and silently no-ops. So instead of swapping the
+            // shimmer in for the real list, keep the real list underneath at
+            // all times and just hide it with opacity until the first
+            // scroll-to-bottom has actually settled, with the shimmer painted
+            // on top in the meantime. That's also why this never visibly
+            // scrolls into place — the jump already happened before it's shown.
+            return Scaffold(
+              body: SafeArea(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => FocusScope.of(context).unfocus(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSizes.xsPlus),
+                    child: isLandscape
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Flexible(
+                                child: Stack(
+                                  children: [
+                                    // Visibility (not Opacity) excludes the
+                                    // hidden list from semantics while off-screen
+                                    // — avoids the `!semantics.parentDataDirty`
+                                    // assertion this Stack+Opacity+ListView shape
+                                    // can trigger when the visible child flips.
+                                    Visibility(
+                                      visible: _isPositionedAtBottom.value,
+                                      maintainState: true,
+                                      maintainAnimation: true,
+                                      maintainSize: true,
+                                      child: Container(
                                         decoration: BoxDecoration(
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
-                                          color: const Color(0xFFF4F7FD),
+                                          color: AppColors.messagingMessageBoxBg,
                                         ),
                                         child: ListView.builder(
                                           controller: _scrollController,
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 12,
+                                            horizontal: AppSizes.xs,
+                                            vertical: AppSizes.sm,
                                           ),
                                           reverse: false,
                                           itemCount: _messages.length,
                                           itemBuilder: (context, index) {
                                             final message = _messages[index];
                                             final messageId = message.id;
-                                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                            // final key = keyMap.putIfAbsent(
-                                            //   messageId,
-                                            //   () => GlobalKey(),
-                                            // );
                                             bool showDateHeader = false;
                                             final prevMessageIndex = index - 1;
 
@@ -634,7 +801,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                               key: ValueKey(messageId),
                                               controller: _scrollController,
                                               index: index,
-                                              highlightColor: Colors.green
+                                              highlightColor: AppColors.messagingScrollHighlight
                                                   .withValues(alpha: 0.7),
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.min,
@@ -652,7 +819,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       ),
                                                     ),
                                                   if (showDateHeader)
-                                                    const SizedBox(height: 10),
+                                                    const SizedBox(height: AppSizes.xsPlus),
                                                   // Spacing: compact for grouped, normal for new group
                                                   SizedBox(
                                                     height: isGrouped
@@ -661,8 +828,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   ),
                                                   ThreadMessageTile(
                                                     threadId:
-                                                        widget.staffInfo['code']
-                                                            as String,
+                                                        widget.staffInfo.code,
                                                     messageCode: message.code,
                                                     quotedMessageId:
                                                         message.quotedMessageId,
@@ -675,17 +841,32 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               CommunicationCubit
                                                             >()
                                                             .deleteAttachment(
-                                                              widget.staffInfo['code']
-                                                                  as String,
+                                                              widget.staffInfo.code,
                                                               attachment
                                                                   .attachmentId!,
                                                             );
                                                       }
                                                     },
+                                                    onRetry: (msg) => context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .retrySendMessage(
+                                                          widget.staffInfo.code,
+                                                          msg,
+                                                        ),
                                                     currentUserCode:
                                                         _currentUserCode,
                                                     reactionsController:
                                                         _reactionsController,
+                                                    isAdminCanDeleteAny:
+                                                        _deletePermission
+                                                            .value
+                                                            .isAdminCanDeleteAny,
+                                                    deleteTimeLimitMinutes:
+                                                        _deletePermission
+                                                            .value
+                                                            .deleteTimeLimitMinutes,
                                                     onScrollToQuoted:
                                                         (quoteId) {
                                                           _scrollToMessage(
@@ -695,23 +876,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                     onReply: message.isDeleted
                                                         ? null
                                                         : () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.id;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
+                                                            _composer.quote(
+                                                              message,
+                                                            );
                                                           },
                                                     onReplyFromMenu:
                                                         message.isDeleted
                                                         ? null
                                                         : () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.id;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
+                                                            _composer.quote(
+                                                              message,
+                                                            );
                                                           },
                                                     onCopy: message.isDeleted
                                                         ? null
@@ -740,23 +915,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           ),
                                                     onDelete: message.isDeleted
                                                         ? null
-                                                        : () {
-                                                            context
-                                                                .read<
-                                                                  CommunicationCubit
-                                                                >()
-                                                                .deleteMessage(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
-                                                                  message.code,
-                                                                );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message deleted successfully',
-                                                              isSuccess: true,
-                                                            );
-                                                          },
+                                                        : () =>
+                                                              _deleteMessageWithFeedback(
+                                                                message.code,
+                                                              ),
                                                     onInfo: message.isDeleted
                                                         ? null
                                                         : () =>
@@ -775,8 +937,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             CommunicationCubit
                                                           >()
                                                           .removeReaction(
-                                                            widget.staffInfo['code']
-                                                                as String,
+                                                            widget.staffInfo.code,
                                                             message.code,
                                                             emoji,
                                                             currentUserCode:
@@ -788,6 +949,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           context,
                                                           message,
                                                         ),
+                                                    onReactionsInfoTap: () =>
+                                                        _showReactionInfoDialog(
+                                                          context,
+                                                          message,
+                                                        ),
                                                     isGrouped: isGrouped,
                                                   ),
                                                 ],
@@ -796,314 +962,98 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           },
                                         ),
                                       ),
-                                      Positioned(
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 8,
-                                        child: ValueListenableBuilder<bool>(
-                                          valueListenable: _scrollBehavior
-                                              .showNewMessageIndicator,
-                                          builder: (_, visible, __) =>
-                                              NewMessagesIndicator(
-                                                visible: visible,
-                                                onTap: () => _scrollBehavior
-                                                    .scrollToBottom(),
-                                              ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        left: 0,
-                                        right: 0,
-                                        top: 0,
-                                        child: LoadingOlderIndicator(
-                                          visible:
-                                              state is CommunicationLoaded &&
-                                              state.isLoadingOlderMessages,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: SingleChildScrollView(
-                                    reverse:
-                                        true, // new messages appear at bottom
-                                    padding: EdgeInsets.only(
-                                      bottom: MediaQuery.of(
-                                        context,
-                                      ).viewInsets.bottom,
                                     ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        color: Colors.white,
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 16,
-                                        ),
-                                        child: _buildMessageInput(state),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 8,
+                                      child: ValueListenableBuilder<bool>(
+                                        valueListenable: _scrollBehavior
+                                            .showNewMessageIndicator,
+                                        builder: (_, visible, __) =>
+                                            NewMessagesIndicator(
+                                              visible: visible,
+                                              onTap: () => _scrollBehavior
+                                                  .scrollToBottom(),
+                                            ),
                                       ),
                                     ),
-                                  ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      top: 0,
+                                      child: LoadingOlderIndicator(
+                                        visible:
+                                            state is CommunicationLoaded &&
+                                            state.isLoadingOlderMessages,
+                                      ),
+                                    ),
+                                    if (!_isPositionedAtBottom.value)
+                                      const Positioned.fill(
+                                        child: ChatThreadShimmer(),
+                                      ),
+                                  ],
                                 ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
+                              ),
+                              const SizedBox(width: AppSizes.xsPlus),
+                              SizedBox(
+                                width: MediaQuery.sizeOf(context).width * 0.35,
+                                child: SingleChildScrollView(
+                                  reverse:
+                                      true, // new messages appear at bottom
+                                  padding: EdgeInsets.only(
+                                    bottom: MediaQuery.of(
+                                      context,
+                                    ).viewInsets.bottom,
+                                  ),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
-                                      color: const Color(0xFFF4F7FD),
+                                      color: AppColors.cardColor,
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            border: const Border(
-                                              bottom: BorderSide(
-                                                color: Color(0xFFE9ECEF),
-                                                width: 1,
-                                              ),
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 24.0,
-                                              vertical: 16,
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              children: [
-                                                GestureDetector(
-                                                  onTap: () => Navigator.of(
-                                                    context,
-                                                  ).pop(),
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors
-                                                          .primaryColor
-                                                          .withValues(
-                                                            alpha: 0.1,
-                                                          ),
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: Icon(
-                                                      Icons.arrow_back_rounded,
-                                                      size: 20,
-                                                      color: AppColors
-                                                          .primaryColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Stack(
-                                                  children: [
-                                                    DocumentImageWidget(
-                                                      fileUuid: '',
-                                                      imageUrl:
-                                                          _staffAvatarAsImageUrl,
-                                                      mediaAssetCode:
-                                                          _staffAvatarAsMediaAssetCode,
-                                                      name: widget
-                                                          .staffInfo['name'],
-                                                      size: 45,
-                                                    ),
-                                                    Positioned(
-                                                      right: 0,
-                                                      top: 0,
-                                                      child: Container(
-                                                        width: 12,
-                                                        height: 12,
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              (widget.staffInfo['isSigned'] ??
-                                                                  false)
-                                                              ? const Color.fromRGBO(
-                                                                  0,
-                                                                  177,
-                                                                  21,
-                                                                  1,
-                                                                )
-                                                              : Colors
-                                                                    .transparent,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          border: Border.all(
-                                                            color:
-                                                                (widget.staffInfo['isSigned'] ??
-                                                                    false)
-                                                                ? Colors.white
-                                                                : Colors
-                                                                      .transparent,
-                                                            width: 2,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Flexible(
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: CustomTextWidget(
-                                                          text: widget
-                                                              .staffInfo['name'],
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 20,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder: (context) => AlertDialog(
-                                                              title: CustomTextWidget(
-                                                                text: widget
-                                                                    .staffInfo['name'],
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                fontSize: 18,
-                                                              ),
-                                                              content: Column(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .min,
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  if (widget
-                                                                          .staffInfo['designation'] !=
-                                                                      null)
-                                                                    Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                      child: RichText(
-                                                                        text: TextSpan(
-                                                                          children: [
-                                                                            const TextSpan(
-                                                                              text: 'Designation: ',
-                                                                              style: TextStyle(
-                                                                                fontWeight: FontWeight.w600,
-                                                                                color: Colors.black87,
-                                                                              ),
-                                                                            ),
-                                                                            TextSpan(
-                                                                              text: widget.staffInfo['designation'].toString(),
-                                                                              style: const TextStyle(
-                                                                                color: Colors.black54,
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  if (widget
-                                                                          .staffInfo['email'] !=
-                                                                      null)
-                                                                    Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                      child: RichText(
-                                                                        text: TextSpan(
-                                                                          children: [
-                                                                            const TextSpan(
-                                                                              text: 'Email: ',
-                                                                              style: TextStyle(
-                                                                                fontWeight: FontWeight.w600,
-                                                                                color: Colors.black87,
-                                                                              ),
-                                                                            ),
-                                                                            TextSpan(
-                                                                              text: widget.staffInfo['email'].toString(),
-                                                                              style: const TextStyle(
-                                                                                color: Colors.black54,
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                ],
-                                                              ),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.of(
-                                                                        context,
-                                                                      ).pop(),
-                                                                  child:
-                                                                      const Text(
-                                                                        'Close',
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                        },
-                                                        child: Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
-                                                              ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color: AppColors
-                                                                    .primaryColor
-                                                                    .withValues(
-                                                                      alpha:
-                                                                          0.1,
-                                                                    ),
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: Icon(
-                                                            Icons
-                                                                .info_outline_rounded,
-                                                            size: 18,
-                                                            color: AppColors
-                                                                .primaryColor,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Flexible(
-                                          child: Stack(
-                                            children: [
-                                              ListView.builder(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: AppSizes.md,
+                                      ),
+                                      child: _buildMessageInput(state),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: AppColors.messagingMessageBoxBg,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildThreadHeader(context),
+                                      Flexible(
+                                        child: Stack(
+                                          children: [
+                                            // See the landscape branch above for
+                                            // why this is Visibility, not Opacity.
+                                            Visibility(
+                                              visible:
+                                                  _isPositionedAtBottom.value,
+                                              maintainState: true,
+                                              maintainAnimation: true,
+                                              maintainSize: true,
+                                              child: ListView.builder(
                                                 controller: _scrollController,
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 12,
+                                                      horizontal: AppSizes.xs,
+                                                      vertical: AppSizes.sm,
                                                     ),
                                                 reverse: false,
                                                 itemCount: _messages.length,
@@ -1111,12 +1061,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   final message =
                                                       _messages[index];
                                                   final messageId = message.id;
-                                                  //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                                  // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                                  // final key = keyMap.putIfAbsent(
-                                                  //   messageId,
-                                                  //   () => GlobalKey(),
-                                                  // );
                                                   bool showDateHeader = false;
                                                   final prevMessageIndex =
                                                       index - 1;
@@ -1164,7 +1108,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                     controller:
                                                         _scrollController,
                                                     index: index,
-                                                    highlightColor: Colors.green
+                                                    highlightColor: AppColors.messagingScrollHighlight
                                                         .withValues(alpha: 0.7),
                                                     child: Column(
                                                       mainAxisSize:
@@ -1191,8 +1135,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
                                                         ThreadMessageTile(
                                                           threadId:
-                                                              widget.staffInfo['code']
-                                                                  as String,
+                                                              widget.staffInfo.code,
                                                           messageCode:
                                                               message.code,
                                                           quotedMessageId: message
@@ -1206,17 +1149,32 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                     CommunicationCubit
                                                                   >()
                                                                   .deleteAttachment(
-                                                                    widget.staffInfo['code']
-                                                                        as String,
+                                                                    widget.staffInfo.code,
                                                                     attachment
                                                                         .attachmentId!,
                                                                   );
                                                             }
                                                           },
+                                                          onRetry: (msg) => context
+                                                              .read<
+                                                                CommunicationCubit
+                                                              >()
+                                                              .retrySendMessage(
+                                                                widget.staffInfo.code,
+                                                                msg,
+                                                              ),
                                                           currentUserCode:
                                                               _currentUserCode,
                                                           reactionsController:
                                                               _reactionsController,
+                                                          isAdminCanDeleteAny:
+                                                              _deletePermission
+                                                                  .value
+                                                                  .isAdminCanDeleteAny,
+                                                          deleteTimeLimitMinutes:
+                                                              _deletePermission
+                                                                  .value
+                                                                  .deleteTimeLimitMinutes,
                                                           onScrollToQuoted:
                                                               (quoteId) {
                                                                 _scrollToMessage(
@@ -1227,25 +1185,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               message.isDeleted
                                                               ? null
                                                               : () {
-                                                                  setState(() {
-                                                                    _quotedMessageCode =
-                                                                        message
-                                                                            .id;
-                                                                    _quotedMessage =
-                                                                        message;
-                                                                  });
+                                                                  _composer
+                                                                      .quote(
+                                                                        message,
+                                                                      );
                                                                 },
                                                           onReplyFromMenu:
                                                               message.isDeleted
                                                               ? null
                                                               : () {
-                                                                  setState(() {
-                                                                    _quotedMessageCode =
-                                                                        message
-                                                                            .id;
-                                                                    _quotedMessage =
-                                                                        message;
-                                                                  });
+                                                                  _composer
+                                                                      .quote(
+                                                                        message,
+                                                                      );
                                                                 },
                                                           onCopy: () {
                                                             Clipboard.setData(
@@ -1266,23 +1218,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                 context,
                                                                 message,
                                                               ),
-                                                          onDelete: () {
-                                                            context
-                                                                .read<
-                                                                  CommunicationCubit
-                                                                >()
-                                                                .deleteMessage(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
-                                                                  message.code,
-                                                                );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message deleted successfully',
-                                                              isSuccess: true,
-                                                            );
-                                                          },
+                                                          onDelete: () =>
+                                                              _deleteMessageWithFeedback(
+                                                                message.code,
+                                                              ),
                                                           onInfo: () =>
                                                               _showMessageStatusDialog(
                                                                 context,
@@ -1300,8 +1239,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                   CommunicationCubit
                                                                 >()
                                                                 .removeReaction(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
+                                                                  widget.staffInfo.code,
                                                                   message.code,
                                                                   emoji,
                                                                   currentUserCode:
@@ -1313,6 +1251,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                 context,
                                                                 message,
                                                               ),
+                                                          onReactionsInfoTap: () =>
+                                                              _showReactionInfoDialog(
+                                                                context,
+                                                                message,
+                                                              ),
                                                           isGrouped: isGrouped,
                                                         ),
                                                       ],
@@ -1320,65 +1263,67 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   );
                                                 },
                                               ),
-                                              Positioned(
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 8,
-                                                child: ValueListenableBuilder<bool>(
-                                                  valueListenable: _scrollBehavior
-                                                      .showNewMessageIndicator,
-                                                  builder: (_, visible, __) =>
-                                                      NewMessagesIndicator(
-                                                        visible: visible,
-                                                        onTap: () =>
-                                                            _scrollBehavior
-                                                                .scrollToBottom(),
-                                                      ),
-                                                ),
+                                            ),
+                                            Positioned(
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 8,
+                                              child: ValueListenableBuilder<bool>(
+                                                valueListenable: _scrollBehavior
+                                                    .showNewMessageIndicator,
+                                                builder: (_, visible, __) =>
+                                                    NewMessagesIndicator(
+                                                      visible: visible,
+                                                      onTap: () =>
+                                                          _scrollBehavior
+                                                              .scrollToBottom(),
+                                                    ),
                                               ),
-                                              Positioned(
-                                                left: 0,
-                                                right: 0,
-                                                top: 0,
-                                                child: LoadingOlderIndicator(
-                                                  visible:
-                                                      state
-                                                          is CommunicationLoaded &&
-                                                      state
-                                                          .isLoadingOlderMessages,
-                                                ),
+                                            ),
+                                            Positioned(
+                                              left: 0,
+                                              right: 0,
+                                              top: 0,
+                                              child: LoadingOlderIndicator(
+                                                visible:
+                                                    state
+                                                        is CommunicationLoaded &&
+                                                    state
+                                                        .isLoadingOlderMessages,
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                            if (!_isPositionedAtBottom.value)
+                                              const Positioned.fill(
+                                                child: ChatThreadShimmer(),
+                                              ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    color: Colors.white,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 16,
-                                    ),
-                                    child: _buildMessageInput(state),
-                                  ),
+                              ),
+                              const SizedBox(height: AppSizes.xsPlus),
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: AppColors.cardColor,
                                 ),
-                              ],
-                            ),
-                    ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: AppSizes.md,
+                                  ),
+                                  child: _buildMessageInput(state),
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
               ),
-              if (!_isPositionedAtBottom)
-                const Positioned.fill(child: ChatThreadShimmer()),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1395,7 +1340,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       behavior: HitTestBehavior.translucent,
       onTap: () => FocusScope.of(context).unfocus(),
       child: Padding(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(AppSizes.xsPlus),
         child: Column(
           children: [
             Expanded(
@@ -1408,17 +1353,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                       size: 56,
                       color: AppColors.primaryColor.withValues(alpha: 0.35),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSizes.sm),
                     const CustomTextWidget(
-                      text: 'No messages yet',
+                      text: AppStrings.noMessagesYet,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSizes.xxs),
                     CustomTextWidget(
-                      text: 'Say hello to start the conversation',
+                      text: AppStrings.sayHelloToStart,
                       fontSize: 13,
-                      fontColor: Colors.grey[600],
+                      fontColor: AppColors.messagingTextMeta,
                     ),
                   ],
                 ),
@@ -1427,12 +1372,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
+                color: AppColors.cardColor,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
-                  vertical: 16,
+                  vertical: AppSizes.md,
                 ),
                 child: _buildMessageInput(state),
               ),
@@ -1456,6 +1401,180 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         lower.contains('403');
   }
 
+  /// Back button, avatar + online dot, name, and info icon — shown above the
+  /// message list on every state (loading/error/empty/loaded) so opening a
+  /// brand-new conversation (which starts out empty) still shows who you're
+  /// talking to instead of a bare screen with no way back but the OS gesture.
+  Widget _buildThreadHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.cardColor,
+        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl, vertical: AppSizes.md),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(AppSizes.xxs),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_back_rounded,
+                  size: 20,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSizes.sm),
+            Stack(
+              children: [
+                DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
+                  fileUuid: '',
+                  imageUrl: _staffAvatarAsImageUrl,
+                  mediaAssetCode: _staffAvatarAsMediaAssetCode,
+                  name: widget.staffInfo.name,
+                  size: 45,
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: widget.staffInfo.isSigned
+                          ? AppColors.messagingOnlineDot
+                          : AppColors.transparentColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: widget.staffInfo.isSigned
+                            ? AppColors.cardColor
+                            : AppColors.transparentColor,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: AppSizes.xsPlus),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CustomTextWidget(
+                      text: widget.staffInfo.name,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppSizes.xs),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: CustomTextWidget(
+                            text: widget.staffInfo.name,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.staffInfo.designation != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppSizes.xxs,
+                                  ),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: AppStrings.designationLabelColon,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.messagingMenuText,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: widget.staffInfo.designation
+                                              .toString(),
+                                          style: const TextStyle(
+                                            color: AppColors.messagingMenuSubtext,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              if (widget.staffInfo.email != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppSizes.xxs,
+                                  ),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: AppStrings.emailLabelColon,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.messagingMenuText,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: widget.staffInfo.email
+                                              .toString(),
+                                          style: const TextStyle(
+                                            color: AppColors.messagingMenuSubtext,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSizes.xxs),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Shown when [CommunicationCubit] has no cached history to fall back on
   /// and the latest fetch failed — gives the user a way to retry instead of
   /// staring at a blank screen. A 403/"not authorized" failure means this
@@ -1465,7 +1584,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     final isUnauthorized = _isUnauthorizedConversationError(message);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(AppSizes.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1474,33 +1593,33 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.error_outline_rounded,
               size: 48,
-              color: isUnauthorized ? Colors.grey : Colors.redAccent,
+              color: isUnauthorized ? AppColors.messagingIconMuted : AppColors.messagingErrorIcon,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSizes.sm),
             CustomTextWidget(
               text: isUnauthorized
-                  ? 'This chat hasn\'t been created yet'
-                  : 'Unable to load messages',
+                  ? AppStrings.chatNotCreatedYet
+                  : AppStrings.unableToLoadMessages,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
             const SizedBox(height: 6),
             CustomTextWidget(
               text: isUnauthorized
-                  ? 'Go back and start a new conversation with this person.'
+                  ? AppStrings.goBackStartNewWithPerson
                   : message,
               fontSize: 13,
-              fontColor: Colors.grey[600],
+              fontColor: AppColors.messagingTextMeta,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSizes.lg),
             GestureDetector(
               onTap: () {
                 if (isUnauthorized) {
                   Navigator.of(context).pop();
                   return;
                 }
-                final threadId = widget.staffInfo['code'] as String;
+                final threadId = widget.staffInfo.code;
                 context.read<CommunicationCubit>().loadMessages(
                   threadId,
                   currentUserId: _currentUserCode,
@@ -1509,15 +1628,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
-                  vertical: 12,
+                  vertical: AppSizes.sm,
                 ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: CustomTextWidget(
-                  text: isUnauthorized ? 'Go back' : 'Retry',
-                  fontColor: Colors.white,
+                  text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,
+                  fontColor: AppColors.messagingOnAccent,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1530,20 +1649,27 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   Widget _buildMessageInput(CommunicationState state) {
     return SafeArea(
-      child: ChatInputBar(
-        controller: _controller,
-        onSend: _sendMessage,
-        onAttachmentTap: _showAttachmentPicker,
-        isSending: state is CommunicationSending,
-        pendingAttachments: _pendingAttachments,
-        quotedMessage: _quotedMessage,
-        showCharCounter: true,
-        onCancelQuote: () => setState(() {
-          _quotedMessage = null;
-          _quotedMessageCode = null;
-        }),
-        onRemoveAttachment: (i) =>
-            setState(() => _pendingAttachments.removeAt(i)),
+      // Only the composer rebuilds on quote/attachment changes — the message
+      // list above is untouched (it rebuilds on CommunicationCubit only).
+      child: BlocBuilder<ComposerCubit<Message>, ComposerState<Message>>(
+        bloc: _composer,
+        builder: (context, composer) => ChatInputBar(
+          controller: _controller,
+          onSend: _sendMessage,
+          onAttachmentTap: _showAttachmentPicker,
+          isSending: state is CommunicationSending,
+          enabled: !_staffInactive && !_currentUserInactive.value,
+          disabledMessage: _currentUserInactive.value
+              ? 'Your staff account is inactive. You can no longer send '
+                    'messages.'
+              : 'This staff member is inactive. You can no longer send '
+                    'messages.',
+          pendingAttachments: composer.pendingAttachments,
+          quotedMessage: composer.quotedMessage,
+          showCharCounter: true,
+          onCancelQuote: _composer.clearQuote,
+          onRemoveAttachment: _composer.removeAttachment,
+        ),
       ),
     );
   }
@@ -1553,10 +1679,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       MessageAttachmentBottomSheet.show(
         context,
         onAttachmentsSelected: (attachments) {
-          if (attachments.isEmpty) return;
-          // Only one attachment may be pending at a time — a new pick
-          // replaces whatever was previously staged.
-          setState(() => _pendingAttachments = [attachments.first]);
+          // Add to whatever's already staged — picking multiple photos/
+          // videos together (or picking again before sending) must
+          // accumulate, not discard everything but the newest single file.
+          // (addAttachments is a no-op for an empty list.)
+          _composer.addAttachments(attachments);
         },
         onEmojiSelected: (emoji) {
           final pos = _controller.selection.isValid
@@ -1566,6 +1693,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           _controller.value = _controller.value.copyWith(
             text: text.substring(0, pos) + emoji + text.substring(pos),
             selection: TextSelection.collapsed(offset: pos + emoji.length),
+          );
+        },
+        onAttachmentError: (message) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
           );
         },
       ),
@@ -1579,72 +1714,46 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       schoolTz,
     );
     final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
 
+    // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /
+    // "Yesterday" alone, with no date suffix — mobile used to append the
+    // full date after those labels ("Today, 12 August 2026"), which web
+    // never does.
     String label;
     if (schoolDate.year == schoolNow.year &&
         schoolDate.month == schoolNow.month &&
         schoolDate.day == schoolNow.day) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label =
-          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Today';
     } else if (schoolDate.year == schoolNow.year &&
         schoolDate.month == schoolNow.month &&
         schoolDate.day == schoolNow.day - 1) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label =
-          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Yesterday';
     } else {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
         'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm, vertical: AppSizes.xxs),
       decoration: BoxDecoration(
-        color: const Color(0x1A573353),
+        color: AppColors.messagingChipBgPlum,
         borderRadius: BorderRadius.circular(12),
       ),
       child: CustomTextWidget(
@@ -1653,155 +1762,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         fontWeight: FontWeight.w500,
         applyLetterSpacing: false,
       ),
-    );
-  }
-
-  void _showMessageStatusDialog(BuildContext context, Message message) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const CustomTextWidget(
-                text: 'Message Info',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.primaryColor),
-                onPressed: () => Navigator.pop(dialogContext),
-              ),
-            ],
-          ),
-        ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(dialogContext).size.height * 0.55,
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CustomTextWidget(
-                  text: 'Message Content',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    //color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primaryColor, width: 1),
-                  ),
-                  child: CustomTextWidget(
-                    text: MessageContentProcessor.stripHtmlTags(message.text),
-                    fontSize: 15,
-                    unlimitedLines: true,
-                    overflow: TextOverflow.visible,
-                    softWrap: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Delivery & Read info
-                _buildStatusSection(message),
-
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const CustomTextWidget(
-                text: 'Close',
-                fontColor: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusSection(Message message) {
-    final hasDelivery = message.isDelivered;
-    final hasRead = message.isRead;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (hasDelivery || hasRead) ...[
-          const CustomTextWidget(
-            text: 'Status',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              if (hasDelivery)
-                _buildRecipientList(
-                  title: 'Delivered To',
-                  icon: Icons.check_circle_outline,
-                  recipients: message.deliveredTo,
-                  fallbackTime: message.deliveredAt,
-                  color: Colors.blueGrey,
-                ),
-
-              if (hasRead) ...[
-                const SizedBox(height: 8),
-                _buildRecipientList(
-                  title: 'Read By',
-                  icon: Icons.done_all,
-                  recipients: message.readBy,
-                  fallbackTime: message.readAt,
-                  color: AppColors.primaryColor,
-                ),
-              ],
-            ],
-          ),
-        ] else ...[
-          const CustomTextWidget(
-            text: 'Message is still sending...',
-            fontSize: 14,
-            fontColor: Colors.grey,
-          ),
-        ],
-      ],
     );
   }
 
@@ -1814,118 +1774,96 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     if (code != null && code.isNotEmpty && code == _currentUserCode) {
       return 'You';
     }
-    final counterpart = (widget.staffInfo['name'] as String?)?.trim() ?? '';
+    final counterpart = widget.staffInfo.name.trim();
     if (counterpart.isNotEmpty) return counterpart;
     return 'Participant';
   }
 
-  Widget _buildRecipientList({
-    required String title,
-    required IconData icon,
-    required List<RecipientStatus> recipients,
-    DateTime? fallbackTime,
-    required Color color,
+  /// Resolves a receipt's role — 'You' for the current user, else the 1:1
+  /// counterpart's designation from [staffInfo].
+  String? _resolveRecipientRole(RecipientStatus r) {
+    final code = r.userId;
+    if (code != null && code.isNotEmpty && code == _currentUserCode) {
+      return null;
+    }
+    return (widget.staffInfo.designation)?.trim();
+  }
+
+  /// Resolves a receipt's avatar — the 1:1 counterpart's photo from
+  /// [staffInfo] (null for the current user; the dialog shows "You").
+  String? _resolveRecipientAvatar(RecipientStatus r) {
+    final code = r.userId;
+    if (code != null && code.isNotEmpty && code == _currentUserCode) {
+      return null;
+    }
+    return widget.staffInfo.avatar.trim();
+  }
+
+  MessageInfoRecipient _toInfoRecipient(
+    RecipientStatus r, {
+    DateTime? deliveredAt,
+    DateTime? readAt,
   }) {
-    final count = recipients.length + (fallbackTime != null ? 1 : 0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 12),
-            CustomTextWidget(
-              text: '$title ($count)',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        if (recipients.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryColor, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: recipients
-                  .map(
-                    (r) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: CustomTextWidget(
-                              text: _resolveRecipientName(r),
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (r.timestamp != null) ...[
-                            const SizedBox(width: 10),
-                            CustomTextWidget(
-                              text: _formatTimeShort(r.timestamp!),
-                              fontSize: 12,
-                              fontColor: Colors.grey.shade600,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          )
-        // if (recipients.isNotEmpty)
-        //   ...recipients.map((r) => Padding(
-        //     padding: const EdgeInsets.only(left: 32, bottom: 6),
-        //     child: Row(
-        //       mainAxisSize: MainAxisSize.min,
-        //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //       children: [
-        //         Flexible(
-        //           fit: FlexFit.loose,
-        //           child: CustomTextWidget(
-        //             text: r.name,
-        //             fontSize: 13,
-        //           ),
-        //         ),
-        //         if (r.timestamp != null) ...[
-        //           const SizedBox(width: 4,),
-        //           CustomTextWidget(
-        //             text: _formatTimeShort(r.timestamp!),
-        //             fontSize: 12,
-        //             fontColor: Colors.grey.shade600,
-        //           ),
-        //         ]
-        //
-        //       ],
-        //     ),
-        //   ))
-        else if (fallbackTime != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: CustomTextWidget(
-              text: 'Recipient • ${_formatFullTime(fallbackTime)}',
-              fontSize: 13,
-              fontColor: Colors.grey.shade700,
-            ),
-          ),
-      ],
+    return MessageInfoRecipient(
+      name: _resolveRecipientName(r),
+      // The receipt row carries the recipient's own role directly —
+      // prefer it over the static staffInfo designation.
+      role: r.role ?? _resolveRecipientRole(r),
+      avatarSource: _resolveRecipientAvatar(r),
+      deliveredAt: deliveredAt,
+      readAt: readAt,
     );
   }
 
-  String _formatTimeShort(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
+  void _showMessageStatusDialog(BuildContext context, Message message) {
+    // Fetch fresh from the dedicated per-message receipts endpoint — the
+    // message's own embedded receipts field is a lighter shape that
+    // doesn't reliably carry userName/role.
+    final cubit = context.read<CommunicationCubit>();
+    Future<List<MessageInfoRecipient>> fetchRecipients() async {
+      final receipts = await cubit.fetchMessageReceipts(message.code);
+      // Rows are already mutually exclusive per-row (see
+      // MessageModel._parseRecipientStatuses) — no cross-row dedup by
+      // userCode belongs here.
+      return [
+        for (final r in receipts.readBy)
+          _toInfoRecipient(r, readAt: r.timestamp),
+        for (final r in receipts.deliveredTo)
+          _toInfoRecipient(r, deliveredAt: r.timestamp),
+      ];
+    }
 
-  String _formatFullTime(DateTime dt) => MessagingTimeFormatter.infoTime(dt);
+    MessageInfoDialog.show(
+      context,
+      messageText: message.text,
+      recipientsFuture: fetchRecipients(),
+    );
+  }
+
+  void _showReactionInfoDialog(BuildContext context, Message message) {
+    final people = message.reactions.map((r) {
+      final isMe = r.userCode == _currentUserCode;
+      final name = isMe
+          ? 'You'
+          : (widget.staffInfo.name.trim().isNotEmpty == true
+                ? (widget.staffInfo.name).trim()
+                : 'Participant');
+      return ReactionPerson(
+        emoji: r.emoji,
+        name: name,
+        // The reaction row carries the reactor's own role directly —
+        // prefer it over the static staffInfo designation.
+        role:
+            r.role ??
+            (isMe
+                ? null
+                : (widget.staffInfo.designation)?.trim()),
+        avatarSource: isMe
+            ? null
+            : widget.staffInfo.avatar.trim(),
+      );
+    }).toList();
+
+    ReactionInfoDialog.show(context, reactions: people);
+  }
 }

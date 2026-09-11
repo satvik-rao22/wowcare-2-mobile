@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/feature_flags/feature_flag_names.dart';
+import '../../../../core/utils/app_time.dart';
 import 'feature_flag_local_data_source.dart';
 
 /// Implementation of FeatureFlagLocalDataSource using SharedPreferences.
@@ -43,7 +44,7 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
     // Update last sync time
     await _prefs.setInt(
       _lastSyncKey,
-      DateTime.now().millisecondsSinceEpoch,
+      AppTime.nowUtc().millisecondsSinceEpoch,
     );
   }
 

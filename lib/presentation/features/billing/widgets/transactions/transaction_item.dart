@@ -1,8 +1,10 @@
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class TransactionItem {
   TransactionItem({
     required this.id,
+    this.transactionId,
     required this.transactionType,
     required this.date,
     required this.amount,
@@ -16,6 +18,7 @@ class TransactionItem {
     this.familyCode,
     this.invoiceCode,
     this.studentId,
+    this.studentCode,
     this.studentPhotoUuid,
     this.refTable,
     this.refTableId,
@@ -27,6 +30,11 @@ class TransactionItem {
   });
 
   final int id;
+
+  /// Stable server transaction identity (the API row's `id`), used to
+  /// de-duplicate rows across paginated load-more responses. Null when the
+  /// row carries no server id.
+  final String? transactionId;
 
   /// Backend invoice code (the real identifier). `id` is only a display/list
   /// key — invoices are addressed by [invoiceCode] in API calls.
@@ -62,6 +70,10 @@ class TransactionItem {
   final String? familyCode;
   final String classroom;
   final int? studentId;
+
+  /// Stable backend student code — used to look up the student's current
+  /// classroom for display (invoices carry no room field of their own).
+  final String? studentCode;
   final String? studentPhotoUuid;
   final String? refTable;
   final int? refTableId;
@@ -70,35 +82,6 @@ class TransactionItem {
   final String? endDate;
   final String? paymentMode;
   final double? studentOpenBalance;
-
-  factory TransactionItem.fromMap(Map<String, dynamic> map) {
-    final List<dynamic> students =
-        (map['students'] as List<dynamic>? ?? <dynamic>[]);
-    final Map<String, dynamic>? firstStudent =
-        students.isNotEmpty ? students.first as Map<String, dynamic> : null;
-
-    return TransactionItem(
-      id: map['id'] as int,
-      transactionType: (map['transactionType'] ?? '').toString(),
-      date: DateTime.tryParse((map['date'] ?? '').toString()) ??
-          DateTime.now(),
-      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
-      status: (map['processStatus'] ?? map['status'] ?? '').toString(),
-      description: (map['description'] ?? '').toString(),
-      studentName: (firstStudent?['fullName'] ?? 'Unknown').toString(),
-      classroom: (firstStudent?['roomName'] ?? '').toString(),
-      studentId: firstStudent?['id'] as int?,
-      studentPhotoUuid: firstStudent?['photoUuid'] as String?,
-      refTable: map['refTable'] as String?,
-      refTableId: map['refTableId'] as int?,
-      balance: (map['balance'] as num?)?.toDouble(),
-      note: map['note'] as String?,
-      endDate: map['endDate'] as String?,
-      paymentMode: map['paymentMode'] as String?,
-      studentOpenBalance:
-          (firstStudent?['balance'] as num?)?.toDouble(),
-    );
-  }
 
   /// Maps an invoice row from the list API onto the card model. [id] is the
   /// invoice's absolute position in the loaded list (a stable display key);
@@ -119,13 +102,14 @@ class TransactionItem {
       id: id,
       invoiceCode: invoice.code,
       transactionType: 'Invoice',
-      date: invoice.issueDate ?? invoice.createdDate ?? DateTime.now(),
+      date: invoice.issueDate ?? invoice.createdDate ?? billingSchoolNow(),
       amount: invoice.total,
       status: status,
       description:
           firstItemDesc.isNotEmpty ? firstItemDesc : 'Invoice ${invoice.code}',
       studentName: ownerLabel.isNotEmpty ? ownerLabel : 'Unknown',
       classroom: '',
+      studentCode: invoice.studentCode.isNotEmpty ? invoice.studentCode : null,
       refTable: 'Invoice',
       balance: invoice.balance,
       endDate: invoice.dueDate?.toIso8601String(),

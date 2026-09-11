@@ -13,6 +13,7 @@ class DiscountEntity extends Equatable {
     this.price,
     this.status,
     this.school,
+    this.totalAmountDiscounted = 0,
   });
 
   final String code;
@@ -27,12 +28,18 @@ class DiscountEntity extends Equatable {
   final String? status;
   final String? school;
 
+  /// Lifetime amount actually deducted across invoices by this discount —
+  /// distinct from [deductionAmount], the fixed per-use deduction configured
+  /// for a `FIXED`-type discount (null for `PERCENTAGE`-type ones).
+  final double totalAmountDiscounted;
+
   bool get isActive => (status ?? 'ACTIVE') != 'INACTIVE';
 
   @override
   List<Object?> get props => [
         code, name, description, percentage, deductionAmount,
         maxInvoiceAmount, reference, discountType, price, status, school,
+        totalAmountDiscounted,
       ];
 }
 

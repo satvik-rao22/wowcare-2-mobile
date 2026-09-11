@@ -1,35 +1,41 @@
 import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/admin_chat_filter_sheet.dart';
+import 'package:wowcare/shared/common/view/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import '../../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../../../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../../../classroom/cubit/classroom_cubit.dart';
-import '../../../../../staff/cubit/staff_cubit.dart';
-import '../../../../bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+part 'admin_chat_host_lists.dart';
+part 'admin_chat_host_states.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
 ///
@@ -44,17 +50,44 @@ class AdminChatHostScreen extends StatefulWidget {
   State<AdminChatHostScreen> createState() => _AdminChatHostScreenState();
 }
 
-class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
+class _AdminChatHostScreenState extends State<AdminChatHostScreen>
+    with SchoolSwitchReloadMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _showUnreadOnly = false;
+  // UI-only view state (Mandate 2): the client-side unread toggle and the
+  // applied classroom/tag/status filters (matched client-side, and also pushed
+  // to the cubit for the server query). ValueNotifiers rather than `setState`
+  // so the body rebuilds off one merged listenable (with the search
+  // controller) — the same triggers the removed setStates fired on. Sets are
+  // reassigned, not mutated, so the notifier fires.
+  final ValueNotifier<bool> _showUnreadOnly = ValueNotifier<bool>(false);
   late final ConversationListCubit _cubit;
 
   // Student-oriented filters (Classroom + Tag + Status), matched client-side
   // against each conversation's student (admin chats are student-scoped).
-  Set<String> _selectedClassrooms = {};
-  Set<String> _selectedTags = {};
-  String? _selectedStatus;
+  final ValueNotifier<Set<String>> _selectedClassrooms =
+      ValueNotifier<Set<String>>({});
+  final ValueNotifier<Set<String>> _selectedTags = ValueNotifier<Set<String>>(
+    {},
+  );
+  // Defaults to Active — the list only shows active students unless the
+  // user explicitly picks a different status via the filter sheet. Stored
+  // in the same Title Case as the filter sheet's own item strings (see
+  // _showFilterSheet's `items: const ['Active', 'Upcoming', 'Inactive']`)
+  // so this value round-trips correctly as the sheet's initialSelected.
+  final ValueNotifier<String?> _selectedStatus = ValueNotifier<String?>(
+    'Active',
+  );
+
+  /// All tag names for the school (full list from the tags API) so the filter
+  /// shows EVERY tag — not only those on the currently-loaded (paginated)
+  /// students, which was dropping most tags from the Admin filter.
+  List<String> _schoolTagNames = [];
+
+  /// Tag display name -> tag code, from the same school-tags fetch as
+  /// [_schoolTagNames]. The filter sheet works in display names (what the
+  /// user picks), but the backend's `tagCodes` query param needs codes.
+  Map<String, String> _tagNameToCode = {};
 
   /// Backs the "Start new chat" section shown when searching matches a
   /// student who has no admin-chat conversation yet.
@@ -67,15 +100,13 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   @override
   void initState() {
     super.initState();
-    _cubit = ConversationListCubit(
-      conversationType: ConversationType.adminChat,
-      watchConversationsUseCase: serviceLocator(),
-      getConversationsUseCase: serviceLocator(),
-      getCachedConversationsUseCase: serviceLocator(),
-      conversationRepository: serviceLocator(),
-      storageService: serviceLocator(),
-    );
-    _studentCubit = serviceLocator<StudentCubit>()..loadInitial();
+    // Both cubits are constructed by the route's MultiBlocProvider (Mandate 5)
+    // and read here — same instances, same creation moment. StudentCubit's
+    // loadInitial() runs in the provider's create closure. BlocProvider owns
+    // their lifecycles, so this State no longer closes them.
+    _cubit = context.read<ConversationListCubit>();
+    _studentCubit = context.read<StudentCubit>();
+    unawaited(_loadSchoolTags());
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
     unawaited(_cubit.startWatching());
@@ -83,14 +114,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
   @override
   void dispose() {
-    unawaited(_cubit.close());
-    unawaited(_studentCubit.close());
+    // _cubit and _studentCubit are owned by the route's MultiBlocProvider.
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
     _searchController
       ..removeListener(_onSearchChanged)
       ..dispose();
+    _showUnreadOnly.dispose();
+    _selectedClassrooms.dispose();
+    _selectedTags.dispose();
+    _selectedStatus.dispose();
     super.dispose();
   }
 
@@ -98,23 +132,61 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     // Firestore stream auto-loads; no manual pagination needed.
   }
 
-  void _onSearchChanged() => setState(() {});
+  /// This screen (branch 3 / Communication) is kept alive in the shell's
+  /// IndexedStack across a persona switch (e.g. admin <-> guardian for the
+  /// same account/school) — it never re-mounts on its own, so [_cubit]'s
+  /// Firestore subscription, opened once in [initState], would otherwise
+  /// keep resolving unread counts under the persona active when this screen
+  /// was FIRST built rather than the one now active. Restarting it re-reads
+  /// the current persona (see ConversationEntityRepositoryImpl's
+  /// `_unreadRoleBucket`) so an ADMIN_CHAT conversation's unreadByRole-based
+  /// count updates for the persona actually looking at it now.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    unawaited(_cubit.startWatching());
+  }
+
+  /// Rapid search: hits the student list API on every keystroke, mirroring
+  /// staff_messaging_tab.dart's Room Chat search — without this, `_studentCubit`
+  /// only ever held whatever page `loadInitial()` happened to load once at
+  /// mount, so "START NEW CHAT" silently found nothing for anyone outside
+  /// that first page and never actually queried the backend as you typed.
+  void _onSearchChanged() {
+    // The body rebuilds via the merged ListenableBuilder (which listens to
+    // _searchController); this handler only drives the student directory search.
+    final query = _searchController.text.trim();
+    _studentCubit.updateSearch(query);
+    unawaited(_studentCubit.refresh(ignoreRefreshingGuard: true));
+  }
 
   bool get _hasStudentFilters =>
-      _selectedClassrooms.isNotEmpty ||
-      _selectedTags.isNotEmpty ||
-      _selectedStatus != null;
+      _selectedClassrooms.value.isNotEmpty ||
+      _selectedTags.value.isNotEmpty ||
+      _selectedStatus.value != null;
 
   bool get _hasActiveFilters =>
-      _showUnreadOnly ||
+      _showUnreadOnly.value ||
       _searchController.text.trim().isNotEmpty ||
       _hasStudentFilters;
 
+  /// Whether the user has manually diverged from the silent default
+  /// (Active status only) — used to decide whether to show the "a filter
+  /// is applied" indicator dot on the funnel icon. The default Active
+  /// status by itself doesn't count as a user-applied filter; only an
+  /// explicit classroom/tag pick, or picking a status OTHER than Active,
+  /// does.
+  bool get _hasVisibleFilters =>
+      _selectedClassrooms.value.isNotEmpty ||
+      _selectedTags.value.isNotEmpty ||
+      (_selectedStatus.value != null && _selectedStatus.value != 'Active');
+
   /// The display classroom label a student is filtered by (name preferred).
   String _classroomLabel(Student s) =>
-      (s.primaryClassroomName != null && s.primaryClassroomName!.trim().isNotEmpty)
-          ? s.primaryClassroomName!.trim()
-          : s.classroom.trim();
+      (s.primaryClassroomName != null &&
+          s.primaryClassroomName!.trim().isNotEmpty)
+      ? s.primaryClassroomName!.trim()
+      : s.classroom.trim();
 
   /// Distinct classroom labels across the loaded students, for the filter sheet.
   List<String> _classroomOptions() {
@@ -127,9 +199,69 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  /// Distinct tag names across the loaded students, for the filter sheet.
+  /// Load the FULL school tag-name list for the filter sheet (same source Room
+  /// Chat uses) so every tag is selectable, not just tags on loaded students.
+  Future<void> _loadSchoolTags() async {
+    final schoolCode = await _cubit.readActiveSchoolCode() ?? '';
+    if (schoolCode.isEmpty) return;
+    final map = await _cubit.loadSchoolTagNameCodeMap(schoolCode);
+    if (!mounted) return;
+    // Not rendered in build() — read lazily only when the filter sheet opens
+    // (_tagOptions) and on apply (_applyServerFilters), so no rebuild needed.
+    _schoolTagNames = map.keys.toList();
+    _tagNameToCode = map;
+  }
+
+  /// Classroom display label -> classroom code, built from the currently
+  /// loaded students (same source as [_classroomOptions]). The filter sheet
+  /// works in display labels; the backend's `classroomCodes` query param
+  /// needs codes.
+  Map<String, String> _classroomLabelToCode() {
+    final map = <String, String>{};
+    for (final s in _studentCubit.state.items) {
+      final label = _classroomLabel(s);
+      if (label.isNotEmpty && s.classroomCode.isNotEmpty) {
+        map[label] = s.classroomCode;
+      }
+    }
+    return map;
+  }
+
+  /// Pushes the current classroom/tag/status selection to the server via
+  /// [_cubit] — this is what actually narrows the conversation list now,
+  /// replacing the old approach of fetching everything and cross-matching
+  /// client-side against a separately-filtered student roster (which never
+  /// touched the conversations endpoint's own query params).
+  Future<void> _applyServerFilters() async {
+    if (!_hasStudentFilters) {
+      await _cubit.clearFilters();
+      return;
+    }
+    final classroomCodes = _classroomLabelToCode();
+    final tagCodes = _tagNameToCode;
+    // Passed through as studentStatuses so ConversationListCubit.applyFilters
+    // can resolve the conversation-level `status` param from it — that
+    // method is also responsible for NOT forwarding ACTIVE/INACTIVE values
+    // as a separate studentStatuses query param (see its own doc for why).
+    await _cubit.applyFilters(
+      classroomCodes: _selectedClassrooms.value
+          .map((label) => classroomCodes[label])
+          .whereType<String>()
+          .toList(),
+      tagCodes: _selectedTags.value
+          .map((name) => tagCodes[name])
+          .whereType<String>()
+          .toList(),
+      studentStatuses: _selectedStatus.value != null
+          ? [_selectedStatus.value!.toUpperCase()]
+          : const [],
+    );
+  }
+
+  /// Tag names for the filter sheet — the full school tag list, unioned with any
+  /// tag present on a loaded student (covers a stray tag not in the school list).
   List<String> _tagOptions() {
-    final set = <String>{};
+    final set = <String>{..._schoolTagNames};
     for (final s in _studentCubit.state.items) {
       set.addAll(s.tags.where((t) => t.trim().isNotEmpty));
     }
@@ -137,76 +269,86 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  bool _matchesStudentFilters(ConversationEntity c, Map<String, Student> byCode) {
-    final code = c.studentCode;
-    // Filtering is active but this conversation's student isn't loaded/known —
-    // exclude it (we can't confirm a match).
-    final s = (code == null || code.isEmpty) ? null : byCode[code];
-    if (s == null) return false;
-    if (_selectedStatus != null &&
-        s.status.toUpperCase() != _selectedStatus!.toUpperCase()) {
-      return false;
-    }
-    if (_selectedClassrooms.isNotEmpty) {
-      final label = _classroomLabel(s).toLowerCase();
-      if (!_selectedClassrooms.any((sel) => sel.toLowerCase() == label)) {
-        return false;
-      }
-    }
-    if (_selectedTags.isNotEmpty) {
-      if (!s.tags.any((t) => _selectedTags.contains(t))) return false;
-    }
-    return true;
-  }
-
+  /// Classroom/tag/status narrowing now happens server-side (see
+  /// [_applyServerFilters] — the conversations the cubit holds are already
+  /// filtered by the time they get here). This only applies the two
+  /// filters that stay client-side by nature: the unread toggle (cheap to
+  /// check on the already-loaded page) and the live search-as-you-type text.
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
     final q = _searchController.text.trim().toLowerCase();
-    final hasStudentFilters = _hasStudentFilters;
-    final Map<String, Student> byCode = hasStudentFilters
-        ? {for (final s in _studentCubit.state.items) s.code: s}
-        : const {};
+    final status = _selectedStatus.value?.trim().toUpperCase();
     return all.where((c) {
-      if (_showUnreadOnly && c.unreadCount == 0) return false;
+      if (_showUnreadOnly.value && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
-      if (hasStudentFilters && !_matchesStudentFilters(c, byCode)) return false;
+      // Enforced client-side rather than relying solely on the one-off
+      // server-side studentStatuses query in [_applyServerFilters] — this
+      // screen's Firestore subscription keeps pushing unfiltered updates
+      // on top of state.conversations, so without this the very next
+      // realtime snapshot would silently undo whichever status was
+      // picked. [_selectedStatus] defaults to 'ACTIVE'. Fails OPEN when
+      // studentStatus itself is missing — a conversation must never be
+      // hidden just because this field wasn't sent. (Admin Chat is
+      // student-scoped — the STAFF_DIRECT `status`-param fix doesn't
+      // apply here.)
+      final conversationStatus = c.studentStatus?.trim().toUpperCase();
+      if (status != null &&
+          conversationStatus != null &&
+          conversationStatus != status) {
+        return false;
+      }
       return true;
     }).toList();
   }
 
+  /// Opens the same full-screen Filter UI used by Parent Messaging (Room Chat)
+  /// — Classroom + Status + Tags — instead of a bottom sheet, so both screens
+  /// share one filter experience.
   void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => AdminChatFilterSheet(
-        classroomOptions: _classroomOptions(),
-        tagOptions: _tagOptions(),
-        statusOptions: const ['ACTIVE', 'UPCOMING'],
-        selectedClassrooms: _selectedClassrooms,
-        selectedTags: _selectedTags,
-        selectedStatus: _selectedStatus,
-        onApply: (classrooms, tags, status) => setState(() {
-          _selectedClassrooms = classrooms;
-          _selectedTags = tags;
-          _selectedStatus = status;
-        }),
-        onClear: () => setState(() {
-          _selectedClassrooms = {};
-          _selectedTags = {};
-          _selectedStatus = null;
-        }),
+    context.push(
+      CommunicationRoutes.filter,
+      extra: MessagingFilterArgs(
+        sections: [
+          FilerSection(
+            label: 'Classroom',
+            hintText: 'Select classroom',
+            items: _classroomOptions(),
+            initialSelected: _selectedClassrooms.value.toList(),
+            isMultiSelectDropDown: true,
+          ),
+          FilerSection(
+            label: 'Status',
+            hintText: 'Select status',
+            items: const ['Active', 'Upcoming', 'Inactive'],
+            initialSelected: _selectedStatus.value != null
+                ? [_selectedStatus.value!]
+                : const [],
+            isSingleSelect: true,
+          ),
+          FilerSection(
+            label: 'Tags',
+            hintText: 'Select tags',
+            items: _tagOptions(),
+            initialSelected: _selectedTags.value.toList(),
+            isMultiSelectDropDown: true,
+          ),
+        ],
+        onApply: (filters) {
+          if (!mounted) return;
+          _selectedClassrooms.value = (filters['Classroom'] ?? const [])
+              .toSet();
+          _selectedTags.value = (filters['Tags'] ?? const []).toSet();
+          final status = filters['Status'] ?? const [];
+          _selectedStatus.value = status.isEmpty ? null : status.first;
+          unawaited(_applyServerFilters());
+        },
       ),
     );
   }
 
   void _openThread(ConversationEntity conversation) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => ConversationThreadScreen(conversation: conversation),
-      ),
+    context.push(
+      CommunicationRoutes.conversationThread,
+      extra: ConversationThreadArgs(conversation: conversation),
     );
   }
 
@@ -240,19 +382,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     _startingConversationWith.add(code);
 
     final name = '${student.firstName} ${student.lastName}'.trim();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Creating conversation with $name…'),
-        duration: const Duration(seconds: 2),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Creating conversation with $name…',
     );
 
-    final storage = serviceLocator<StorageService>();
-    final adminCode = await storage.getString(StorageKeys.userCode) ?? '';
+    final adminCode = await _cubit.readCurrentUserCode() ?? '';
 
-    final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
+    final result = await _cubit.createOrOpenConversation(
       type: ConversationType.adminChat,
       studentCode: code,
+      classroomCode: student.classroomCode,
       participantCodes: adminCode.isNotEmpty ? [adminCode] : null,
       title: name,
       avatarUrl: student.profileImage ?? '',
@@ -262,13 +402,20 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a conversation with $name')),
+      final failureMessage = result.fold((f) => f.message, (_) => null);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+            ? failureMessage
+            : AppStrings.couldNotStartConversation(name),
+        isError: true,
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Chat with $name created successfully')),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: AppStrings.chatCreatedSuccessfully(name),
+      isSuccess: true,
     );
     unawaited(_cubit.refresh());
     _openThread(conversation);
@@ -280,27 +427,19 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     // filters built for staff picking a student don't apply here.
     final isGuardian = context.read<RoleCubit>().isParent;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
-            BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
-            BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
-          ],
-          child: isGuardian
-              ? const StaffOrStudentSelectionBulkMessaging(
-                  isStaffSelection: true,
-                  conversationType: 'ADMIN_CHAT',
-                  restrictToDesignationCodes: ['ADMIN', 'DIRECTOR'],
-                  hideFilters: true,
-                )
-              : const StaffOrStudentSelectionBulkMessaging(
-                  isStaffSelection: false,
-                  conversationType: 'ADMIN_CHAT',
-                ),
-        ),
-      ),
+    await context.push(
+      CommunicationRoutes.recipientSelection,
+      extra: isGuardian
+          ? const RecipientSelectionArgs(
+              isStaffSelection: true,
+              conversationType: 'ADMIN_CHAT',
+              restrictToDesignationCodes: ['ADMIN', 'DIRECTOR'],
+              hideFilters: true,
+            )
+          : const RecipientSelectionArgs(
+              isStaffSelection: false,
+              conversationType: 'ADMIN_CHAT',
+            ),
     );
     if (mounted) unawaited(_cubit.refresh());
   }
@@ -313,10 +452,16 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     if (context.watch<RoleCubit>().isParent) {
       return const GlobalScaffold(
         hasBackButton: false,
-        bodyPadding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        bodyPadding: EdgeInsets.fromLTRB(AppSizes.sm, AppSizes.xs, AppSizes.sm, AppSizes.xs),
+        // This route (/admin-chat) is registered OUTSIDE the shell's
+        // StatefulShellRoute, so the nav bar's own route-derived resolution
+        // can't find a shell ancestor and would otherwise show nothing (or,
+        // before that fallback was fixed, incorrectly Dashboard) — force
+        // the correct Communication/Messages tab highlighted explicitly.
+        activeItemOverride: BottomNavigationItem.communication,
         body: ParentDirectMessagingScreen(
           conversationType: ConversationType.adminChat,
-          notCreatedLabel: 'Start Conversation with Admin',
+          notCreatedLabel: AppStrings.startConversationWithAdmin,
         ),
       );
     }
@@ -331,172 +476,277 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
             builder: (context, studentState) {
               return BlocBuilder<ConversationListCubit, ConversationListState>(
                 builder: (context, state) {
-                  final totalUnread = state.conversations.fold<int>(
-                    0,
-                    (sum, c) => sum + c.unreadCount,
-                  );
+                  return ListenableBuilder(
+                    // Rebuild the body when the search text, unread toggle, or
+                    // applied filters change — the same triggers the removed
+                    // setStates fired on (cubit state stays on the BlocBuilders
+                    // above).
+                    listenable: Listenable.merge([
+                      _searchController,
+                      _showUnreadOnly,
+                      _selectedClassrooms,
+                      _selectedTags,
+                      _selectedStatus,
+                    ]),
+                    builder: (context, _) {
+                      final totalUnread = state.conversations.fold<int>(
+                        0,
+                        (sum, c) => sum + c.unreadCount,
+                      );
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Page header ───────────────────────────────────────────
-                      _PageHeader(
-                        totalUnread: totalUnread,
-                        onComposeTap: _showGroupChatSheet,
-                        onFabTap: _showGroupChatSheet,
-                      ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ── Page header ───────────────────────────────────────────
+                          _PageHeader(
+                            totalUnread: totalUnread,
+                            onComposeTap: _showGroupChatSheet,
+                            onFabTap: _showGroupChatSheet,
+                          ),
 
-                      // ── Search + filter bar ───────────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  color: const Color(0x33B1AFE9),
-                                ),
-                                child: CustomSearchBar(
-                                  controller: _searchController,
-                                  hintText: 'Search conversations…',
-                                  searchBarColor: const WidgetStatePropertyAll(
-                                    Colors.transparent,
-                                  ),
-                                  borderColor: Colors.transparent,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Non-parents only (the parent branch returns early above).
-                            FilterIndicator(
-                              hasActiveFilters: _hasStudentFilters,
-                              filterCount: (_selectedClassrooms.isNotEmpty ? 1 : 0) +
-                                  (_selectedTags.isNotEmpty ? 1 : 0) +
-                                  (_selectedStatus != null ? 1 : 0),
-                              onTap: _showFilterSheet,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // ── Unread toggle + clear chip ────────────────────────────
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Row(
-                          children: [
-                            CustomToggle(
-                              label: 'Show Only Unread',
-                              isToggled: _showUnreadOnly,
-                              onToggle: (v) =>
-                                  setState(() => _showUnreadOnly = v),
-                              labelOnLeftSide: true,
-                            ),
-                            const Spacer(),
-                            CustomClearAllChip(
-                              label: 'Clear All',
-                              onTap: () => setState(() {
-                                _showUnreadOnly = false;
-                                _searchController.clear();
-                                _selectedClassrooms = {};
-                                _selectedTags = {};
-                                _selectedStatus = null;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      // ── Error banner ──────────────────────────────────────────
-                      if (state.errorMessage != null && state.hasConversations)
-                        _ErrorBanner(message: state.errorMessage!),
-
-                      // ── List / loading / empty ────────────────────────────────
-                      Expanded(
-                        child: RefreshIndicator(
-                          color: AppColors.primaryColor,
-                          onRefresh: () =>
-                              context.read<ConversationListCubit>().refresh(),
-                          child: CustomScrollView(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            // Every conditional sliver below carries a
-                            // stable Key — without one, Flutter matches
-                            // old/new children in this list by position,
-                            // and as the list's shape changes (loading →
-                            // loaded, search results appearing/
-                            // disappearing) a gesture detector can get
-                            // reparented onto the wrong child mid-rebuild,
-                            // corrupting the element tree.
-                            slivers: [
-                              if (state.isLoading && !state.hasConversations)
-                                const MessagingShimmer(
-                                  key: ValueKey('loading_shimmer'),
-                                ),
-
-                              if (!state.isLoading &&
-                                  state.errorMessage != null &&
-                                  !state.hasConversations)
-                                SliverFillRemaining(
-                                  key: const ValueKey('error_state'),
-                                  child: _FullScreenError(
-                                    message: state.errorMessage!,
-                                    onRetry: () => context
-                                        .read<ConversationListCubit>()
-                                        .startWatching(),
+                          // ── Search + filter bar ───────────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.md, 0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(12),
+                                      color: AppColors.messagingSearchFieldBg,
+                                    ),
+                                    child: CustomSearchBar(
+                                      controller: _searchController,
+                                      hintText: AppStrings.searchConversationsEllipsis,
+                                      searchBarColor:
+                                          const WidgetStatePropertyAll(
+                                            AppColors.transparentColor,
+                                          ),
+                                      borderColor: AppColors.transparentColor,
+                                    ),
                                   ),
                                 ),
-
-                              if (state.hasConversations || state.isFromCache)
-                                KeyedSubtree(
-                                  key: const ValueKey('conversations_list'),
-                                  child: _buildList(context, state),
-                                ),
-
-                              if (!state.isLoading &&
-                                  !state.hasConversations &&
-                                  state.errorMessage == null)
-                                SliverFillRemaining(
-                                  key: const ValueKey('empty_state'),
-                                  child: _EmptyState(
-                                    hasFilters: _hasActiveFilters,
-                                  ),
-                                ),
-
-                              if (state.isLoading && state.hasConversations)
-                                const SliverToBoxAdapter(
-                                  key: ValueKey('loading_more_indicator'),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
+                                const SizedBox(width: AppSizes.xs),
+                                // Discoverable manual refresh — mirrors the pull-to-refresh
+                                // (ConversationListCubit.refresh) so users aren't limited to
+                                // the pull gesture, which isn't obvious and can't be
+                                // triggered on a short/empty list. Matches Staff/Parent
+                                // Messaging's search bar.
+                                Material(
+                                  color: AppColors.transparentColor,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () {
+                                      context
+                                          .read<ConversationListCubit>()
+                                          .refresh();
+                                      CoreUtils.showTopSnackBar(
+                                        context: context,
+                                        message: AppStrings.refreshingConversations,
+                                        duration: const Duration(
+                                          milliseconds: 1200,
                                         ),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(AppSizes.xsPlus),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(12),
+                                        color: AppColors.messagingSearchFieldBg,
+                                      ),
+                                      child: Icon(
+                                        Icons.refresh,
+                                        color: AppColors.primaryColor,
+                                        size: 22,
                                       ),
                                     ),
                                   ),
                                 ),
-
-                              if (_searchController.text.trim().isNotEmpty)
-                                ..._buildStartNewChatSlivers(
-                                  studentState,
-                                  state.conversations,
+                                const SizedBox(width: AppSizes.xs),
+                                // Non-parents only (the parent branch returns early above).
+                                // Same SVG icon + active-filter dot used by Staff/Parent
+                                // Messaging's filter button, instead of FilterIndicator's
+                                // generic Icons.tune, which didn't match the rest of the
+                                // messaging tabs.
+                                Material(
+                                  color: AppColors.transparentColor,
+                                  child: InkWell(
+                                    onTap: _showFilterSheet,
+                                    borderRadius: BorderRadius.circular(100),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(AppSizes.xs),
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          SvgPicture.asset(
+                                            MediaRes.filterIcon,
+                                            height: 20,
+                                          ),
+                                          if (_hasVisibleFilters)
+                                            Positioned(
+                                              top: -2,
+                                              right: -2,
+                                              child: Container(
+                                                width: 8,
+                                                height: 8,
+                                                decoration: const BoxDecoration(
+                                                  color: AppColors.messagingNotificationDot,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ),
-
-                              const SliverToBoxAdapter(
-                                key: ValueKey('bottom_spacer'),
-                                child: SizedBox(height: 80),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+
+                          // ── Unread toggle + clear chip ────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.md, 0),
+                            child: Row(
+                              children: [
+                                CustomToggle(
+                                  label: AppStrings.showOnlyUnread,
+                                  isToggled: _showUnreadOnly.value,
+                                  onToggle: (v) => _showUnreadOnly.value = v,
+                                  labelOnLeftSide: true,
+                                ),
+                                const Spacer(),
+                                CustomClearAllChip(
+                                  label: AppStrings.clearAll,
+                                  onTap: () {
+                                    _showUnreadOnly.value = false;
+                                    _searchController.clear();
+                                    _selectedClassrooms.value = {};
+                                    _selectedTags.value = {};
+                                    // Resets to Active rather than no filter
+                                    // at all — matches this screen's default.
+                                    _selectedStatus.value = 'Active';
+                                    unawaited(_applyServerFilters());
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: AppSizes.xxs),
+
+                          // ── Error banner ──────────────────────────────────────────
+                          if (state.errorMessage != null &&
+                              state.hasConversations)
+                            _ErrorBanner(message: state.errorMessage!),
+
+                          // ── List / loading / empty ────────────────────────────────
+                          Expanded(
+                            child: CustomRefreshIndicator(
+                              onRefresh: () => context
+                                  .read<ConversationListCubit>()
+                                  .refresh(),
+                              child: CustomScrollView(
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                // Every conditional sliver below carries a
+                                // stable Key — without one, Flutter matches
+                                // old/new children in this list by position,
+                                // and as the list's shape changes (loading →
+                                // loaded, search results appearing/
+                                // disappearing) a gesture detector can get
+                                // reparented onto the wrong child mid-rebuild,
+                                // corrupting the element tree.
+                                slivers: [
+                                  if (state.isLoading &&
+                                      !state.hasConversations)
+                                    const MessagingShimmer(
+                                      key: ValueKey('loading_shimmer'),
+                                    ),
+
+                                  if (!state.isLoading &&
+                                      state.errorMessage != null &&
+                                      !state.hasConversations)
+                                    SliverFillRemaining(
+                                      key: const ValueKey('error_state'),
+                                      child: _FullScreenError(
+                                        message: state.errorMessage!,
+                                        onRetry: () => context
+                                            .read<ConversationListCubit>()
+                                            .startWatching(),
+                                      ),
+                                    ),
+
+                                  if (state.hasConversations ||
+                                      state.isFromCache)
+                                    KeyedSubtree(
+                                      key: const ValueKey('conversations_list'),
+                                      child: _ConversationSliverList(
+                                        filtered: _filtered(state.conversations),
+                                        showUnreadOnly: _showUnreadOnly.value,
+                                        searchText: _searchController.text,
+                                        onOpenThread: _openThread,
+                                      ),
+                                    ),
+
+                                  if (!state.isLoading &&
+                                      !state.hasConversations &&
+                                      state.errorMessage == null)
+                                    // While actively searching, the "START NEW
+                                    // CHAT" section (below) can still have
+                                    // content even with zero conversation
+                                    // matches — SliverFillRemaining would
+                                    // stretch this empty state to fill the
+                                    // whole viewport and shove that section
+                                    // far off-screen. Only fill-remaining when
+                                    // nothing else is going to follow.
+                                    _searchController.text.trim().isNotEmpty
+                                        ? SliverToBoxAdapter(
+                                            key: const ValueKey('empty_state'),
+                                            child: _EmptyState(
+                                              hasFilters: _hasActiveFilters,
+                                            ),
+                                          )
+                                        : SliverFillRemaining(
+                                            key: const ValueKey('empty_state'),
+                                            child: _EmptyState(
+                                              hasFilters: _hasActiveFilters,
+                                            ),
+                                          ),
+
+                                  if (state.isLoading && state.hasConversations)
+                                    const SliverToBoxAdapter(
+                                      key: ValueKey('loading_more_indicator'),
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: AppSizes.md,
+                                        ),
+                                        child: Center(
+                                          child: PrimaryCircularLoader(
+                                            size: 24,
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                  if (_searchController.text.trim().isNotEmpty)
+                                    ..._buildStartNewChatSlivers(
+                                      studentState,
+                                      state.conversations,
+                                    ),
+
+                                  const SliverToBoxAdapter(
+                                    key: ValueKey('bottom_spacer'),
+                                    child: SizedBox(height: 80),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               );
@@ -522,14 +772,14 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       SliverToBoxAdapter(
         key: const ValueKey('start_new_chat_header'),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.lg, AppSizes.xxs),
           child: Text(
-            'START NEW CHAT (${contacts.length})',
-            style: const TextStyle(
+            AppStrings.startNewChat(contacts.length),
+            style: AppTextStyles.size14.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
-              color: Color(0xFF9B96B0),
+              color: AppColors.messagingMutedPurple,
             ),
           ),
         ),
@@ -539,56 +789,77 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
         delegate: SliverChildBuilderDelegate((context, index) {
           final student = contacts[index];
           final name = '${student.firstName} ${student.lastName}'.trim();
+          // A student with no guardian linked can't be messaged (no one to
+          // receive it) — disable the row, matching web.
+          final bool isDisabled = !student.hasGuardian;
           return InkWell(
             key: ValueKey('student_contact_${student.code}'),
-            onTap: () => _startConversationWithStudent(student),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    imageUrl: student.profileImage,
-                    studentCode: student.code,
-                    name: name,
-                    size: 44,
+            onTap: isDisabled
+                ? null
+                : () => _startConversationWithStudent(student),
+            child: Opacity(
+              opacity: isDisabled ? 0.5 : 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.cardColor,
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xff573353),
-                          ),
-                        ),
-                        if ((student.primaryClassroomName ?? '').isNotEmpty)
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSizes.lg,
+                  vertical: AppSizes.xsPlus,
+                ),
+                child: Row(
+                  children: [
+                    DocumentImageWidget(
+                      disableAttendanceStatusLookup: true,
+                      fileUuid: '',
+                      imageUrl: student.profileImage,
+                      studentCode: student.code,
+                      name: name,
+                      size: 44,
+                    ),
+                    const SizedBox(width: AppSizes.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            student.primaryClassroomName!,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF636E72),
+                            name,
+                            style: AppTextStyles.size16.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.messagingHeadingPlum,
                             ),
                           ),
-                      ],
+                          if (isDisabled)
+                            Text(
+                              AppStrings.noParentLinked,
+                              style: AppTextStyles.size14.copyWith(
+                                fontSize: 12,
+                                color: AppColors.messagingTextSecondary,
+                              ),
+                            )
+                          else if ((student.primaryClassroomName ?? '')
+                              .isNotEmpty)
+                            Text(
+                              student.primaryClassroomName!,
+                              style: AppTextStyles.size14.copyWith(
+                                fontSize: 13,
+                                color: AppColors.messagingTextSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: Color(0xFF6C5CE7),
-                  ),
-                ],
+                    if (!isDisabled)
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.messagingAccentPurple,
+                      ),
+                  ],
+                ),
               ),
             ),
           );
@@ -597,394 +868,4 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     ];
   }
 
-  Widget _buildList(BuildContext context, ConversationListState state) {
-    final filtered = _filtered(state.conversations);
-
-    if (filtered.isEmpty) {
-      return SliverFillRemaining(
-        key: const ValueKey('no_results'),
-        child: Center(
-          child: Text(
-            _showUnreadOnly
-                ? 'No unread conversations'
-                : 'No results for "${_searchController.text}"',
-            style: const TextStyle(color: Color(0xFF636E72)),
-          ),
-        ),
-      );
-    }
-
-    return SliverList(
-      key: const ValueKey('conversation_tiles'),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) => ConversationListTile(
-          key: ValueKey('conversation_${filtered[index].code}'),
-          conversationCode: filtered[index].code,
-          contentBuilder: (context, conversation) => _ConversationTileContent(
-            conversation: conversation,
-            onTap: () => _openThread(conversation),
-          ),
-        ),
-        childCount: filtered.length,
-      ),
-    );
-  }
-}
-
-// ─── Page header ──────────────────────────────────────────────────────────────
-
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({
-    required this.totalUnread,
-    required this.onComposeTap,
-    required this.onFabTap,
-  });
-
-  final int totalUnread;
-  final VoidCallback onComposeTap;
-  final VoidCallback onFabTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1)),
-      ),
-      child: Row(
-        children: [
-          // Title + unread badge
-          Expanded(
-            child: Row(
-              children: [
-                CustomTextWidget(
-                  text: 'Admin Chat',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 22,
-                  fontColor: AppColors.primaryColor,
-                ),
-                if (totalUnread > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0984E3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      totalUnread > 99 ? '99+' : '$totalUnread',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Compose FAB-style button in header row
-          GradientAddButton(onTap: onFabTap),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Conversation tile ────────────────────────────────────────────────────────
-
-class _ConversationTileContent extends StatelessWidget {
-  const _ConversationTileContent({
-    required this.conversation,
-    required this.onTap,
-  });
-
-  final ConversationEntity conversation;
-  final VoidCallback onTap;
-
-  /// The conversation-list summary only carries a plain-text
-  /// `lastMessagePreview` — empty for an attachment-only last message, with
-  /// no field at all for attachment name/type or reactions (those only
-  /// exist on the full message entity inside a thread, not this list-level
-  /// summary). `lastMessageAt` is what actually distinguishes "no messages
-  /// yet" from "the last message just had no text".
-  String _lastMessagePreviewText(ConversationEntity conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return conversation.lastMessagePreview;
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      splashColor: const Color(0x1A0984E3),
-      highlightColor: Colors.transparent,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
-          ),
-        ),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 12,
-          ),
-          // `conversation.status` is the conversation's own archived/active
-          // flag, not the student's actual attendance — showing a green
-          // dot for any "active" admin chat was misleading. `studentCode`
-          // is directly available on this v2 entity, so the avatar's
-          // built-in attendance dot (real "signed in today" vs "absent"
-          // vs nothing) is wired up properly instead.
-          leading: DocumentImageWidget(
-            fileUuid: '',
-            imageUrl: conversation.avatarUrl.startsWith('http')
-                ? conversation.avatarUrl
-                : null,
-            mediaAssetCode: conversation.avatarUrl.startsWith('http')
-                ? null
-                : conversation.avatarUrl,
-            name: conversation.title,
-            size: 52,
-            studentCode: conversation.studentCode,
-          ),
-          title: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty
-                        ? conversation.title
-                        : 'Unnamed Conversation',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 17,
-                    fontColor: AppColors.primaryColor,
-                  ),
-                ),
-                Text(
-                  _formatTime(conversation.lastMessageAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFA0A0A0),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          subtitle: Row(
-            children: [
-              Flexible(
-                fit: FlexFit.tight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _lastMessagePreviewText(conversation),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF636E72),
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.admin_panel_settings_outlined,
-                          size: 12,
-                          color: Color(0xFF0984E3),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${conversation.participantCount} participants',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFB2BEC3),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (conversation.unreadCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00B894),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      conversation.unreadCount > 99
-                          ? '99+'
-                          : '${conversation.unreadCount}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatTime(DateTime? dt) =>
-      MessagingTimeFormatter.conversationTime(dt);
-}
-
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.hasFilters});
-
-  final bool hasFilters;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            hasFilters
-                ? Icons.search_off_rounded
-                : Icons.admin_panel_settings_outlined,
-            size: 64,
-            color: AppColors.primaryColor.withValues(alpha: 0.25),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            hasFilters
-                ? 'No conversations match your filters'
-                : 'No admin chats yet',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryColor.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            hasFilters
-                ? 'Try clearing your filters'
-                : 'Tap the compose button to start one.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFFB2BEC3)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Error states ─────────────────────────────────────────────────────────────
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF3CD),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFFEBA0)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            size: 16,
-            color: Color(0xFF856404),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF856404)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FullScreenError extends StatelessWidget {
-  const _FullScreenError({required this.message, required this.onRetry});
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 56,
-              color: AppColors.primaryColor.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF636E72)),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Try again'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryColor,
-                side: BorderSide(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

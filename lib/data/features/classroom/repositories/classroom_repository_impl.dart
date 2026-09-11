@@ -1,15 +1,18 @@
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../../domain/features/classroom/entities/classroom_details.dart';
+import '../../../../domain/features/classroom/entities/classroom_logo_upload_session.dart';
 import '../../../../domain/features/classroom/entities/ratio_monitoring_classroom.dart';
 import '../../../../domain/features/classroom/entities/school_capacity.dart';
 import '../../../../domain/features/classroom/entities/classroom_count.dart';
 import '../../../../domain/features/classroom/entities/school_fte.dart';
+import '../../../../domain/features/classroom/entities/student_classroom_enrolled_count.dart';
 import '../../../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
 import '../../../../domain/features/student_classroom/repositories/student_classroom_repository.dart';
 import '../datasources/classroom_remote_datasource.dart';
+import '../mappers/classroom_mapper.dart';
 
 class ClassroomRepositoryImpl implements ClassroomRepository {
   ClassroomRepositoryImpl(
@@ -39,6 +42,8 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
           (model) => Classroom(
             code: model.code,
             name: model.name,
+            minAgeMonths: model.minAgeMonths,
+            maxAgeMonths: model.maxAgeMonths,
           ),
         )
         .toList();
@@ -69,6 +74,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       createdAt: details.createdAt,
       updatedBy: details.updatedBy,
       updatedAt: details.updatedAt,
+      logoAssetCode: details.logoAssetCode,
     );
   }
 
@@ -313,11 +319,9 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     );
 
     return raw.map(
-      (code, value) => MapEntry(
+      (code, model) => MapEntry(
         code,
-        ClassroomAttendanceSummaryEntry.fromJson(
-          value is Map<String, dynamic> ? value : <String, dynamic>{},
-        ),
+        ClassroomMapper.toAttendanceSummaryEntity(model),
       ),
     );
   }
@@ -336,54 +340,43 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     );
 
     return raw.map(
-      (code, value) => MapEntry(
+      (code, model) => MapEntry(
         code,
-        ClassroomAttendanceSummaryEntry.fromJson(
-          value is Map<String, dynamic> ? value : <String, dynamic>{},
-        ),
+        ClassroomMapper.toAttendanceSummaryEntity(model),
       ),
     );
   }
 
   @override
-  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+  Future<StudentClassroomEnrolledCount> getStudentClassroomEnrolledCount({
     required String classroomCode,
     String? organizationCode,
     String? schoolCode,
-  }) {
-    return _remoteDataSource.getStudentClassroomEnrolledCount(
+  }) async {
+    final model = await _remoteDataSource.getStudentClassroomEnrolledCount(
       classroomCode: classroomCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );
+    return ClassroomMapper.toEnrolledCountEntity(model);
   }
 
   @override
-  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
-    required String classroomCode,
-    required String schoolCode,
-  }) {
-    return _remoteDataSource.getClassroomLogoAssetCodes(
-      classroomCode: classroomCode,
-      schoolCode: schoolCode,
-    );
-  }
-
-  @override
-  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+  Future<ClassroomLogoUploadSession> createClassroomLogoUploadSession({
     required String classroomCode,
     required String organizationCode,
     required String schoolCode,
-  }) {
-    return _remoteDataSource.createClassroomLogoUploadSession(
+  }) async {
+    final model = await _remoteDataSource.createClassroomLogoUploadSession(
       classroomCode: classroomCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );
+    return ClassroomMapper.toLogoUploadSessionEntity(model);
   }
 
   @override
-  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+  Future<void> finalizeClassroomLogo({
     required String classroomCode,
     required String assetCode,
   }) {

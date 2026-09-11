@@ -1,40 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'dart:convert';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -45,7 +46,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
     this.hasBackButton = false,
   });
 
-  static const String routeName = '/dashboard/staff-attendance-tabbed-view';
+  static const String routeName = DashboardRoutes.staffAttendanceTabbedView;
 
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
@@ -98,7 +99,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // Shared app-session singleton (registered in di.dart) — `startWatching`
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
-    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
     _tabController = TabController(
       length: 3,
       vsync: this,
@@ -109,7 +110,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<void> _initPersonaFlags() async {
-    _isParentRole = await _resolveIsParentSession();
+    _isParentRole = await AttendancePermissionService.resolveIsParentSession(
+      context,
+    );
     if (!_isParentRole) {
       await _loadStaffPersonaFlags();
     } else {
@@ -117,40 +120,6 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       _loggedInStaffCode = '';
     }
     if (mounted) setState(() {});
-  }
-
-  Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
-    try {
-      final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-          .trim();
-      if (rolesJson.isNotEmpty) {
-        final decoded = jsonDecode(rolesJson);
-        if (decoded is List) {
-          for (final role in decoded) {
-            if (role is! Map) continue;
-            final roleName = (role['role'] ?? '')
-                .toString()
-                .toUpperCase()
-                .trim();
-            if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
-              return true;
-            }
-          }
-        }
-      }
-      final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(
-        loginContext ?? const <String, dynamic>{},
-      ).toUpperCase();
-      if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
-        return true;
-      }
-    } catch (_) {
-      return false;
-    }
-    return false;
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -162,12 +131,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       // persona manages all staff. staffCode is still loaded for self-scoping.
       final isStaffPersona = context.read<RoleCubit>().isStaff;
 
-      final storage = serviceLocator<StorageService>();
-      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
-      if (staffCode.isEmpty) {
-        staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-      }
+      // resolveStaffCodeForLoggedInUser() already checks storage first — and,
+      // unlike a raw storage read, validates the cached value still belongs
+      // to the CURRENT user/org/school before trusting it, clearing (and
+      // re-resolving) a stale cross-context value instead of returning it.
+      // Reading storage directly here first could return exactly that kind
+      // of stale value and skip the validated fallback entirely.
+      final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
 
       if (!mounted) return;
       setState(() {
@@ -204,15 +174,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   Widget build(BuildContext context) {
     super.build(context);
     final responsive = ResponsiveHelper(context);
-    final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
-    final safeAreaTop = mediaQuery.padding.top;
+    final contentPadding = ResponsiveHelper(context).contentPadding;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height; // kToolbarHeight
 
     // Match GradientAddButton responsive sizes (as used in StaffScreen)
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -246,24 +214,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparentColor,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
                   tabAlignment: TabAlignment.start,
                   isScrollable: true,
-                  labelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: Colors.black,
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w600,
+                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                    isTablet: responsive.isTablet,
                   ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    fontSize: responsive.isTablet ? 18 : 16,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  unselectedLabelStyle:
+                      AppTextStyles.attendanceTabLabelUnselected(
+                        isTablet: responsive.isTablet,
+                      ),
                 ),
                 tabs: const [
                   Tab(text: 'Daily'),
@@ -285,19 +248,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   bottom: true,
                   child: GradientBackground(
                     child: Padding(
-                      padding: ResponsiveSizing.contentPadding(context),
+                      padding: ResponsiveHelper(context).contentPadding,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxs,
+                              bottom: AppSpacing.xs,
+                            ),
                             child: Text(
                               'Staff Attendance',
-                              style: TextStyle(
-                                fontFamily: Fonts.manrope,
-                                fontSize: responsive.isTablet ? 22 : 18,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryColor,
+                              style: AppTextStyles.attendanceScreenTitle(
+                                isTablet: responsive.isTablet,
                               ),
                             ),
                           ),
@@ -337,7 +300,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 child: _showBars
-                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
                     : const SizedBox.shrink(),
               ),
             ),
@@ -395,13 +360,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   void _showActionMenu(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
-    final safeAreaTop = mediaQuery.padding.top;
+    final contentPadding = ResponsiveHelper(context).contentPadding;
+    final safeAreaTop = MediaQuery.paddingOf(context).top;
     final appBarHeight = AppBar().preferredSize.height;
-    final double screenWidth = mediaQuery.size.width;
-    final bool isTablet = screenWidth >= 600;
-    final bool isLargeTablet = screenWidth >= 900;
+    final bool isTablet = ResponsiveHelper(context).isTabletCompact;
+    final bool isLargeTablet = ResponsiveHelper(context).isWide;
     final double floatingButtonSize = isLargeTablet
         ? 72.0
         : (isTablet ? 56.0 : 40.0);
@@ -416,24 +379,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparentColor,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
           alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: floatingButtonTop + floatingButtonSize,
-            left: mediaQuery.size.width * 0.75,
+            left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
           child: Container(
-            padding: const EdgeInsets.all(2),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.allMd,
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.attendanceCardShadowColor,
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -442,60 +405,45 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             child: Container(
               width: 50,
               constraints: const BoxConstraints(maxHeight: 400),
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.cardColor,
+                borderRadius: BorderRadius.circular(AppRadius.r10),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-                  const SizedBox(height: 5),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_in,
+                    label: 'Sign-in',
+                    onTap: () => _onStaffActionTap(context, 'Sign-in'),
+                  ),
+                  const SizedBox(height: AppSpacing.s5),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Sign_out,
+                    label: 'Sign-Out',
+                    onTap: () => _onStaffActionTap(context, 'Sign-Out'),
+                  ),
+                  const SizedBox(height: AppSpacing.s5),
                   if (!(_isTeacherStaffPersona ?? false))
-                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                    _StaffMenuItem(
+                      svgPath: MediaRes.transfer,
+                      label: 'Transfer',
+                      onTap: () => _onStaffActionTap(context, 'Transfer'),
+                    ),
                   if (!(_isTeacherStaffPersona ?? false))
-                    const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                    const SizedBox(height: AppSpacing.s5),
+                  _StaffMenuItem(
+                    svgPath: MediaRes.Mark_absent,
+                    label: 'Absent',
+                    onTap: () => _onStaffActionTap(context, 'Absent'),
+                  ),
                 ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    return InkWell(
-      onTap: () => _onStaffActionTap(context, label),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -531,38 +479,32 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       if (!mounted) return;
       switch (label) {
         case 'Sign-in':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-in', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Sign-Out':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-sign-out', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Transfer':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-transfer', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
         case 'Absent':
-          Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StaffMarkAbsentForm(staff: staff),
-            ),
-          ).then((_) {
-            if (mounted) _refreshAllAfterAttendanceFlow();
-          });
+          context
+              .push('/attendance/staff-mark-absent', extra: {'staff': staff})
+              .then((_) {
+                if (mounted) _refreshAllAfterAttendanceFlow();
+              });
           break;
       }
       return;
@@ -570,39 +512,60 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
     switch (label) {
       case 'Sign-in':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-in').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Sign-Out':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-sign-out').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Transfer':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
-        ).then((_) {
+        context.push('/attendance/staff-selection-transfer').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Absent':
-        Navigator.push<void>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const StaffSelectionMarkAbsentForm(),
-          ),
-        ).then((_) {
+        context.push('/attendance/staff-selection-mark-absent').then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
     }
+  }
+}
+
+class _StaffMenuItem extends StatelessWidget {
+  const _StaffMenuItem({
+    required this.svgPath,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String svgPath;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s5),
+            decoration: BoxDecoration(
+              color: AppColors.attendanceInfoHighlightColor,
+              shape: BoxShape.circle,
+            ),
+            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+          ),
+          const SizedBox(height: AppSpacing.s5),
+          Text(label, maxLines: 1, style: AppTextStyles.body),
+        ],
+      ),
+    );
   }
 }

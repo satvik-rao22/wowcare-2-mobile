@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:path/path.dart' as p;
-
-import '../../../../../../app/theme/colors.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class AttachmentWidget extends StatefulWidget {
   final Widget iconWidget;
@@ -33,31 +32,11 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 
@@ -67,7 +46,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardColor,
       isScrollControlled: true,
       builder: (context) => DraggableScrollableSheet(
         expand: false,
@@ -86,7 +65,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.messagingBorderColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -98,7 +77,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const CustomTextWidget(
-                      text: 'Add Attachment',
+                      text: AppStrings.addAttachment,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -121,22 +100,22 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                 ),
               ),
               // Options
-              _buildAttachmentOption(
+              _AttachmentOption(
                 icon: Icons.photo_library_rounded,
-                title: 'Photos (multiple allowed)',
-                subtitle: 'JPEG, PNG, WEBP, HEIC, HEIF, AVIF, GIF, BMP, TIFF',
+                title: AppStrings.photosMultiple,
+                subtitle: AppStrings.photosSubtitle,
                 onTap: () => Navigator.pop(context, 'photos'),
               ),
-              _buildAttachmentOption(
+              _AttachmentOption(
                 icon: Icons.camera_alt_rounded,
-                title: 'Take Photo',
-                subtitle: 'Capture a photo with your camera',
+                title: AppStrings.takePhoto,
+                subtitle: AppStrings.takePhotoSubtitle,
                 onTap: () => Navigator.pop(context, 'camera'),
               ),
-              _buildAttachmentOption(
+              _AttachmentOption(
                 icon: Icons.upload_file_rounded,
-                title: 'Document (one file)',
-                subtitle: 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB',
+                title: AppStrings.documentOneFile,
+                subtitle: AppStrings.documentSubtitle,
                 onTap: () => Navigator.pop(context, 'document'),
               ),
               const SizedBox(height: 12),
@@ -203,7 +182,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
       final size = await file.length();
       if (size > 10 * 1024 * 1024) {
         if (!mounted) return;
-        _showWarningMessage('Please do not exceed the 10 MB limit');
+        _showWarningMessage(AppStrings.doNotExceed10MB);
         continue;
       }
       final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
@@ -238,16 +217,35 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
     widget.onAttachmentsSelected(valid);
   }
 
-  Widget _buildAttachmentOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _showAttachmentOptions,
+      child: widget.iconWidget,
+    );
+  }
+}
+
+class _AttachmentOption extends StatelessWidget {
+  const _AttachmentOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparentColor,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
@@ -261,11 +259,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                     color: AppColors.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: AppColors.primaryColor, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -277,13 +271,13 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                         text: title,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        fontColor: Colors.black87,
+                        fontColor: AppColors.messagingMenuText,
                       ),
                       const SizedBox(height: 4),
                       CustomTextWidget(
                         text: subtitle,
                         fontSize: 12,
-                        fontColor: Colors.grey[600],
+                        fontColor: AppColors.messagingTextMeta,
                       ),
                     ],
                   ),
@@ -293,14 +287,6 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
           ),
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _showAttachmentOptions,
-      child: widget.iconWidget,
     );
   }
 }

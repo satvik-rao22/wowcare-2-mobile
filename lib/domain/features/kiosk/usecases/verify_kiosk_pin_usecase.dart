@@ -9,6 +9,11 @@ class VerifyKioskPinUseCase {
   Future<KioskPinResultEntity> call({
     required String pin,
     required String schoolCode,
+    bool isLogout = false,
   }) =>
-      _repository.verifyPin(pin: pin, schoolCode: schoolCode);
+      _repository.verifyPin(
+        pin: pin,
+        schoolCode: schoolCode,
+        isLogout: isLogout,
+      );
 }

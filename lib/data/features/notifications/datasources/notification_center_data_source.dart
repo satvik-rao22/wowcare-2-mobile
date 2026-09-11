@@ -1,3 +1,4 @@
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 import '../models/app_notification_model.dart';
 
@@ -116,7 +117,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   }
 
   List<AppNotificationModel> _seed() {
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     AppNotificationModel item({
       required String id,
       required String title,

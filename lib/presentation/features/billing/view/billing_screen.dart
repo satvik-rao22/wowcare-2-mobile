@@ -1,48 +1,56 @@
 import 'dart:async' show unawaited;
+import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/billing_events.dart';
-import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/utils/billing_events.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+// import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/billing/view/Accounting/students.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/presentation/features/billing/view/accounting/students.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/select_students_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/analytics/analytics_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/general_ledger/create_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
-import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
 
-  static const String routeName = '/dashboard/billing';
+  static const String routeName = DashboardRoutes.billing;
 
   @override
   State<BillingScreen> createState() => _BillingScreenState();
 }
 
 class _BillingScreenState extends State<BillingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   static const List<String> _tabs = <String>[
-    'Student(s)',
-    'Transactions',
+    BillingStrings.studentS,
+    BillingStrings.transactions,
     // 'Recurring Plans',
-    'General Ledger',
-    'Subsidies',
-    'Analytics',
-    'Billing Settings',
+    BillingStrings.generalLedger,
+    // 'Subsidies', // Not implemented yet - hidden for all personas
+    BillingStrings.analytics,
+    BillingStrings.billingSettings,
   ];
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
       ValueNotifier<LedgerAccountModel?>(null);
@@ -110,10 +118,23 @@ class _BillingScreenState extends State<BillingScreen>
       case 2:
         _ledgerRefreshFn?.call();
         break;
-      case 4:
+      case 3:
         _analyticsRefreshFn?.call();
         break;
     }
+  }
+
+  /// On an org/school switch, re-fetch EVERY tab (not just the visible one) so
+  /// no billing tab keeps showing the previous school's invoices / ledger /
+  /// analytics after the switch (BILL-INV-01). Tabs not yet built load fresh on
+  /// first visit; already-built ones refetch under the now-current school.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    _studentsRefreshFn?.call();
+    _transactionsRefreshFn?.call();
+    _ledgerRefreshFn?.call();
+    _analyticsRefreshFn?.call();
   }
 
   void _onScroll() => _maybeLoadNextPage();
@@ -127,7 +148,7 @@ class _BillingScreenState extends State<BillingScreen>
     VoidCallback? loadFn;
     if (tc.index == 1) loadFn = _transactionsLoadNextFn;
     if (tc.index == 2) loadFn = _ledgerLoadNextFn;
-    if (tc.index == 5) loadFn = _discountLoadNextFn;
+    if (tc.index == 4) loadFn = _discountLoadNextFn;
     if (loadFn == null) return;
 
     if (position.maxScrollExtent <= 0) {
@@ -149,7 +170,7 @@ class _BillingScreenState extends State<BillingScreen>
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
-      date: DateTime.now(),
+      date: billingSchoolNow(),
       amount: 0,
       status: '',
       description: 'Receive Payment',
@@ -164,7 +185,9 @@ class _BillingScreenState extends State<BillingScreen>
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
-    final EdgeInsets contentPadding = ResponsiveSizing.contentPadding(context);
+    // ResponsiveHelper.contentPadding is a verbatim port of this method (see
+    // its doc comment) — routed through the single canonical helper.
+    final EdgeInsets contentPadding = ResponsiveHelper(context).contentPadding;
 
     return GlobalScaffold(
       body: DefaultTabController(
@@ -190,7 +213,7 @@ class _BillingScreenState extends State<BillingScreen>
                         case 2:
                           await _ledgerRefreshFn?.call();
                           break;
-                        case 4:
+                        case 3:
                           await _analyticsRefreshFn?.call();
                           break;
                       }
@@ -207,12 +230,12 @@ class _BillingScreenState extends State<BillingScreen>
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Billing',
+                                  BillingStrings.billing,
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
+                                    color: AppColors.billingTextColor,
                                     height: titleLineHeight,
                                   ),
                                   textAlign: TextAlign.left,
@@ -222,21 +245,17 @@ class _BillingScreenState extends State<BillingScreen>
                                 animation: controller,
                                 builder: (_, __) {
                                   final int idx = controller.index;
-                                  if (idx == 4 || idx == 5) {
+                                  if (idx == 3 || idx == 4) {
                                     return const SizedBox.shrink();
                                   }
                                   return GradientAddButton(
                                     onTap: () async {
                                       final bool isGeneralLedgerTab =
                                           controller.index ==
-                                              _tabs.indexOf('General Ledger');
+                                              _tabs.indexOf(BillingStrings.generalLedger);
                                       if (isGeneralLedgerTab) {
-                                        final result =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const CreateLedgerScreen(),
-                                          ),
+                                        final result = await context.push(
+                                          CreateLedgerScreen.routeName,
                                         );
                                         if (result is LedgerAccountModel) {
                                           _ledgerCreationNotifier.value =
@@ -246,7 +265,7 @@ class _BillingScreenState extends State<BillingScreen>
                                       }
                                       final bool isTransactionsTab =
                                           controller.index ==
-                                              _tabs.indexOf('Transactions');
+                                              _tabs.indexOf(BillingStrings.transactions);
                                       if (isTransactionsTab) {
                                         showDialog<void>(
                                           context: context,
@@ -255,36 +274,32 @@ class _BillingScreenState extends State<BillingScreen>
                                             onSelectCreateInvoice: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const SelectStudentsScreen(),
-                                              )));
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                              ));
                                             },
                                             onSelectReceivePayment: () {
                                               unawaited(Navigator.of(ctx)
                                                   .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    SelectStudentsScreen(
+                                              unawaited(context.push(
+                                                SelectStudentsScreen.routeName,
+                                                extra: SelectStudentsArgs(
                                                   onNext: (selCtx, students) {
-                                                    Navigator.of(selCtx)
-                                                        .pushReplacement(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ReceivePaymentIssueRefundScreen(
-                                                          transaction:
-                                                              _buildReceivePaymentTransaction(
-                                                                  students),
-                                                          studentCode: students
-                                                              .first.code,
-                                                        ),
+                                                    selCtx.pushReplacement(
+                                                      ReceivePaymentIssueRefundScreen
+                                                          .routeName,
+                                                      extra:
+                                                          ReceivePaymentRefundArgs(
+                                                        transaction:
+                                                            _buildReceivePaymentTransaction(
+                                                                students),
+                                                        studentCode:
+                                                            students.first.code,
                                                       ),
                                                     );
                                                   },
                                                 ),
-                                              )));
+                                              ));
                                             },
                                           ),
                                         );
@@ -296,11 +311,9 @@ class _BillingScreenState extends State<BillingScreen>
                                           onSelectOneTime: () {
                                             unawaited(
                                                 Navigator.of(ctx).maybePop());
-                                            unawaited(Navigator.of(context)
-                                                .push(MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SelectStudentsScreen(),
-                                            )));
+                                            unawaited(context.push(
+                                              SelectStudentsScreen.routeName,
+                                            ));
                                           },
                                           onSelectRecurring: () {
                                             unawaited(
@@ -318,7 +331,7 @@ class _BillingScreenState extends State<BillingScreen>
                           // Scrollable TabBar (horizontal only)
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.transparent,
+                              color: AppColors.transparentColor,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -328,12 +341,12 @@ class _BillingScreenState extends State<BillingScreen>
                             child: Row(
                               children: [
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_left, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current > 0) {
@@ -348,8 +361,8 @@ class _BillingScreenState extends State<BillingScreen>
                                     labelPadding: EdgeInsets.zero,
                                     tabAlignment: TabAlignment.start,
                                     labelColor: AppColors.themeColor,
-                                    unselectedLabelColor: const Color(0xff573353),
-                                    dividerColor: Colors.transparent,
+                                    unselectedLabelColor: AppColors.billingTextColor,
+                                    dividerColor: AppColors.transparentColor,
                                     indicatorSize: TabBarIndicatorSize.label,
                                     indicator: UnderlineTabIndicator(
                                       borderSide: BorderSide(
@@ -369,7 +382,7 @@ class _BillingScreenState extends State<BillingScreen>
                                         child: Text(
                                           _tabs[index],
                                           style: const TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: Fonts.manrope,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -379,12 +392,12 @@ class _BillingScreenState extends State<BillingScreen>
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'Scroll tabs',
+                                  tooltip: BillingStrings.scrollTabs,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_right, color: AppColors.billingTextColor, size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current < _tabs.length - 1) {
@@ -446,14 +459,15 @@ class _BillingScreenState extends State<BillingScreen>
                                   onLoadMoreNeeded: _maybeLoadNextPage,
                                 );
                               } else if (current == 3) {
-                                content = const SubsidiesSection();
-                              } else if (current == 4) {
+                                // 'Subsidies' tab is not implemented yet; the
+                                // tab entry above is disabled so this index
+                                // now maps to Analytics instead.
                                 content = AnalyticsSection(
                                   onRegisterRefresh: (fn) {
                                     _analyticsRefreshFn = fn;
                                   },
                                 );
-                              } else if (current == 5) {
+                              } else if (current == 4) {
                                 content = BillingSettingsSection(
                                   onRegisterLoadNextPage: (fn) {
                                     _discountLoadNextFn = fn;

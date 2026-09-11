@@ -1,5 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_analytics_models.dart';
@@ -7,6 +12,17 @@ import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_transaction_models.dart';
+
+/// Serializes a date-range filter bound the user picked in the school's
+/// calendar. Same rule as the invoice request models: a picked date is a
+/// calendar day, so `toUtc()` would read it in the DEVICE's zone and shift the
+/// window by a day (an IST-picked Jul 17 becomes Jul 16T18:30Z), silently
+/// dropping/adding a day's transactions.
+String _schoolRangeIso(DateTime picked) =>
+    SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      picked,
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    ).toIso8601String();
 
 abstract class InvoiceRemoteDataSource {
   Future<InvoiceResultModel> createInvoice(CreateInvoiceRequestModel request);
@@ -57,17 +73,24 @@ abstract class InvoiceRemoteDataSource {
     required String guardianCode,
   });
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request);
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey});
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request);
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey});
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request);
+      CreateCreditRequestModel request,
+      {String? idempotencyKey});
   Future<InvoiceResultModel> updateInvoice(
       String code, UpdateInvoiceRequestModel request);
   Future<void> deleteInvoice(String code);
   Future<InvoiceResultModel> cancelInvoice(String code);
   Future<InvoiceResultModel> issueInvoice(String code);
   Future<InvoiceResultModel> resendInvoice(String code);
+  Future<CheckRecipientsResultModel> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  });
 }
 
 class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
@@ -114,8 +137,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       queryParameters: <String, dynamic>{
         'organizationCode': organizationCode,
         'school': school,
-        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
-        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        if (dateFrom != null) 'dateFrom': _schoolRangeIso(dateFrom),
+        if (dateTo != null) 'dateTo': _schoolRangeIso(dateTo),
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
@@ -139,8 +162,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         'school': school,
         if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
         if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
-        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
-        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        if (dateFrom != null) 'dateFrom': _schoolRangeIso(dateFrom),
+        if (dateTo != null) 'dateTo': _schoolRangeIso(dateTo),
         'page': page,
         'size': size,
       },
@@ -192,6 +215,11 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       queryParameters: <String, dynamic>{
         'organizationCode': organizationCode,
         'school': school,
+        // The backend now paginates this endpoint (default pageSize: 10).
+        // The cubit loads the full family list once and filters/searches
+        // client-side, so request a page large enough to cover any school's
+        // family count in one call rather than adding pagination UI.
+        'size': 1000,
       },
     );
     return FamilySummaryModel.listFromJson(response.data ?? {});
@@ -233,32 +261,51 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     return FamilyLedgerModel.fromJson(response.data ?? {});
   }
 
+  /// Options for a non-idempotent financial POST: send the stable
+  /// `Idempotency-Key` header (so the backend dedupes a retried/replayed
+  /// payment/refund/credit) and opt OUT of the shared 401-refresh auto-replay
+  /// (so the client never silently re-charges — the user re-authenticates and
+  /// retries with the SAME key, which dedupes).
+  Options _financialOptions(String? idempotencyKey) => Options(
+        extra: const {kNoAutoReplayExtraKey: true},
+        headers: {
+          if (idempotencyKey != null && idempotencyKey.isNotEmpty)
+            IdempotencyKey.headerName: idempotencyKey,
+        },
+      );
+
   @override
   Future<InvoicePaymentResultModel> createPayment(
-      InvoicePaymentRequestModel request) async {
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoicePayments),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
 
   @override
   Future<InvoicePaymentResultModel> createRefund(
-      InvoicePaymentRequestModel request) async {
+      InvoicePaymentRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceRefunds),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
 
   @override
   Future<InvoicePaymentResultModel> createCredit(
-      CreateCreditRequestModel request) async {
+      CreateCreditRequestModel request,
+      {String? idempotencyKey}) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceCredits),
       data: request.toJson(),
+      options: _financialOptions(idempotencyKey),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});
   }
@@ -300,5 +347,18 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       ApiPaths.url(ApiPaths.invoiceResend(code)),
     );
     return InvoiceResultModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<CheckRecipientsResultModel> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  }) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesCheckRecipients),
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+      data: studentCodes,
+    );
+    return CheckRecipientsResultModel.fromJson(response.data ?? {});
   }
 }

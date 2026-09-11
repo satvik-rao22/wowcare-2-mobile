@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/responsive/app_breakpoints.dart';
 
 class ResponsiveSizing {
   const ResponsiveSizing._();
 
   static bool isTablet(BuildContext context) =>
-      MediaQuery.of(context).size.width >= 600;
+      AppBreakpoints.classify(MediaQuery.sizeOf(context).width).isTablet;
 
   static double titleFontSize(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool tablet = screenWidth >= 600;
-    return tablet ? 26 : (screenWidth < 360 ? 18 : 20);
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final bool tablet = AppBreakpoints.classify(screenWidth).isTablet;
+    return tablet ? 26 : (AppBreakpoints.isNarrow(screenWidth) ? 18 : 20);
   }
 
   static double titleLineHeight(BuildContext context) {

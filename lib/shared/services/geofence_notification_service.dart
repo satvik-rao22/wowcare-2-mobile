@@ -1,7 +1,7 @@
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/core/utils/active_school_switcher.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/notification_payload.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -19,8 +19,6 @@ class GeofenceNotificationService {
   static const String pushChannelId = 'wowcare_alerts_v2';
   static const String pushChannelName = 'WowCare Notifications';
 
-  static const int _enteredId = 1001;
-  static const int _exitedId = 1002;
 
   // Push notifications must each get a UNIQUE id — a fixed id makes every new
   // push replace the previous one in the tray, so firing 5 in a row leaves only
@@ -85,19 +83,6 @@ class GeofenceNotificationService {
     }
   }
 
-  Future<void> showEnteredZoneNotification() => _show(
-    id: _enteredId,
-    title: 'Sign In/Out',
-    body: 'You can now Sign In or Sign Out.',
-    isCritical: true,
-  );
-
-  Future<void> showExitedZoneNotification() => _show(
-    id: _exitedId,
-    title: 'Outside School Premises',
-    body: 'Attendance actions are currently unavailable.',
-    isCritical: false,
-  );
 
   Future<void> showCustomNotification({
     required String title,
@@ -185,7 +170,7 @@ class GeofenceNotificationService {
           AppLogger.d('[FCM] Foreground tap school-switch failed: $e');
         }
         try {
-          appRouter.go(decoded.location);
+          appRouterGo(decoded.location);
         } catch (e) {
           AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
         }
@@ -193,7 +178,7 @@ class GeofenceNotificationService {
       return;
     }
     try {
-      appRouter.go(decoded.location);
+      appRouterGo(decoded.location);
     } catch (e) {
       AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
     }

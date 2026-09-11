@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
+import 'package:wowcare/domain/features/communication/policies/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -30,16 +33,23 @@ class MessagingListTile extends StatelessWidget {
   /// list-level summary). `lastMessageAt` is what actually distinguishes
   /// "no messages yet" from "the last message just had no text", so use
   /// that instead of treating both cases as the empty-preview case.
+  ///
+  /// Prefixed with the sender's name (`SenderName: message`) to match the
+  /// web app's chat list — this was previously dropped entirely on mobile.
+  /// The backend doesn't actually send a dedicated sender-name field, so
+  /// `Conversation.lastMessageSenderDisplayName` derives it from
+  /// `lastMessageBy` + `participants` instead. Only the "no messages yet"
+  /// placeholder stays sender-less.
   String _lastMessagePreviewText(Conversation conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return MessageContentProcessor.previewText(
-        conversation.lastMessagePreview,
-      );
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
+    final body = conversation.lastMessagePreview.isNotEmpty
+        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        : (conversation.lastMessageAt != null
+              ? AppStrings.attachmentPreview
+              : null);
+    if (body == null) return AppStrings.startANewConversation;
+    final senderName = conversation.lastMessageSenderDisplayName?.trim();
+    if (senderName == null || senderName.isEmpty) return body;
+    return '$senderName: $body';
   }
 
   String _formatMessageTime(DateTime? dateTime) =>
@@ -54,21 +64,27 @@ class MessagingListTile extends StatelessWidget {
       conversation,
       currentUserCode,
     );
+    // 1:1 (STAFF_DIRECT) only — null for room/admin chats, whose avatar is
+    // the conversation's own (the student's photo).
+    final counterpart = ConversationDisplay.otherParticipant(
+      conversation,
+      currentUserCode,
+    );
     return InkWell(
       onTap: onTap,
-      splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
-      highlightColor: Colors.transparent,
+      splashColor: AppColors.messagingTileSplash, // Subtle theme splash
+      highlightColor: AppColors.transparentColor,
       child: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardColor,
           border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+            bottom: BorderSide(color: AppColors.messagingDividerLight, width: 1),
           ),
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 12,
+            horizontal: AppSizes.lg,
+            vertical: AppSizes.sm,
           ),
           // No staffCode/studentCode is available on this legacy
           // Conversation model (only the participant's userCode is, which
@@ -83,26 +99,37 @@ class MessagingListTile extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: DocumentImageWidget(
+              disableAttendanceStatusLookup: true,
               fileUuid: '',
               // `avatarUrl` is either a resolved URL or a raw media-asset
               // code depending on which screen started the conversation.
               imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
               mediaAssetCode: displayAvatar.startsWith('http')
                   ? null
-                  : displayAvatar,
+                  : (displayAvatar.isEmpty ? null : displayAvatar),
+              // The conversation payload carries no photo for most staff
+              // counterparts (and no `staffCode` either — the backend
+              // doesn't send one yet), which is why every staff-messaging
+              // row rendered initials. These let the avatar resolve the
+              // real profile photo itself, the same way the "Start new
+              // chat" rows below the list already do.
+              staffCode: counterpart?.staffCode,
+              userCode: (counterpart?.staffCode ?? '').trim().isEmpty
+                  ? counterpart?.userCode
+                  : null,
               name: displayName,
               size: 52,
             ),
           ),
           title: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: AppSizes.xxs),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -116,10 +143,10 @@ class MessagingListTile extends StatelessWidget {
                 ),
                 Text(
                   _formatMessageTime(conversation.lastMessageAt),
-                  style: const TextStyle(
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFFA0A0A0),
+                    color: AppColors.messagingTimestamp,
                   ),
                 ),
               ],
@@ -127,35 +154,45 @@ class MessagingListTile extends StatelessWidget {
           ),
           subtitle: Row(
             children: [
+              // Lock icon when the conversation is in private mode — the preview
+              // still shows the real last message (for those allowed to see it).
+              if (conversation.privateModeActive)
+                const Padding(
+                  padding: EdgeInsets.only(right: AppSizes.xxs),
+                  child: Icon(
+                    Icons.lock,
+                    size: 13,
+                    color: AppColors.messagingTextSecondary,
+                  ),
+                ),
               Flexible(
                 fit: FlexFit.tight,
                 child: Text(
                   _lastMessagePreviewText(conversation),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF636E72),
-                    fontSize: 14,
+                  style: AppTextStyles.size14.copyWith(
+                    color: AppColors.messagingTextSecondary,
                     height: 1.4,
                   ),
                 ),
               ),
               if (conversation.unreadCount > 0)
                 Padding(
-                  padding: const EdgeInsets.only(left: 12),
+                  padding: const EdgeInsets.only(left: AppSizes.sm),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: AppSizes.xs,
+                      vertical: AppSizes.xxs,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00B894),
+                      color: AppColors.messagingUnreadBadge,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(
-                            0xFF00B894,
-                          ).withValues(alpha: 0.35),
+                          color: AppColors.messagingUnreadBadge.withValues(
+                            alpha: 0.35,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -163,10 +200,10 @@ class MessagingListTile extends StatelessWidget {
                     ),
                     child: Text(
                       conversation.unreadCount > 99
-                          ? '99+'
+                          ? AppStrings.unreadCountOverflow
                           : '${conversation.unreadCount}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: AppTextStyles.size14.copyWith(
+                        color: AppColors.messagingOnAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),

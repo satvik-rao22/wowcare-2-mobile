@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/add_shift_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/add_shift_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/view_model/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_absent_bottom_sheet.dart';
@@ -18,7 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 
 /// Add Shift form. All form state, validation and the create flow live in
 /// [AddShiftCubit]; this widget is a pure view over that state. It stays a
@@ -145,7 +145,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
+    final responsive = SchedulingResponsive(context);
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
@@ -251,9 +251,8 @@ class _AddShiftViewState extends State<_AddShiftView> {
                               selectedItem: selectedStaffName,
                               labelStyle: TextStyle(
                                 fontSize: responsive.labelFontSize,
-                                fontFamily: 'Manrope',
                                 fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                                color: AppColors.primaryColor,
                               ),
                               showAsterisk: true,
                               labelBottomSpacing:
@@ -283,9 +282,8 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         selectedItem: selectedClassroomName,
                         labelStyle: TextStyle(
                           fontSize: responsive.labelFontSize,
-                          fontFamily: 'Manrope',
                           fontWeight: FontWeight.w400,
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                         ),
                         showAsterisk: true,
                         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -371,7 +369,6 @@ class _AddShiftViewState extends State<_AddShiftView> {
                               color: Colors.red,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              fontFamily: 'Manrope',
                             ),
                           ),
                         ],
@@ -405,7 +402,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
   }
 
   Widget _buildDateField(
-    ResponsiveHelper responsive, {
+    SchedulingResponsive responsive, {
     required String label,
     required DateTime? date,
     required ValueChanged<DateTime> onDateSelected,
@@ -414,9 +411,8 @@ class _AddShiftViewState extends State<_AddShiftView> {
   }) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,7 +443,6 @@ class _AddShiftViewState extends State<_AddShiftView> {
               color: Colors.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
             ),
           ),
         ],
@@ -455,7 +450,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
     );
   }
 
-  Widget _buildRepeatHeader(ResponsiveHelper responsive, AddShiftState state) {
+  Widget _buildRepeatHeader(SchedulingResponsive responsive, AddShiftState state) {
     final cubit = context.read<AddShiftCubit>();
     return Row(
       children: [
@@ -466,9 +461,8 @@ class _AddShiftViewState extends State<_AddShiftView> {
           labelOnLeftSide: true,
           labelStyle: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         const Spacer(),
@@ -485,7 +479,6 @@ class _AddShiftViewState extends State<_AddShiftView> {
                     : 'Select All',
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
-                  fontFamily: 'Manrope',
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -496,7 +489,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
     );
   }
 
-  Widget _buildDaysGrid(ResponsiveHelper responsive, AddShiftState state) {
+  Widget _buildDaysGrid(SchedulingResponsive responsive, AddShiftState state) {
     final cubit = context.read<AddShiftCubit>();
     final days = state.availableWeekDays;
     return GridView.builder(
@@ -526,7 +519,6 @@ class _AddShiftViewState extends State<_AddShiftView> {
             scale: 1.0,
             labelStyle: TextStyle(
               fontSize: responsive.isTablet ? 14.0 : 12.5,
-              fontFamily: 'Manrope',
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
             ),
@@ -537,7 +529,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
     );
   }
 
-  Widget _buildPublishCheckbox(ResponsiveHelper responsive, AddShiftState state) {
+  Widget _buildPublishCheckbox(SchedulingResponsive responsive, AddShiftState state) {
     final cubit = context.read<AddShiftCubit>();
     return CustomCheckbox(
       value: state.publish,
@@ -545,20 +537,18 @@ class _AddShiftViewState extends State<_AddShiftView> {
       scale: 1.0,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
         fontWeight: FontWeight.w500,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       onChanged: (val) => cubit.setPublish(val ?? false),
     );
   }
 
-  Widget _buildNoteField(ResponsiveHelper responsive) {
+  Widget _buildNoteField(SchedulingResponsive responsive) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,10 +571,9 @@ class _AddShiftViewState extends State<_AddShiftView> {
             maxLines: 3,
             minLines: 1,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
             decoration: InputDecoration(

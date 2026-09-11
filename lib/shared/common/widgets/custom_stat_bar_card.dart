@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 class ProgressItemHelper {
   const ProgressItemHelper({
@@ -81,6 +81,8 @@ class CustomStatBarCard extends StatelessWidget {
         children: [
           Text(
             titleText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppColors.primaryColor.withValues(alpha: 0.8),
               fontSize: 14,
@@ -89,6 +91,8 @@ class CustomStatBarCard extends StatelessWidget {
           if (valueText.isNotEmpty)
             Text(
               valueText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.themeColor,
                 fontSize: 14,
@@ -98,26 +102,30 @@ class CustomStatBarCard extends StatelessWidget {
         ],
       );
       return Container(
-        padding: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 10,
-              width: 10,
-              decoration: BoxDecoration(
-                color: item.color,
-                shape: BoxShape.circle,
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 10,
+                width: 10,
+                decoration: BoxDecoration(
+                  color: item.color,
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            onLegendTap != null
-                ? GestureDetector(
-                    onTap: () => onLegendTap!(item.label, item.filterValue),
-                    child: labelWidget,
-                  )
-                : labelWidget,
-          ],
+              const SizedBox(width: 6),
+              onLegendTap != null
+                  ? GestureDetector(
+                      onTap: () => onLegendTap!(item.label, item.filterValue),
+                      child: labelWidget,
+                    )
+                  : labelWidget,
+            ],
+          ),
         ),
         decoration: BoxDecoration(
           shape: BoxShape.rectangle,

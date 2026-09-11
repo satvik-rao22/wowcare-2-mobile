@@ -1,20 +1,25 @@
 import 'dart:async';
 import 'dart:io';
-
-import 'package:wowcare/core/util/logger_service.dart';
-
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
@@ -22,20 +27,25 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_profile_tab.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
-import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -62,7 +72,7 @@ class StudentProfileScreen extends StatefulWidget {
   final String classroom;
   final List<String> tags;
   final List<String> schedule;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final String? studentCode;
 
   final String? initialEnrollmentStatus;
@@ -102,9 +112,19 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
   late final CacheManager _cacheManager;
-  late Future<StudentHealthModel?> _healthFuture;
+
+  /// Routes the type-safe school-settings + header-health reads through the
+  /// MVVM cubit → use case → repository. Closed in [dispose].
+  final StudentProfileCubit _profileCubit =
+      serviceLocator<StudentProfileCubit>();
   late String _displayName;
   late String _displayClassroom;
+
+  /// The classroom's actual CODE — populated once the Profile tab's own
+  /// fetch (or the deep-link header fetch below) returns real API data.
+  /// See [Student.classroomCode] for why this can't be derived from
+  /// [_displayClassroom] (a display name) via a separate name→code lookup.
+  String _displayClassroomCode = '';
 
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
@@ -115,7 +135,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
-  late Map<String, dynamic> _profileSibling;
+  late StudentSiblingInfo _profileSibling;
   ParentChildCubit? _parentChildProvider;
   StreamSubscription<ParentChildState>? _parentChildSub;
   String? _profilePhotoUrl;
@@ -140,8 +160,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
-    _profileSibling = Map<String, dynamic>.from(widget.sibling);
-    _healthFuture = _buildHealthFuture();
+    _profileSibling = widget.sibling;
+    _profileCubit.loadHealth(_activeStudentCode ?? '');
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
@@ -164,17 +184,36 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
+  /// Resolves the active student's classroom NAME ([_displayClassroom]) to its
+  /// classroom CODE via the loaded [ClassroomCubit] list. The activity flow needs
+  /// the code — the feed to pre-filter to this student's room, and the add-flow
+  /// to load per-classroom activity settings — but the profile only carries the
+  /// name. Returns '' when it can't be resolved (list not loaded / no match).
+  String _resolveClassroomCode(BuildContext context) {
+    final name = _displayClassroom.trim();
+    if (name.isEmpty) return '';
+    try {
+      final classrooms = context.read<ClassroomCubit>().state.classrooms;
+      final needle = name.toLowerCase();
+      for (final c in classrooms) {
+        if (c.name.trim().toLowerCase() == needle) return c.code.trim();
+      }
+    } catch (_) {
+      // ClassroomCubit not available / not loaded yet — fall through.
+    }
+    return '';
+  }
+
   /// Loads school-level student settings so the Health/Documents tabs know
   /// whether the current persona may edit. Best-effort: on failure editing
   /// stays disabled for guardian/staff (admins keep their module-access default).
   Future<void> _loadStudentSettings() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (school.isEmpty) return;
-      final settings = await serviceLocator<StudentRemoteDataSource>()
-          .getStudentSettings(schoolCode: school);
+      final settings = await _profileCubit.fetchSettings(school);
       if (!mounted) return;
       setState(() => _studentSettings = settings);
     } catch (e) {
@@ -182,10 +221,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
   }
 
-  /// Whether the current persona may edit the Health tab and Documents:
+  /// Whether the current persona may edit a student's Health tab: guardian →
+  /// [StudentSettings.canParentEditChildHealthRecords], staff → also
+  /// [StudentSettings.canParentEditChildHealthRecords] (per backend contract,
+  /// this single toggle governs Health-tab edit access for both guardian and
+  /// staff personas — [StudentSettings.canStaffEditTheirOwnHealthRecords] is
+  /// reserved for Documents, see [_canEditDocuments]), admin → module access.
+  bool _canEditHealth(RoleCubit role) {
+    if (role.isParent || role.isStaff) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Whether the current persona may add/edit/delete a student's Documents:
   /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
-  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
-  bool _canEditHealthAndDocuments(RoleCubit role) {
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords] (despite its
+  /// health-records name, this field is the backend's toggle for whether
+  /// staff may add/edit student documents), admin → module access.
+  bool _canEditDocuments(RoleCubit role) {
     if (role.isParent) {
       return _studentSettings?.canParentEditChildHealthRecords ?? false;
     }
@@ -203,6 +257,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     final code = (_activeStudentCode ?? '').trim();
     if (code.isEmpty || _displayName.trim().isNotEmpty) return;
     try {
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final profile = await serviceLocator<StudentRemoteDataSource>()
           .getStudentProfile(code);
       _onProfileChanged(profile);
@@ -213,10 +268,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
-    AppLogger.d(
-      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
-      'classroom="${profile.classroom}"',
-    );
+    // Do NOT log the student code / name / classroom (PII).
+    AppLogger.d('[ProfileHeader] profile loaded');
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
@@ -224,6 +277,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = nextClassroom.isEmpty
           ? _displayClassroom
           : nextClassroom;
+      final nextClassroomCode = (profile.classroomCode ?? '').trim();
+      if (nextClassroomCode.isNotEmpty) {
+        _displayClassroomCode = nextClassroomCode;
+      }
       final nextStatus = profile.status.trim().toUpperCase();
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
@@ -263,27 +320,27 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
-  void _showHealthDetailsDialog(StudentHealthModel health) {
+  void _showHealthDetailsDialog(StudentHealth health) {
     final items = <Widget>[];
     void addLine(String text, Widget leading) {
       final t = text.trim();
       if (t.isEmpty) return;
       items.add(
         Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               leading,
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.s10),
               Expanded(
                 child: Text(
                   t,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                   ),
                 ),
               ),
@@ -313,7 +370,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
     if (health.photoPermission == false) {
       addLine(
-        'Photo permission not granted',
+        StudentStrings.photoPermissionNotGranted,
         SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
@@ -324,34 +381,37 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.allLg),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.sm,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Details',
+                  StudentStrings.details,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: Fonts.manrope,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xff573353),
+                    color: AppColors.primaryColor,
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
                 ...items,
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: const Text(
-                      'Close',
+                      StudentStrings.close,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
                       ),
@@ -366,25 +426,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Future<StudentHealthModel?> _buildHealthFuture() async {
-    final code = _activeStudentCode;
-    if (code == null || code.isEmpty) {
-      return null;
-    }
-    final dataSource = serviceLocator<StudentRemoteDataSource>();
-    try {
-      return await dataSource.getStudentHealth(code: code);
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      return null;
-    }
-  }
-
   void _refreshHeaderHealth() {
     if (!mounted) return;
-    setState(() {
-      _healthFuture = _buildHealthFuture();
-    });
+    _profileCubit.loadHealth(_activeStudentCode ?? '');
   }
 
   @override
@@ -409,19 +453,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = child.classroom;
       _profileTags = List<String>.from(child.tags);
       _profileSchedule = List<String>.from(child.schedule);
-      _profileSibling = <String, dynamic>{
-        'name': <dynamic>[],
-        'relation': <dynamic>[],
-        'status': <dynamic>[],
-      };
+      _profileSibling = const StudentSiblingInfo();
       _profileStatusUpper = null;
-      _healthFuture = _buildHealthFuture();
     });
+    _profileCubit.loadHealth(code);
   }
 
   @override
   void dispose() {
     _parentChildSub?.cancel();
+    _profileCubit.close();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -450,7 +491,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (studentCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Student code is required to upload profile photo.',
+          message: StudentStrings.studentCodeIsRequiredToUploadProfilePhoto,
           isError: true,
         );
         return;
@@ -463,7 +504,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (resolvedSchoolCode.isEmpty || resolvedOrganizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Missing school context for photo upload.',
+          message: StudentStrings.missingSchoolContextForPhotoUpload,
           isError: true,
         );
         return;
@@ -493,7 +534,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -538,6 +579,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
       DocumentImageWidget.clearProfilePhotoCache(studentCode: studentCode);
 
+      // MVVM holdout (documented): getStudentProfile here needs the rich StudentProfileModel (status/dob/address/tags/fte/...); the domain StudentProfile entity is a narrow projection, so this read stays on the datasource until the entity is enriched (S6 typed-models).
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final refreshed = await dataSource.getStudentProfile(studentCode);
       await _cacheManager.saveCache(
@@ -550,7 +592,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       );
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Profile photo updated successfully',
+        message: StudentStrings.profilePhotoUpdatedSuccessfully,
         isSuccess: true,
       );
       if (!mounted) return;
@@ -605,7 +647,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
-    final canEditHealthDocs = _canEditHealthAndDocuments(role);
+    final canEditHealth = _canEditHealth(role);
+    final canEditDocuments = _canEditDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -617,40 +660,38 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             child: TabBar(
               isScrollable: true,
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: AppColors.transparentColor,
               indicator: const UnderlineTabIndicator(
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
-              indicatorPadding: const EdgeInsets.only(bottom: 8),
+              indicatorPadding: const EdgeInsets.only(bottom: AppSpacing.xs),
               labelStyle: const TextStyle(
-                //color: Colors.black,
-                color: const Color(0xFF241631),
-                fontFamily: 'Manrope',
+                color: AppColors.studentDarkPlum,
+                fontFamily: Fonts.manrope,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 16,
               ),
-              //labelColor: Colors.black,
-              labelColor: const Color(0xFF241631),
+              labelColor: AppColors.studentDarkPlum,
               unselectedLabelColor: AppColors.primaryColor.withValues(
                 alpha: 0.5,
               ),
               tabAlignment: TabAlignment.center,
               tabs: const [
-                Tab(text: 'Profile'),
-                Tab(text: 'Health'),
-                Tab(text: 'Dates'),
-                Tab(text: 'Documents'),
+                Tab(text: StudentStrings.profile),
+                Tab(text: StudentStrings.health),
+                Tab(text: StudentStrings.dates),
+                Tab(text: StudentStrings.documents),
               ],
             ),
           ),
           _buildStudentProfileCard(context, role, canChangePhoto),
 
-          const SizedBox(height: 16),
+          AppSpacing.gapVMd,
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -678,7 +719,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditHealth,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -698,7 +739,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -716,11 +757,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   ) {
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 30),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.md,
+              horizontal: 30,
+            ),
             child: Row(
               children: [
                 GestureDetector(
@@ -743,23 +787,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           Positioned.fill(
                             child: Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xB3241631),
+                                color: AppColors.staffPhotoUploadOverlayColor,
                                 borderRadius: BorderRadius.circular(45),
                               ),
                               child: Center(
                                 child: Container(
                                   width: 72,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
+                                    horizontal: AppSpacing.xs,
                                     vertical: 7,
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryColor.withValues(
                                       alpha: 0.25,
                                     ),
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.r14,
+                                    ),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
+                                      color: AppColors.whiteColor.withValues(
                                         alpha: 0.22,
                                       ),
                                     ),
@@ -770,12 +816,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                       Text(
                                         '${_profilePhotoUploadPercent.clamp(0, 100)}%',
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: AppColors.whiteColor,
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      AppSpacing.gapVXxs,
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(
                                           999,
@@ -785,7 +831,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                               (_profilePhotoUploadPercent / 100)
                                                   .clamp(0.0, 1.0),
                                           minHeight: 4,
-                                          backgroundColor: Colors.white
+                                          backgroundColor: AppColors.whiteColor
                                               .withValues(alpha: 0.22),
                                           valueColor:
                                               const AlwaysStoppedAnimation<
@@ -793,7 +839,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                               >(AppColors.themeColor),
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      AppSpacing.gapVXxs,
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -803,7 +849,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                             height: 10,
                                             width: 10,
                                             colorFilter: ColorFilter.mode(
-                                              Colors.white.withValues(
+                                              AppColors.whiteColor.withValues(
                                                 alpha: 0.92,
                                               ),
                                               BlendMode.srcIn,
@@ -812,12 +858,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                           const SizedBox(width: 3),
                                           Text(
                                             _profilePhotoUploadPercent >= 100
-                                                ? 'Finalizing'
-                                                : 'Uploading',
+                                                ? StudentStrings.finalizing
+                                                : StudentStrings.uploading,
                                             style: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.92,
-                                              ),
+                                              color: AppColors.whiteColor
+                                                  .withValues(alpha: 0.92),
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -838,26 +883,30 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
+                                color: AppColors.whiteColor,
+                                borderRadius: AppRadius.allLg,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
+                                    color: AppColors.blackColor.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     blurRadius: 6,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: Container(
-                                margin: const EdgeInsets.all(2),
+                                margin: const EdgeInsets.all(AppSpacing.s2),
                                 decoration: BoxDecoration(
                                   gradient: AppColors.buildPrimaryGradient(),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.r14,
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 16,
+                                  color: AppColors.whiteColor,
+                                  size: AppDimensions.iconXs,
                                 ),
                               ),
                             ),
@@ -882,29 +931,29 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: AppSpacing.s6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: AppSpacing.xs,
+                          vertical: AppSpacing.xxs,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppColors.studentInfoBg,
+                          borderRadius: AppRadius.allXs,
                         ),
                         child: Text(
                           _displayClassroom,
                           style: const TextStyle(
-                            color: Colors.blue,
+                            color: AppColors.studentInfoColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      FutureBuilder<StudentHealthModel?>(
-                        future: _healthFuture,
-                        builder: (context, snapshot) {
-                          final health = snapshot.data;
+                      AppSpacing.gapVXs,
+                      BlocBuilder<StudentProfileCubit, StudentProfileState>(
+                        bloc: _profileCubit,
+                        builder: (context, state) {
+                          final health = state.health;
                           final hasAllergy = (health?.allergy ?? '')
                               .trim()
                               .isNotEmpty;
@@ -946,7 +995,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasMedication)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.healthIcon,
                                       height: 20,
@@ -955,7 +1006,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (hasAllergy)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.alertIcon,
                                       height: 20,
@@ -964,7 +1017,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   ),
                                 if (isPhotoPermissionOff)
                                   Padding(
-                                    padding: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.only(
+                                      left: AppSpacing.xxs,
+                                    ),
                                     child: SvgPicture.asset(
                                       MediaRes.cameraIcon,
                                       height: 20,
@@ -990,9 +1045,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.md),
+        ),
         gradient: AppColors.buildPrimaryGradient(),
       ),
       child: Row(
@@ -1013,27 +1070,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: 'Student code is required for attendance.',
+                      message:
+                          StudentStrings.studentCodeIsRequiredForAttendance,
                       isError: true,
                     );
                     return;
                   }
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      settings: const RouteSettings(
-                        name: StudentAttendanceProfile.routeName,
-                      ),
-                      builder: (_) => StudentAttendanceProfile(
-                        studentCode: code,
-                        studentId: 0,
-                        studentName: _displayName,
-                        studentPhotoUuid: null,
-                        roomName: _displayClassroom,
-                        isSignedIn: false,
-                        syncWithParentChildSelection:
-                            widget.syncWithParentChildSelection,
-                      ),
-                    ),
+                  context.push(
+                    '/dashboard/student-attendance-profile',
+                    extra: <String, dynamic>{
+                      'studentCode': code,
+                      'studentId': 0,
+                      'studentName': _displayName,
+                      'studentPhotoUuid': null,
+                      'roomName': _displayClassroom,
+                      'isSignedIn': false,
+                      'syncWithParentChildSelection':
+                          widget.syncWithParentChildSelection,
+                    },
                   );
                 },
               );
@@ -1050,25 +1104,32 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 role,
                 AppAccessModules.dailyActivity,
                 () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ActivityFeedScreen(
-                        fromStudentProfile: true,
-                        allowActivityWrite: ModuleAccess.mayWrite(
-                          role,
-                          AppAccessModules.dailyActivity,
-                        ),
-                        studentName: {
-                          'name': _displayName,
-                          if (_activeStudentCode != null &&
-                              _activeStudentCode!.trim().isNotEmpty)
-                            'studentCode': _activeStudentCode!.trim(),
-                          'classroom': _displayClassroom,
-                          'tags': _profileTags,
-                          'nappingStatus': false,
-                        },
+                  // Resolve the classroom NAME → CODE so the activity feed can
+                  // filter to this student's room and the add-activity flow can
+                  // load per-classroom activity settings (the profile only holds
+                  // the name; without the code the add screen shows "No
+                  // activities available from API").
+                  final classroomCode = _resolveClassroomCode(context);
+                  context.push(
+                    '/student-activity-feed',
+                    extra: <String, dynamic>{
+                      'fromStudentProfile': true,
+                      'allowActivityWrite': ModuleAccess.mayWrite(
+                        role,
+                        AppAccessModules.dailyActivity,
                       ),
-                    ),
+                      'studentName': <String, dynamic>{
+                        'name': _displayName,
+                        if (_activeStudentCode != null &&
+                            _activeStudentCode!.trim().isNotEmpty)
+                          'studentCode': _activeStudentCode!.trim(),
+                        'classroom': _displayClassroom,
+                        if (classroomCode.isNotEmpty)
+                          'classroomCode': classroomCode,
+                        'tags': _profileTags,
+                        'nappingStatus': false,
+                      },
+                    },
                   );
                 },
               );
@@ -1095,7 +1156,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Student details not loaded yet. Please try again.',
+                  message:
+                      StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
                   isError: true,
                 );
                 return;
@@ -1107,13 +1169,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     code: code,
                     name: _displayName,
                     isStaff: false,
+                    classroomCode: _displayClassroomCode,
                   ),
                 ],
               );
             },
           ),
-          // Billing is hidden for the staff persona; admins open the student's
-          // family billing profile, other personas see the info hint.
+          // Billing is hidden for the staff persona; admins open the
+          // student's family billing profile, parents/guardians land on
+          // their family billing tab.
           if (!role.isStaff)
             _buildActionIcon(
               context,
@@ -1143,8 +1207,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message:
-                          'Student details not loaded yet. Please try again.',
+                      message: StudentStrings
+                          .studentDetailsNotLoadedYetPleaseTryAgain,
                       isError: true,
                     );
                     return;
@@ -1152,12 +1216,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   _openStudentFamilyBilling(context, code);
                   return;
                 }
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      'Billing is available from the Transactions section.',
-                  isError: false,
-                );
+                // Parent/guardian persona: land on the bottom-nav Billing
+                // branch, same as the dashboard billing card.
+                if (role.isParent) {
+                  context.go(ParentBillingScreen.routeName);
+                  return;
+                }
+                // Any other persona reaching here (e.g. kiosk with module
+                // access somehow granted) has no billing destination.
+                ModuleAccess.showFeatureRestricted(context);
               },
             ),
         ],
@@ -1174,15 +1241,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     String studentCode,
   ) async {
     final storage = serviceLocator<StorageService>();
-    final org =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (!context.mounted) return;
     if (org.isEmpty || school.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Missing school context. Please try again.',
+        message: StudentStrings.missingSchoolContextPleaseTryAgain,
         isError: true,
       );
       return;
@@ -1207,31 +1274,32 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (family == null) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'No billing profile found for this student.',
+          message: StudentStrings.noBillingProfileFoundForThisStudent,
           isError: true,
         );
         return;
       }
       final resolved = family;
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TransactionDetailsScreen(
-            ownerType:
-                resolved.ownerType.isNotEmpty ? resolved.ownerType : 'FAMILY',
-            ownerCode: resolved.ownerCode,
-            familyName: resolved.familyName.isNotEmpty
-                ? resolved.familyName
-                : _displayName,
-          ),
+      context.push(
+        TransactionDetailsScreen.routeName,
+        extra: TransactionDetailsArgs(
+          ownerType: resolved.ownerType.isNotEmpty
+              ? resolved.ownerType
+              : 'FAMILY',
+          ownerCode: resolved.ownerCode,
+          familyName: resolved.familyName.isNotEmpty
+              ? resolved.familyName
+              : _displayName,
         ),
       );
     } catch (e) {
+      CoreUtils.logApiError('Open student family billing failed: $e');
       if (!context.mounted) return;
       // showLoadingDialog uses the root navigator, so dismiss it there.
       Navigator.of(context, rootNavigator: true).pop();
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to open billing. Please try again.',
+        message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
     }
@@ -1253,19 +1321,19 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       child: Opacity(
         opacity: enabled ? 1 : 0.45,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 8),
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: isSvg
                 ? SvgPicture.asset(
                     asset,
                     height: 28,
                     colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                      AppColors.whiteColor,
                       BlendMode.srcIn,
                     ),
                   )
-                : Image.asset(asset, height: 28, color: Colors.white),
+                : Image.asset(asset, height: 28, color: AppColors.whiteColor),
           ),
         ),
       ),

@@ -15,6 +15,7 @@ class ClassroomDetails extends Equatable {
     required this.createdAt,
     required this.updatedBy,
     required this.updatedAt,
+    this.logoAssetCode = '',
   });
 
   final String code;
@@ -33,6 +34,8 @@ class ClassroomDetails extends Equatable {
   final DateTime? createdAt;
   final String updatedBy;
   final DateTime? updatedAt;
+  /// Asset code for the classroom logo image.
+  final String logoAssetCode;
 
   /// One side of the range, e.g. `1y 2m`; omits `0y` / `0m`; empty if [totalMonths] <= 0.
   static String formatMonthsAsYearMonthParts(int totalMonths) {
@@ -117,5 +120,6 @@ class ClassroomDetails extends Equatable {
         createdAt,
         updatedBy,
         updatedAt,
+        logoAssetCode,
       ];
 }

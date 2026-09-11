@@ -1,42 +1,133 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/storage_keys.dart' as storage_keys;
-import '../../../../domain/features/reports/entities/report_type.dart';
-import '../models/report_response_model.dart';
-import '../models/recent_report_model.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart' as storage_keys;
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/data/features/reports/models/report_response_model.dart';
+import 'package:wowcare/data/features/reports/models/report_generation_envelope.dart';
+import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
+import 'package:wowcare/data/features/reports/models/recent_reports_response.dart';
+import 'package:wowcare/data/features/reports/models/student_tags_response.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
+import 'report_asset_source.dart';
 import 'reports_remote_datasource.dart';
 
 class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
-  ReportsRemoteDataSourceImpl(
-    this._dio,
-    this._storageService,
-  );
+  ReportsRemoteDataSourceImpl(this._dio, this._storageService)
+    : _assets = ReportAssetSource(_dio);
 
   final Dio _dio;
   final StorageService _storageService;
 
+  /// Asset-code resolution and file download, which talk to the media service
+  /// rather than the reports API.
+  final ReportAssetSource _assets;
+
+  @override
+  Future<String> getReportDownloadUrl(String assetCode) =>
+      _assets.getReportDownloadUrl(assetCode);
+
+  @override
+  Future<List<int>> downloadReportFile(String downloadUrl) =>
+      _assets.downloadReportFile(downloadUrl);
+
   @override
   Future<ReportResponseModel> generateReport({
     required ReportType reportType,
-    required Map<String, dynamic> requestBody,
+    required ReportRequestPayload payload,
   }) async {
+    // The one and only place a report request becomes a map.
+    final requestBody = payload.toJson();
     final endpoint = _generateEndpointFor(reportType);
+    final headers = Map<String, dynamic>.from(_dio.options.headers);
 
-    AppLogger.d(
-      '[REPORTS] Generating ${reportType.backendValue} -> $endpoint, payload: $requestBody',
-    );
+    AppLogger.d('========== REPORT REQUEST ==========');
+    AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+    AppLogger.d('Headers: $headers');
+    AppLogger.d('Payload: $requestBody');
+    AppLogger.d('====================================');
     _logPayloadFieldTypes(requestBody);
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(endpoint),
-      data: requestBody,
-    );
 
-    final responseData = response.data ?? {};
-    AppLogger.d('[REPORTS] Response from $endpoint: $responseData');
-    return ReportResponseModel.fromJson(responseData);
+    try {
+      Response<Map<String, dynamic>> response;
+      if (reportType == ReportType.billingTransaction ||
+          reportType == ReportType.billingInvoice ||
+          reportType == ReportType.billingPaymentSummary ||
+          reportType == ReportType.billingOutstanding ||
+          reportType == ReportType.billingRefund ||
+          reportType == ReportType.billingStudentMapping) {
+        final schoolCode = await _storageService.getString(
+          storage_keys.StorageKeys.schoolCode,
+        );
+        final organizationCode = await _storageService.getString(
+          storage_keys.StorageKeys.organizationCode,
+        );
+
+        final queryParams = Map<String, dynamic>.from(requestBody);
+        if (schoolCode != null && schoolCode.trim().isNotEmpty) {
+          queryParams['schoolCode'] = schoolCode.trim();
+          queryParams['schoolId'] = schoolCode.trim();
+        }
+        if (organizationCode != null && organizationCode.trim().isNotEmpty) {
+          queryParams['organizationCode'] = organizationCode.trim();
+          queryParams['orgId'] = organizationCode.trim();
+        }
+
+        final rawResponse = await _dio.get<List<int>>(
+          ApiPaths.url(endpoint),
+          queryParameters: queryParams,
+          options: Options(
+            responseType: ResponseType.bytes,
+            validateStatus: (status) => true,
+          ),
+        );
+        if (rawResponse.statusCode == 200) {
+          final base64Data = base64Encode(rawResponse.data!);
+          return ReportResponseModel(
+            reportId: 'sync-${DateTime.now().millisecondsSinceEpoch}',
+            reportType: reportType.backendValue,
+            generatedAt: DateTime.now().toIso8601String(),
+            assetCode: 'base64:$base64Data',
+            fileName: '${reportType.backendValue}_report.xlsx',
+          );
+        } else {
+          final envelope = ReportGenerationEnvelope.fromJson(
+            jsonDecode(utf8.decode(rawResponse.data!)) as Map<String, dynamic>,
+          );
+          throw FormatException(
+            'Report generation failed: ${envelope.message ?? 'unknown error'}',
+          );
+        }
+      } else {
+        response = await _dio.post<Map<String, dynamic>>(
+          ApiPaths.url(endpoint),
+          data: requestBody,
+        );
+      }
+      final responseData = response.data ?? {};
+
+      AppLogger.d('========== REPORT RESPONSE ==========');
+      AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.d('Status Code: ${response.statusCode}');
+      AppLogger.d('Response Body: $responseData');
+      AppLogger.d('=====================================');
+
+      return ReportResponseModel.fromJson(responseData);
+    } catch (error, stackTrace) {
+      AppLogger.e('========== REPORT ERROR ==========', error, stackTrace);
+      AppLogger.e('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.e('Request Headers: $headers');
+      AppLogger.e('Request Payload: $requestBody');
+      if (error is DioException) {
+        AppLogger.e('DioException type: ${error.type}');
+        AppLogger.e('DioException response: ${error.response?.data}');
+        AppLogger.e('DioException statusCode: ${error.response?.statusCode}');
+      }
+      AppLogger.e('=====================================');
+      rethrow;
+    }
   }
 
   /// Logs the runtime type of every collection-shaped field in the outgoing
@@ -81,13 +172,16 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       case ReportType.staffAttendance:
       case ReportType.staffAttendancePerStaff:
         return ApiPaths.staffAttendanceReportsGenerate;
+      case ReportType.staffScheduling:
+        return ApiPaths.staffSchedulingReportsGenerate;
       case ReportType.staffDetails:
         return ApiPaths.staffReportsGenerate;
       case ReportType.studentsAndFamily:
       case ReportType.emergencyContacts:
-      case ReportType.studentIncident:
       case ReportType.annualStateImmunization:
         return ApiPaths.studentManagementReportsGenerate;
+      case ReportType.studentIncident:
+        return ApiPaths.studentIncidentReportsGenerate;
       case ReportType.immunization:
         // TODO(backend-confirm): unverified whether this dedicated route is
         // still live, or whether immunization now goes through
@@ -97,12 +191,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         // blind risks breaking a currently-working report.
         return ApiPaths.studentImmunizationReport;
       case ReportType.billingTransaction:
+        return ApiPaths.billingTransactionReportGenerate;
       case ReportType.billingInvoice:
+        return ApiPaths.billingInvoiceReportGenerate;
       case ReportType.billingPaymentSummary:
+        return ApiPaths.billingPaymentSummaryReportGenerate;
       case ReportType.billingOutstanding:
+        return ApiPaths.billingOutstandingReportGenerate;
       case ReportType.billingRefund:
+        return ApiPaths.billingRefundReportGenerate;
       case ReportType.billingStudentMapping:
-        return ApiPaths.billingReportGenerate;
+        return ApiPaths.billingStudentMappingReportGenerate;
     }
   }
 
@@ -149,8 +248,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     required String label,
     required String endpoint,
   }) async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
+    final schoolCode = await _storageService.getString(
+      storage_keys.StorageKeys.schoolCode,
+    );
     AppLogger.d('[REPORTS] $label API: Loading with schoolCode=$schoolCode');
 
     final response = await _dio.get<Map<String, dynamic>>(
@@ -159,26 +259,16 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     );
 
     final data = response.data ?? {};
-    AppLogger.d('[REPORTS] $label API: Raw response keys=${data.keys.toList()}');
+    AppLogger.d(
+      '[REPORTS] $label API: Raw response keys=${data.keys.toList()}',
+    );
 
-    // The backend's envelope shape for this family of endpoints hasn't been
-    // confirmed (see audit), so we still try the three observed shapes
-    // rather than assuming one — but unlike before, finding none of them
-    // returns an empty list normally (not via a swallowed exception).
-    List? reportsList = data['reports'] as List?;
-    final dataField = data['data'];
-    if (reportsList == null && dataField is List) {
-      reportsList = dataField;
-    } else if (reportsList == null && dataField is Map) {
-      reportsList = dataField['reports'] as List?;
-    }
+    // The envelope decides which of the three observed shapes this is; the
+    // datasource does not read keys off the map itself (§8).
+    final reports = RecentReportsResponse.fromJson(data).toModels();
 
-    AppLogger.d('[REPORTS] $label Reports Count: ${reportsList?.length ?? 0}');
-    if (reportsList == null) return const [];
-
-    return reportsList
-        .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-        .toList();
+    AppLogger.d('[REPORTS] $label Reports Count: ${reports.length}');
+    return reports;
   }
 
   @override
@@ -187,140 +277,6 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       ApiPaths.url(ApiPaths.studentTags),
     );
 
-    final data = response.data ?? {};
-    final tagsList = (data['tags'] as List?) ?? [];
-
-    return tagsList.map((tag) => tag.toString()).toList();
-  }
-
-  @override
-  Future<String> getReportDownloadUrl(String assetCode) async {
-    AppLogger.d('Resolving asset code to get download URL: $assetCode');
-
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
-      data: {
-        'assetCodes': [assetCode],
-      },
-    );
-
-    final responseData = response.data ?? {};
-    final assets = responseData['data']?['assets'] as List?;
-
-    if (assets == null || assets.isEmpty) {
-      throw Exception('Asset not found or resolve failed');
-    }
-
-    final asset = assets[0] as Map<String, dynamic>;
-    var downloadUrl = _extractAssetDownloadUrl(asset);
-
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      throw Exception('No download URL found in resolved asset');
-    }
-
-    // Replace template variable if present (fallback for originalDownloadUrl)
-    if (downloadUrl.contains('\${DOCUMENT_PUBLIC_BASE_URL}')) {
-      final baseUrl = _dio.options.baseUrl;
-      downloadUrl = downloadUrl.replaceAll(
-        '\${DOCUMENT_PUBLIC_BASE_URL}',
-        baseUrl,
-      );
-      AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
-    }
-
-    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
-
-    AppLogger.d('Asset resolved successfully, download URL obtained: $downloadUrl');
-    return downloadUrl;
-  }
-
-  /// Pulls the downloadable URL out of a resolved media-asset.
-  ///
-  /// Some assets carry the URL directly (`deliveryUrl`/`originalDownloadUrl`),
-  /// but report assets only get a URL once a processed artifact exists —
-  /// that lives under `variants[]` (e.g. `artifactUrl` on the
-  /// `defaultVariant: true` entry), not on the asset itself.
-  String? _extractAssetDownloadUrl(Map<String, dynamic> asset) {
-    String pickFromMap(Map<dynamic, dynamic> map) {
-      final candidates = <dynamic>[
-        map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
-        map['originalDownloadUrl'],
-      ];
-      for (final raw in candidates) {
-        final value = (raw ?? '').toString().trim();
-        if (value.isNotEmpty) return value;
-      }
-      return '';
-    }
-
-    final direct = pickFromMap(asset);
-    if (direct.isNotEmpty) return direct;
-
-    final variants = asset['variants'];
-    if (variants is List) {
-      for (final row in variants.whereType<Map>()) {
-        final isDefault =
-            (row['defaultVariant'] ?? false).toString().toLowerCase() ==
-                'true';
-        if (!isDefault) continue;
-        final fromDefault = pickFromMap(row);
-        if (fromDefault.isNotEmpty) return fromDefault;
-      }
-      for (final row in variants.whereType<Map>()) {
-        final any = pickFromMap(row);
-        if (any.isNotEmpty) return any;
-      }
-    }
-    return null;
-  }
-
-  /// The document microservice sometimes echoes back its own internal
-  /// `localhost` (or unreachable loopback) host in `deliveryUrl`/
-  /// `originalDownloadUrl` instead of the public-facing one — the device
-  /// can never reach that host, so rewrite scheme/host/port to the
-  /// configured document-MS base URL while keeping the backend's path
-  /// (e.g. `/document-ms/api/v1/media-assets/{code}/artifacts/original`)
-  /// untouched.
-  String _sanitizeDownloadUrlHost(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasAuthority) return url;
-
-    final isLoopback = uri.host.isEmpty ||
-        uri.host == 'localhost' ||
-        uri.host == '127.0.0.1';
-    if (!isLoopback) return url;
-
-    final documentBase = Uri.tryParse(ApiConstants.documentMsBaseUrl);
-    if (documentBase == null || !documentBase.hasAuthority) return url;
-
-    final rewritten = uri.replace(
-      scheme: documentBase.scheme,
-      host: documentBase.host,
-      port: documentBase.hasPort ? documentBase.port : null,
-    );
-    AppLogger.w(
-      '[REPORTS] Backend returned a loopback download URL ($url); '
-      'rewriting host to ${documentBase.host}',
-    );
-    return rewritten.toString();
-  }
-
-  @override
-  Future<List<int>> downloadReportFile(String downloadUrl) async {
-    AppLogger.d('Downloading report file from URL');
-
-    final response = await _dio.get<List<int>>(
-      downloadUrl,
-      options: Options(responseType: ResponseType.bytes),
-    );
-
-    if (response.data == null) {
-      throw Exception('Failed to download report: No data received');
-    }
-
-    AppLogger.d('Report file downloaded successfully: ${response.data!.length} bytes');
-    return response.data!;
+    return StudentTagsResponse.fromJson(response.data ?? const {}).names;
   }
 }

@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 /// Modern attachment bottom sheet with quick emoji reactions, attachment
@@ -26,27 +29,42 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
     required this.onAttachmentsSelected,
     required this.onEmojiSelected,
     this.onViewParticipants,
+    this.onAttachmentError,
   });
 
   final void Function(List<ChatAttachment>) onAttachmentsSelected;
   final void Function(String emoji) onEmojiSelected;
   final VoidCallback? onViewParticipants;
 
+  /// Fired when one or more picked files were rejected (currently: over the
+  /// size limit) instead of silently dropping them. Takes a message rather
+  /// than the caller re-deriving one, since only this widget knows which
+  /// files failed and why.
+  ///
+  /// Deliberately NOT shown from inside this widget: `_pick*` methods pop
+  /// this bottom sheet (`Navigator.of(context).pop()`) before the async
+  /// pick/validate work even starts, so by the time `_processFiles` knows a
+  /// file was rejected, this widget's own context is already unmounted. The
+  /// caller's chat-screen context is what's still alive to show a snackbar.
+  final void Function(String message)? onAttachmentError;
+
   static Future<void> show(
     BuildContext context, {
     required void Function(List<ChatAttachment>) onAttachmentsSelected,
     required void Function(String emoji) onEmojiSelected,
     VoidCallback? onViewParticipants,
+    void Function(String message)? onAttachmentError,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (_) => MessageAttachmentBottomSheet(
         onAttachmentsSelected: onAttachmentsSelected,
         onEmojiSelected: onEmojiSelected,
         onViewParticipants: onViewParticipants,
+        onAttachmentError: onAttachmentError,
       ),
     );
   }
@@ -64,18 +82,26 @@ class _MessageAttachmentBottomSheetState
 
   // ── Attachment actions ────────────────────────────────────────────────────
 
+  static const int _imageMaxSizeBytes = 10 * 1024 * 1024;
+  static const int _videoMaxSizeBytes = 200 * 1024 * 1024;
+
   Future<void> _pickCamera() async {
     Navigator.of(context).pop();
     final file = await _picker.pickImage(source: ImageSource.camera);
     if (file == null) return;
-    await _processFiles([File(file.path)], isPhoto: true);
+    await _processFiles([File(file.path)]);
   }
 
+  /// Photos AND videos together, in one gallery browse — every format either
+  /// type supports, not just images.
   Future<void> _pickGallery() async {
     Navigator.of(context).pop();
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+      allowedExtensions: [
+        ...FilePickerUtils.allowedImageExtensions,
+        ...FilePickerUtils.allowedVideoExtensions,
+      ],
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -85,7 +111,7 @@ class _MessageAttachmentBottomSheetState
         .map((p) => File(p))
         .toList();
     if (files.isEmpty) return;
-    await _processFiles(files, isPhoto: true);
+    await _processFiles(files);
   }
 
   Future<void> _pickDocument() async {
@@ -102,49 +128,123 @@ class _MessageAttachmentBottomSheetState
         .map((p) => File(p))
         .toList();
     if (files.isEmpty) return;
-    await _processFiles(files, isPhoto: false);
+    await _processFiles(files);
   }
 
-  // ignore: unused_element
-  Future<void> _pickVideo() async {
-    Navigator.of(context).pop();
-    final file = await _picker.pickVideo(source: ImageSource.gallery);
-    if (file == null) return;
-    await _processFiles([File(file.path)], isPhoto: false);
-  }
-
-  // ignore: unused_element
-  Future<void> _notImplemented(String feature) async {
-    Navigator.of(context).pop();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature coming soon'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async {
+  /// Classifies each file by its own extension (image / video / document)
+  /// rather than a single blanket type for the whole batch — [_pickGallery]
+  /// can hand back a mix of photos and videos in one call.
+  ///
+  /// [FileType.custom] + `allowedExtensions` on the OS picker (see
+  /// [_pickGallery]/[_pickDocument]) is the FIRST line of defence — it stops
+  /// most unsupported files from ever being selectable. It isn't airtight on
+  /// every platform/file-provider combination (a known `file_picker`
+  /// limitation, most often seen with third-party providers surfaced inside
+  /// iOS's Files app, which don't always honour the UTType filter), so this
+  /// re-validates every file's extension against the same three allow-lists
+  /// before accepting it — anything matching none of them is rejected here
+  /// rather than silently uploaded mislabelled as a "document".
+  Future<void> _processFiles(List<File> files) async {
     final valid = <ChatAttachment>[];
+    // name -> limit that was exceeded, for the rejection message below.
+    final oversized = <String, int>{};
+    final unsupported = <String>[];
     for (final file in files) {
+      final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
+      final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
+      final isVideo = FilePickerUtils.allowedVideoExtensions.contains(ext);
+      final isDocument = FilePickerUtils.allowedDocumentExtensions.contains(
+        ext,
+      );
+      if (!isImage && !isVideo && !isDocument) {
+        unsupported.add(p.basename(file.path));
+        continue;
+      }
+      final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
+
       final size = await file.length();
-      if (size > 10 * 1024 * 1024) continue;
-      final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
+      final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
+      if (size > maxSize) {
+        oversized[p.basename(file.path)] = maxSize;
+        continue;
+      }
+
+      final mime = lookupMimeType(file.path) ??
+          FilePickerUtils.getMimeType(ext);
       valid.add(
         ChatAttachment(
           localPath: file.path,
           name: p.basename(file.path),
-          type: isPhoto ? 'image' : 'document',
+          type: type,
           sizeBytes: size,
           mimeType: mime,
           remoteUrl: '',
         ),
       );
     }
+    // Previously silent: rejected files just vanished and the sheet had
+    // already closed, so the user got no feedback at all on why nothing was
+    // attached — they'd only notice the message never had their file on it.
+    final message = _rejectionMessage(
+      oversized: oversized,
+      unsupported: unsupported,
+    );
+    if (message != null) {
+      widget.onAttachmentError?.call(message);
+    }
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
   }
+
+  /// Combines both rejection reasons into one message — e.g. "photo.png
+  /// exceeds the 10 MB limit", "archive.zip is not a supported file type",
+  /// or, for a mixed batch, "2 files couldn't be attached: 1 exceeds the
+  /// size limit, 1 is an unsupported file type". Null when nothing was
+  /// rejected.
+  String? _rejectionMessage({
+    required Map<String, int> oversized,
+    required List<String> unsupported,
+  }) {
+    if (oversized.isEmpty && unsupported.isEmpty) return null;
+
+    if (unsupported.isEmpty) {
+      if (oversized.length == 1) {
+        final entry = oversized.entries.first;
+        return AppStrings.fileExceedsLimit(
+          entry.key,
+          _readableSize(entry.value),
+        );
+      }
+      final distinctLimits = oversized.values.toSet();
+      if (distinctLimits.length == 1) {
+        return AppStrings.filesExceedLimit(
+          oversized.length,
+          _readableSize(distinctLimits.first),
+        );
+      }
+      return AppStrings.filesExceedMixedLimits(
+        oversized.length,
+        _readableSize(_imageMaxSizeBytes),
+        _readableSize(_videoMaxSizeBytes),
+      );
+    }
+
+    if (oversized.isEmpty) {
+      if (unsupported.length == 1) {
+        return AppStrings.fileUnsupportedType(unsupported.first);
+      }
+      return AppStrings.filesUnsupportedType(unsupported.length);
+    }
+
+    return AppStrings.filesPartiallyRejected(
+      oversized.length + unsupported.length,
+      oversized.length,
+      unsupported.length,
+    );
+  }
+
+  String _readableSize(int bytes) =>
+      AppStrings.megabytes((bytes / (1024 * 1024)).round());
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -152,7 +252,7 @@ class _MessageAttachmentBottomSheetState
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -161,11 +261,11 @@ class _MessageAttachmentBottomSheetState
           // Handle
           Center(
             child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 4),
+              margin: const EdgeInsets.only(top: AppSizes.sm, bottom: AppSizes.xxs),
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFDFE6E9),
+                color: AppColors.messagingSheetHandle,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -173,14 +273,17 @@ class _MessageAttachmentBottomSheetState
 
           // ── Quick reactions ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.md,
+              AppSizes.sm,
+              AppSizes.md,
+              AppSizes.xxs,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Quick Reactions',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                AppStrings.quickReactions,
+                style: AppTextStyles.sectionHeader.copyWith(
                   color: AppColors.primaryColor.withValues(alpha: 0.7),
                 ),
               ),
@@ -190,13 +293,13 @@ class _MessageAttachmentBottomSheetState
             height: 52,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
               itemCount: _emojis.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, __) => const SizedBox(width: AppSizes.xs),
               itemBuilder: (_, i) {
                 final emoji = _emojis[i];
                 return Tooltip(
-                  message: 'Quick Reactions',
+                  message: AppStrings.quickReactions,
                   child: GestureDetector(
                     onTap: () {
                       Navigator.of(context).pop();
@@ -206,12 +309,15 @@ class _MessageAttachmentBottomSheetState
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6FB),
+                        color: AppColors.messagingDialogBackground,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: AppColors.messagingInputBorder),
                       ),
                       alignment: Alignment.center,
-                      child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                      child: Text(
+                        emoji,
+                        style: AppTextStyles.size16.copyWith(fontSize: 22),
+                      ),
                     ),
                   ),
                 );
@@ -219,68 +325,50 @@ class _MessageAttachmentBottomSheetState
             ),
           ),
 
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.sm),
+          const Divider(height: 1, color: AppColors.messagingDividerLight),
+          const SizedBox(height: AppSizes.xs),
 
           // ── Attachment grid ─────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
             child: GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: AppSizes.sm,
+              crossAxisSpacing: AppSizes.sm,
               childAspectRatio: 1.15,
               children: [
                 _AttachmentGridItem(
                   icon: Icons.camera_alt_rounded,
-                  label: 'Camera',
-                  color: const Color(0xFF6366F1),
+                  label: AppStrings.camera,
+                  color: AppColors.messagingAttachmentCamera,
                   onTap: _pickCamera,
                 ),
                 _AttachmentGridItem(
                   icon: Icons.photo_library_rounded,
-                  label: 'Gallery',
-                  color: const Color(0xFF10B981),
+                  label: AppStrings.gallery,
+                  color: AppColors.messagingAttachmentGallery,
                   onTap: _pickGallery,
                 ),
                 _AttachmentGridItem(
                   icon: Icons.insert_drive_file_rounded,
-                  label: 'Document',
-                  color: const Color(0xFFF59E0B),
+                  label: AppStrings.documentOption,
+                  color: AppColors.messagingAttachmentDocument,
                   onTap: _pickDocument,
                 ),
-                // _AttachmentGridItem(
-                //   icon: Icons.videocam_rounded,
-                //   label: 'Video',
-                //   color: const Color(0xFFEC4899),
-                //   onTap: _pickVideo,
-                // ),
-                // _AttachmentGridItem(
-                //   icon: Icons.audiotrack_rounded,
-                //   label: 'Audio',
-                //   color: const Color(0xFF8B5CF6),
-                //   onTap: () => _notImplemented('Audio'),
-                // ),
-                // _AttachmentGridItem(
-                //   icon: Icons.location_on_rounded,
-                //   label: 'Location',
-                //   color: const Color(0xFF14B8A6),
-                //   onTap: () => _notImplemented('Location'),
-                // ),
               ],
             ),
           ),
 
-          const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
+          const SizedBox(height: AppSizes.xs),
+          const Divider(height: 1, color: AppColors.messagingDividerLight),
 
           // ── View Participants ───────────────────────────────────────
           if (widget.onViewParticipants != null)
             Tooltip(
-              message: 'View Participants',
+              message: AppStrings.viewParticipants,
               child: InkWell(
                 onTap: () {
                   Navigator.of(context).pop();
@@ -288,7 +376,7 @@ class _MessageAttachmentBottomSheetState
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                    horizontal: AppSizes.lg,
                     vertical: 14,
                   ),
                   child: Row(
@@ -307,13 +395,12 @@ class _MessageAttachmentBottomSheetState
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'View Participants',
-                          style: TextStyle(
+                          AppStrings.viewParticipants,
+                          style: AppTextStyles.sectionHeader.copyWith(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
+                            color: AppColors.messagingTextStrong,
                           ),
                         ),
                       ),
@@ -327,7 +414,7 @@ class _MessageAttachmentBottomSheetState
               ),
             ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.xs),
         ],
       ),
     );
@@ -366,7 +453,7 @@ class _AttachmentGridItem extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               label,
-              style: TextStyle(
+              style: AppTextStyles.size14.copyWith(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: color,

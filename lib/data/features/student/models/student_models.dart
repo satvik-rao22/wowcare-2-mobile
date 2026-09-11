@@ -1,4 +1,23 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'student_models.g.dart';
+
+/// Coerces a loosely-typed JSON bool (bool / 0|1 / "true"|"yes"|"false"|"no").
+bool? _photoPermissionFromJson(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+  }
+  return null;
+}
 
 class StudentListItemModel extends Equatable {
   const StudentListItemModel({
@@ -9,6 +28,8 @@ class StudentListItemModel extends Equatable {
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
     this.classroom = '',
+    this.classroomCode = '',
+    this.hasGuardian = true,
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
@@ -23,12 +44,30 @@ class StudentListItemModel extends Equatable {
   final String? profilePhotoUrl;
   final String? profilePhotoAssetCode;
   final String classroom;
+
+  /// The classroom's actual CODE (`CLS_...`), straight from
+  /// `classroom.code` in this same API response — kept separate from
+  /// [classroom] (the display NAME) rather than folding one into the
+  /// other, so callers that need the code (e.g. scoping a Room Chat
+  /// creation) don't have to re-resolve it by matching the name against a
+  /// separately-loaded classroom list.
+  final String classroomCode;
+
+  /// Whether this student has at least one guardian linked, straight from
+  /// the list API's own `hasGuardian` field. Defaults to true (don't
+  /// disable) when the field is missing so an endpoint that doesn't send it
+  /// fails open rather than disabling every student. Web disables selecting
+  /// a student without a guardian when starting a new conversation — this
+  /// is what that check is based on.
+  final bool hasGuardian;
   final String dob;
   final String movementDate;
   final List<String> tags;
+
   /// Convenience list of abbreviated weekdays derived from `regularSchedules`,
   /// e.g. ["Mon", "Tue"]. Used by UI schedule chips.
   final List<String> schedule;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
   final Map<String, String> scheduleByDay;
 
@@ -37,14 +76,19 @@ class StudentListItemModel extends Equatable {
   factory StudentListItemModel.fromJson(Map<String, dynamic> json) {
     final classroomRaw = json['classroom'];
     String classroomCodeOrName = '';
+    // Prefer a flat top-level 'classroomCode' (round-tripped from our own
+    // [toJson]/cache) over re-deriving it from 'classroom', since a cached
+    // blob's 'classroom' is already flattened to just the display name by
+    // the time it's written — the nested {name, code} shape only exists on
+    // a fresh API response.
+    String classroomCode = json['classroomCode']?.toString().trim() ?? '';
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
       final name = classroomRaw['name']?.toString().trim() ?? '';
-      final code = classroomRaw['code'];
-      classroomCodeOrName = name.isNotEmpty
-          ? name
-          : (code?.toString().trim() ?? '');
+      final code = classroomRaw['code']?.toString().trim() ?? '';
+      if (classroomCode.isEmpty) classroomCode = code;
+      classroomCodeOrName = name.isNotEmpty ? name : code;
     }
 
     final rawTags = json['tags'];
@@ -145,6 +189,8 @@ class StudentListItemModel extends Equatable {
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
       profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
+      classroomCode: classroomCode,
+      hasGuardian: json['hasGuardian'] as bool? ?? true,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
       tags: tags,
@@ -163,6 +209,8 @@ class StudentListItemModel extends Equatable {
       if (profilePhotoAssetCode != null)
         'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
+      'classroomCode': classroomCode,
+      'hasGuardian': hasGuardian,
       'dob': dob,
       'movementDate': movementDate,
       'tags': tags,
@@ -173,18 +221,20 @@ class StudentListItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        status,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-        classroom,
-        dob,
-        movementDate,
-        tags,
-        schedule,
-      ];
+    code,
+    firstName,
+    lastName,
+    status,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+    classroom,
+    classroomCode,
+    hasGuardian,
+    dob,
+    movementDate,
+    tags,
+    schedule,
+  ];
 }
 
 class StudentPageModel extends Equatable {
@@ -205,8 +255,14 @@ class StudentPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StudentPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -258,6 +314,7 @@ class StudentPageModel extends Equatable {
   }
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentImportantDatesModel extends Equatable {
   const StudentImportantDatesModel({
     this.enrollDate,
@@ -273,40 +330,25 @@ class StudentImportantDatesModel extends Equatable {
   final String? upcomingMoveDate;
   final String? schoolLeavingDate;
 
-  factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return const StudentImportantDatesModel();
-    }
-    return StudentImportantDatesModel(
-      enrollDate: json['enrollDate'] as String?,
-      schoolStartDate: json['schoolStartDate'] as String?,
-      currentClassroomStartDate: json['currentClassroomStartDate'] as String?,
-      upcomingMoveDate: json['upcomingMoveDate'] as String?,
-      schoolLeavingDate: json['schoolLeavingDate'] as String?,
-    );
-  }
+  /// Null-safe wrapper around the generated fromJson (the caller may pass null).
+  factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) =>
+      json == null
+          ? const StudentImportantDatesModel()
+          : _$StudentImportantDatesModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return {
-      if (enrollDate != null) 'enrollDate': enrollDate,
-      if (schoolStartDate != null) 'schoolStartDate': schoolStartDate,
-      if (currentClassroomStartDate != null)
-        'currentClassroomStartDate': currentClassroomStartDate,
-      if (upcomingMoveDate != null) 'upcomingMoveDate': upcomingMoveDate,
-      if (schoolLeavingDate != null) 'schoolLeavingDate': schoolLeavingDate,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentImportantDatesModelToJson(this);
 
   @override
   List<Object?> get props => [
-        enrollDate,
-        schoolStartDate,
-        currentClassroomStartDate,
-        upcomingMoveDate,
-        schoolLeavingDate,
-      ];
+    enrollDate,
+    schoolStartDate,
+    currentClassroomStartDate,
+    upcomingMoveDate,
+    schoolLeavingDate,
+  ];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentHealthModel extends Equatable {
   const StudentHealthModel({
     this.allergy,
@@ -318,53 +360,28 @@ class StudentHealthModel extends Equatable {
   final String? allergy;
   final String? medications;
   final String? dietRestrictions;
+
+  /// Coerced from a loosely-typed JSON bool via [_photoPermissionFromJson].
+  @JsonKey(fromJson: _photoPermissionFromJson)
   final bool? photoPermission;
 
-  static bool? _asBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    if (value is String) {
-      final normalized = value.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
-      }
-      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-        return false;
-      }
-    }
-    return null;
-  }
+  /// Null-safe wrapper around the generated fromJson.
+  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) => json == null
+      ? const StudentHealthModel()
+      : _$StudentHealthModelFromJson(json);
 
-  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return const StudentHealthModel();
-    }
-    return StudentHealthModel(
-      allergy: json['allergy'] as String?,
-      medications: json['medications'] as String?,
-      dietRestrictions: json['dietRestrictions'] as String?,
-      photoPermission: _asBool(json['photoPermission']),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      if (allergy != null) 'allergy': allergy,
-      if (medications != null) 'medications': medications,
-      if (dietRestrictions != null) 'dietRestrictions': dietRestrictions,
-      if (photoPermission != null) 'photoPermission': photoPermission,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentHealthModelToJson(this);
 
   @override
   List<Object?> get props => [
-        allergy,
-        medications,
-        dietRestrictions,
-        photoPermission,
-      ];
+    allergy,
+    medications,
+    dietRestrictions,
+    photoPermission,
+  ];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentPhysicalExamModel extends Equatable {
   const StudentPhysicalExamModel({
     required this.code,
@@ -373,35 +390,26 @@ class StudentPhysicalExamModel extends Equatable {
     this.notes,
   });
 
+  @JsonKey(defaultValue: '')
   final String code;
+
   /// ISO date string `YYYY-MM-DD` (per backend contract).
   final String? examDate;
+
   /// e.g. `COMPLETED`, `DUE`.
   final String? status;
   final String? notes;
 
-  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) {
-    return StudentPhysicalExamModel(
-      code: json['code'] as String? ?? '',
-      examDate: json['examDate'] as String?,
-      status: json['status'] as String?,
-      notes: json['notes'] as String?,
-    );
-  }
+  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentPhysicalExamModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      if (examDate != null) 'examDate': examDate,
-      if (status != null) 'status': status,
-      if (notes != null) 'notes': notes,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentPhysicalExamModelToJson(this);
 
   @override
   List<Object?> get props => [code, examDate, status, notes];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentImmunizationModel extends Equatable {
   const StudentImmunizationModel({
     required this.code,
@@ -416,60 +424,41 @@ class StudentImmunizationModel extends Equatable {
     this.notes,
   });
 
+  @JsonKey(defaultValue: '')
   final String code;
+  @JsonKey(defaultValue: '')
   final String studentCode;
+  @JsonKey(defaultValue: '')
   final String vaccineName;
+  @JsonKey(defaultValue: '')
   final String vaccineDoseCode;
+  @JsonKey(defaultValue: 0)
   final int doseNumber;
   final String? dueDate;
   final String? administeredDate;
+  @JsonKey(defaultValue: '')
   final String status;
   final String? exemptionReason;
   final String? notes;
 
-  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) {
-    return StudentImmunizationModel(
-      code: json['code'] as String? ?? '',
-      studentCode: json['studentCode'] as String? ?? '',
-      vaccineName: json['vaccineName'] as String? ?? '',
-      vaccineDoseCode: json['vaccineDoseCode'] as String? ?? '',
-      doseNumber: json['doseNumber'] as int? ?? 0,
-      dueDate: json['dueDate'] as String?,
-      administeredDate: json['administeredDate'] as String?,
-      status: json['status'] as String? ?? '',
-      exemptionReason: json['exemptionReason'] as String?,
-      notes: json['notes'] as String?,
-    );
-  }
+  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentImmunizationModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return {
-      'code': code,
-      'studentCode': studentCode,
-      'vaccineName': vaccineName,
-      'vaccineDoseCode': vaccineDoseCode,
-      'doseNumber': doseNumber,
-      if (dueDate != null) 'dueDate': dueDate,
-      if (administeredDate != null) 'administeredDate': administeredDate,
-      'status': status,
-      if (exemptionReason != null) 'exemptionReason': exemptionReason,
-      if (notes != null) 'notes': notes,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentImmunizationModelToJson(this);
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        vaccineName,
-        vaccineDoseCode,
-        doseNumber,
-        dueDate,
-        administeredDate,
-        status,
-        exemptionReason,
-        notes,
-      ];
+    code,
+    studentCode,
+    vaccineName,
+    vaccineDoseCode,
+    doseNumber,
+    dueDate,
+    administeredDate,
+    status,
+    exemptionReason,
+    notes,
+  ];
 }
 
 class StudentGuardianModel extends Equatable {
@@ -486,6 +475,7 @@ class StudentGuardianModel extends Equatable {
     required this.legalCustody,
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
+    this.displayNameOverride,
   });
 
   final String guardianCode;
@@ -506,13 +496,52 @@ class StudentGuardianModel extends Equatable {
   /// code instead of a ready URL (resolved to a URL by [DocumentImageWidget]).
   final String? profilePhotoAssetCode;
 
-  String get fullName => '$firstName $lastName'.trim();
+  /// Set by [fromJson] only when [firstName]/[lastName] are both empty but a
+  /// display name is available from a fallback field (top-level `fullName`/
+  /// `name`, or a nested `user` object) — a malformed-but-real guardian
+  /// record. Never overrides a genuine firstName+lastName, so it's purely
+  /// additive; [firstName]/[lastName] themselves stay exactly what the
+  /// backend sent for any consumer that needs the structured name parts
+  /// (e.g. pre-filling an edit-guardian form).
+  final String? displayNameOverride;
+
+  String get fullName {
+    final structured = '$firstName $lastName'.trim();
+    if (structured.isNotEmpty) return structured;
+    return displayNameOverride ?? '';
+  }
 
   factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
-    String? firstNonEmpty(List<String> keys) {
+    String? firstNonEmpty(List<String> keys, [Map<String, dynamic>? source]) {
+      final map = source ?? json;
       for (final k in keys) {
-        final v = (json[k] as Object?)?.toString().trim() ?? '';
+        final v = (map[k] as Object?)?.toString().trim() ?? '';
         if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    // Fallback display-name resolution for a malformed guardian record whose
+    // top-level firstName/lastName are both empty — mirrors the pre-MVVM-
+    // migration View helper this replaced: top-level fullName/name, then the
+    // same pair nested under a `user` object.
+    String? resolveDisplayNameOverride() {
+      // Cache round-trip: toJson() persists the already-resolved override
+      // under this key, and the raw API response never uses this exact key
+      // name, so checking it first is safe and avoids re-deriving (and
+      // avoids losing it, since a cached payload won't carry the original
+      // fullName/name/user fields toJson() doesn't persist).
+      final cached = firstNonEmpty(const ['displayNameOverride']);
+      if (cached != null) return cached;
+      final direct = firstNonEmpty(const ['fullName', 'name']);
+      if (direct != null) return direct;
+      final user = json['user'];
+      if (user is Map<String, dynamic>) {
+        final uFirst = firstNonEmpty(const ['firstName', 'first_name'], user);
+        final uLast = firstNonEmpty(const ['lastName', 'last_name'], user);
+        final uCombined = '${uFirst ?? ''} ${uLast ?? ''}'.trim();
+        if (uCombined.isNotEmpty) return uCombined;
+        return firstNonEmpty(const ['fullName', 'name'], user);
       }
       return null;
     }
@@ -521,10 +550,9 @@ class StudentGuardianModel extends Equatable {
       // The per-student guardian endpoint returns the code under `code`, while
       // some other guardian endpoints use `guardianCode`. Accept either so the
       // edit/delete flows always have a non-empty code to work with.
-      guardianCode:
-          (json['guardianCode'] as String?)?.trim().isNotEmpty == true
-              ? (json['guardianCode'] as String)
-              : (json['code'] as String? ?? ''),
+      guardianCode: (json['guardianCode'] as String?)?.trim().isNotEmpty == true
+          ? (json['guardianCode'] as String)
+          : (json['code'] as String? ?? ''),
       userCode: json['userCode'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
@@ -534,12 +562,18 @@ class StudentGuardianModel extends Equatable {
       relationToStudent: json['relationToStudent'] as String? ?? '',
       primaryContact: json['primaryContact'] as bool? ?? false,
       legalCustody: json['legalCustody'] as bool? ?? false,
-      profilePhotoUrl: firstNonEmpty(
-        const ['profilePhotoUrl', 'photoUrl', 'profileImageUrl', 'imageUrl'],
-      ),
-      profilePhotoAssetCode: firstNonEmpty(
-        const ['profilePhotoAssetCode', 'photoAssetCode', 'mediaAssetCode'],
-      ),
+      profilePhotoUrl: firstNonEmpty(const [
+        'profilePhotoUrl',
+        'photoUrl',
+        'profileImageUrl',
+        'imageUrl',
+      ]),
+      profilePhotoAssetCode: firstNonEmpty(const [
+        'profilePhotoAssetCode',
+        'photoAssetCode',
+        'mediaAssetCode',
+      ]),
+      displayNameOverride: resolveDisplayNameOverride(),
     );
   }
 
@@ -557,24 +591,26 @@ class StudentGuardianModel extends Equatable {
       'legalCustody': legalCustody,
       'profilePhotoUrl': profilePhotoUrl,
       'profilePhotoAssetCode': profilePhotoAssetCode,
+      'displayNameOverride': displayNameOverride,
     };
   }
 
   @override
   List<Object?> get props => [
-        guardianCode,
-        userCode,
-        firstName,
-        lastName,
-        mobile,
-        email,
-        clockPin,
-        relationToStudent,
-        primaryContact,
-        legalCustody,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-      ];
+    guardianCode,
+    userCode,
+    firstName,
+    lastName,
+    mobile,
+    email,
+    clockPin,
+    relationToStudent,
+    primaryContact,
+    legalCustody,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+    displayNameOverride,
+  ];
 }
 
 class StudentProfileModel extends Equatable {
@@ -585,6 +621,7 @@ class StudentProfileModel extends Equatable {
     required this.lastName,
     required this.status,
     this.classroom,
+    this.classroomCode,
     this.dob,
     this.notes,
     this.profilePhotoUrl,
@@ -605,6 +642,11 @@ class StudentProfileModel extends Equatable {
   final String lastName;
   final String status;
   final String? classroom;
+
+  /// The classroom's actual CODE (`CLS_...`) — see
+  /// [StudentListItemModel.classroomCode] for why this is kept separate
+  /// from [classroom] (the display name) instead of derived from it.
+  final String? classroomCode;
   final String? dob;
   final String? notes;
   final String? profilePhotoUrl;
@@ -613,6 +655,7 @@ class StudentProfileModel extends Equatable {
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
+
   /// Raw tags array from profile API. Each item is typically a map with
   /// { code, name, defaultTag }.
   final List<dynamic> tags;
@@ -632,14 +675,16 @@ class StudentProfileModel extends Equatable {
     // Classroom can come as a plain string or as an object { code, name }.
     final classroomRaw = data['classroom'];
     String? classroomName;
+    String? classroomCode = data['classroomCode'] as String?;
     if (classroomRaw is String) {
       classroomName = classroomRaw;
     } else if (classroomRaw is Map) {
       final name = classroomRaw['name'];
-      final code = classroomRaw['code'];
+      final code = classroomRaw['code']?.toString();
+      classroomCode ??= code;
       classroomName = (name?.toString().trim().isNotEmpty ?? false)
           ? name.toString()
-          : (code?.toString() ?? '');
+          : (code ?? '');
     }
 
     return StudentProfileModel(
@@ -649,6 +694,7 @@ class StudentProfileModel extends Equatable {
       lastName: data['lastName'] as String? ?? '',
       status: data['status'] as String? ?? '',
       classroom: classroomName,
+      classroomCode: classroomCode,
       dob: data['dob'] as String?,
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,
@@ -674,6 +720,7 @@ class StudentProfileModel extends Equatable {
       'lastName': lastName,
       'status': status,
       if (classroom != null) 'classroom': classroom,
+      if (classroomCode != null) 'classroomCode': classroomCode,
       if (dob != null) 'dob': dob,
       if (notes != null) 'notes': notes,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
@@ -691,24 +738,24 @@ class StudentProfileModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        schoolCode,
-        firstName,
-        lastName,
-        status,
-        classroom,
-        dob,
-        notes,
-        profilePhotoUrl,
-        fte,
-        gender,
-        legalCustodians,
-        subsidy,
-        address,
-        tags,
-        siblings,
-        importantDates,
-        regularSchedules,
-      ];
+    code,
+    schoolCode,
+    firstName,
+    lastName,
+    status,
+    classroom,
+    classroomCode,
+    dob,
+    notes,
+    profilePhotoUrl,
+    fte,
+    gender,
+    legalCustodians,
+    subsidy,
+    address,
+    tags,
+    siblings,
+    importantDates,
+    regularSchedules,
+  ];
 }
-

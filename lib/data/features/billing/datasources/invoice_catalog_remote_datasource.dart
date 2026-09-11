@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/billing/models/invoice_catalog_models.dart';
 
 /// Remote datasource for the Create Invoice catalog lookups: fee structures

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/student/entities/student_health_update_request.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_health_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_health_screen.dart';
-
-
 
 class StudentHealthTabCard extends StatefulWidget {
   const StudentHealthTabCard({
@@ -28,10 +27,8 @@ class StudentHealthTabCard extends StatefulWidget {
   final bool canEdit;
   final VoidCallback? onHealthChanged;
 
-
   @override
-  State<StudentHealthTabCard> createState() =>
-      _StudentHealthTabCardState();
+  State<StudentHealthTabCard> createState() => _StudentHealthTabCardState();
 }
 
 class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
@@ -39,20 +36,34 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
   bool _photoPermission = true;
   bool _hasShownErrorSnackBar = false;
 
+  /// One cubit instance for this card so its single-flight guard spans taps
+  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
+  final StudentHealthCubit _healthCubit = serviceLocator<StudentHealthCubit>();
+
   @override
   void initState() {
     super.initState();
-    _healthFuture = _buildHealthFuture();
+    // Force-fresh on open, not just on pull-to-refresh — otherwise landing on
+    // this tab can show up to 5-minute-old cached data.
+    _healthFuture = _buildHealthFuture(forceRefresh: true);
   }
 
-  Future<StudentHealth?> _buildHealthFuture() async {
+  @override
+  void dispose() {
+    _healthCubit.close();
+    super.dispose();
+  }
+
+  Future<StudentHealth?> _buildHealthFuture({bool forceRefresh = false}) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
       return null;
     }
-    final repo = serviceLocator<StudentRepository>();
     try {
-      final model = await repo.getStudentHealth(studentCode: code);
+      final model = await _healthCubit.fetchHealth(
+        code,
+        forceRefresh: forceRefresh,
+      );
       _photoPermission = model.photoPermission ?? true;
       return model;
     } catch (_) {
@@ -68,7 +79,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
-          _healthFuture = _buildHealthFuture();
+          _healthFuture = _buildHealthFuture(forceRefresh: true);
           _hasShownErrorSnackBar = false;
         });
         try {
@@ -111,40 +122,36 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
             final health = snapshot.data;
 
             return Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (canStudentWrite)
                     GestureDetector(
                       onTap: () async {
-                      final code = widget.studentCode;
-                      if (code == null || code.isEmpty) return;
-                      final currentHealth = health;
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => EditStudentHealthScreen(
-                            studentCode: code,
-                            initialHealth: currentHealth,
+                        final code = widget.studentCode;
+                        if (code == null || code.isEmpty) return;
+                        final currentHealth = health;
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => EditStudentHealthScreen(
+                              studentCode: code,
+                              initialHealth: currentHealth,
+                            ),
                           ),
-                        ),
-                      );
-                      if (result == true && mounted) {
-                        setState(() {
-                          _healthFuture = _buildHealthFuture();
-                          _hasShownErrorSnackBar = false;
-                        });
-                        widget.onHealthChanged?.call();
-                      }
-                    },
+                        );
+                        if (result == true && mounted) {
+                          setState(() {
+                            _healthFuture = _buildHealthFuture();
+                            _hasShownErrorSnackBar = false;
+                          });
+                          widget.onHealthChanged?.call();
+                        }
+                      },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Health',
-                            style: AppTextStyles.title,
-                          ),
+                          Text('Health', style: AppTextStyles.title),
                           Container(
                             width: 38,
                             height: 38,
@@ -176,16 +183,15 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                         _photoPermission = v;
                       });
                       try {
-                        final repo = serviceLocator<StudentRepository>();
-                        final body = {
-                          'allergy': health?.allergy ?? '',
-                          'medications': health?.medications ?? '',
-                          'dietRestrictions': health?.dietRestrictions ?? '',
-                          'photoPermission': v,
-                        };
-                        await repo.updateStudentHealth(
+                        final request = StudentHealthUpdateRequest(
+                          allergy: health?.allergy ?? '',
+                          medications: health?.medications ?? '',
+                          dietRestrictions: health?.dietRestrictions ?? '',
+                          photoPermission: v,
+                        );
+                        await _healthCubit.updateHealth(
                           studentCode: code,
-                          body: body,
+                          request: request,
                         );
                         widget.onHealthChanged?.call();
                       } catch (e) {
@@ -213,10 +219,9 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
       ),
     );
   }
-
 }
 
-class _HealthCard extends StatelessWidget{
+class _HealthCard extends StatelessWidget {
   const _HealthCard({
     required this.allergies,
     required this.medication,
@@ -234,10 +239,9 @@ class _HealthCard extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    String _displayOrDash(String? v) {
-      if (v == null) return '-';
-      final t = v.trim();
-      return t.isEmpty ? '-' : t;
+    String _displayOrFallback(String? v, String fallback) {
+      final t = v?.trim() ?? '';
+      return t.isEmpty ? fallback : t;
     }
 
     return IntrinsicHeight(
@@ -279,7 +283,7 @@ class _HealthCard extends StatelessWidget{
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(allergies),
+                          _displayOrFallback(allergies, 'No Allergies'),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -287,7 +291,7 @@ class _HealthCard extends StatelessWidget{
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -310,7 +314,7 @@ class _HealthCard extends StatelessWidget{
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(medication),
+                          _displayOrFallback(medication, 'No Medications'),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -318,7 +322,7 @@ class _HealthCard extends StatelessWidget{
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -341,7 +345,10 @@ class _HealthCard extends StatelessWidget{
                       ),
                       Flexible(
                         child: Text(
-                          _displayOrDash(dietRestrictions),
+                          _displayOrFallback(
+                            dietRestrictions,
+                            'No Diet Restriction',
+                          ),
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 14,
@@ -349,7 +356,7 @@ class _HealthCard extends StatelessWidget{
                             color: Color(0xff573353),
                             height: 19 / 14,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -396,23 +403,5 @@ class _HealthCard extends StatelessWidget{
         ),
       ),
     );
-
   }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

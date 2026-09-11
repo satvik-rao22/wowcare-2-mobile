@@ -1,11 +1,10 @@
-import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
+import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 
 /// PRD-aligned validation helpers (no UI).
 class IndividualMovementValidators {
   IndividualMovementValidators._();
 
-  static DateTime dateOnly(DateTime d) =>
-      DateTime(d.year, d.month, d.day);
+  static DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   /// Same student, same calendar day, same from & to => duplicate.
   static bool isDuplicateMovement({

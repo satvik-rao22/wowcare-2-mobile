@@ -16,6 +16,11 @@ class KioskRepositoryImpl implements KioskRepository {
   Future<KioskPinResultEntity> verifyPin({
     required String pin,
     required String schoolCode,
+    bool isLogout = false,
   }) =>
-      _remoteDataSource.verifyPin(pin: pin, schoolCode: schoolCode);
+      _remoteDataSource.verifyPin(
+        pin: pin,
+        schoolCode: schoolCode,
+        isLogout: isLogout,
+      );
 }

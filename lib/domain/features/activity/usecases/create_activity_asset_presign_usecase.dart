@@ -1,5 +1,5 @@
-import '../repositories/activity_repository.dart';
-import '../entities/activity_asset_presign.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_asset_presign.dart';
 
 class CreateActivityAssetPresignUseCase {
   CreateActivityAssetPresignUseCase(this._repository);

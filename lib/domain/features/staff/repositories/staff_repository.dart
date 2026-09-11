@@ -2,9 +2,15 @@ import '../entities/staff_member.dart';
 import '../entities/staff_document.dart';
 import '../entities/staff_documents_page.dart';
 import '../entities/staff_profile.dart';
+import '../entities/staff_profile_update.dart';
+import '../entities/staff_address_update.dart';
+import '../entities/staff_my_profile_update.dart';
+import '../entities/staff_important_date.dart';
+import '../entities/staff_schedule_entry.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
+
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
     required String organizationCode,
@@ -63,9 +69,15 @@ abstract class StaffRepository {
 
   /// Fetches profile. When [forEditStaff] is false uses my-profile endpoint (logged-in
   /// user); when true uses `staff/{staffCode}/profile` (edit staff details).
+  ///
+  /// [forceRefresh] bypasses the cached copy and re-fetches from the server —
+  /// use when the caller needs to observe a server-side change (e.g. an
+  /// admin just reassigned this staff member's classroom) rather than
+  /// whatever was cached up to [StorageKeys.cacheValidDuration] ago.
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
     bool forEditStaff = false,
+    bool forceRefresh = false,
   });
 
   /// Resolves staffCode for a given userCode + organizationCode + schoolCode
@@ -78,19 +90,20 @@ abstract class StaffRepository {
 
   /// Updates staff profile core details (name, status, phone, designation, jobTag, classrooms, etc.).
   ///
-  /// [fields] should follow the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`.
+  /// [fields] carries the backend PATCH contract for `/api/v1/staff/staff/my-profile/{staffCode}`;
+  /// the repository serializes it via [StaffProfileUpdate.toPayload].
   Future<String> updateStaffProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffProfileUpdate fields,
   });
 
   /// Updates staff address via `/api/v1/staff-address/{staffCode}`.
   ///
-  /// [fields] should include addressStreet, addressLine2, addressCity,
-  /// addressState, addressZipCode, addressCountry.
+  /// [fields] carries addressStreet, addressLine2, addressCity, addressState,
+  /// addressZipCode, addressCountry; serialized via [StaffAddressUpdate.toPayload].
   Future<String> updateStaffAddress({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffAddressUpdate fields,
   });
 
   /// Updates a staff member's allowed classrooms via
@@ -109,22 +122,9 @@ abstract class StaffRepository {
 
   /// Updates the *logged-in* staff member's basic profile + address via
   /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
-  ///
-  /// [fields] should match the backend contract:
-  /// {
-  ///   "firstName": "string",
-  ///   "lastName": "string",
-  ///   "phoneNumber": "string",
-  ///   "addressStreet": "string",
-  ///   "addressLine2": "string",
-  ///   "addressCity": "string",
-  ///   "addressState": "string",
-  ///   "addressZipCode": "string",
-  ///   "addressCountry": "string"
-  /// }
   Future<String> updateMyProfile({
     required String staffCode,
-    required Map<String, dynamic> fields,
+    required StaffMyProfileUpdate fields,
   });
 
   /// Changes the login email for a user via
@@ -138,40 +138,39 @@ abstract class StaffRepository {
   });
 
   /// Fetches the staff sign-in PIN via my-profile pin API.
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  });
+  Future<String> getStaffSignInPin({required String staffCode});
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
-  /// Returns a list of map entries shaped as:
-  /// {
-  ///   "importantDateType": "HIRE_DATE",
-  ///   "dueDate": "2026-02-06",
-  ///   "completedDate": "2026-02-06"
-  /// }
-  Future<List<Map<String, String>>> getImportantDates({
+  /// Returns typed [StaffImportantDate] entries (importantDateType, dueDate,
+  /// optional completedDate/status).
+  Future<List<StaffImportantDate>> getImportantDates({
     required String staffCode,
   });
 
   Future<String> updateImportantDates({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   });
 
   /// Fetches the staff member's work and break schedules from the dedicated
   /// schedule API: `GET /api/v1/staff-schedules/{staffCode}`.
-  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
-      getStaffSchedules({required String staffCode});
+  Future<
+    ({
+      List<StaffProfileWorkSchedule> workSchedules,
+      List<StaffProfileBreakSchedule> breakSchedules,
+    })
+  >
+  getStaffSchedules({required String staffCode});
 
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
-  /// [workSchedules] and [breakSchedules] should already be shaped according to
-  /// the backend contract (see API docs).
+  /// [workSchedules] and [breakSchedules] are typed entries; the repository
+  /// serializes each via `toPayload()` into the backend contract shape.
   Future<String> updateStaffSchedules({
     required String staffCode,
-    required List<Map<String, dynamic>> workSchedules,
-    required List<Map<String, dynamic>> breakSchedules,
+    required List<StaffWorkScheduleEntry> workSchedules,
+    required List<StaffBreakScheduleEntry> breakSchedules,
   });
 
   /// School operating hours per weekday from school settings
@@ -249,10 +248,15 @@ abstract class StaffRepository {
   void clearSessionVolatileCaches();
 
   Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
-      getStaffDocumentExpirySummary({required String schoolCode});
+  getStaffDocumentExpirySummary({required String schoolCode});
 
-  Future<({int overduePhysicalCheckupCount, int staffWithoutActivePhysicalCheckupCount})>
-      getPhysicalCheckupSummary({required String schoolCode});
+  Future<
+    ({
+      int overduePhysicalCheckupCount,
+      int staffWithoutActivePhysicalCheckupCount,
+    })
+  >
+  getPhysicalCheckupSummary({required String schoolCode});
 
   /// Updates work break reminder preference via PATCH API.
   ///
@@ -290,12 +294,9 @@ abstract class StaffRepositoryWithCache {
     String staffCode, {
     bool forEditStaff = false,
   });
-  Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
+  Future<List<StaffImportantDate>?> loadCachedImportantDates(String staffCode);
   Future<StaffCount?> loadCachedStaffCount({
     required String organizationCode,
     required String schoolCode,
   });
 }
-
-
-

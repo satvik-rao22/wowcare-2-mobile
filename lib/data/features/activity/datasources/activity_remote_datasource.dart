@@ -1,13 +1,16 @@
 import 'package:dio/dio.dart';
 import 'dart:async';
 
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../models/activity_asset_presign_model.dart';
-import '../models/activity_feed_models.dart';
-import '../models/activity_settings_models.dart';
-import '../models/activity_type_details_model.dart';
-import '../models/activity_upload_session_models.dart';
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/data/features/activity/models/activity_asset_presign_model.dart';
+import 'package:wowcare/data/features/activity/models/activity_feed_models.dart';
+import 'package:wowcare/data/features/activity/models/activity_settings_models.dart';
+import 'package:wowcare/data/features/activity/models/activity_type_details_model.dart';
+import 'package:wowcare/data/features/activity/models/activity_upload_session_models.dart';
 
 abstract class ActivityRemoteDataSource {
   /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
@@ -143,12 +146,31 @@ abstract class ActivityRemoteDataSource {
   /// Count of pending incident approvals:
   /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
   Future<int> getPendingIncidentCount();
+
+  /// Mark-activity student list for a date/filter selection:
+  /// `GET {attendanceBase}{studentAttendanceMarkActivityStudentList}`.
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  });
 }
 
 class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   ActivityRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  /// Opts a request OUT of the shared 401-refresh auto-replay. Applied to the
+  /// non-idempotent activity mutations (create/shared-create/update, upload
+  /// session, asset presign, and the moderation actions approve/reject/
+  /// acknowledge/parent-signature) so a token-refresh replay cannot silently
+  /// duplicate the write. See [kNoAutoReplayExtraKey].
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
 
   bool _isAssetNotReadyConflict(Object error) {
     if (error is! DioException) return false;
@@ -248,7 +270,11 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     var attempt = 0;
     while (true) {
       try {
-        response = await _client.patch<dynamic>(endpoint, data: payload);
+        response = await _client.patch<dynamic>(
+          endpoint,
+          data: payload,
+          options: _noReplayOptions,
+        );
         break;
       } on DioException catch (e) {
         final statusCode = e.response?.statusCode;
@@ -298,7 +324,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> approveActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminApproveActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected approve-activity API response format');
@@ -313,7 +339,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> rejectActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminRejectActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected reject-activity API response format');
@@ -330,7 +356,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final endpoint = ApiPaths.url(
       ApiPaths.guardianAcknowledgeActivity(cardGroupCode),
     );
-    final response = await _client.post<dynamic>(endpoint);
+    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian-acknowledge API response format');
@@ -363,6 +389,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         'value': effective,
         'valueText': effective,
       },
+      options: _noReplayOptions,
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -462,6 +489,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         response = await _client.post<dynamic>(
           endpoint,
           data: request.toJson(),
+          options: _noReplayOptions,
         );
         break;
       } catch (e) {
@@ -517,6 +545,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         response = await _client.post<dynamic>(
           endpoint,
           data: payload,
+          options: _noReplayOptions,
         );
         break;
       } catch (e) {
@@ -571,6 +600,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: payload,
+      options: _noReplayOptions,
     );
 
     final body = response.data;
@@ -604,14 +634,14 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     var basePath = documentApiBasePath.trim();
     if (basePath.isEmpty) {
-      basePath = ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1';
+      basePath = ApiConstants.isGatewayEnv ? '/api/v1/document' : '/document-ms/api/v1';
     }
     if (!basePath.startsWith('/')) {
       basePath = '/$basePath';
     }
     // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
     // namespace (`/api/v1/document`) must live in the path itself.
-    if (ApiConstants.isUat && !basePath.startsWith('/api/v1/document')) {
+    if (ApiConstants.isGatewayEnv && !basePath.startsWith('/api/v1/document')) {
       basePath = '/api/v1/document';
     }
     basePath = basePath.replaceAll(RegExp(r'/+$'), '');
@@ -635,6 +665,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: payload,
+      options: _noReplayOptions,
     );
 
     final body = response.data;
@@ -807,6 +838,108 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
 
     final count = data['count'];
     return count is int ? count : 0;
+  }
+
+  @override
+  Future<List<StudentAttendanceCustomItem>> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+    required String selectedClassroomCode,
+  }) async {
+    final response = await _client.get<dynamic>(
+      ApiPaths.urlWithBase(
+        ApiPaths.studentAttendanceMarkActivityStudentList,
+        ApiConstants.attendanceBaseUrl,
+      ),
+      queryParameters: <String, dynamic>{
+        'attendanceDate': attendanceDate,
+        if (classroomCodes != null && classroomCodes.isNotEmpty)
+          'classroomCodes': classroomCodes,
+        if (tagCodes != null && tagCodes.isNotEmpty) 'tagCodes': tagCodes,
+        'page': page,
+        'size': size,
+      },
+      options: Options(listFormat: ListFormat.multiCompatible),
+    );
+    return _parseMarkActivityStudentListResponse(
+      response.data,
+      selectedClassroomCode: selectedClassroomCode,
+    );
+  }
+
+  List<StudentAttendanceCustomItem> _parseMarkActivityStudentListResponse(
+    dynamic payload, {
+    required String selectedClassroomCode,
+  }) {
+    if (payload is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected mark-activity student list API response format',
+      );
+    }
+    final rootData = payload['data'];
+    if (rootData is! Map<String, dynamic>) {
+      return const <StudentAttendanceCustomItem>[];
+    }
+    final content = rootData['content'];
+    if (content is! List) {
+      return const <StudentAttendanceCustomItem>[];
+    }
+
+    return content
+        .whereType<Map>()
+        .map((raw) => Map<String, dynamic>.from(raw))
+        .map((student) => _mapMarkActivityStudent(
+              student,
+              selectedClassroomCode: selectedClassroomCode,
+            ))
+        .toList(growable: false);
+  }
+
+  StudentAttendanceCustomItem _mapMarkActivityStudent(
+    Map<String, dynamic> student, {
+    required String selectedClassroomCode,
+  }) {
+    final attendedClassrooms = (student['attendedClassrooms'] as List?)
+            ?.whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .toList(growable: false) ??
+        const <Map<String, dynamic>>[];
+
+    final selectedTimelineEntry = attendedClassrooms.firstWhere(
+      (entry) =>
+          (entry['classroomCode'] ?? '').toString().trim() ==
+          selectedClassroomCode,
+      orElse: () => attendedClassrooms.isNotEmpty
+          ? attendedClassrooms.first
+          : <String, dynamic>{},
+    );
+
+    final classroomCode =
+        (selectedTimelineEntry['classroomCode'] ?? '').toString().trim();
+    final classroomName =
+        (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
+
+    return StudentAttendanceCustomItem(
+      studentCode: (student['studentCode'] ?? '').toString().trim(),
+      studentName: (student['studentName'] ?? '').toString().trim(),
+      isExpectedToday: false,
+      classroomName: classroomName,
+      classroomCode: classroomCode,
+      attendedDays: 1,
+      attendedTime: '',
+      attendedHours: 0,
+      attendedMinutes: 0,
+      signedInBy: null,
+      signedInTime: '00:00:00',
+      signedOutBy: null,
+      signedOutTime: null,
+      tagCodes: const <String>[],
+      tagNames: const <String>[],
+      attendedMultipleClassroomsOnDate: attendedClassrooms.length > 1,
+    );
   }
 }
 

@@ -1,31 +1,34 @@
 import 'dart:async';
+import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/app/di/communication_providers.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
-import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
+import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_state.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import '../../../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
 ///
@@ -40,7 +43,7 @@ class ParentDirectMessagingScreen extends StatefulWidget {
   const ParentDirectMessagingScreen({
     super.key,
     this.conversationType = ConversationType.roomChat,
-    this.notCreatedLabel = 'Room Chat not yet created',
+    this.notCreatedLabel = AppStrings.roomChatNotCreated,
   });
 
   /// Which student-scoped chat this is — ROOM_CHAT (default) or ADMIN_CHAT.
@@ -56,9 +59,15 @@ class ParentDirectMessagingScreen extends StatefulWidget {
 }
 
 class _ParentDirectMessagingScreenState
-    extends State<ParentDirectMessagingScreen> {
+    extends State<ParentDirectMessagingScreen>
+    with SchoolSwitchReloadMixin {
   late final ConversationListCubit _listCubit;
-  ConversationEntity? _selectedConversation;
+  // Screen view-state (Mandate 2): which conversation is shown, the draft
+  // attachments, and the two loading flags. ValueNotifiers rather than
+  // `setState` so the body rebuilds off one merged listenable — the same
+  // triggers the removed setStates fired on.
+  final ValueNotifier<ConversationEntity?> _selectedConversation =
+      ValueNotifier<ConversationEntity?>(null);
 
   // Used only when no conversation exists yet — keeps the input bar visible
   // and lets the parent draft the first message (text + attachments) before
@@ -66,22 +75,39 @@ class _ParentDirectMessagingScreenState
   final HtmlAwareTextController _emptyInputController =
       HtmlAwareTextController();
   final FocusNode _emptyInputFocus = FocusNode();
-  List<ChatAttachment> _pendingNewConversationAttachments = [];
-  bool _isStartingConversation = false;
+  final ValueNotifier<List<ChatAttachment>> _pendingNewConversationAttachments =
+      ValueNotifier<List<ChatAttachment>>([]);
+  final ValueNotifier<bool> _isStartingConversation = ValueNotifier<bool>(
+    false,
+  );
+
+  // Authoritative, server-side resolve of the existing conversation for the
+  // selected child. The Firestore/Isar list match (_syncToChild) can be stale
+  // (cached before a backfill), missing a denormalized field, or simply race
+  // the first frame — which made an existing chat open in the "start a chat"
+  // draft view. This lookup is the source of truth; while it's in flight we
+  // hold the shimmer instead of prematurely showing the draft view.
+  String? _resolvedForChildCode;
+  final ValueNotifier<bool> _resolvingExistence = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    _listCubit = ConversationListCubit(
+    // Cubit deps resolved by an app-DI factory (Mandate 5: no serviceLocator in
+    // views). This State still owns/closes the cubit — only construction moved.
+    _listCubit = buildConversationListCubit(
       conversationType: widget.conversationType,
-      watchConversationsUseCase: serviceLocator<WatchConversationsUseCase>(),
-      getConversationsUseCase: serviceLocator<GetConversationsEntityUseCase>(),
-      getCachedConversationsUseCase:
-          serviceLocator<GetCachedConversationsEntityUseCase>(),
-      conversationRepository: serviceLocator(),
-      storageService: serviceLocator(),
     );
     _listCubit.startWatching();
+    // If a child is already selected when this screen mounts, the child listener
+    // won't fire a transition — resolve its existing conversation from the server
+    // directly so we don't briefly show the draft view for an existing chat.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _resolveExistingConversation(
+        context.read<ParentChildCubit>().state.selectedChild,
+      );
+    });
   }
 
   @override
@@ -89,7 +115,34 @@ class _ParentDirectMessagingScreenState
     _listCubit.close();
     _emptyInputController.dispose();
     _emptyInputFocus.dispose();
+    _selectedConversation.dispose();
+    _pendingNewConversationAttachments.dispose();
+    _isStartingConversation.dispose();
+    _resolvingExistence.dispose();
     super.dispose();
+  }
+
+  /// This screen is kept alive in the shell's IndexedStack across a persona
+  /// switch (e.g. admin <-> guardian for the same account/school) — it never
+  /// re-mounts on its own, so [_listCubit]'s Firestore subscription, opened
+  /// once in [initState], would otherwise keep resolving unread counts under
+  /// the persona active when this screen was FIRST built rather than the one
+  /// now active. Restarting it re-reads the current persona (see
+  /// ConversationEntityRepositoryImpl's `_unreadRoleBucket`) so an
+  /// ADMIN_CHAT conversation's unreadByRole-based count updates for the
+  /// persona actually looking at it now. Also re-runs the authoritative
+  /// existence lookup for the current child, since that too was gated on
+  /// "already resolved for this child code" and would otherwise skip
+  /// re-checking after switching back to a persona that can see this
+  /// conversation type.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    unawaited(_listCubit.startWatching());
+    _resolvedForChildCode = null;
+    _resolveExistingConversation(
+      context.read<ParentChildCubit>().state.selectedChild,
+    );
   }
 
   /// Syncs the selected conversation to [child] by matching [studentCode].
@@ -119,14 +172,54 @@ class _ParentDirectMessagingScreenState
       }
     }
 
-    if (explicit || match?.code != _selectedConversation?.code) {
-      setState(() => _selectedConversation = match);
+    if (explicit || match?.code != _selectedConversation.value?.code) {
+      _selectedConversation.value = match;
     }
+  }
+
+  /// Authoritatively resolve the child's existing conversation from the server
+  /// (the same lookup the send flow uses), independent of the Firestore/Isar
+  /// list. This is what prevents an existing chat from opening in the draft
+  /// view when the list is stale or hasn't matched yet. Runs once per child.
+  Future<void> _resolveExistingConversation(ParentChildRef? child) async {
+    final code = child?.code.trim() ?? '';
+    if (code.isEmpty || _resolvedForChildCode == code) return;
+    _resolvedForChildCode = code;
+    if (mounted) _resolvingExistence.value = true;
+
+    final isAdmin = widget.conversationType == ConversationType.adminChat;
+    final result = isAdmin
+        ? await _listCubit.findAdminChatConversation(code)
+        : await _listCubit.findRoomChatConversation(code);
+
+    if (!mounted) return;
+    // Ignore if the selected child changed while the lookup was in flight.
+    final currentCode = context
+        .read<ParentChildCubit>()
+        .state
+        .selectedChild
+        ?.code
+        .trim();
+    if (currentCode != code) {
+      _resolvingExistence.value = false;
+      return;
+    }
+    result.fold(
+      (
+        _,
+      ) {}, // on failure keep whatever the list match found; draft stays a fallback
+      (conv) {
+        if (conv != null && conv.code != _selectedConversation.value?.code) {
+          _selectedConversation.value = conv;
+        }
+      },
+    );
+    _resolvingExistence.value = false;
   }
 
   /// Converts a v2 [ConversationEntity] into the legacy [parentInfo] map that
   /// [ParentMessagingThread] expects.
-  Map<String, dynamic> _buildParentInfo(ConversationEntity conv) {
+  ParentThreadInfo _buildParentInfo(ConversationEntity conv) {
     final legacyParticipants = conv.participants.map((p) {
       final roleStr = p.role == ParticipantRole.parent
           ? 'GUARDIAN'
@@ -137,11 +230,17 @@ class _ParentDirectMessagingScreenState
         userCode: p.userCode,
         userName: p.userName,
         role: roleStr,
-        joinedAt: DateTime.now(),
+        joinedAt: AppTime.now(),
+        // Was missing entirely — every participant defaulted to
+        // leftAt: null / active: true regardless of the real backend
+        // values, silently defeating every `isActive`-based filter/count
+        // downstream (chip bars, "N participants" header, tab chips).
+        leftAt: p.leftAt,
+        active: p.active,
         muted: false,
         notificationsEnabled: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: AppTime.now(),
+        updatedAt: AppTime.now(),
         privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
         avatarUrl: p.avatarUrl,
         staffCode: p.staffCode,
@@ -176,26 +275,27 @@ class _ParentDirectMessagingScreenState
         .map((p) => p.userName)
         .toList();
 
-    return {
-      'name': conv.title,
-      'avatar': conv.avatarUrl,
-      'code': conv.code,
+    return ParentThreadInfo(
+      name: conv.title,
+      avatar: conv.avatarUrl,
+      code: conv.code,
       // The conversation's own org/school — used to build the realtime
       // (Firestore) watch path correctly even when the session's currently
       // active org/school differs (multi-school parent, recent switch).
-      'organizationCode': conv.organizationCode,
-      'schoolCode': conv.schoolCode,
-      'parents': parentNames,
-      'guardianMap': {
+      organizationCode: conv.organizationCode,
+      schoolCode: conv.schoolCode,
+      parents: parentNames,
+      guardianMap: {
         for (final guardian in guardians) guardian.userCode: guardian.userName,
       },
-      'participants': legacyParticipants,
-      'staffList': staffCodes,
-      'privateModeParents': privateModeParentNames,
-      'privateModeActive': conv.privateModeActive,
-      'privateModeActivatedBy': conv.privateModeActivatedBy,
-      'privateModeActivatedAt': conv.privateModeActivatedAt,
-    };
+      participants: legacyParticipants,
+      staffList: staffCodes,
+      privateModeParents: privateModeParentNames,
+      privateModeActive: conv.privateModeActive,
+      privateModeActivatedBy: conv.privateModeActivatedBy,
+      privateModeActivatedAt: conv.privateModeActivatedAt,
+      studentStatus: conv.studentStatus,
+    );
   }
 
   @override
@@ -217,10 +317,11 @@ class _ParentDirectMessagingScreenState
             _listCubit.state.conversations,
             explicit: true,
           );
+          _resolveExistingConversation(childState.selectedChild);
         },
         child: BlocConsumer<ConversationListCubit, ConversationListState>(
           listener: (context, state) {
-            if (_selectedConversation == null &&
+            if (_selectedConversation.value == null &&
                 state.conversations.isNotEmpty) {
               final childState = context.read<ParentChildCubit>().state;
               // Skip while ParentChildCubit is still resolving (e.g. right
@@ -235,18 +336,100 @@ class _ParentDirectMessagingScreenState
             }
           },
           builder: (context, state) {
-            return RefreshIndicator(
-              onRefresh: _listCubit.refresh,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (state.errorMessage != null)
-                    _buildErrorBanner(state.errorMessage!),
-                  Expanded(child: _buildThreadArea(state)),
-                ],
-              ),
+            // Rebuild on the view-state notifiers (selected conversation,
+            // draft attachments, loading flags) alongside the cubit state.
+            return ListenableBuilder(
+              listenable: Listenable.merge([
+                _selectedConversation,
+                _resolvingExistence,
+                _isStartingConversation,
+                _pendingNewConversationAttachments,
+              ]),
+              builder: (context, _) {
+                final childState = context.watch<ParentChildCubit>().state;
+                debugPrint(
+                  'ParentLoaded=${childState.isLoaded}, '
+                  'ConversationLoading=${state.isLoading}, '
+                  'SelectedConversation=${_selectedConversation.value?.code}',
+                );
+                final body = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (state.errorMessage != null)
+                      _buildErrorBanner(state.errorMessage!),
+                    Expanded(
+                      child: _buildThreadArea(
+                        state,
+                        isChildLoaded: childState.isLoaded,
+                      ),
+                    ),
+                  ],
+                );
+                // Once a thread is open, ParentMessagingThread owns its own
+                // pull-to-refresh (refreshing messages AND, via
+                // onRefreshConversationList below, this list) — wrapping it
+                // again here would register two nested RefreshIndicators for
+                // the same drag gesture, firing the list refresh twice while
+                // neither necessarily wins the gesture cleanly. Only wrap here
+                // for the loading/error/no-conversation states, which have no
+                // refresh indicator of their own.
+                final content = _selectedConversation.value != null
+                    ? body
+                    : CustomRefreshIndicator(
+                        onRefresh: _listCubit.refresh,
+                        child: body,
+                      );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildRefreshHeader(),
+                    Expanded(child: content),
+                  ],
+                );
+              },
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// Discoverable manual refresh — mirrors the pull-to-refresh
+  /// ([_listCubit.refresh]) so the parent isn't limited to the pull gesture,
+  /// which isn't obvious and can't be triggered once a thread is open (that
+  /// state owns its own pull-to-refresh instead — see the doc above where
+  /// this is used). Matches the discoverable refresh icon on the
+  /// staff/admin side (staff_messaging_tab.dart, admin_chat_host_screen.dart);
+  /// this screen (Room Chat AND Admin Chat, for the parent persona — see
+  /// [AdminChatHostScreen]) previously had no equivalent.
+  Widget _buildRefreshHeader() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Material(
+        color: AppColors.transparentColor,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            unawaited(_listCubit.refresh());
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Refreshing…',
+              duration: const Duration(milliseconds: 1200),
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: AppSizes.xs),
+            padding: const EdgeInsets.all(AppSizes.xs),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.messagingSearchFieldBg,
+            ),
+            child: const Icon(
+              Icons.refresh,
+              color: AppColors.primaryColor,
+              size: 20,
+            ),
+          ),
         ),
       ),
     );
@@ -255,41 +438,47 @@ class _ParentDirectMessagingScreenState
   Widget _buildErrorBanner(String message) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.only(bottom: AppSizes.xs),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: AppSizes.xsPlus),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3F3),
+        color: AppColors.messagingErrorSoftBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFCDD2)),
+        border: Border.all(color: AppColors.messagingErrorSoftBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Color(0xFFE53935), size: 18),
-          const SizedBox(width: 8),
+          const Icon(Icons.error_outline, color: AppColors.messagingErrorRed, size: 18),
+          const SizedBox(width: AppSizes.xs),
           Expanded(
             child: CustomTextWidget(
               text: message,
               fontSize: 12,
-              fontColor: const Color(0xFFB71C1C),
+              fontColor: AppColors.messagingErrorDarkText,
               unlimitedLines: true,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSizes.xs),
           CustomTextWidget(
-            text: 'Pull to retry',
+            text: AppStrings.pullToRetry,
             fontSize: 11,
-            fontColor: const Color(0xFFE53935),
+            fontColor: AppColors.messagingErrorRed,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildThreadArea(ConversationListState state) {
-    final selected = _selectedConversation;
+  Widget _buildThreadArea(
+    ConversationListState state, {
+    required bool isChildLoaded,
+  }) {
+    final selected = _selectedConversation.value;
 
     if (selected == null) {
-      if (state.isLoading) {
+      // Hold the shimmer while the list is loading, the child isn't ready, OR
+      // the authoritative server existence-check is still in flight — so the
+      // "start a chat" draft view only appears once we're sure none exists.
+      if (state.isLoading || !isChildLoaded || _resolvingExistence.value) {
         return const ChatThreadShimmer();
       }
       if (state.errorMessage != null) {
@@ -300,19 +489,19 @@ class _ParentDirectMessagingScreenState
               Icon(
                 Icons.wifi_off_rounded,
                 size: 56,
-                color: Colors.grey.withValues(alpha: 0.35),
+                color: AppColors.messagingIconMuted.withValues(alpha: 0.35),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.sm),
               const CustomTextWidget(
-                text: 'Could not load conversations',
+                text: AppStrings.couldNotLoadConversations,
                 fontSize: 15,
-                fontColor: Colors.grey,
+                fontColor: AppColors.messagingIconMuted,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSizes.xs),
               const CustomTextWidget(
-                text: 'Pull down to try again',
+                text: AppStrings.pullDownToTryAgain,
                 fontSize: 13,
-                fontColor: Colors.grey,
+                fontColor: AppColors.messagingIconMuted,
               ),
             ],
           ),
@@ -325,13 +514,28 @@ class _ParentDirectMessagingScreenState
 
     // Provide a dedicated CommunicationCubit for the thread so its state
     // (messages) is isolated from any outer cubit used for the list.
+    // Total active participants minus the viewer themselves — seeded so
+    // this fresh cubit's read/delivered-by-all tick aggregation has a
+    // recipient count to work with. See
+    // CommunicationCubit.seedRecipientCount's own doc for why this is
+    // required, not just an optimization.
+    final recipientCount =
+        selected.participants.where((p) => p.isActive).length - 1;
     return BlocProvider<CommunicationCubit>(
-      create: (_) => serviceLocator<CommunicationCubit>(),
+      create: (_) =>
+          resolveCommunicationCubit()
+            ..seedRecipientCount(selected.code, recipientCount),
       child: ParentMessagingThread(
         key: ValueKey(selected.code),
         parentInfo: _buildParentInfo(selected),
         showOwnScaffold: false,
         isGuardian: true,
+        conversationType: widget.conversationType,
+        // This screen no longer wraps the thread in its own
+        // RefreshIndicator (see the builder above) — the thread's pull-to-
+        // refresh triggers this too, so the list (and its cache) actually
+        // updates instead of only the currently-open thread's messages.
+        onRefreshConversationList: _listCubit.refresh,
       ),
     );
   }
@@ -344,11 +548,13 @@ class _ParentDirectMessagingScreenState
       context,
       onAttachmentsSelected: (attachments) {
         if (attachments.isEmpty) return;
-        // Only one attachment may be pending at a time, matching the
-        // existing in-thread composer's behavior.
-        setState(
-          () => _pendingNewConversationAttachments = [attachments.first],
-        );
+        // Add to whatever's already staged — picking multiple photos/videos
+        // together (or picking again before sending) must accumulate, not
+        // discard everything but the newest single file.
+        _pendingNewConversationAttachments.value = [
+          ..._pendingNewConversationAttachments.value,
+          ...attachments,
+        ];
       },
       onEmojiSelected: (emoji) {
         final pos = _emptyInputController.selection.isValid
@@ -362,6 +568,14 @@ class _ParentDirectMessagingScreenState
       },
       // No participants to show yet — the conversation doesn't exist.
       onViewParticipants: null,
+      onAttachmentError: (message) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
+      },
     );
   }
 
@@ -371,15 +585,15 @@ class _ParentDirectMessagingScreenState
   /// "conversation auto-creates on first send" flow — there is no separate
   /// "create conversation" step the parent has to do first.
   Future<void> _sendFirstMessage() async {
-    if (_isStartingConversation) return;
+    if (_isStartingConversation.value) return;
     final text = _emptyInputController.text.trim();
-    final attachments = _pendingNewConversationAttachments;
+    final attachments = _pendingNewConversationAttachments.value;
     if (text.isEmpty && attachments.isEmpty) return;
 
     final child = context.read<ParentChildCubit>().state.selectedChild;
     if (child == null) return;
 
-    setState(() => _isStartingConversation = true);
+    _isStartingConversation.value = true;
 
     // Same call shape as the Admin/Staff "start conversation" flow
     // (staff_messaging_tab.dart's room-chat branch): type + studentCode
@@ -389,28 +603,27 @@ class _ParentDirectMessagingScreenState
     // which persona's client sent the request — so a parent-created Room
     // Chat ends up with the same full participant set as a staff-created
     // one.
-    final createResult = await serviceLocator<CreateOrOpenConversationUseCase>()
-        .call(
-          type: widget.conversationType,
-          studentCode: child.code,
-          participantCodes: const [],
-          // Backend requires a non-empty title ("Title is required");
-          // staff_messaging_tab.dart's equivalent call passes the
-          // other party's display name — here that's the student's.
-          title: child.name,
-        );
+    final createResult = await _listCubit.createOrOpenConversation(
+      type: widget.conversationType,
+      studentCode: child.code,
+      classroomCode: child.classroomCode,
+      participantCodes: const [],
+      // Backend requires a non-empty title ("Title is required");
+      // staff_messaging_tab.dart's equivalent call passes the
+      // other party's display name — here that's the student's.
+      title: child.name,
+    );
 
     if (!mounted) return;
 
     await createResult.fold(
       (failure) async {
-        setState(() => _isStartingConversation = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        _isStartingConversation.value = false;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
               failure.message ?? 'Could not start the conversation. Try again.',
-            ),
-          ),
+          isError: true,
         );
       },
       (conversation) async {
@@ -419,26 +632,28 @@ class _ParentDirectMessagingScreenState
         final senderName = authState is AuthLoaded
             ? authState.loginResponse.displayName
             : null;
-        final storedUserCode =
-            (await serviceLocator<StorageService>().getString(
-                      StorageKeys.userCode,
-                    ) ??
-                    '')
-                .trim();
+        final storedUserCode = (await _listCubit.readCurrentUserCode() ?? '')
+            .trim();
         final senderUserCode = authState is AuthLoaded
             ? authState.loginResponse.userCode
             : (storedUserCode.isNotEmpty ? storedUserCode : null);
 
         final receivers = <String>[
-          ...(parentInfo['staffList'] as List<dynamic>? ?? []).cast<String>(),
-          ...(parentInfo['parents'] as List<dynamic>? ?? []).cast<String>(),
+          ...parentInfo.staffList,
+          ...parentInfo.parents,
         ];
 
         // A short-lived cubit just to drive this one send — the real,
         // long-lived per-thread cubit takes over once the screen swaps to
-        // ParentMessagingThread below.
-        final sendCubit = serviceLocator<CommunicationCubit>();
-        sendCubit.sendMessage(
+        // ParentMessagingThread below. MUST be awaited: `sendMessage` emits
+        // more than once internally (an optimistic emit, then a
+        // confirmed/failed emit once the POST resolves) — closing the cubit
+        // right after firing it without awaiting raced that second emit
+        // against `close()` below, crashing with "Bad state: Cannot emit new
+        // states after calling close" and silently losing the very first
+        // message a parent ever sends for a brand-new conversation.
+        final sendCubit = resolveCommunicationCubit();
+        await sendCubit.sendMessage(
           conversation.code,
           text,
           attachments: attachments,
@@ -448,17 +663,15 @@ class _ParentDirectMessagingScreenState
         );
 
         if (!mounted) return;
-        setState(() {
-          _isStartingConversation = false;
-          _emptyInputController.clear();
-          _pendingNewConversationAttachments = [];
-          // Switch over to the real thread immediately rather than waiting
-          // for the list stream to refresh — _listCubit.refresh() below
-          // keeps the conversation list (sidebar/badges elsewhere) in sync,
-          // but the screen itself shouldn't sit on the "not yet created"
-          // placeholder while that round-trip happens.
-          _selectedConversation = conversation;
-        });
+        _isStartingConversation.value = false;
+        _emptyInputController.clear();
+        _pendingNewConversationAttachments.value = [];
+        // Switch over to the real thread immediately rather than waiting
+        // for the list stream to refresh — _listCubit.refresh() below
+        // keeps the conversation list (sidebar/badges elsewhere) in sync,
+        // but the screen itself shouldn't sit on the "not yet created"
+        // placeholder while that round-trip happens.
+        _selectedConversation.value = conversation;
         await sendCubit.close();
         unawaited(_listCubit.refresh());
       },
@@ -479,22 +692,23 @@ class _ParentDirectMessagingScreenState
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFF4F7FD),
+              color: AppColors.messagingMessageBoxBg,
             ),
             child: Column(
               children: [
                 // Header — mirrors _buildParticipantHeader in the thread
                 Container(
                   decoration: const BoxDecoration(
-                    color: Colors.transparent,
+                    color: AppColors.transparentColor,
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                      bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                  padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xs, AppSizes.xxs, AppSizes.xs),
                   child: Row(
                     children: [
                       DocumentImageWidget(
+                        disableAttendanceStatusLookup: true,
                         fileUuid: '',
                         studentCode: (childCode ?? '').trim().isNotEmpty
                             ? childCode
@@ -503,10 +717,10 @@ class _ParentDirectMessagingScreenState
                         size: 34,
                         fontSize: 15,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: AppSizes.xsPlus),
                       Expanded(
                         child: CustomTextWidget(
-                          text: childName.isNotEmpty ? childName : 'Student',
+                          text: childName.isNotEmpty ? childName : AppStrings.studentFallback,
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
@@ -518,20 +732,18 @@ class _ParentDirectMessagingScreenState
                 Container(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: AppSizes.sm,
                     vertical: 6,
                   ),
                   child: Text(
-                    'Group',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
+                    AppStrings.group,
+                    style: AppTextStyles.size14.copyWith(
                       fontWeight: FontWeight.w500,
                       color: AppColors.primaryColor,
                     ),
                   ),
                 ),
-                const Divider(height: 1, color: Color(0xFFE9ECEF)),
+                const Divider(height: 1, color: AppColors.messagingBorderSubtle),
                 // Centered empty state
                 Expanded(
                   child: Center(
@@ -541,13 +753,13 @@ class _ParentDirectMessagingScreenState
                         Icon(
                           Icons.chat_bubble_outline_rounded,
                           size: 56,
-                          color: Colors.grey.withValues(alpha: 0.35),
+                          color: AppColors.messagingIconMuted.withValues(alpha: 0.35),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSizes.sm),
                         CustomTextWidget(
                           text: widget.notCreatedLabel,
                           fontSize: 15,
-                          fontColor: Colors.grey,
+                          fontColor: AppColors.messagingIconMuted,
                         ),
                       ],
                     ),
@@ -557,16 +769,16 @@ class _ParentDirectMessagingScreenState
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSizes.xsPlus),
         SafeArea(
           top: false,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.cardColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.blackColor.withValues(alpha: 0.05),
                   blurRadius: 6,
                   offset: const Offset(0, -2),
                 ),
@@ -575,15 +787,17 @@ class _ParentDirectMessagingScreenState
             child: ChatInputBar(
               controller: _emptyInputController,
               focusNode: _emptyInputFocus,
-              isSending: _isStartingConversation,
+              isSending: _isStartingConversation.value,
               onSend: _sendFirstMessage,
               onAttachmentTap: _showAttachmentSheetForNewConversation,
-              pendingAttachments: _pendingNewConversationAttachments,
+              pendingAttachments: _pendingNewConversationAttachments.value,
               quotedMessage: null,
               onCancelQuote: () {},
-              onRemoveAttachment: (i) => setState(() {
-                _pendingNewConversationAttachments.removeAt(i);
-              }),
+              onRemoveAttachment: (i) {
+                final next = [..._pendingNewConversationAttachments.value]
+                  ..removeAt(i);
+                _pendingNewConversationAttachments.value = next;
+              },
               editingMessage: null,
               onCancelEdit: () {},
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import '../util/logger_service.dart';
+import '../utils/logger_service.dart';
 
 class ScreenshotProtection {
   static const _channel = MethodChannel('com.wiseowl.wowcareapp/security');

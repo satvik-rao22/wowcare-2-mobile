@@ -1,17 +1,24 @@
-import 'dart:async';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/widgets/form_classrooms_field.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/reports/widgets/resolve_school_name.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
   const StaffAttendancePerWeekReportScreen({
@@ -38,82 +45,123 @@ class _StaffAttendancePerWeekReportScreenState
     'Monthly',
   ];
 
-  String _frequency = 'Monthly';
-  late DateTime _periodMonth;
-  List<String> _selectedStaff = <String>[];
-  List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  final ValueNotifier<String> _frequency = ValueNotifier<String>('Monthly');
+  late final ValueNotifier<DateTime> _periodMonth;
+  final ValueNotifier<List<String>> _selectedStaff =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<List<String>> _selectedClassrooms =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
+
+  List<String> _getAvailableStaff(BuildContext context) {
+    final cubitStaff = context.watch<ReportsCubit>().state.staffNames;
+    if (cubitStaff.isNotEmpty) return cubitStaff;
+    return widget.staff;
+  }
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _periodMonth = DateTime(now.year, now.month, 1);
+    final now = AppTime.now();
+    _periodMonth = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Staff reports need the wider list that also contains Office and
+        // primary rooms (onlyTypeClassroom: false).
+        context.read<ReportsCubit>().loadFormClassrooms(
+          includeNonClassroomTypes: true,
+        );
+      }
+    });
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
-
-    if (!_validateInputs()) {
-      AppLogger.w('[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation');
-      return;
-    }
 
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
     final reportsState = cubit.state;
 
     // Convert staff names to codes
-    final staffCodes = _selectedStaff.isNotEmpty
-        ? _selectedStaff
-            .map((name) => reportsState.staffNameToCode[name] ?? name)
-            .toList()
-        : null;
-
+    final staffCodes = resolveReportCodes(
+      context: context,
+      names: _selectedStaff.value,
+      nameToCode: reportsState.staffNameToCode,
+      labelPlural: 'staff',
+    );
+    if (staffCodes == null) return;
+    final schoolName = await resolveSchoolNameOrWarn(context);
+    if (schoolName == null || !mounted) return;
     // Convert classroom names to codes
-    final classroomCodes = _selectedClassrooms.isNotEmpty
-        ? _selectedClassrooms
-            .map((name) => reportsState.classroomNameToCode[name] ?? name)
-            .toList()
-        : null;
+    final nameToCode = reportsState.allClassroomNameToCode.isNotEmpty
+        ? reportsState.allClassroomNameToCode
+        : reportsState.classroomNameToCode;
+    // Empty selection → no codes → the key is omitted below, which is how
+    // this endpoint expresses "all classrooms" / "all staff".
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.value,
+      nameToCode: nameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
 
     final params = ReportRequestParams(
       reportType: ReportType.staffAttendancePerStaff,
-      startDate: _periodMonth,
-      endDate: _periodMonth.add(const Duration(days: 30)),
-      staffCodes: staffCodes,
-      classroomCodes: classroomCodes,
-      format: _format,
+      startDate: _periodMonth.value,
+      endDate: _periodMonth.value.add(const Duration(days: 30)),
+      staffCodes: staffCodes.isEmpty ? null : staffCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      format: _format.value,
+      schoolName: schoolName,
     );
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
   }
 
-  bool _validateInputs() {
-    if (_selectedStaff.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one staff member',
-        isError: true,
+  TextStyle _labelStyle(BuildContext context) =>
+      AppTextStyles.reportsFieldLabel(
+        fontSize: context.responsive(compact: 14.0, medium: 16.0),
       );
-      return false;
-    }
-    return true;
-  }
 
-  TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-    fontSize: r.labelFontSize,
-    fontFamily: 'Manrope',
-    fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
-  );
+  @override
+  void dispose() {
+    _format.dispose();
+    _frequency.dispose();
+    _periodMonth.dispose();
+    _selectedClassrooms.dispose();
+    _selectedStaff.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
+    final availableStaff = _getAvailableStaff(context);
 
     return MultiBlocListener(
       listeners: [
+        // Drop selections that no longer exist when a refreshed list
+        // arrives. Neither filter ever re-expands to "all" — an empty filter
+        // already means every classroom / every staff member.
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.allClassroomNames != current.allClassroomNames,
+          listener: (context, state) {
+            _selectedClassrooms.value = _selectedClassrooms.value
+                .where(state.allClassroomNames.contains)
+                .toList();
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.staffNames != current.staffNames,
+          listener: (context, state) {
+            _selectedStaff.value = _selectedStaff.value
+                .where(state.staffNames.contains)
+                .toList();
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -138,7 +186,7 @@ class _StaffAttendancePerWeekReportScreenState
                 state.generatedReport != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -146,8 +194,14 @@ class _StaffAttendancePerWeekReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
+                  // Still a pop, not context.go(): go() would update the
+                  // hub's route state without dismissing this screen, so the
+                  // user would never see the tab switch.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             }
@@ -158,7 +212,7 @@ class _StaffAttendancePerWeekReportScreenState
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
-            title: 'Attendance Per Staff',
+            title: ReportsStrings.staffAttendancePerStaffName,
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
@@ -169,68 +223,90 @@ class _StaffAttendancePerWeekReportScreenState
                   children: [
                     Expanded(
                       child: CustomDropdown(
-                        label: 'Frequency',
-                        hintText: 'Select',
+                        label: ReportsStrings.frequency,
+                        hintText: ReportsStrings.select,
                         items: _frequencyOptions,
-                        selectedItem: _frequency,
-                        labelStyle: _labelStyle(responsive),
+                        selectedItem: _frequency.value,
+                        labelStyle: _labelStyle(context),
                         showAsterisk: true,
-                        labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                        prependHintAsSelectableItem: false,
+                        labelBottomSpacing: context.isTablet ? 8.0 : 6.0,
                         onSelect: (val) {
                           if (val == null) return;
-                          setState(() => _frequency = val);
+                          _frequency.value = val;
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSizes.sm),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const ReportFieldLabel(label: 'Period'),
-                          ReportMonthYearField(
-                            initialMonth: _periodMonth,
-                            onMonthSelected: (d) =>
-                                setState(() => _periodMonth = d),
+                          const ReportFieldLabel(label: ReportsStrings.period),
+                          ValueListenableBuilder<DateTime>(
+                            valueListenable: _periodMonth,
+                            builder: (_, v, __) => ReportMonthYearField(
+                              initialMonth: v,
+                              onMonthSelected: (d) => _periodMonth.value = d,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                MultiSelectFilterField<String>(
-                  label: 'Staff',
-                  hintText: 'Select Staff Members',
-                  items: widget.staff,
-                  selectedItems: _selectedStaff,
-                  onChanged: (s) => setState(() => _selectedStaff = s),
-                  itemToString: (item) => item,
-                  singularLabel: 'Staff Member',
-                  pluralLabel: 'Staff Members',
-                  showSelectAll: true,
-                  enableSearch: true,
-                  searchHintText: 'Search Staff',
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: widget.classrooms,
-                  selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(() => _selectedClassrooms = s),
-                  showSelectAll: true,
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedStaff,
+                  builder: (_, v, __) => MultiSelectFilterField<String>(
+                    label: ReportsStrings.tabStaff,
+                    hintText: ReportsStrings.allStaffMembers,
+                    items: availableStaff,
+                    selectedItems: v,
+                    onChanged: (s) => _selectedStaff.value = s,
+                    itemToString: (item) => item,
+                    singularLabel: ReportsStrings.staffMember,
+                    pluralLabel: ReportsStrings.staffMembers,
+                    showSelectAll: true,
+                    enableSearch: true,
+                    searchHintText: ReportsStrings.searchStaff,
+                  ),
+                ),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                FormClassroomsField(
+                  includeNonClassroomTypes: true,
+                  child: BlocSelector<ReportsCubit, ReportsState, List<String>>(
+                    selector: (state) => state.allClassroomNames.isNotEmpty
+                        ? state.allClassroomNames
+                        : widget.classrooms,
+                    builder: (context, classroomItems) =>
+                        CustomMultiSelectDropdown(
+                          label: ReportsStrings.classroom,
+                          hintText: ReportsStrings.allClassrooms,
+                          items: classroomItems,
+                          selectedItems: _selectedClassrooms.value,
+                          onChanged: (s) => _selectedClassrooms.value = s,
+                          showSelectAll: true,
+                        ),
+                  ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
-                ReportFormatSelector(
-                  selectedFormat: _format,
-                  onFormatChanged: (value) => setState(() => _format = value),
-                  showLabel: false,
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportFieldLabel(label: ReportsStrings.exportFormat),
+                ValueListenableBuilder<String>(
+                  valueListenable: _format,
+                  builder: (_, v, __) => ReportFormatSelector(
+                    selectedFormat: v,
+                    onFormatChanged: (value) => _format.value = value,
+                    showLabel: false,
+                  ),
                 ),
               ],
             ),

@@ -25,15 +25,35 @@ abstract class ConversationEntityRepository {
   ///
   /// [type] — null returns all accessible types for current user role.
   /// [page] / [size] — pagination parameters.
-  /// [designation], [staffStatus], [classroom] — STAFF_DIRECT filters only.
+  /// [classroomCodes]/[tagCodes] — ROOM_CHAT/ADMIN_CHAT filters (student's
+  /// classroom + tags). [designations]/[staffStatuses] — STAFF_DIRECT
+  /// filters. [studentStatuses] applies to student-scoped types. All mirror
+  /// the backend's `getConversationsByType` contract exactly.
+  ///
+  /// [includeRestUnreadCounts] — when false, skips the REST per-conversation
+  /// unread-count stamp entirely (Firestore is the sole source of truth for
+  /// unread counts; callers that already have a live Firestore-backed
+  /// [unreadCount] for these conversations, e.g. from [watchConversations]'s
+  /// state, should set this false and overlay it themselves rather than
+  /// letting an API value flow into the UI even momentarily).
+  ///
+  /// [status] — the conversation-level status filter. Pass null to omit it
+  /// entirely (e.g. STAFF_DIRECT, which now relies solely on [staffStatuses]
+  /// — sending `status` alongside an overlapping `staffStatuses` value has
+  /// been confirmed to return an EMPTY result from the backend).
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   });
 
   /// Return conversations directly from Isar (no network call).
@@ -101,15 +121,20 @@ abstract class ConversationEntityRepository {
 
   /// All ROOM_CHAT conversations for a specific classroom.
   /// Used in teacher and staff views.
-  Future<Either<Failure, List<ConversationEntity>>> getConversationsForClassroom(
-    String classroomCode,
-  );
+  Future<Either<Failure, List<ConversationEntity>>>
+  getConversationsForClassroom(String classroomCode);
 
   /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
   Future<Either<Failure, Unit>> reconcileClassroomChat(
     String classroomCode, {
     String? classroomName,
   });
+
+  /// User codes currently present on [classroomCode]'s staff roster — see
+  /// [ConversationEntityRemoteDataSource.getClassroomRosterPresentUserCodes].
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  );
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
@@ -169,6 +194,22 @@ abstract class ConversationEntityRepository {
   /// Used to populate drawer badges.
   Future<Either<Failure, Map<String, int>>> getUnreadAggregates();
 
+  /// Per-conversation unread counts, keyed by conversation code.
+  ///
+  /// Backed by `/messages/unread-per-conversation` — confirmed reliable
+  /// (unlike the conversation-list endpoint's own `unreadCount` field, which
+  /// the backend never actually populates). Used to correct per-conversation
+  /// badges instead of trusting the list response or Firestore's
+  /// recompute-on-read, both of which have shown incorrect values.
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation();
+
+  /// Same `/messages/unread-per-conversation` data as
+  /// [getUnreadCountsPerConversation], summed by [ConversationType.toApiString()]
+  /// instead of by conversation code. Used to force an immediate,
+  /// authoritative top-bar badge refresh right after a conversation is
+  /// marked read, instead of waiting for Firestore's own aggregate stream.
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType();
+
   /// Mark all messages in a conversation as read for the current user.
   ///
   /// Offline behaviour: queued and retried on reconnect.
@@ -196,13 +237,15 @@ abstract class ConversationEntityRepository {
   /// Firestore is the source of truth for [unreadCount], [lastMessagePreview],
   /// and [lastMessageAt]. Isar provides metadata (title, avatarUrl).
   /// [type] — when non-null, filters to a specific [ConversationType].
-  Stream<List<ConversationEntity>> watchConversations({
-    ConversationType? type,
-  });
+  Stream<List<ConversationEntity>> watchConversations({ConversationType? type});
 
   /// Lightweight per-type unread sum — reads Firestore only, no Isar merge.
   /// Use this in badge cubits to avoid duplicating the full stream pipeline.
   Stream<int> watchUnreadCountForType(ConversationType type);
+
+  /// Lightweight per-conversation unread — reads Firestore only. Used for
+  /// per-classroom (CLASSROOM_CHAT) badges keyed by [conversationCode].
+  Stream<int> watchUnreadCountForConversation(String conversationCode);
 
   /// Realtime stream of total unread count across all conversations.
   Stream<int> watchTotalUnreadCount();

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/subsidies_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidy_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
-import '../../../../../shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 
 class SubsidiesSection extends StatefulWidget {
   const SubsidiesSection({super.key});
@@ -31,7 +32,7 @@ class _SubsidiesSectionState extends State<SubsidiesSection> {
       SnackBar(
         content: Text("${subsidy.subsidyName} deleted"),
         action: SnackBarAction(
-          label: 'Undo',
+          label: BillingStrings.undo,
           // Keeps the original ordering even after undo.
           onPressed: () => _cubit.restoreSubsidy(subsidy, index),
         ),
@@ -59,7 +60,7 @@ class _SubsidiesSectionState extends State<SubsidiesSection> {
                       Expanded(
                         child: CustomSearchBar(
                           controller: _searchController,
-                          hintText: 'Search Subsidy',
+                          hintText: BillingStrings.searchSubsidy,
                           onChanged: (text) => _cubit.setSearchQuery(text),
                         ),
                       ),
