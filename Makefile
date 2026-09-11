@@ -1,5 +1,26 @@
 FLUTTER ?= flutter
 
+# -----------------------------------------------------------------------------
+# Gradle JVM network preference
+#
+# :app:uploadCrashlyticsMappingFileRelease PUTs the ~6 MB gzipped R8 mapping as a
+# single non-resumable fixed-length body (firebase-crashlytics-buildtools 3.0.2 on
+# Apache HttpClient: no resume, no socket timeout, 3 transport retries). Java sorts
+# IPv4 ahead of IPv6 by default, and some NATs -- an iPhone Personal Hotspot
+# (172.20.10.0/28) is the one that bit us -- reset sustained IPv4 uploads after
+# ~128-256 KB. All 3 retries die the same way and the build fails with
+# `java.net.SocketException: Broken pipe`, before the APK is ever packaged.
+#
+# This MUST be an environment variable, not `org.gradle.jvmargs`. Gradle classifies
+# arbitrary -D properties as mutable, so it reuses a running daemon and applies them
+# with System.setProperty() after startup -- but InetAddress caches the preference at
+# class-init, so the property reads "true" while resolution stays IPv4-first.
+# JAVA_TOOL_OPTIONS is read by the JVM before that, so it actually takes effect.
+#
+# Only a preference: IPv4 is still used when a network has no IPv6 route.
+# -----------------------------------------------------------------------------
+export JAVA_TOOL_OPTIONS := $(JAVA_TOOL_OPTIONS) -Djava.net.preferIPv6Addresses=true
+
 .PHONY: help help-optimization clean get upgrade doctor fix analyze test format \
 	local-run qa-run uat-run prod-run \
 	local-run-profile qa-run-profile uat-run-profile prod-run-profile \
