@@ -89,8 +89,17 @@ val dartEnvironment: String by lazy {
 //
 //   flutter build apk --release --dart-define=ENVIRONMENT=UAT -Pcrashlytics.mappingUpload=true
 //
-// If an upload fails in CI, re-run the build: Gradle skips the up-to-date R8
-// task and retries only the upload, so a retry costs a minute, not a rebuild.
+// A `Broken pipe` here is usually NOT flaky wifi and re-running will not help:
+// Java sorts IPv4 ahead of IPv6, and some NATs (an iPhone Personal Hotspot,
+// 172.20.10.0/28) reset sustained IPv4 uploads after ~128-256 KB, failing every
+// attempt at the same point. The root Makefile exports
+// JAVA_TOOL_OPTIONS=-Djava.net.preferIPv6Addresses=true to route around it; if you
+// invoke `flutter build` directly rather than through `make`, export it yourself.
+// To confirm the network is the cause, PUT the cached gzip by hand -- curl picks
+// IPv6 via Happy Eyeballs and succeeds where the JVM does not:
+//
+//   curl -X PUT --data-binary @build/app/crashlytics/release/.crashlytics-mappings-tmp/<id>.gz \
+//     https://firebasecrashlyticssymbols.googleapis.com/v1/project/-/app/<appId>/upload/java/<id>
 // ---------------------------------------------------------------------------
 val crashlyticsMappingUploadEnabled: Boolean by lazy {
     val override = (project.findProperty("crashlytics.mappingUpload") as String?)?.takeIf { it.isNotBlank() }
