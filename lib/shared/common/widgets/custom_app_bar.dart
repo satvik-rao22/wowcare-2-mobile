@@ -26,6 +26,7 @@ import 'package:wowcare/src/app_router.dart'
     show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/sign_in_pin_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -585,9 +586,11 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               ),
               const SizedBox(width: 12),
               FutureBuilder<String?>(
-                future: serviceLocator<StorageService>().getString(
-                  StorageKeys.staffPin,
-                ),
+                // Straight from the API, never from storage. The stored
+                // `staffPin` this replaced was written once at login, so a PIN
+                // changed on the web showed its old value here forever. This
+                // runs when the menu is opened, not on every screen build.
+                future: fetchSignInPinForLoggedInUser(),
                 builder: (context, snapshot) {
                   final pin = (snapshot.data ?? '').trim();
                   final text = pin.isNotEmpty

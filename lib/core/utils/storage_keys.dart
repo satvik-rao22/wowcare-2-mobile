@@ -87,7 +87,11 @@ class StorageKeys {
   static const String staffCodeOrganization = 'staffCodeOrganization';
   static const String staffCodeSchool = 'staffCodeSchool';
 
-  /// Optional cached staff sign-in PIN (from my-profile pin API).
+  /// Legacy staff sign-in PIN cache. Nothing writes or reads this any more —
+  /// the PIN is fetched live wherever it is shown, because a stored copy went
+  /// stale the moment the PIN was changed on the web and stayed stale until
+  /// the next logout. Kept only so logout can still wipe the value left on
+  /// devices that upgraded from a build which did store it.
   static const String staffPin = 'staffPin';
 
   /// Guardian record `code` from `GET /api/v1/guardian/profile` (not the auth userCode).

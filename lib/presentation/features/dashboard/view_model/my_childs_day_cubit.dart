@@ -116,8 +116,14 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
       var guardianClockPin = '';
       try {
+        // forceRefresh skips the 5-minute guardians cache. The guardian's
+        // sign-in PIN is read off this response, and a cached copy meant a
+        // PIN changed on the web kept showing its old value — nothing
+        // invalidates that cache on a PIN change, because no PIN update ever
+        // passes through this app.
         final guardians = await _studentRepository.getStudentGuardians(
           studentCode: code,
+          forceRefresh: true,
         );
         final loggedInUserCode =
             (await _storageService.getString(StorageKeys.userCode) ?? '')

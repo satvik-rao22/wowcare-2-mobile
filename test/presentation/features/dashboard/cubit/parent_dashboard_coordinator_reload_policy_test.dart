@@ -48,12 +48,18 @@ class _FakeMyChildsDayCubit extends _FakeCubit<MyChildsDayState>
 
   final List<String> loadedFor = <String>[];
 
+  /// `background` per call, in step with [loadedFor]. It decides whether
+  /// `loadForChild` refetches at all — the cubit returns early for an
+  /// already-loaded child unless it is true.
+  final List<bool> backgroundFlags = <bool>[];
+
   @override
   Future<void> loadForChild({
     required String studentCode,
     bool background = false,
   }) async {
     loadedFor.add(studentCode);
+    backgroundFlags.add(background);
   }
 }
 
@@ -244,6 +250,22 @@ void main() {
     expect(myChildsDay.loadedFor, <String>['STD_A', 'STD_A']);
     expect(attendance.loadCount, 2);
     expect(newsletters.loadCount, 2);
+  });
+
+  test('pull-to-refresh refetches the child\'s day in the background', () async {
+    // Without `background: true`, MyChildsDayCubit.loadForChild returns early
+    // for a child it has already loaded — so pull-to-refresh reached no API
+    // at all and the guardian's sign-in PIN never changed on screen.
+    parentChild.push(_loaded(_childA));
+    coordinator = build();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(myChildsDay.backgroundFlags, <bool>[false]);
+
+    await coordinator.refresh();
+
+    expect(myChildsDay.loadedFor, <String>['STD_A', 'STD_A']);
+    expect(myChildsDay.backgroundFlags, <bool>[false, true]);
   });
 
   test(
