@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -303,6 +304,36 @@ void main() {
         requestBody['classroomCodes'],
         unorderedEquals(classroomLookup.values),
       );
+    },
+  );
+
+  testWidgets(
+    'A fresh form defaults the range to the current week, Monday to Sunday',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(buildTestWidget());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Generate Report'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+
+      final params =
+          fakeReportsRepo.lastGeneratedParams as StaffSchedulingReportParams;
+
+      // The form is untouched, so these are the defaults it seeded itself with.
+      expect(params.startDate.weekday, DateTime.monday);
+      expect(params.endDate.weekday, DateTime.sunday);
+
+      // ...and it is THIS week: today has to fall inside the range, and the
+      // range has to be exactly the 7 days Monday through Sunday.
+      final now = AppTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      expect(params.startDate.isAfter(today), isFalse);
+      expect(params.endDate.isBefore(today), isFalse);
+      expect(params.endDate.difference(params.startDate).inDays, 6);
     },
   );
 }
