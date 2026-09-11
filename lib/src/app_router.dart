@@ -3,6 +3,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -184,6 +185,7 @@ import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_args.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -2361,7 +2363,28 @@ final GoRouter appRouter = GoRouter(
     // from having multiple sibling roots inside the same ShellBranch.
     GoRoute(
       path: AppRoutes.adminChat,
-      builder: (context, state) => const AdminChatHostScreen(),
+      // AdminChatHostScreen.initState reads BOTH cubits from context (Mandate
+      // 5 — the view resolves no dependencies itself), so this route MUST
+      // provide them. Without this MultiBlocProvider the screen threw
+      // ProviderNotFoundException the moment it mounted: a red error box in
+      // debug, a grey screen in release. It is reachable for every non-staff
+      // persona — the messaging launcher sheet's "Admin" option and the
+      // drawer's "Admin Chat" tile both land here.
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<ConversationListCubit>(
+            create: (_) => buildConversationListCubit(
+              conversationType: ConversationType.adminChat,
+            ),
+          ),
+          // loadInitial() in the create closure, matching every other route
+          // that provides StudentCubit (see the reports/classroom routes).
+          BlocProvider<StudentCubit>(
+            create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+          ),
+        ],
+        child: const AdminChatHostScreen(),
+      ),
     ),
     // Deep-link target for a tapped chat push notification: fetches the
     // conversation by code and shows the correct thread.
