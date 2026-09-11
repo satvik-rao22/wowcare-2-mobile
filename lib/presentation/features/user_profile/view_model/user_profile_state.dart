@@ -83,6 +83,15 @@ class UserProfileState extends Equatable {
     String? guardianPhotoAssetCode,
     String? guardianPhotoUrl,
     bool? profileLoadFailed,
+
+    /// Forces the guardian photo fields back to empty.
+    ///
+    /// Needed because the `?? this.x` merge above cannot express "set this to
+    /// ''" — passing `guardianPhotoUrl: ''` is indistinguishable from passing
+    /// nothing. Every other writer of these fields deliberately never clobbers
+    /// a known-good photo with an empty value (see
+    /// `loadGuardianProfileForParent`), so a delete needs an explicit opt-in.
+    bool clearGuardianPhoto = false,
   }) {
     return UserProfileState(
       profile: identical(profile, _kUnset)
@@ -111,9 +120,12 @@ class UserProfileState extends Equatable {
       guardianPhone: guardianPhone ?? this.guardianPhone,
       guardianAddress: guardianAddress ?? this.guardianAddress,
       guardianCode: guardianCode ?? this.guardianCode,
-      guardianPhotoAssetCode:
-          guardianPhotoAssetCode ?? this.guardianPhotoAssetCode,
-      guardianPhotoUrl: guardianPhotoUrl ?? this.guardianPhotoUrl,
+      guardianPhotoAssetCode: clearGuardianPhoto
+          ? ''
+          : (guardianPhotoAssetCode ?? this.guardianPhotoAssetCode),
+      guardianPhotoUrl: clearGuardianPhoto
+          ? ''
+          : (guardianPhotoUrl ?? this.guardianPhotoUrl),
       profileLoadFailed: profileLoadFailed ?? this.profileLoadFailed,
     );
   }

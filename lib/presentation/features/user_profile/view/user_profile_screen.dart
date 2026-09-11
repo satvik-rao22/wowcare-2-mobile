@@ -17,6 +17,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
+import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
@@ -297,6 +298,32 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  Future<void> _deleteProfileImage() async {
+    final isParent = context.read<RoleCubit>().isParent;
+    final result = await _cubit.deleteProfilePhoto(isParent: isParent);
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: result.message,
+      isSuccess: result.isSuccess,
+      isError: !result.isSuccess,
+    );
+  }
+
+  /// Whether a photo exists to delete, for either persona.
+  ///
+  /// The guardian branch checks the asset code too: the guardian-profile API
+  /// sometimes returns an asset code with no URL (see
+  /// `loadGuardianProfileForParent`), so a photo can exist with an empty URL.
+  bool _hasDeletableProfilePhoto({required bool isParent}) {
+    if (_isUploadingProfilePhoto) return false;
+    if (isParent) {
+      return _guardianPhotoUrl.trim().isNotEmpty ||
+          _guardianPhotoAssetCode.trim().isNotEmpty;
+    }
+    return (_profile?.profilePhotoUrl ?? '').trim().isNotEmpty;
+  }
+
   Future<void> _openStaffProfile() async {
     // Ensure we have a profile to open.
     final staffCode = (_profile?.staffCode ?? widget.staffCode ?? '').trim();
@@ -494,7 +521,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   child: Row(
                                     children: [
                                       GestureDetector(
-                                        onTap: _pickProfileImage,
+                                        onTap: () =>
+                                            ProfilePhotoActionSheet.show(
+                                              context,
+                                              hasPhoto:
+                                                  _hasDeletableProfilePhoto(
+                                                    isParent: isParentPersona,
+                                                  ),
+                                              subjectName: displayName,
+                                              onChangePhoto: _pickProfileImage,
+                                              onDelete: _deleteProfileImage,
+                                            ),
                                         child: Stack(
                                           clipBehavior: Clip.none,
                                           children: [

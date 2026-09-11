@@ -235,7 +235,6 @@ class AppRoutes {
   static const String orgSelection = '/org-selection';
   static const String schoolSelection = '/school-selection';
   static const String editUserProfile = EditUserProfileScreen.routeName;
-
   static const String dashboard = DashboardScreen.routeName;
   static const String classroom = ClassroomScreen.routeName;
   static const String activityFeed = ActivityFeedScreen.routeName;

@@ -74,18 +74,45 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     final nameToCode = cubit.state.allClassroomNameToCode.isNotEmpty
         ? cubit.state.allClassroomNameToCode
         : cubit.state.classroomNameToCode;
-    // Empty selection → no codes → `classroomCodes: null` below omits the
-    // key, which is how this endpoint expresses "all classrooms".
-    final classroomCodes = resolveReportCodes(
-      context: context,
-      names: _selectedClassrooms.value,
-      nameToCode: nameToCode,
-      labelPlural: 'classrooms',
-    );
-    if (classroomCodes == null) return;
+
+    // Unlike the staff *attendance* endpoints, staff-shifts/reports/generate
+    // rejects a body with no `classroomCodes` key — omitting it is a
+    // validation error, not "all classrooms". So an empty selection (the
+    // form's "All Classrooms" default) has to be sent as the explicit list
+    // of every loaded code.
+    final List<String> classroomCodes;
+    if (_selectedClassrooms.value.isEmpty) {
+      classroomCodes = nameToCode.values
+          .where((code) => code.trim().isNotEmpty)
+          .toList();
+    } else {
+      final resolved = resolveReportCodes(
+        context: context,
+        names: _selectedClassrooms.value,
+        nameToCode: nameToCode,
+        labelPlural: ReportsStrings.classroomsLabelPlural,
+      );
+      if (resolved == null) return;
+      classroomCodes = resolved;
+    }
+
+    // Without a single code there is nothing valid to send, which only
+    // happens when the classroom list never loaded. Say so here instead of
+    // firing a request the backend is guaranteed to reject.
+    if (classroomCodes.isEmpty) {
+      AppLogger.w(
+        '[STAFF-SCHEDULE-UI] Generation blocked: no classroom codes available',
+      );
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ReportsStrings.couldNotLoadClassroomsTapToRetry,
+        isError: true,
+      );
+      return;
+    }
 
     AppLogger.d(
-      '[STAFF-SCHEDULE-UI] Selected classrooms: $_selectedClassrooms',
+      '[STAFF-SCHEDULE-UI] Selected classrooms: ${_selectedClassrooms.value}',
     );
     AppLogger.d('[STAFF-SCHEDULE-UI] Resolved classroomCodes: $classroomCodes');
 
@@ -95,7 +122,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
       reportType: ReportType.staffScheduling,
       startDate: _startDate.value,
       endDate: _endDate.value,
-      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      classroomCodes: classroomCodes,
       format: _format.value,
       schoolName: schoolName,
     );
