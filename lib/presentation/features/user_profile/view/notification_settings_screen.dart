@@ -151,11 +151,14 @@ class _NotificationBody extends StatelessWidget {
     final rows = <Widget>[];
     String? lastCategory;
     for (final group in state.groups) {
-      if (group.categoryName != lastCategory) {
-        rows.add(
-          NotificationPreferenceCategoryHeader(categoryName: group.categoryName),
-        );
-        lastCategory = group.categoryName;
+      final label = group.categoryLabel;
+      if (label != lastCategory) {
+        // A category with neither a name nor a code gets no header at all,
+        // rather than an empty band of padding above its rows.
+        if (label.isNotEmpty) {
+          rows.add(NotificationPreferenceCategoryHeader(categoryLabel: label));
+        }
+        lastCategory = label;
       }
       rows.add(
         NotificationPreferenceGroupRow(

@@ -13,10 +13,10 @@ import 'package:wowcare/presentation/features/activities/view_model/medication_a
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_attendance_window_feedback.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 

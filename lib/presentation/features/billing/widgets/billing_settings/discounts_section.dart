@@ -176,10 +176,10 @@ class _DiscountsSectionState extends State<DiscountsSection> {
       value: _cubit,
       child: BlocBuilder<DiscountCubit, DiscountState>(
         builder: (context, state) {
-          // "Show inactive" is additive (both active and inactive show), not
-          // a swap to inactive-only — see the onToggle comment below for why
-          // a null filter, not 'INACTIVE', is what the toggle actually sets.
-          final bool showInactive = state.statusFilter != 'ACTIVE';
+          // "Show inactive" swaps the list between the two statuses (same as
+          // the general-ledger tab) — the backend is queried with
+          // `status=ACTIVE` or `status=INACTIVE`, never without a status.
+          final bool showInactive = state.statusFilter == 'INACTIVE';
           final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
           return Column(
@@ -230,13 +230,9 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                             color: AppColors.billingTextColor,
                           ),
                           onToggle: (v) {
-                            // "Show inactive" is meant additively — both
-                            // active and inactive should show, not swap to
-                            // inactive-only — so a null filter (no `status`
-                            // query param) fetches every discount instead of
-                            // replacing the active list with just inactive
-                            // ones and losing the real active totals.
-                            _cubit.setStatusFilter(v ? null : 'ACTIVE');
+                            // Refetches from the backend with the swapped
+                            // status — ACTIVE by default, INACTIVE when on.
+                            _cubit.setStatusFilter(v ? 'INACTIVE' : 'ACTIVE');
                           },
                         ),
                       ],

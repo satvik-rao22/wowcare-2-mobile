@@ -907,7 +907,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     }
 
     if (path == null || !mounted) return;
-    await context.push(path, extra: {'staff': entity});
+    // `popOnSuccess` keeps the user on this profile screen after a successful
+    // action instead of redirecting to the Attendance daily tab.
+    await context.push(
+      path,
+      extra: {'staff': entity, 'popOnSuccess': true},
+    );
     if (!mounted) return;
     await refreshData();
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 
-import '../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'scheduling_legend.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 

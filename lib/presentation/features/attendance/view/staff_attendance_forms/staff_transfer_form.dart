@@ -25,10 +25,21 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_r
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffTransferForm extends StatefulWidget {
-  const StaffTransferForm({super.key, this.staff, this.staffList});
+  const StaffTransferForm({
+    super.key,
+    this.staff,
+    this.staffList,
+    this.popOnSuccess = false,
+  });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
+
+  /// When true, pops back to the caller after a successful submission instead
+  /// of redirecting to the Attendance daily tab. Set by callers that live
+  /// outside the Attendance tab (e.g. the Staff attendance profile) so the
+  /// user stays on the screen they started from.
+  final bool popOnSuccess;
 
   static const String routeName = '/staff-transfer-form';
 
@@ -428,9 +439,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         // away.
         await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
         if (!mounted) return;
-        if (!isStaffAdmin) {
-          // Teacher/staff persona: no forced navigation — stay on
-          // whatever screen this action was started from.
+        if (widget.popOnSuccess || !isStaffAdmin) {
+          // Teacher/staff persona, or a caller that owns its own screen:
+          // no forced navigation — stay on whatever screen this action was
+          // started from.
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(

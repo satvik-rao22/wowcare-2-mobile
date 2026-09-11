@@ -431,11 +431,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       target = student_sign_in.StudentSignInForm(
         students: [entity],
         refreshCallback: refreshData,
+        // Actions started from this profile screen must return here, not
+        // redirect to the Attendance daily tab.
+        popOnSuccess: true,
       );
     } else if (actionLabel == 'Sign-Out') {
       target = student_sign_out.StudentSignOutForm(
         students: [entity],
         refreshCallback: refreshData,
+        popOnSuccess: true,
       );
     } else if (actionLabel == 'Transfer') {
       // `entity.classroomCode` above is seeded from the profile header
@@ -475,6 +479,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       target = student_transfer.StudentTransferForm(
         students: [entity],
         refreshCallback: refreshData,
+        popOnSuccess: true,
         classroomNameToCode: classroomMap,
         currentClassroomCode: (liveClassroomCode ?? '').isNotEmpty
             ? liveClassroomCode
@@ -487,6 +492,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       target = student_absent.StudentMarkAbsentForm(
         students: [entity],
         refreshCallback: refreshData,
+        popOnSuccess: true,
       );
     }
 

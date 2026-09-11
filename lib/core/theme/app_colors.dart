@@ -84,6 +84,33 @@ class AppColors {
   static const Color colorBox2 = AppPalette.dataOrangeSoft;
   static const Color colorBox3 = AppPalette.dataPurple;
 
+  // ── Staffing-ratio compliance (scheduling week/day views, dashboard) ──────
+  //
+  // Semantic tokens for ratio state: they are named for the state they mean
+  // and are never re-declared at the call site. They deduplicate the
+  // `colorBox` values above, which is why both groups resolve to the same
+  // palette roles.
+  //
+  // Colour alone must NOT carry the meaning — every surface using these also
+  // renders an icon or text label (see `SchedulingBlockStatusStyle.weekViewIcon`
+  // and `ratioBadgeLabel`).
+
+  /// Fewer staff scheduled than required.
+  static const Color ratioUnderStaffedColor = AppPalette.statusErrorSoft;
+
+  /// Scheduled staff exactly meets requirement.
+  static const Color ratioInRatioColor = AppPalette.statusSuccessSoft;
+
+  /// More staff scheduled than required.
+  static const Color ratioExtraStaffColor = AppPalette.brand;
+
+  /// No monitoring data for the block (outside the window, or all counts zero).
+  static const Color ratioEmptyColor = AppPalette.borderHairline;
+
+  /// Higher-contrast in-ratio fill used on badges, where the pale
+  /// [ratioInRatioColor] would not carry enough contrast against white text.
+  static const Color ratioInRatioBadgeColor = AppPalette.statusSuccessStrong;
+
   // Avatar color palette used exclusively by profile initials widgets
   static const List<Color> profileAvatarColors = <Color>[
     AppPalette.dataPink,
@@ -899,6 +926,7 @@ class AppColors {
       AppPalette.statusError;
   static const Color futureAvailabilityPositiveCountColor =
       AppPalette.statusSuccess;
+  static const Color futureAvailabilityZeroCountColor = AppPalette.statusWarning;
 
   // ── Dashboard: geofence attendance state (SEMANTIC) ────────────────────────
   // Mandate 4: these encode whether GPS self-attendance is currently possible,

@@ -15,6 +15,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -369,8 +370,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               ),
               Text('Select All', style: AppTextStyles.activityBodyValue),
               const Spacer(),
-              TextButton(
-                onPressed: () {
+              CustomClearAllChip(
+                label: 'Clear',
+                onTap: () {
                   setState(() {
                     if (state.classroomOptions.isNotEmpty) {
                       _selectedClassroom =
@@ -393,7 +395,6 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                   });
                   _loadStudents();
                 },
-                child: const Text('Clear'),
               ),
             ],
           ),

@@ -116,6 +116,25 @@ class CustomNavigationBar extends StatefulWidget {
   static double get navBarHeight =>
       navBarKey.currentState?._navBarHeight ?? 0.0;
 
+  /// Height this bar renders at for the given [context]'s [MediaQuery],
+  /// including the bottom system inset it absorbs (see [_NavSizes.barPadding]).
+  ///
+  /// Use this when a screen has to reserve space for the bar *before* it has
+  /// been laid out: [navBarHeight] only reports a real value once [navBarKey]
+  /// is attached to a mounted bar, and it deliberately is not — the shell keeps
+  /// every branch alive at once, so a shared [GlobalKey] would collide.
+  static double estimatedHeight(BuildContext context) {
+    final sizes = _NavSizes(context);
+    // Icon, a 3px gap, then a single label line (Inter's default line height).
+    const double labelLineHeightFactor = 1.4;
+    return sizes.barPadding.top +
+        sizes.barPadding.bottom +
+        (sizes.itemPaddingV * 2) +
+        sizes.iconSize +
+        3 +
+        (sizes.fontSize * labelLineHeightFactor);
+  }
+
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
 }

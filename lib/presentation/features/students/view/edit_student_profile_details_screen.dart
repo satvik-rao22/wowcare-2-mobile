@@ -26,7 +26,7 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_age_rules.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';

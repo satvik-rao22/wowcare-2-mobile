@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 
 ActivityItem _item({String? activityCode, String? studentCode, String name = 'Activity'}) {
   return ActivityItem(

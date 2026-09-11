@@ -40,15 +40,40 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
-    # permission_handler_apple compiles its LocationPermissionStrategy behind a
-    # preprocessor guard. Without PERMISSION_LOCATION=1 the entire class is an
-    # empty stub, so Permission.location.status always returns PermissionStatus.denied
-    # on iOS regardless of what the user has granted in Settings.
-    # This caused the geofence cubit to exit early with permissionDenied and
-    # never reach the school-location API — breaking GPS attendance on iOS.
+    # ---------------------------------------------------------------------
+    # "Always" (background) location is NOT used by this app. App Review
+    # rejected it under guideline 2.5.4, so Info.plist deliberately omits
+    # NSLocationAlwaysAndWhenInUseUsageDescription.
+    #
+    # App Store upload validation (ITMS-90683) scans the *compiled binary* for
+    # the requestAlwaysAuthorization selector and demands the matching purpose
+    # string whenever it is linked in — it does not care whether the app ever
+    # calls it. Both location pods compile that selector by default, so the
+    # flags below strip it out instead of re-adding the plist key:
+    #
+    #   BYPASS_PERMISSION_LOCATION_ALWAYS=1
+    #     geolocator_apple — removes its requestAlwaysAuthorization branch.
+    #     That branch was already unreachable at runtime (it is an `else if`
+    #     after the NSLocationWhenInUseUsageDescription check, and we ship that
+    #     key), so this is behaviourally inert.
+    #
+    #   PERMISSION_LOCATION  (deliberately NOT set)
+    #     permission_handler_apple compiles its whole LocationPermissionStrategy
+    #     — requestAlwaysAuthorization included — behind this guard. It used to
+    #     be forced to 1 because Permission.location.status silently returned
+    #     denied without it, breaking iOS GPS attendance. That is no longer
+    #     needed: GeofencingLocalDataSource now routes *all* iOS location
+    #     permission checks and requests through Geolocator (see
+    #     lib/data/features/geofencing/datasources/geofencing_local_datasource.dart);
+    #     on iOS permission_handler is only used for notifications and storage.
+    #     Leaving it unset keeps the Always selector out of the binary.
+    #
+    # Do NOT re-add either flag/key without a user-facing feature Apple accepts
+    # as needing background location.
+    # ---------------------------------------------------------------------
     target.build_configurations.each do |config|
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_LOCATION=1'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'BYPASS_PERMISSION_LOCATION_ALWAYS=1'
     end
   end
 

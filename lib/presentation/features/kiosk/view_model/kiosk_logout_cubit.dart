@@ -6,7 +6,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 
 part 'kiosk_logout_state.dart';
 
@@ -102,7 +102,7 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
         AppLogger.w('[Kiosk Logout] Kiosk deactivation had error: $kioskError');
         // Try to force-clear the cache synchronously as fallback
         try {
-          KioskAccessControl.clearCacheForNonKioskLogin();
+          _kioskAccessControl.clearCacheForNonKioskLogin();
           AppLogger.d('[Kiosk Logout] Forced kiosk cache clear (fallback)');
         } catch (_) {}
       }
@@ -122,7 +122,7 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
         await _kioskAccessControl.deactivateKioskMode();
       } catch (_) {
         try {
-          KioskAccessControl.clearCacheForNonKioskLogin();
+          _kioskAccessControl.clearCacheForNonKioskLogin();
         } catch (_) {}
       }
 

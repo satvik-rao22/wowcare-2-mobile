@@ -262,15 +262,28 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     }
   }
 
-  /// Whether the current persona may add/edit/delete this staff member's
-  /// Documents: Admin always; staff only on their own profile; parents never.
-  bool _canEditDocuments(RoleCubit role) {
-    if (role.isParent) return false;
+  /// Write access on the STAFF module as returned by `/users/details`.
+  ///
+  /// Every edit affordance on this screen hangs off it. Owning the profile is
+  /// NOT permission to edit it: a staff member with read-only STAFF access
+  /// must not see the photo, important-dates or document edit actions even on
+  /// their own profile.
+  bool _hasStaffWriteAccess(RoleCubit role) {
+    if (role.isParent || role.isKiosk) return false;
+    return ModuleAccess.mayWrite(role, AppAccessModules.staff);
+  }
+
+  /// Whether the current persona may add/edit/delete this staff member's own
+  /// records (profile photo, Important Dates, Documents): requires STAFF write
+  /// access, and the staff persona is additionally scoped to their own
+  /// profile. Parents/kiosk never.
+  bool _canEditStaffRecords(RoleCubit role) {
+    if (!_hasStaffWriteAccess(role)) return false;
     if (role.isStaff) {
       final own = (_ownStaffCode ?? '').trim();
       return own.isNotEmpty && own == widget.staffCode.trim();
     }
-    return ModuleAccess.mayWrite(role, AppAccessModules.staff);
+    return true;
   }
 
   bool _canMessageStaff() {
@@ -352,6 +365,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   }
 
   Future<void> _pickProfileImage() async {
+    // Defense in depth: the camera badge is hidden and the avatar is not
+    // tappable without write access, but never let the picker open regardless
+    // of how this is reached.
+    if (!_canEditStaffRecords(context.read<RoleCubit>())) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
     try {
       // Shared file picker → every allowed image format is selectable.
       final picked = await FilePickerUtils.pickFile(
@@ -429,7 +449,11 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canEditDocuments = _canEditDocuments(role);
+    // Photo / Important Dates / Documents are this staff member's own records.
+    final canEditStaffRecords = _canEditStaffRecords(role);
+    // Profile Information and Schedule are manager-owned: the tab additionally
+    // keeps them hidden on the logged-in user's own profile.
+    final canEditManagedProfile = _hasStaffWriteAccess(role);
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -469,7 +493,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
               ],
             ),
           ),
-          _buildStaffProfileCard(context),
+          _buildStaffProfileCard(context, canChangePhoto: canEditStaffRecords),
           const SizedBox(height: 16),
           Expanded(
             child: TabBarView(
@@ -477,6 +501,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
               children: [
                 StaffProfileTab(
                   staffCode: widget.staffCode,
+                  canEdit: canEditManagedProfile,
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
                   onProfileSummaryChanged:
@@ -488,10 +513,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                         _applyHeaderClassroomFromProfile(classroom);
                       },
                 ),
-                StaffDatesTab(staffCode: widget.staffCode),
+                StaffDatesTab(
+                  staffCode: widget.staffCode,
+                  canEdit: canEditStaffRecords,
+                ),
                 StaffDocumentsTab(
                   staffCode: widget.staffCode,
-                  canEdit: canEditDocuments,
+                  canEdit: canEditStaffRecords,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -502,7 +530,10 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
-  Widget _buildStaffProfileCard(BuildContext context) {
+  Widget _buildStaffProfileCard(
+    BuildContext context, {
+    required bool canChangePhoto,
+  }) {
     return Card(
       margin: EdgeInsets.zero,
       color: AppColors.cardColor,
@@ -513,7 +544,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _pickProfileImage,
+                  onTap: canChangePhoto ? _pickProfileImage : null,
                   child: BlocBuilder<StaffProfilePhotoUploadCubit, StaffProfilePhotoUploadState>(
                     builder: (context, uploadState) {
                       return Stack(
@@ -621,25 +652,26 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                                 ),
                               ),
                             ),
-                          Positioned(
-                            right: -2,
-                            bottom: -2,
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: AppSurfaces.card(radius: 16),
-                              child: SkeuKeyBox(
-                                variant: KeyVariant.primary,
-                                radius: 14,
-                                margin: const EdgeInsets.all(2),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: AppColors.cardColor,
-                                  size: 16,
+                          if (canChangePhoto)
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: AppSurfaces.card(radius: 16),
+                                child: SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 14,
+                                  margin: const EdgeInsets.all(2),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: AppColors.cardColor,
+                                    size: 16,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
                         ],
                       );
                     },

@@ -2,21 +2,23 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../core/utils/storage_keys.dart';
-import '../../../../domain/features/classroom/entities/classroom.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../domain/features/scheduling/entities/staff_shift.dart';
-import '../../../../domain/features/scheduling/repositories/staff_shift_repository.dart';
-import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/update_staff_shift_series_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/update_staff_shift_usecase.dart';
-import '../../../../domain/features/staff/entities/staff_member.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
-import '../utils/school_hours_resolver.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
+import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/update_staff_shift_series_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/update_staff_shift_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/scheduling/services/scheduling_school_time.dart';
+import 'package:wowcare/core/extensions/schedule_time_ext.dart';
+import 'package:wowcare/domain/features/scheduling/entities/schedule_time.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
 import '../view/edit_shift_screen.dart';
 
 part 'edit_shift_state.dart';
@@ -401,7 +403,7 @@ class EditShiftCubit extends Cubit<EditShiftState> {
       }
     }
 
-    final windows = <(TimeOfDay, TimeOfDay)>[];
+    final windows = <(ScheduleTime, ScheduleTime)>[];
     if (isSeriesMode && state.selectedDays.isNotEmpty) {
       for (final day in state.selectedDays) {
         final weekday = _weekDayIndex[day];
@@ -414,10 +416,11 @@ class EditShiftCubit extends Cubit<EditShiftState> {
       if (w != null) windows.add(w);
     }
     for (final window in windows) {
-      final schoolStartMin = _minutesOf(window.$1);
-      final schoolEndMin = _minutesOf(window.$2);
+      final schoolStartMin = window.$1.minutesOfDay;
+      final schoolEndMin = window.$2.minutesOfDay;
       final windowLabel =
-          '${_formatTime(window.$1)} – ${_formatTime(window.$2)}';
+          '${_formatTime(window.$1.toTimeOfDay())} – '
+          '${_formatTime(window.$2.toTimeOfDay())}';
       if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
         emit(
           state.copyWith(

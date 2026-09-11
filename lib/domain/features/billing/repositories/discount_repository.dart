@@ -6,7 +6,7 @@ abstract class DiscountRepository {
     String? name,
     String? status,
     int page = 0,
-    int size = 50,
+    int size = 200,
   });
 
   Future<DiscountEntity> createDiscount(CreateDiscountParams params);

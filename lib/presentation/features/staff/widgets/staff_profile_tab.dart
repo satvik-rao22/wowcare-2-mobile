@@ -28,12 +28,19 @@ class StaffProfileTab extends StatelessWidget {
   const StaffProfileTab({
     super.key,
     required this.staffCode,
+    this.canEdit = false,
     this.classroomNames,
     this.classroomNameByCode,
     this.onProfileSummaryChanged,
   });
 
   final String staffCode;
+
+  /// Whether the current persona has STAFF module write access (resolved by
+  /// the parent screen from `/users/details`). Profile Information and
+  /// Schedule are manager-owned, so their edit affordances additionally
+  /// require that this is NOT the logged-in user's own profile.
+  final bool canEdit;
 
   /// Optional cached classroom display names (from StaffScreen).
   final List<String>? classroomNames;
@@ -51,6 +58,7 @@ class StaffProfileTab extends StatelessWidget {
     // Cubits are created by the route builder (§1.6), not here.
     return _StaffProfileTabView(
       staffCode: staffCode,
+      canEdit: canEdit,
       classroomNames: classroomNames,
       classroomNameByCode: classroomNameByCode,
       onProfileSummaryChanged: onProfileSummaryChanged,
@@ -61,12 +69,14 @@ class StaffProfileTab extends StatelessWidget {
 class _StaffProfileTabView extends StatefulWidget {
   const _StaffProfileTabView({
     required this.staffCode,
+    this.canEdit = false,
     this.classroomNames,
     this.classroomNameByCode,
     this.onProfileSummaryChanged,
   });
 
   final String staffCode;
+  final bool canEdit;
   final List<String>? classroomNames;
   final Map<String, String>? classroomNameByCode;
   final void Function(String name, String classroom, String designation)?
@@ -104,6 +114,12 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
   /// renders on `null` or `true`, so it cannot flash visible-then-hidden
   /// while the async check is still in flight.
   bool? _isOwnProfile;
+
+  /// Gate for the manager-owned sections (Profile Information, Schedule): the
+  /// persona needs STAFF write access from `/users/details` AND must be
+  /// confirmed to be looking at somebody else's profile. Anything short of
+  /// both renders no edit affordance at all.
+  bool get _canEditManagedProfile => widget.canEdit && _isOwnProfile == false;
 
   @override
   void initState() {
@@ -451,13 +467,12 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                             ),
                           ),
                           // A staff member can't edit their OWN profile
-                          // (designation, classroom assignment, etc.) —
-                          // Documents editing is unaffected, this only
-                          // gates the Profile Information edit button.
+                          // (designation, classroom assignment, etc.), and
+                          // nobody edits it without STAFF write access.
                           // Renders only once _isOwnProfile is explicitly
                           // false (see field doc) — never on null/true, so
                           // it can't flash visible then disappear.
-                          if (_isOwnProfile == false)
+                          if (_canEditManagedProfile)
                             GestureDetector(
                               onTap: () async {
                                 // Map allowed/primary classroom codes to display names using cached metadata.
@@ -649,45 +664,60 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                       // Schedule section – layout aligned with student profile schedule card
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          final schedules = <ScheduleEntry>[];
-                          for (final workSchedule in profile.workSchedules) {
-                            schedules.add(
-                              ScheduleEntry(
-                                day: workSchedule.dayOfWeek.toLowerCase(),
-                                startTime:
-                                    workSchedule.workStartTime.formattedTime,
-                                endTime: workSchedule.workEndTime.formattedTime,
-                                isBreakTime: false,
-                              ),
-                            );
-                          }
-                          for (final breakSchedule in profile.breakSchedules) {
-                            schedules.add(
-                              ScheduleEntry(
-                                day: breakSchedule.dayOfWeek.toLowerCase(),
-                                startTime:
-                                    breakSchedule.breakStartTime.formattedTime,
-                                endTime:
-                                    breakSchedule.breakEndTime.formattedTime,
-                                isBreakTime: true,
-                              ),
-                            );
-                          }
-                          context
-                              .push<bool>(
-                                StaffRoutes.editSchedule,
-                                extra: EditStaffScheduleArgs(
-                                  staffCode: widget.staffCode,
-                                  initialSchedules: schedules,
-                                ),
-                              )
-                              .then((updated) async {
-                                if (updated == true) {
-                                  await _profileCubit.refresh(widget.staffCode);
+                        // Schedule is manager-owned like Profile Information:
+                        // no tap target (and no pencil below) without write
+                        // access, and never on one's own profile.
+                        onTap: !_canEditManagedProfile
+                            ? null
+                            : () {
+                                final schedules = <ScheduleEntry>[];
+                                for (final workSchedule
+                                    in profile.workSchedules) {
+                                  schedules.add(
+                                    ScheduleEntry(
+                                      day: workSchedule.dayOfWeek.toLowerCase(),
+                                      startTime: workSchedule
+                                          .workStartTime
+                                          .formattedTime,
+                                      endTime: workSchedule
+                                          .workEndTime
+                                          .formattedTime,
+                                      isBreakTime: false,
+                                    ),
+                                  );
                                 }
-                              });
-                        },
+                                for (final breakSchedule
+                                    in profile.breakSchedules) {
+                                  schedules.add(
+                                    ScheduleEntry(
+                                      day: breakSchedule.dayOfWeek
+                                          .toLowerCase(),
+                                      startTime: breakSchedule
+                                          .breakStartTime
+                                          .formattedTime,
+                                      endTime: breakSchedule
+                                          .breakEndTime
+                                          .formattedTime,
+                                      isBreakTime: true,
+                                    ),
+                                  );
+                                }
+                                context
+                                    .push<bool>(
+                                      StaffRoutes.editSchedule,
+                                      extra: EditStaffScheduleArgs(
+                                        staffCode: widget.staffCode,
+                                        initialSchedules: schedules,
+                                      ),
+                                    )
+                                    .then((updated) async {
+                                      if (updated == true) {
+                                        await _profileCubit.refresh(
+                                          widget.staffCode,
+                                        );
+                                      }
+                                    });
+                              },
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -704,13 +734,14 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                                     color: AppColors.primaryColor,
                                   ),
                                 ),
-                                Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.6,
+                                if (_canEditManagedProfile)
+                                  Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.6,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 8),

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import '../model/scheduling_models.dart';
-import '../utils/scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 import '../model/scheduling_staff_shift_style.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 

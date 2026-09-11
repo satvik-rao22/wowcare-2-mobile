@@ -3,6 +3,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -12,7 +13,7 @@ import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_filter_screen.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/bathroom_activity.dart';
@@ -182,6 +183,7 @@ import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_args.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -216,7 +218,7 @@ import 'package:wowcare/presentation/features/classroom/view/screens/classroom_o
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
@@ -446,39 +448,35 @@ final GoRouter appRouter = GoRouter(
     );
 
     // CRITICAL SECURITY: Check if user is in kiosk mode and block non-kiosk routes
-    // Use synchronous cache check to avoid race conditions from multiple redirect() calls
-    bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
+    // Use the singleton's synchronous cache to avoid race conditions from
+    // multiple redirect() calls.
+    bool isKioskMode;
+    try {
+      final kioskAccess = serviceLocator<KioskAccessControl>();
+      isKioskMode = kioskAccess.isKioskModeActiveDirect();
 
-    // Storage fallback, but only until the flag has been read once this
-    // process. Previously the negative result was never remembered, so every
-    // navigation by every non-kiosk user awaited a storage read on the critical
-    // path for the whole session; `isKioskModeResolved` makes it once.
-    if (!isKioskMode && !KioskAccessControl.isKioskModeResolved) {
-      try {
-        isKioskMode = await serviceLocator<KioskAccessControl>()
-            .isKioskModeActive();
-      } catch (e) {
-        // If KioskAccessControl is not registered, try to create it on demand
-        try {
-          AppLogger.w(
-            '[KioskAccess] KioskAccessControl not in DI, creating on demand',
-          );
-          final kioskAccess = KioskAccessControl(
-            serviceLocator<StorageService>(),
-          );
-          isKioskMode = await kioskAccess.isKioskModeActive();
-        } catch (e2) {
-          // FAIL CLOSED. This is a containment control on a shared device: if
-          // we cannot establish whether this is a kiosk, the safe answer is
-          // "assume it is" and confine the session to /kiosk, not "assume it
-          // isn't" and open the whole app. Previously both catches swallowed
-          // and left `isKioskMode` false, i.e. the guard failed open.
-          AppLogger.e(
-            '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e2',
-          );
-          isKioskMode = true;
-        }
+      // Storage fallback, but only until the flag has been read once this
+      // process. Previously the negative result was never remembered, so every
+      // navigation by every non-kiosk user awaited a storage read on the
+      // critical path for the whole session; `isKioskModeResolved` makes it
+      // once.
+      //
+      // Resolved from DI, never constructed here: a second instance would keep
+      // its own cache, so the router and the kiosk feature would disagree about
+      // whether the device is locked.
+      if (!isKioskMode && !kioskAccess.isKioskModeResolved) {
+        isKioskMode = await kioskAccess.isKioskModeActive();
       }
+    } catch (e) {
+      // FAIL CLOSED. This is a containment control on a shared device: if we
+      // cannot establish whether this is a kiosk, the safe answer is "assume it
+      // is" and confine the session to /kiosk, not "assume it isn't" and open
+      // the whole app. The guard used to swallow this and leave `isKioskMode`
+      // false, i.e. fail open.
+      AppLogger.e(
+        '[KioskAccess] Error checking kiosk mode, failing CLOSED: $e',
+      );
+      isKioskMode = true;
     }
 
     if (isKioskMode) {
@@ -892,6 +890,7 @@ final GoRouter appRouter = GoRouter(
           StaffSignInForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -905,6 +904,7 @@ final GoRouter appRouter = GoRouter(
           StaffSignOutForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -918,6 +918,7 @@ final GoRouter appRouter = GoRouter(
           StaffTransferForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -931,6 +932,7 @@ final GoRouter appRouter = GoRouter(
           StaffMarkAbsentForm(
             staff: e['staff'] as StaffEntity?,
             staffList: (e['staffList'] as List?)?.cast<StaffEntity>(),
+            popOnSuccess: e['popOnSuccess'] as bool? ?? false,
           ),
         );
       },
@@ -1609,7 +1611,6 @@ final GoRouter appRouter = GoRouter(
                         staff: args.staff,
                         dateRangeStart: args.dateRangeStart,
                         initialUntilDate: args.initialUntilDate,
-                        initialStaffCodes: args.initialStaffCodes,
                       ),
                     );
                   },
@@ -2344,7 +2345,28 @@ final GoRouter appRouter = GoRouter(
     // from having multiple sibling roots inside the same ShellBranch.
     GoRoute(
       path: AppRoutes.adminChat,
-      builder: (context, state) => const AdminChatHostScreen(),
+      // AdminChatHostScreen.initState reads BOTH cubits from context (Mandate
+      // 5 — the view resolves no dependencies itself), so this route MUST
+      // provide them. Without this MultiBlocProvider the screen threw
+      // ProviderNotFoundException the moment it mounted: a red error box in
+      // debug, a grey screen in release. It is reachable for every non-staff
+      // persona — the messaging launcher sheet's "Admin" option and the
+      // drawer's "Admin Chat" tile both land here.
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<ConversationListCubit>(
+            create: (_) => buildConversationListCubit(
+              conversationType: ConversationType.adminChat,
+            ),
+          ),
+          // loadInitial() in the create closure, matching every other route
+          // that provides StudentCubit (see the reports/classroom routes).
+          BlocProvider<StudentCubit>(
+            create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+          ),
+        ],
+        child: const AdminChatHostScreen(),
+      ),
     ),
     // Deep-link target for a tapped chat push notification: fetches the
     // conversation by code and shows the correct thread.

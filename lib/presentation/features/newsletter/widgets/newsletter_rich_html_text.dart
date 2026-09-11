@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_html_normalizer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_link_launcher.dart';
 
 /// Renders newsletter HTML from `contentJson` text parts.
@@ -27,7 +28,11 @@ class NewsletterRichHtmlText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String data = htmlData.trim();
+    // Every newsletter HTML string in the app reaches flutter_html through this
+    // widget — subtitle, bodyHtml, and each component part — so normalizing here
+    // covers all of them in one place. See [normalizeNewsletterHtml] for what
+    // "filler" means and why the web editor produces it.
+    final String data = normalizeNewsletterHtml(htmlData);
     if (data.isEmpty) return const SizedBox.shrink();
 
     // §4 split. Size / weight / line height are app chrome and come from
@@ -95,9 +100,16 @@ class NewsletterRichHtmlText extends StatelessWidget {
         margin: html.Margins.zero,
         padding: html.HtmlPaddings.zero,
       ),
-      'br': html.Style(
-        height: html.Height(6),
-      ),
+      // No 'br' entry. It used to carry `height: Height(6)`, which was dead:
+      // flutter_html builds <br> as a bare TextSpan whose style comes from
+      // Style.generateTextStyle(), and that reads `lineHeight`, never `height`
+      // (`height` is only consumed by CssBoxWidget, which <br> never gets). So
+      // every <br> has always rendered a full line — the compaction the style
+      // was reaching for never applied. Restoring the intent as `lineHeight`
+      // would squash genuine in-prose line breaks too, so the filler runs it was
+      // really aimed at are removed up front instead; see
+      // [normalizeNewsletterHtml]. A <br> that survives that is a real line
+      // break and gets a real line.
       'ol': html.Style(
         display: html.Display.block,
         margin: html.Margins.only(bottom: 8, top: 4),

@@ -7,6 +7,7 @@ import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/domain/features/communication/policies/conversation_display.dart';
+import 'package:wowcare/domain/features/communication/policies/messaging_status_filter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
@@ -232,15 +233,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final designation = _mapDesignationToApi(
       _contactFilter.state.currentFilters['Designation'],
     );
-    // STAFF_DIRECT only: ACTIVE/INACTIVE are carried entirely by the
-    // conversation-level `status` param below — sending staffStatuses
-    // alongside it returns EMPTY results (confirmed:
-    // status=INACTIVE&staffStatuses=INACTIVE → nothing; status=INACTIVE
-    // alone → 200 with the expected conversations). Only 'UPCOMING' (which
-    // has no conversation-level equivalent) still needs the separate
-    // param. Room Chat (studentStatuses) is unaffected — it keeps sending
-    // the picked status as-is, same as before.
-    final staffNeedsSeparateStatusParam = status == 'UPCOMING';
+    // STAFF_DIRECT's status params (`status` + `staffStatuses`) come from
+    // [MessagingStatusFilter] — see its doc for why the employment status
+    // needs its own param and why INACTIVE is the exception. Room Chat
+    // (studentStatuses) is unaffected: it keeps sending the picked status
+    // as-is, same as before.
     return (
       classroomCodes: _mapClassroomNamesToCodes(
         _contactFilter.state.currentFilters['Classroom'],
@@ -260,10 +257,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       // original hardcoded 'ACTIVE' (see CommunicationCubit.loadConversations's
       // own default) since this fix was confirmed for STAFF_DIRECT only.
       conversationStatus: widget.isStaffMessaging
-          ? (status == 'INACTIVE' ? 'INACTIVE' : 'ACTIVE')
+          ? MessagingStatusFilter.conversationStatus(status)
           : 'ACTIVE',
-      staffStatuses: widget.isStaffMessaging && staffNeedsSeparateStatusParam
-          ? [status!]
+      // Defaults to ACTIVE when the Status filter carries no selection at
+      // all, so the very first load is scoped to active staff rather than
+      // to every employment status the backend happens to return.
+      staffStatuses: widget.isStaffMessaging
+          ? MessagingStatusFilter.staffStatuses(status)
           : const [],
     );
   }
@@ -486,6 +486,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         type: _conversationType,
         size: _conversationPageSize,
         status: clearedFilters.conversationStatus,
+        classroomCodes: clearedFilters.classroomCodes,
+        tagCodes: clearedFilters.tagCodes,
+        designations: clearedFilters.designations,
+        studentStatuses: clearedFilters.studentStatuses,
+        // Clear All resets to Active-only, not "show everyone" — so the
+        // reload must still carry the ACTIVE staff scope.
+        staffStatuses: clearedFilters.staffStatuses,
       ),
     );
   }
@@ -637,12 +644,24 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         // silently unscoped until the user manually touched the filter
         // sheet or pulled to refresh) so the primary-classroom default
         // above actually takes effect on the very first load.
+        //
+        // The FULL resolved param set is sent — same as pull-to-refresh and
+        // the filter sheet's own Apply. Sending only status/classroomCodes
+        // here is what let the landing list come back unscoped by
+        // employment status (active AND upcoming staff together) until the
+        // user touched a filter; `staffStatuses` in particular is the only
+        // param that narrows STAFF_DIRECT to active staff. See
+        // [_resolvedFilterParams].
         final initialFilters = _resolvedFilterParams();
         await context.read<CommunicationCubit>().loadConversations(
           type: _conversationType,
           size: _conversationPageSize,
           status: initialFilters.conversationStatus,
           classroomCodes: initialFilters.classroomCodes,
+          tagCodes: initialFilters.tagCodes,
+          designations: initialFilters.designations,
+          studentStatuses: initialFilters.studentStatuses,
+          staffStatuses: initialFilters.staffStatuses,
         );
         if (!mounted) return;
         // Realtime listener starts only after the API/Isar history has
@@ -690,6 +709,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     context.read<CommunicationCubit>().loadMoreConversations(
       type: _conversationType,
       size: _conversationPageSize,
+      // Without this the next page fell back to the cubit's own 'ACTIVE'
+      // default, so scrolling an INACTIVE-filtered list appended active
+      // conversations to it.
+      status: f.conversationStatus,
       classroomCodes: f.classroomCodes,
       tagCodes: f.tagCodes,
       designations: f.designations,
@@ -1199,42 +1222,28 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 return false;
                               }
                               if (widget.isStaffMessaging) {
-                                if (statusFilter == 'ACTIVE' ||
-                                    statusFilter == 'INACTIVE') {
-                                  // The conversation's own top-level `status`
-                                  // is the reliable, always-present signal
-                                  // for these two states — confirmed via
-                                  // GET .../conversations/type/STAFF_DIRECT
-                                  // ?status=INACTIVE returning conversations
-                                  // the per-participant check alone was
-                                  // wrongly hiding.
-                                  if (conv.status.trim().toUpperCase() !=
-                                      statusFilter) {
-                                    return false;
-                                  }
-                                } else {
-                                  // 'UPCOMING' has no conversation-level
-                                  // equivalent — fall back to the
-                                  // counterpart's own employment status.
-                                  // Fails OPEN when that field itself is
-                                  // missing (null); only a known non-matching
-                                  // status hides.
-                                  final counterpart = conv.participants
-                                      .where(
-                                        (p) =>
-                                            p.userCode !=
-                                            _contactFilter
-                                                .state
-                                                .currentAccountCode,
-                                      )
-                                      .firstOrNull;
-                                  final staffStatus = counterpart?.staffStatus
-                                      ?.trim()
-                                      .toUpperCase();
-                                  if (staffStatus != null &&
-                                      staffStatus != statusFilter) {
-                                    return false;
-                                  }
+                                // Employment status, not the conversation's
+                                // own — see [MessagingStatusFilter]. The
+                                // counterpart is resolved here rather than
+                                // read off the conversation because a
+                                // STAFF_DIRECT chat's "subject" is the OTHER
+                                // participant, relative to the viewer.
+                                final counterpart = conv.participants
+                                    .where(
+                                      (p) =>
+                                          p.userCode !=
+                                          _contactFilter
+                                              .state
+                                              .currentAccountCode,
+                                    )
+                                    .firstOrNull;
+                                if (!MessagingStatusFilter.matches(
+                                  selected: statusFilter,
+                                  conversationStatus: conv.status,
+                                  counterpartStaffStatus:
+                                      counterpart?.staffStatus,
+                                )) {
+                                  return false;
                                 }
                               } else {
                                 // Room Chat — unchanged, matches studentStatus

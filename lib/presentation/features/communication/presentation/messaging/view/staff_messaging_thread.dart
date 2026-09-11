@@ -37,10 +37,11 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/react
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/thread_message_tile.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -149,7 +150,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   Future<void> _loadCurrentUserStaffStatus() async {
     try {
-      final staffCode = await resolveLoggedInStaffCode();
+      final staffCode =
+          await serviceLocator<ResolveLoggedInStaffCodeUseCase>()();
       if (staffCode == null || staffCode.isEmpty) return;
       final profile = await resolveStaffProfile(staffCode: staffCode);
       if (!mounted) return;

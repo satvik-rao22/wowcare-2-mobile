@@ -58,10 +58,9 @@ Widget buildAttendanceSignInOutRow(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (method != null) ...[
-              buildAttendanceMethodIcon(method),
-              const SizedBox(width: AppSpacing.xxs),
-            ],
+            // Web shows exactly one indicator per sign-in/sign-out. On a
+            // transfer row the transfer icon wins and the underlying method
+            // icon is suppressed, instead of stacking both.
             if (showTransferIcon) ...[
               Tooltip(
                 message: 'Transfer',
@@ -72,6 +71,9 @@ Widget buildAttendanceSignInOutRow(
                   color: AppColors.themeColor,
                 ),
               ),
+              const SizedBox(width: AppSpacing.xxs),
+            ] else if (method != null) ...[
+              buildAttendanceMethodIcon(method),
               const SizedBox(width: AppSpacing.xxs),
             ],
             Flexible(

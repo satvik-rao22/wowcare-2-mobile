@@ -16,7 +16,6 @@ import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});

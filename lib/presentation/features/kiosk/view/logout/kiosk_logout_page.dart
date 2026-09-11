@@ -9,7 +9,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_logout_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
 import '../../../../../core/utils/api_error_handler.dart';
 

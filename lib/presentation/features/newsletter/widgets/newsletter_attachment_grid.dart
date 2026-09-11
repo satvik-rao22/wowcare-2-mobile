@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_attachment_open_mode.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 
@@ -137,39 +138,62 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     context.read<NewsletterAssetUrlCubit>().resolve(code);
   }
 
-  Future<void> _openExternalUrl(String url) async {
-    final Uri? uri = Uri.tryParse(url.trim());
-    if (uri == null) return;
-
-    // Scheme allowlist. This site does NOT go through
-    // `newsletter_link_launcher.dart`, so it had none — it handed whatever the
-    // asset API returned straight to `launchUrl`. Attachments are CDN files,
-    // so http/https is the entire legitimate set; anything else (file:,
-    // javascript:, a custom app scheme) is refused rather than launched.
+  Future<void> _launchExternally(String url) async {
+    // The mode is the whole fix. `LaunchMode.inAppWebView` was what put a blank
+    // screen in front of anyone tapping an .xlsx — see
+    // [NewsletterAttachmentOpenMode.externalApp]. Because the WebView opened
+    // *successfully*, `launchUrl` returned true and the platformDefault
+    // fallback below never fired, so there was no recovery but Back.
     //
-    // Stricter than the body-hyperlink normaliser on purpose: that one accepts
-    // mailto:/tel:/sms: because a newsletter's prose legitimately links to
-    // them. An attachment never does.
-    final String scheme = uri.scheme.toLowerCase();
-    if (scheme != 'http' && scheme != 'https') return;
-
-    // Launch modes unchanged, so a valid attachment opens exactly as before.
-    final bool opened = await launchUrl(uri, mode: LaunchMode.inAppWebView);
-    if (!opened) {
-      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    // Deliberately not gated on `canLaunchUrl`: on Android 11+ that answers
+    // false for http/https unless the manifest declares a matching <queries>
+    // intent, which this app's does not.
+    bool opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(url.trim()),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        opened = await launchUrl(
+          Uri.parse(url.trim()),
+          mode: LaunchMode.platformDefault,
+        );
+      }
+    } catch (_) {
+      // No app could take the intent. Treated as a refusal: the launcher
+      // throwing used to surface as nothing happening at all.
+      opened = false;
     }
+
+    if (!opened) _reportOpenFailed();
+  }
+
+  /// Tells the user the tap did nothing, instead of leaving them to guess.
+  /// Every failure path here was otherwise silent.
+  void _reportOpenFailed() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(AppStrings.newsletterAttachmentOpenFailed),
+        backgroundColor: AppColors.warningColor,
+      ),
+    );
   }
 
   Future<void> _openAttachment({
     required String url,
     required bool isImage,
   }) async {
-    if (isImage) {
-      if (!mounted) return;
-      await showNewsletterImagePreview(context, imageUrl: url);
-      return;
+    switch (resolveNewsletterAttachmentOpenMode(isImage: isImage, url: url)) {
+      case NewsletterAttachmentOpenMode.imagePreview:
+        if (!mounted) return;
+        await showNewsletterImagePreview(context, imageUrl: url);
+      case NewsletterAttachmentOpenMode.externalApp:
+        await _launchExternally(url);
+      case NewsletterAttachmentOpenMode.refused:
+        _reportOpenFailed();
     }
-    await _openExternalUrl(url);
   }
 
 

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_media_res.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 

@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/date_ra
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class IndividualMovementFilterCard extends StatelessWidget {
@@ -164,11 +165,15 @@ class IndividualMovementPager extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double pagerHeight = _calculatePagerHeight(sections);
+    // The pager fills whatever height the screen hands it; each bucket card
+    // scrolls its own rows. It used to be a SizedBox with an estimated height
+    // (rows × a fixed row height) inside a page-wide SingleChildScrollView —
+    // that estimate was always short for rows carrying a comment, so the card's
+    // list overflowed into its own scroll and then fought the page scroll for
+    // every drag.
     return Column(
       children: <Widget>[
-        SizedBox(
-          height: pagerHeight,
+        Expanded(
           child: Stack(
             children: <Widget>[
               Padding(
@@ -232,19 +237,25 @@ class IndividualMovementPager extends StatelessWidget {
       ],
     );
   }
+}
 
-  double _calculatePagerHeight(List<MovementSection> sections) {
-    const double headerAndPaddingHeight = 90;
-    const double rowApproxHeight = 116;
-    final int maxRows = sections.fold<int>(
-      0,
-      (previousValue, section) => section.items.length > previousValue
-          ? section.items.length
-          : previousValue,
-    );
-    final int safeRows = maxRows == 0 ? 1 : maxRows;
-    return headerAndPaddingHeight + (safeRows * rowApproxHeight);
-  }
+/// Space a bucket's list must reserve at its bottom for the shell's bottom
+/// navigation bar.
+///
+/// `GlobalScaffold` runs with `extendBody: true` and collapses the bar while
+/// the user scrolls down, so the `SafeArea` inset the bar contributes vanishes
+/// mid-scroll and comes back the moment scrolling stops — which parks the last
+/// card behind the bar with no way left to reach it. Reserving the bar's own
+/// height *inside* the scrollable keeps the last card reachable in both states,
+/// and costs nothing until the list is scrolled to its end.
+///
+/// The bar's `SafeArea` inset is already covered by the scaffold in both
+/// states, so only the bar's content height is reserved here.
+double _bottomNavClearance(BuildContext context) {
+  final double clearance =
+      CustomNavigationBar.estimatedHeight(context) -
+      MediaQuery.of(context).viewPadding.bottom;
+  return clearance > 0 ? clearance : 0;
 }
 
 class _MovementSectionCard extends StatelessWidget {
@@ -307,15 +318,34 @@ class _MovementSectionCard extends StatelessWidget {
               const SizedBox(height: 12),
               Expanded(
                 child: section.items.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No movements available',
-                          style: AppTextStyles.movementErrorText,
-                        ),
+                    // Still a scrollable, so pull-to-refresh works on a bucket
+                    // that has nothing in it.
+                    ? LayoutBuilder(
+                        builder: (context, constraints) =>
+                            SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight,
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'No movements available',
+                                    style: AppTextStyles.movementErrorText,
+                                  ),
+                                ),
+                              ),
+                            ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.only(
+                          bottom: 4 + _bottomNavClearance(context),
+                        ),
+                        // AlwaysScrollable so a bucket shorter than the
+                        // viewport can still be overscrolled to refresh.
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
                         itemCount: section.items.length,
                         itemBuilder: (context, index) {
                           final item = section.items[index];
