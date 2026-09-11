@@ -1,0 +1,59 @@
+{
+  // Artifact builds stay in the Makefile — running them from here just avoids
+  // switching to a terminal. Use launch.json (not these) for run/debug, so the
+  // Dart extension owns the process and hot reload / breakpoints work.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "make: analyze",
+      "type": "shell",
+      "command": "make analyze",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "make: test",
+      "type": "shell",
+      "command": "make test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "make: apk (choose env + mode)",
+      "type": "shell",
+      "command": "make ${input:env}-apk-${input:mode}",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "make: appbundle (choose env)",
+      "type": "shell",
+      "command": "make ${input:env}-appbundle",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "make: prod-apk-optimized",
+      "type": "shell",
+      "command": "make prod-apk-optimized",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "env",
+      "type": "pickString",
+      "description": "Environment",
+      "options": ["local", "qa", "uat", "prod"],
+      "default": "uat"
+    },
+    {
+      "id": "mode",
+      "type": "pickString",
+      "description": "Build mode",
+      "options": ["debug", "profile", "release"],
+      "default": "release"
+    }
+  ]
+}
