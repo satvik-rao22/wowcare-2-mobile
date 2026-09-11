@@ -431,9 +431,9 @@ class StudentAttendanceCustomItemModel extends Equatable {
       classroomName: json['classroomName'] as String? ?? '',
       classroomCode: json['classroomCode'] as String? ?? '',
       attendedDays: json['attendedDays'] as int? ?? 0,
-      signedInBy: json['signedInBy'] as String?,
+      signedInBy: (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedInTime: _parseTime(json['signedInTime']),
-      signedOutBy: json['signedOutBy'] as String?,
+      signedOutBy: (json['signedOutBy'] ?? json['signedOutByName']) as String?,
       signedOutTime: _parseTime(json['signedOutTime']),
       tagCodes:
           (json['tagCodes'] as List<dynamic>?)
@@ -878,6 +878,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     this.absenceNote,
     this.markAbsentMethod,
     required this.absentDays,
+    this.absenceRecordCode,
   });
 
   final String staffCode;
@@ -890,6 +891,23 @@ class StaffAttendanceAbsentItemModel extends Equatable {
   final String? absenceNote;
   final String? markAbsentMethod;
   final int absentDays;
+
+  /// Server identifier for DELETE `/api/v1/staff-absence-records/{code}`.
+  final String? absenceRecordCode;
+
+  static String? _parseAbsenceRecordCode(Map<String, dynamic> json) {
+    for (final key in ['absenceRecordCode', 'recordCode', 'absenceCode']) {
+      final v = json[key];
+      if (v != null && v.toString().trim().isNotEmpty) {
+        return v.toString().trim();
+      }
+    }
+    final code = json['code']?.toString().trim();
+    if (code != null && code.isNotEmpty) {
+      return code;
+    }
+    return null;
+  }
 
   factory StaffAttendanceAbsentItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceAbsentItemModel(
@@ -905,6 +923,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
       absenceNote: json['absenceNote'] as String?,
       markAbsentMethod: json['markAbsentMethod'] as String?,
       absentDays: json['absentDays'] as int? ?? 0,
+      absenceRecordCode: _parseAbsenceRecordCode(json),
     );
   }
 
@@ -920,6 +939,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
       'absenceNote': absenceNote,
       'markAbsentMethod': markAbsentMethod,
       'absentDays': absentDays,
+      if (absenceRecordCode != null) 'absenceRecordCode': absenceRecordCode,
     };
   }
 
@@ -935,6 +955,7 @@ class StaffAttendanceAbsentItemModel extends Equatable {
     absenceNote,
     markAbsentMethod,
     absentDays,
+    absenceRecordCode,
   ];
 }
 

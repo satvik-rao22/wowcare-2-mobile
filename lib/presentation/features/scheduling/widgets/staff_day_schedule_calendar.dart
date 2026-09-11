@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_name_resolver.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus
@@ -67,17 +67,17 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     super.didUpdateWidget(oldWidget);
     final scheduleChanged =
         oldWidget.dailyRoomSchedule != widget.dailyRoomSchedule;
-    final hoursChanged = oldWidget.schoolStartTime != widget.schoolStartTime ||
-        oldWidget.schoolEndTime != widget.schoolEndTime;
     if (scheduleChanged) {
       _shifts = List<Shift>.of(widget.dailyRoomSchedule.shifts)
         ..sort((a, b) {
           if (a.isBreakShift == b.isBreakShift) return 0;
           return a.isBreakShift ? 1 : -1;
         });
-    } else if (hoursChanged) {
-      setState(() {});
     }
+    // A schoolStartTime/schoolEndTime-only change needs no action here:
+    // `build()` reads those directly off `widget` and already reruns as
+    // part of this same widget-update cycle, with no state of its own to
+    // update.
   }
 
   DateTime _parseTime(String input) {
@@ -185,7 +185,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               child: Text(
                 'Time',
                 style: TextStyle(
-                  fontFamily: 'Manrope',
                   color: AppColors.primaryColor,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -199,7 +198,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               child: Text(
                 widget.dayColumnLabel,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
                   color: AppColors.primaryColor,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -226,7 +224,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
         child: Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
             color: AppColors.primaryColor,
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -294,7 +291,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               child: Text(
                 roomLabel,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: AppColors.secondaryColor,
@@ -307,7 +303,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
             Text(
               timeLabel,
               style: const TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
@@ -333,7 +328,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
             child: Text(
               roomLabel,
               style: const TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppColors.secondaryColor,
@@ -347,7 +341,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           Text(
             timeLabel,
             style: const TextStyle(
-              fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
@@ -371,7 +364,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
             const TextSpan(
               text: '🍔  Lunch Break  ',
               style: TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.black87,
@@ -382,7 +374,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               text:
                   '${_convertTimeToHHmm(shift.start)} - ${_convertTimeToHHmm(shift.end)}',
               style: const TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: Colors.black87,
@@ -495,7 +486,6 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                     child: Text(
                       'No Shifts for Today',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
                         fontSize: 20,
                         color: AppColors.primaryColor,
                         fontWeight: FontWeight.w600,

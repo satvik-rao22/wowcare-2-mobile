@@ -1,5 +1,8 @@
 import 'dart:async';
+
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -10,30 +13,29 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
-import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/debounced_search_mixin.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_view_response.dart';
+import 'package:wowcare/data/features/attendance/models/student_attendance_absent_view_response_model.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/student_attendance_absent_fetch_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -87,11 +89,11 @@ class StudentAttendanceAbsentView extends StatefulWidget {
 
 class _StudentAttendanceAbsentViewState
     extends State<StudentAttendanceAbsentView>
+    with DebouncedSearchMixin
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
-  Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
   List<String>? _selectedClassroomCodes;
   List<String> _selectedTagNames = <String>[];
@@ -101,7 +103,6 @@ class _StudentAttendanceAbsentViewState
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStudentIndex;
-  bool _isClassroomDataReady = false;
 
   // Pagination & list state
   bool _isInitialLoadingStudents = true;
@@ -118,8 +119,8 @@ class _StudentAttendanceAbsentViewState
   // Loading state for individual buttons
   final Map<int, bool> _loadingButtons = {};
   late final ClassroomCubit _classroomCubit;
-  final GetClassroomByCodeUseCase _getClassroomByCode =
-      serviceLocator<GetClassroomByCodeUseCase>();
+  final StudentAttendanceAbsentFetchCubit _fetchCubit =
+      serviceLocator<StudentAttendanceAbsentFetchCubit>();
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
@@ -130,7 +131,7 @@ class _StudentAttendanceAbsentViewState
   @override
   void initState() {
     super.initState();
-    _cacheManager = CacheManager(serviceLocator<StorageService>());
+    _cacheManager = _fetchCubit.cacheManager;
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
@@ -164,10 +165,7 @@ class _StudentAttendanceAbsentViewState
   /// classroom filter unscoped so teachers see every classroom.
   Future<void> _resolveCrossClassFlag() async {
     try {
-      final enabled =
-          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+      final enabled = await _fetchCubit.resolveCrossClassEnabled();
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -192,7 +190,6 @@ class _StudentAttendanceAbsentViewState
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
-      setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
         _syncClassroomFilterCodes();
         if (_selectedClassroomCodes != null) {
@@ -209,12 +206,10 @@ class _StudentAttendanceAbsentViewState
     }
 
     if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
-    if (hadClassroomSelection && _isClassroomDataReady) {
+    final isClassroomDataReady =
+        !_classroomCubit.state.isLoading &&
+        _classroomCubit.state.classrooms.isNotEmpty;
+    if (hadClassroomSelection && isClassroomDataReady) {
       _syncClassroomFilterCodes();
       if (_selectedClassroomCodes != null) {
         _loadAbsentStudents(reset: true);
@@ -228,8 +223,7 @@ class _StudentAttendanceAbsentViewState
       _isLoadingTagMap = true;
     });
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await _fetchCubit.resolveSchoolCode();
       if (schoolCode.isEmpty) {
         setState(() {
           _isLoadingTagMap = false;
@@ -238,12 +232,10 @@ class _StudentAttendanceAbsentViewState
       }
 
       // Load full name->code map for sending tagCodes to API
-      final getMap = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-      final map = await getMap(schoolCode: schoolCode);
+      final map = await _fetchCubit.fetchTagNameCodeMap(schoolCode: schoolCode);
 
       // Load just names for UI dropdown
-      final getNames = serviceLocator<GetTagNamesForSchoolUseCase>();
-      final names = await getNames(schoolCode: schoolCode);
+      final names = await _fetchCubit.fetchTagNames(schoolCode: schoolCode);
 
       if (!mounted) return;
       setState(() {
@@ -256,7 +248,7 @@ class _StudentAttendanceAbsentViewState
         _isLoadingTagMap = false;
       });
     } catch (e) {
-      debugPrint('Failed to load tag data: $e');
+      AppLogger.d('Failed to load tag data: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingTagMap = false;
@@ -271,7 +263,8 @@ class _StudentAttendanceAbsentViewState
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _searchDebounceTimer?.cancel();
+    cancelSearchDebounce();
+    _classroomCubit.close();
     super.dispose();
   }
 
@@ -289,16 +282,13 @@ class _StudentAttendanceAbsentViewState
 
   Future<void> _fetchClassroomName(String code) async {
     try {
-      final details = await _getClassroomByCode(code: code);
+      final name = await _fetchCubit.fetchClassroomName(code);
       if (!mounted) return;
-      final name = details.name.trim();
-      if (name.isNotEmpty) {
+      if (name != null && name.isNotEmpty) {
         setState(() {
           _classroomNameByCode[code] = name;
         });
       }
-    } catch (_) {
-      // Keep code when lookup fails.
     } finally {
       _classroomFetchInFlight.remove(code);
     }
@@ -353,11 +343,7 @@ class _StudentAttendanceAbsentViewState
       _searchQuery = newQuery;
     });
 
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted) return;
-      _triggerSearchReload();
-    });
+    debounceSearch(_triggerSearchReload);
   }
 
   void _triggerSearchReload() {
@@ -425,9 +411,7 @@ class _StudentAttendanceAbsentViewState
     // classroom's absent students (or a stale unscoped/admin payload from an
     // earlier session on the same device) straight into a restricted view.
     if (!reset) {
-      final scoped = await isStudentAttendanceScopedStaffPersona(
-        storage: serviceLocator<StorageService>(),
-      );
+      final scoped = await _fetchCubit.resolveIsScopedStaffPersona();
       if (!mounted) return;
 
       if (!scoped) {
@@ -453,7 +437,12 @@ class _StudentAttendanceAbsentViewState
           final cachedPayload = await _cacheManager.loadCache(cacheKey);
           if (!mounted) return;
           if (cachedPayload != null) {
-            _applyPagePayload(cachedPayload, reset: true);
+            _applyPagePayload(
+              StudentAttendanceAbsentViewResponseModel.fromJson(
+                cachedPayload,
+              ).toEntity(),
+              reset: true,
+            );
             return;
           }
         }
@@ -515,21 +504,20 @@ class _StudentAttendanceAbsentViewState
     final trimmedSearch = _searchQuery.trim();
 
     try {
-      final data = await serviceLocator<AttendanceRepository>()
-          .getStudentAttendanceAbsentView(
-            fromAbsenceDate: fromStr,
-            toAbsenceDate: toStr,
-            classroomCodes: classroomCodes,
-            tagCodes: tagCodes,
-            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-            page: _studentsPage,
-            size: _pageSize,
-            sort: const <String>['studentName,asc'],
-          );
+      final data = await _fetchCubit.fetchAbsentStudents(
+        fromAbsenceDate: fromStr,
+        toAbsenceDate: toStr,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        page: _studentsPage,
+        size: _pageSize,
+        sort: const <String>['studentName,asc'],
+      );
 
       if (!mounted) return;
 
-      if (data is! Map<String, dynamic>) {
+      if (data == null) {
         setState(() {
           _isInitialLoadingStudents = false;
           _isLoadingStudents = false;
@@ -539,17 +527,13 @@ class _StudentAttendanceAbsentViewState
         return;
       }
 
-      final root = data['data'] as Map<String, dynamic>? ?? {};
-
       // Cache first page keyed by filters so it can be reused on next load —
       // but only when this persona is unrestricted. A scoped staff member's
       // results must never be persisted to the shared cache: another user
       // (or this same user after their access changes) could otherwise read
       // back a payload that doesn't reflect their current classroom scope.
       if (_studentsPage == 0) {
-        final scoped = await isStudentAttendanceScopedStaffPersona(
-          storage: serviceLocator<StorageService>(),
-        );
+        final scoped = await _fetchCubit.resolveIsScopedStaffPersona();
         if (!mounted) return;
         if (!scoped) {
           final from = _rangeStart ?? attendanceSchoolToday();
@@ -561,13 +545,16 @@ class _StudentAttendanceAbsentViewState
             tagCodes: tagCodes,
             search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
           );
-          await _cacheManager.saveCache(cacheKey, root);
+          await _cacheManager.saveCache(
+            cacheKey,
+            StudentAttendanceAbsentViewResponseModel.fromEntity(data).toJson(),
+          );
         }
       }
 
-      _applyPagePayload(root, reset: reset);
+      _applyPagePayload(data, reset: reset);
     } catch (error) {
-      debugPrint('StudentAbsent API error: $error');
+      AppLogger.d('StudentAbsent API error: $error');
       if (!mounted) return;
       final message = ApiErrorHandler.extractErrorMessage(error);
       CoreUtils.showTopSnackBar(
@@ -635,10 +622,13 @@ class _StudentAttendanceAbsentViewState
   }
 
   /// Applies a paged API/cache payload to local state and list.
-  void _applyPagePayload(Map<String, dynamic> root, {required bool reset}) {
-    final content = root['content'] as List<dynamic>? ?? const [];
-    final last = root['last'] as bool? ?? true;
-    final number = root['number'] as int? ?? _studentsPage;
+  void _applyPagePayload(
+    StudentAttendanceAbsentViewResponse page, {
+    required bool reset,
+  }) {
+    final content = page.content;
+    final last = page.last ?? true;
+    final number = page.number ?? _studentsPage;
 
     String parseTime(dynamic value) {
       if (value == null) return '';
@@ -670,31 +660,30 @@ class _StudentAttendanceAbsentViewState
 
     final newData = content.asMap().entries.map<_AbsentStudentModel>((entry) {
       final indexInPage = entry.key;
-      final e = entry.value;
-      final m = e as Map<String, dynamic>;
+      final record = entry.value;
 
-      final absenceDateStr = m['absenceDate'] as String? ?? '';
+      final absenceDateStr = record.absenceDate;
       final absenceDate = absenceDateStr.isNotEmpty
           ? DateTime.tryParse(absenceDateStr) ?? attendanceSchoolToday()
           : attendanceSchoolToday();
 
-      final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
-      final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
+      final classroomName = record.classroomName?.trim() ?? '';
+      final classroomCode = record.classroomCode?.trim() ?? '';
       final roomDisplay = _classroomDisplay(
         classroomCode: classroomCode,
         classroomName: classroomName,
       );
 
       return _AbsentStudentModel(
-        id: (m['studentCode'] as String?) ?? '',
-        name: (m['studentName'] as String?) ?? '',
+        id: record.studentCode,
+        name: record.studentName,
         photoUuid: null,
         roomName: roomDisplay,
-        absentDays: (m['absentDays'] as int?) ?? 0,
+        absentDays: record.absentDays,
         startDate: absenceDate,
-        absentTime: parseTime(m['markedAbsentTime']),
-        absentBy: (m['markedAbsentByName'] as String?) ?? '',
-        note: (m['absenceNote'] as String?),
+        absentTime: parseTime(record.markedAbsentTime),
+        absentBy: record.markedAbsentByName,
+        note: record.absenceNote,
         // No numeric studentId available in this response - use a stable placeholder
         studentId: (number * _pageSize) + indexInPage,
         roomId: 0,
@@ -720,23 +709,11 @@ class _StudentAttendanceAbsentViewState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.contentOnly) {
-      return _buildContent();
-    }
-
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: _buildContent(),
-    );
-  }
-
-  Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
-    final contentPadding = ResponsiveSizing.contentPadding(context);
+    final contentPadding = ResponsiveHelper(context).contentPadding;
     final filtered = _absentStudents;
 
-    return BlocListener<ClassroomCubit, ClassroomState>(
+    final Widget content = BlocListener<ClassroomCubit, ClassroomState>(
       bloc: _classroomCubit,
       listenWhen: (previous, current) =>
           previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
@@ -756,7 +733,7 @@ class _StudentAttendanceAbsentViewState
               SizedBox(height: responsive.verticalSpacing / 4),
               // Filter section
               CustomSectionCard(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 child: Column(
                   children: [
                     // Row 1: Full-width Search Bar
@@ -770,7 +747,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 2: Date Range (70%) + Clear All (30%)
                     Row(
                       children: [
@@ -823,7 +800,7 @@ class _StudentAttendanceAbsentViewState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.sm),
                     // Row 3: Classroom (50%) + Tags (50%)
                     Row(
                       children: [
@@ -835,7 +812,7 @@ class _StudentAttendanceAbsentViewState
                                   .map((c) => c.name)
                                   .toList();
                               final isLoading =
-                                  state.isLoading || !_isClassroomDataReady;
+                                  state.isLoading || state.classrooms.isEmpty;
                               if (isLoading && items.isEmpty) {
                                 return ShimmerLoader(height: 40);
                               }
@@ -908,7 +885,9 @@ class _StudentAttendanceAbsentViewState
                       SizedBox(height: responsive.verticalSpacing / 2),
                       AppText.body(
                         errorMessage ?? 'Unable to load absent students.',
-                        style: TextStyle(color: AppColors.errorColor),
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.errorColor,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: responsive.verticalSpacing / 2),
@@ -916,7 +895,9 @@ class _StudentAttendanceAbsentViewState
                         onPressed: () => _loadInitialData(reset: true),
                         child: AppText.body(
                           'Retry',
-                          style: TextStyle(color: Colors.white),
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.cardColor,
+                          ),
                         ),
                       ),
                     ],
@@ -940,7 +921,9 @@ class _StudentAttendanceAbsentViewState
                           _absentStudents.isEmpty
                               ? 'No absent students found'
                               : 'No students match your filters',
-                          style: TextStyle(color: AppColors.secondaryColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.secondaryColor,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ],
@@ -953,7 +936,35 @@ class _StudentAttendanceAbsentViewState
                     ...filtered.asMap().entries.map((entry) {
                       final index = entry.key;
                       final student = entry.value;
-                      return _buildAbsentStudentCard(student, index);
+                      return _AbsentStudentCardItem(
+                        student: student,
+                        isExpanded: _expandedStudentIndex == index,
+                        isLoading: _loadingButtons[student.studentId] == true,
+                        onTap: () {
+                          setState(() {
+                            _expandedStudentIndex =
+                                _expandedStudentIndex == index ? null : index;
+                          });
+                        },
+                        onView: () {
+                          context.push(
+                            StudentAttendanceProfile.routeName,
+                            extra: {
+                              'studentCode': student.id,
+                              'studentId': student.studentId,
+                              'studentName': student.name,
+                              'studentPhotoUuid': student.photoUuid,
+                              'roomName': student.roomName,
+                              'isSignedIn': false,
+                              'isAbsent': true,
+                              'isExpectedToday': true,
+                              'isPresentToday': false,
+                              'profileStatus': 'A',
+                              'initialShowAbsentDays': true,
+                            },
+                          );
+                        },
+                      );
                     }).toList(),
                     // Pagination loader
                     if (_isLoadingStudents &&
@@ -973,24 +984,42 @@ class _StudentAttendanceAbsentViewState
         ),
       ),
     );
-  }
 
-  Widget _buildAbsentStudentCard(_AbsentStudentModel student, int index) {
+    if (widget.contentOnly) {
+      return content;
+    }
+
+    return GlobalScaffold(
+      hasBackButton: true,
+      showCustomNavigationBar: true,
+      body: content,
+    );
+  }
+}
+
+class _AbsentStudentCardItem extends StatelessWidget {
+  const _AbsentStudentCardItem({
+    required this.student,
+    required this.isExpanded,
+    required this.isLoading,
+    required this.onTap,
+    required this.onView,
+  });
+
+  final _AbsentStudentModel student;
+  final bool isExpanded;
+  final bool isLoading;
+  final VoidCallback onTap;
+  final VoidCallback onView;
+
+  @override
+  Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bool isExpanded = _expandedStudentIndex == index;
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
     final spacing = responsive.isTablet ? 16.0 : 14.0;
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (_expandedStudentIndex == index) {
-            _expandedStudentIndex = null;
-          } else {
-            _expandedStudentIndex = index;
-          }
-        });
-      },
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
@@ -1004,7 +1033,7 @@ class _StudentAttendanceAbsentViewState
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.attendanceCardShadowLightColor,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1033,27 +1062,19 @@ class _StudentAttendanceAbsentViewState
                       Flexible(
                         child: Text(
                           student.name,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.xs),
                       Flexible(
                         child: Text(
                           student.roomName,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
+                          style: AppTextStyles.body.copyWith(
                             fontSize: responsive.isTablet ? 16 : 14,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
-                            height: 19 / 14,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1069,44 +1090,56 @@ class _StudentAttendanceAbsentViewState
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(responsive, 'Classroom', student.roomName),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Days',
-                '${student.absentDays} days',
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Classroom',
+                value: student.roomName,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Date',
-                DateFormat('MMM dd, yyyy').format(student.startDate),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Absent Days',
+                value: '${student.absentDays} days',
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(responsive, 'Absent Time', student.absentTime),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Absent Date',
+                value: DateFormat('MMM dd, yyyy').format(student.startDate),
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(responsive, 'Marked By', student.absentBy),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Absent Time',
+                value: student.absentTime,
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Absent Note',
-                (student.note != null && student.note!.trim().isNotEmpty)
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Marked By',
+                value: student.absentBy,
+              ),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
+              AttendanceResponsiveDetailRow(
+                responsive: responsive,
+                label: 'Absent Note',
+                value: (student.note != null && student.note!.trim().isNotEmpty)
                     ? student.note!.trim()
                     : '-',
               ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
                 child: SizedBox(
                   width: double.infinity,
-                  child: _loadingButtons[student.studentId] == true
+                  child: isLoading
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
                             color: AppColors.cardBorderColor.withValues(
                               alpha: 0.1,
                             ),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.allSm,
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                               width: 1,
@@ -1114,8 +1147,8 @@ class _StudentAttendanceAbsentViewState
                           ),
                           child: const Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: AppSpacing.lg,
+                              height: AppSpacing.lg,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -1127,26 +1160,7 @@ class _StudentAttendanceAbsentViewState
                         )
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
-                          onPressedCancel: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => StudentAttendanceProfile(
-                                  studentCode: student.id,
-                                  studentId: student.studentId,
-                                  studentName: student.name,
-                                  studentPhotoUuid: student.photoUuid,
-                                  roomName: student.roomName,
-                                  isSignedIn: false,
-                                  isAbsent: true,
-                                  isExpectedToday: true,
-                                  isPresentToday: false,
-                                  profileStatus: 'A',
-                                  initialShowAbsentDays: true,
-                                ),
-                              ),
-                            );
-                          },
+                          onPressedCancel: onView,
                         ),
                 ),
               ),
@@ -1154,48 +1168,6 @@ class _StudentAttendanceAbsentViewState
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailRow(
-    ResponsiveHelper responsive,
-    String label,
-    String value,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
-              height: 16 / 13,
-            ),
-          ),
-        ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
-        Expanded(
-          flex: responsive.isTablet ? 3 : 2,
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
-              height: 19 / 14,
-            ),
-            textAlign: TextAlign.end,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

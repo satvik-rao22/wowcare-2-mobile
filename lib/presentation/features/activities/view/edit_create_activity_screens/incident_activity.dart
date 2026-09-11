@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -12,32 +13,33 @@ import 'package:wowcare/presentation/features/activities/widgets/upload_photo_vi
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/guardian_code_resolver.dart';
-import '../../../../../domain/features/activity/entities/activity_detail.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../cubit/incident_activity_cubit.dart';
-import '../../../../../shared/common/app/cubit/role_cubit.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/guardian_code_resolver.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/incident_activity_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_attendance_window_feedback.dart';
+import 'package:wowcare/domain/features/activity/services/activity_school_time.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
+import 'package:wowcare/data/features/activity/mappers/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_photo_attachment_coordinator.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 /// Same rules as `rolesJsonIndicatesGuardianLogin` in `login_persona_util.dart`
 /// (defined here so hot restart always sees the symbol).
@@ -53,12 +55,19 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
         return role.contains('GUARDIAN') || role.contains('PARENT');
       });
     }
-  } catch (_) {}
+  } catch (e) {
+    AppLogger.d('roles JSON decode failed, falling back to substring match: $e');
+  }
   final u = raw.toUpperCase();
   return u.contains('GUARDIAN') || u.contains('PARENT');
 }
 
 class IncidentActivityScreen extends StatelessWidget {
+  /// General create/edit push route. Distinct from
+  /// `AppRoutes.activityApprovalByCode`, the deep-link route used for
+  /// notification taps (query-param based, not `extra`-based).
+  static const String routeName = '/activity/incident';
+
   const IncidentActivityScreen({
     super.key,
     this.selectedStudents,
@@ -73,21 +82,11 @@ class IncidentActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<ActivityEditorCubit>(
-          create: (_) => serviceLocator<ActivityEditorCubit>(),
-        ),
-        BlocProvider<IncidentActivityCubit>(
-          create: (_) => serviceLocator<IncidentActivityCubit>(),
-        ),
-      ],
-      child: _IncidentActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _IncidentActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -175,6 +174,10 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   final _attachmentState = ActivityPhotoAttachmentState();
   List<String> _remainingExistingPhotoUrls = [];
 
+  /// Cancels any in-flight incident media upload when this screen is disposed,
+  /// so a large upload doesn't keep running after the user leaves the screen.
+  final CancelToken _incidentUploadCancelToken = CancelToken();
+
   bool? _pickFirstAidGivenFromActivityDetail(dynamic detail) {
     bool? parseBool(dynamic raw) {
       if (raw is bool) return raw;
@@ -221,7 +224,6 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   IncidentActivityCubit get _incidentCubit =>
       context.read<IncidentActivityCubit>();
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -465,7 +467,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (dec.isEmpty) return '';
       if (_looksLikeStaffCode(dec)) return dec;
       if (_looksLikeGuardianTechnicalId(dec)) return dec;
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('signer encodedName base64/utf8 decode failed: $e');
+    }
     return '';
   }
 
@@ -514,10 +518,19 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   void _debugIncidentParameterValues(
     String source,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
   ) {
-    debugPrint(
-      '[Incident][$source] parameterValues=${jsonEncode(parameterValues)}',
+    // Log only the non-sensitive SHAPE of the payload — the parameter codes
+    // present and the count — never the values. Incident parameter values
+    // carry free-text incident/health details, signature payloads, and
+    // staff/guardian codes, none of which may reach logs/Crashlytics.
+    final codes = parameterValues
+        .map((p) => p.parameterCode)
+        .where((c) => c.isNotEmpty)
+        .toList();
+    AppLogger.d(
+      '[Incident][$source] parameterValues: count=${parameterValues.length} '
+      'codes=$codes',
     );
   }
 
@@ -620,7 +633,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     }
   }
 
-  List<Map<String, dynamic>> _incidentSignerParameterValuesForPatch({
+  List<ActivityParameterValue> _incidentSignerParameterValuesForPatch({
     required List<ActivityTypeParameter> parameters,
     required String staffPresentCode,
     String? staffSignerCode,
@@ -647,29 +660,29 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       const ['Click to Sign - Parent'],
       contains: const ['click to sign - parent'],
     );
-    return <Map<String, dynamic>>[
+    return <ActivityParameterValue>[
       if (staffPresentParamCode != null &&
           staffPresentParamCode.trim().isNotEmpty &&
           staffPresentCode.trim().isNotEmpty)
-        {
-          'parameterCode': staffPresentParamCode.trim(),
-          'value': staffPresentCode.trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: staffPresentParamCode.trim(),
+          value: staffPresentCode.trim(),
+        ),
       if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': staffSignParamCode.trim(),
-          'value': (staffSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: staffSignParamCode.trim(),
+          value: (staffSignerCode ?? '').trim(),
+        ),
       if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': adminSignParamCode.trim(),
-          'value': (adminSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: adminSignParamCode.trim(),
+          value: (adminSignerCode ?? '').trim(),
+        ),
       if (parentSignParamCode != null && parentSignParamCode.trim().isNotEmpty)
-        {
-          'parameterCode': parentSignParamCode.trim(),
-          'value': (parentSignerCode ?? '').trim(),
-        },
+        ActivityParameterValue(
+          parameterCode: parentSignParamCode.trim(),
+          value: (parentSignerCode ?? '').trim(),
+        ),
     ];
   }
 
@@ -747,7 +760,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   /// Dropdown-style parameters must use [selectedOptionCode]; plain BOOLEAN
   /// uses JSON [value] (bool). Display strings like "Yes"/"No" are rejected.
-  Map<String, dynamic>? _firstAidParameterEntry(
+  ActivityParameterValue? _firstAidParameterEntry(
     ActivityTypeParameter param,
     bool given,
   ) {
@@ -805,30 +818,38 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (pick != null) {
         final oc = optionApiCode(pick);
         if (oc != null) {
-          return {'parameterCode': pc, 'selectedOptionCode': oc};
+          return ActivityParameterValue(
+            parameterCode: pc,
+            selectedOptionCode: oc,
+          );
         }
       }
       if (sorted.length == 2) {
         final o = sorted[given ? 1 : 0];
         final oc = optionApiCode(o);
         if (oc != null) {
-          return {'parameterCode': pc, 'selectedOptionCode': oc};
+          return ActivityParameterValue(
+            parameterCode: pc,
+            selectedOptionCode: oc,
+          );
         }
       }
     }
 
     final dt = (param.dataType ?? '').toUpperCase();
     if (dt == 'BOOLEAN') {
-      return {'parameterCode': pc, 'value': given};
+      return ActivityParameterValue(parameterCode: pc, value: given);
     }
-    return {'parameterCode': pc, 'value': given ? 'Yes' : 'No'};
+    return ActivityParameterValue(
+      parameterCode: pc,
+      value: given ? 'Yes' : 'No',
+    );
   }
 
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
-    _imageUploadService = serviceLocator<ImageUploadService>();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -868,7 +889,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -882,7 +905,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -974,7 +997,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     final details = await _editor.getActivityTypeDetails(
       code: activityTypeCode,
     );
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+    var staffCode = _staffCode ?? await _editor.resolveStaffCode();
     staffCode = (staffCode ?? '').trim();
     if (staffCode.isEmpty) return;
 
@@ -988,10 +1011,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         );
         d ??= DateTime(dt.year, dt.month, dt.day);
         t ??= TimeOfDay(hour: dt.hour, minute: dt.minute);
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('unparsable activityDateIso: $e');
+      }
     }
     if (d == null || t == null) return;
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+    final activityDateIso = await _editor.activityUtcIsoFromSchoolWallClock(
       date: d,
       time: t,
     );
@@ -1112,7 +1137,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
             code: activityTypeCode,
           );
           schemaParams = typeDetails.parameters;
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('getActivityTypeDetails failed for $activityTypeCode: $e');
+        }
       }
 
       final staffPresentSchema = _findIncidentSchemaParameter(
@@ -1285,7 +1312,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
       unawaited(
@@ -1305,8 +1334,8 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     final staffType = await _incidentCubit.readStaffType();
     final schoolCode = await _incidentCubit.readSchoolCode();
     final organizationCode = await _incidentCubit.readOrganizationCode();
-    final staffCode = await resolveLoggedInStaffCode();
-    final resolvedDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
+    final staffCode = await _editor.resolveStaffCode();
+    final resolvedDisplayName = await _editor.resolveStaffDisplayName(
       staffCode: staffCode,
     );
 
@@ -1401,7 +1430,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           refreshed.parameterValues,
           parentSignParameter: parentSignSchema,
         );
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('re-fetch after guardian sign failed: $e');
+      }
 
       if (!mounted) return;
       setState(() {
@@ -1514,6 +1545,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1607,7 +1639,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1654,7 +1686,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1755,31 +1787,55 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
               signingRecordCode: gCode,
             )
           : '';
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffCode,
+          ),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
-          {'parameterCode': whatParamCode, 'value': whatValueForParam},
+          ActivityParameterValue(
+            parameterCode: whatParamCode,
+            value: whatValueForParam,
+          ),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
-          {'parameterCode': notesParamCode, 'value': additionalNotes},
+          ActivityParameterValue(
+            parameterCode: notesParamCode,
+            value: additionalNotes,
+          ),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-          {'parameterCode': staffSignParamCode, 'value': staffSignValue},
+          ActivityParameterValue(
+            parameterCode: staffSignParamCode,
+            value: staffSignValue,
+          ),
         if (_isAdminDesignation &&
             adminSignParamCode != null &&
             adminSignParamCode.trim().isNotEmpty)
-          {'parameterCode': adminSignParamCode, 'value': adminSignValue},
+          ActivityParameterValue(
+            parameterCode: adminSignParamCode,
+            value: adminSignValue,
+          ),
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
-          {'parameterCode': parentSignParamCode, 'value': parentSignValue},
+          ActivityParameterValue(
+            parameterCode: parentSignParamCode,
+            value: parentSignValue,
+          ),
       ];
       _debugIncidentParameterValues('create', parameterValues);
 
@@ -1843,6 +1899,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1953,7 +2010,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1993,7 +2050,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -2025,7 +2082,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newAttachments.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
@@ -2156,41 +2215,53 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
               );
             })()
           : '';
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             creatorStaffCodeForIncident.isNotEmpty)
-          {
-            'parameterCode': staffParamCode,
-            'value': creatorStaffCodeForIncident,
-          },
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: creatorStaffCodeForIncident,
+          ),
         if (whatParamCode != null && whatParamCode.trim().isNotEmpty)
-          {'parameterCode': whatParamCode, 'value': whatValueForParam},
+          ActivityParameterValue(
+            parameterCode: whatParamCode,
+            value: whatValueForParam,
+          ),
         if (firstAidEntry != null) firstAidEntry,
         if (notesParamCode != null &&
             notesParamCode.trim().isNotEmpty &&
             !sameWhatAndNotes)
-          {'parameterCode': notesParamCode, 'value': additionalNotes},
+          ActivityParameterValue(
+            parameterCode: notesParamCode,
+            value: additionalNotes,
+          ),
         if (staffSignParamCode != null && staffSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': staffSignParamCode,
-            'value': resolvedStaffSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: staffSignParamCode,
+            value: resolvedStaffSignerValue,
+          ),
         if (adminSignParamCode != null && adminSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': adminSignParamCode,
-            'value': resolvedAdminSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: adminSignParamCode,
+            value: resolvedAdminSignerValue,
+          ),
         if (parentSignParamCode != null &&
             parentSignParamCode.trim().isNotEmpty)
-          {
-            'parameterCode': parentSignParamCode,
-            'value': resolvedParentSignerValue,
-          },
+          ActivityParameterValue(
+            parameterCode: parentSignParamCode,
+            value: resolvedParentSignerValue,
+          ),
       ];
       _debugIncidentParameterValues('update', parameterValues);
 
@@ -2234,7 +2305,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         );
         try {
           await _getActivityDetailRespectingPersona(code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
 
       if (!mounted) return;
@@ -2270,7 +2343,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     await _submitCreateActivity();
   }
 
-  Future<List<Map<String, dynamic>>> _ensureIncidentMediaUploaded({
+  Future<List<ActivityAttachment>> _ensureIncidentMediaUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -2284,7 +2357,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     const bindingMode = 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
-      uploadService: _imageUploadService,
+      editor: _editor,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,
@@ -2303,10 +2376,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
+      cancelToken: _incidentUploadCancelToken,
     );
   }
 
@@ -2404,12 +2476,16 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected — don't
+      // surface it as an error. Non-cancel failures still show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -2427,6 +2503,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
 
   @override
   void dispose() {
+    // Abort any in-flight incident media upload so it doesn't keep running
+    // after the user leaves this screen.
+    if (!_incidentUploadCancelToken.isCancelled) {
+      _incidentUploadCancelToken.cancel('incident screen disposed');
+    }
     _descriptionController.dispose();
     _addNotesController.dispose();
     super.dispose();
@@ -2454,20 +2535,12 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                   alignment: Alignment.centerLeft,
                   child: RichText(
                     text: TextSpan(
-                      style: TextStyle(
-                        color: AppColors.primaryColor.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTextStyles.activityMutedFieldLabel,
                       children: [
                         const TextSpan(text: 'Students involved'),
                         TextSpan(
                           text: ' *',
-                          style: TextStyle(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.6,
-                            ),
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTextStyles.activityMutedFieldLabel,
                         ),
                       ],
                     ),
@@ -2589,10 +2662,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                 children: [
                   Text(
                     'First Aid Administered',
-                    style: TextStyle(
-                      color: AppColors.primaryColor.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTextStyles.activityMutedFieldLabel,
                   ),
                   SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
                   IgnorePointer(
@@ -2603,12 +2673,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                       children: [
                         const Text(
                           'No',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                          ),
+                          style: AppTextStyles.activityStrongLabel,
                         ),
                         const SizedBox(width: 8),
                         CustomToggle(
@@ -2619,12 +2684,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
                         const SizedBox(width: 8),
                         const Text(
                           'Yes',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                          ),
+                          style: AppTextStyles.activityStrongLabel,
                         ),
                       ],
                     ),
@@ -3007,11 +3067,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photos... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityStrongLabel,
           ),
         ],
       );
@@ -3022,16 +3078,16 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.activityUploadSuccessText,
             ),
           ),
         ],
@@ -3050,16 +3106,16 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Uploaded $label',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.green,
-              ),
+              style: AppTextStyles.activityUploadSuccessText,
             ),
           ),
         ],
@@ -3070,16 +3126,16 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       ..write('Photos $_uploadedPhotoCount/${_newPhotos.length}');
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: AppColors.activityUploadWarningColor,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             buf.toString(),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.orange,
-            ),
+            style: AppTextStyles.activityUploadWarningText,
           ),
         ),
       ],

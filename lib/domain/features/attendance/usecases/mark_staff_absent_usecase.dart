@@ -1,8 +1,9 @@
-import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/idempotency_key.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
 import '../repositories/attendance_repository.dart';
 
@@ -48,6 +49,8 @@ class MarkStaffAbsentUseCase {
       for (; !day.isAfter(endDay); day = day.add(const Duration(days: 1))) {
         final dayStr = _ymd(day);
         try {
+          // Fresh key per day — see MarkStudentsAbsentUseCase for why a
+          // shared key across the range would be wrong here.
           lastMessage = await _repository.markStaffAbsent(
             staffCode: staffCode,
             staffCodes: staffCodes,
@@ -58,6 +61,7 @@ class MarkStaffAbsentUseCase {
             absenceNotes: absenceNotes,
             isExpectedTodayByStaffCode: isExpectedTodayByStaffCode,
             markAbsentMethod: markAbsentMethod,
+            idempotencyKey: IdempotencyKey.generate(),
           );
           markedDays.add(day);
         } catch (e) {
@@ -77,7 +81,7 @@ class MarkStaffAbsentUseCase {
   }
 
   /// Best-effort `POST /api/v1/staff-shifts/absent-days` per affected staff.
-  /// Failures here are surfaced via debugPrint but never bubble up — the
+  /// Failures here are surfaced via AppLogger (debug-only) but never bubble up — the
   /// mark-absent records have already been written.
   Future<void> _stripShiftsOnAbsentDays(
     List<String> staffCodes,
@@ -96,7 +100,7 @@ class MarkStaffAbsentUseCase {
           absentDates: absentDays,
         );
       } catch (e) {
-        debugPrint('markStaffShiftAbsentDays failed for $code: $e');
+        AppLogger.d('markStaffShiftAbsentDays failed for $code: $e');
       }
     }
   }

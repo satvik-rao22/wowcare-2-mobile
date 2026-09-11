@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
+import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
+import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
@@ -107,6 +108,25 @@ class CustomNavigationBar extends StatefulWidget {
 
   static double get navBarHeight =>
       navBarKey.currentState?._navBarHeight ?? 0.0;
+
+  /// Height this bar renders at for the given [context]'s [MediaQuery],
+  /// including the bottom system inset it absorbs (see [_NavSizes.barPadding]).
+  ///
+  /// Use this when a screen has to reserve space for the bar *before* it has
+  /// been laid out: [navBarHeight] only reports a real value once [navBarKey]
+  /// is attached to a mounted bar, and it deliberately is not — the shell keeps
+  /// every branch alive at once, so a shared [GlobalKey] would collide.
+  static double estimatedHeight(BuildContext context) {
+    final sizes = _NavSizes(context);
+    // Icon, a 3px gap, then a single label line (Inter's default line height).
+    const double labelLineHeightFactor = 1.4;
+    return sizes.barPadding.top +
+        sizes.barPadding.bottom +
+        (sizes.itemPaddingV * 2) +
+        sizes.iconSize +
+        3 +
+        (sizes.fontSize * labelLineHeightFactor);
+  }
 
   @override
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
@@ -261,11 +281,20 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           navigator.pop();
         }
         router.go(branchRootPaths[branchIndex]);
+        // Re-tapping the already-active tab is also a reasonable "give me
+        // fresh data" signal (common app convention), and costs nothing extra
+        // here since the branch is already visible.
+        TabVisibilityEvents.notifyBranchActivated(branchIndex);
         return;
       }
       // Different branch → IndexedStack swap; state of the outgoing branch is
       // kept alive, the incoming one shows instantly (no transition animation).
       shell.goBranch(branchIndex);
+      // The incoming branch's initState()/BlocProvider.create already ran
+      // once (kept alive, not rebuilt) — this is what tells it to reload
+      // fresh data now instead of showing whatever it last had. See
+      // TabVisibilityEvents' doc comment for why this is needed at all.
+      TabVisibilityEvents.notifyBranchActivated(branchIndex);
     } else {
       // Outside the shell — either an auth screen that still shows the bar, or a
       // screen pushed ABOVE the shell on the ROOT navigator (e.g. the Staff /
@@ -281,6 +310,13 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         rootNavigator.pop();
       }
       router.go(branchRootPaths[branchIndex]);
+      // Same as the IndexedStack-swap branch above — this is the path a tap
+      // takes when returning from a screen pushed ABOVE the shell (e.g. the
+      // Staff/Student Attendance flow opened from the Attendance popup), so
+      // it needs the same "you're visible again, reload" signal — this was
+      // the actual gap: switching tabs directly already worked, but coming
+      // BACK to a tab from one of these pushed screens did not.
+      TabVisibilityEvents.notifyBranchActivated(branchIndex);
     }
   }
 

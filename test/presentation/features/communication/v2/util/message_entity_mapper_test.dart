@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
+import 'package:wowcare/data/features/communication/mappers/message_entity_mapper.dart';
 
 void main() {
   MessageEntity buildEntity({

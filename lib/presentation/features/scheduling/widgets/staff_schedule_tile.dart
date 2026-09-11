@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
 
 /// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
@@ -53,14 +53,12 @@ class SchedulingEntityLeftCell extends StatelessWidget {
   final String? statusTooltip;
 
   static const TextStyle _nameStyle = TextStyle(
-    fontFamily: 'Manrope',
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
   static final TextStyle _subtitleStyle = TextStyle(
-    fontFamily: 'Manrope',
     fontSize: 12,
     fontWeight: FontWeight.w500,
     color: AppColors.primaryColor.withValues(alpha: 0.65),
@@ -254,7 +252,6 @@ class _HourChip extends StatelessWidget {
         Text(
           '${formatSchedulingHours(hours)}h',
           style: const TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 11,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryColor,
@@ -298,7 +295,6 @@ class StaffTimeRangePill extends StatelessWidget {
         '$startTime -\n$endTime',
         textAlign: TextAlign.center,
         style: const TextStyle(
-          fontFamily: 'Manrope',
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppColors.primaryColor,
@@ -414,7 +410,6 @@ class ShiftHoursTile extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryColor,
@@ -424,7 +419,6 @@ class ShiftHoursTile extends StatelessWidget {
                 Text(
                   hours,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryColor,

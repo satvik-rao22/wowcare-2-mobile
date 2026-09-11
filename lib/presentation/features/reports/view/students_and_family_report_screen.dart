@@ -1,23 +1,25 @@
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/students_and_family_report_params.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/school_context_helper.dart';
-import '../../../../core/util/storage_keys.dart' as storage_keys;
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_checkbox_grid.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_section_label.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/reports/widgets/resolve_school_name.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StudentsAndFamilyReportScreen extends StatefulWidget {
   const StudentsAndFamilyReportScreen({
@@ -39,42 +41,46 @@ class StudentsAndFamilyReportScreen extends StatefulWidget {
 class _StudentsAndFamilyReportScreenState
     extends State<StudentsAndFamilyReportScreen> {
   static const List<String> _studentFields = <String>[
-    'Full Name',
-    'DOB',
-    'Address',
-    'Tags',
-    'Classroom',
-    'Status',
-    'Note',
-    'Allergies',
-    'Schedule',
-    'Medications',
-    'Enroll Date',
-    'School Leaving Date',
-    'Diet Restriction',
+    ReportsStrings.fullName,
+    ReportsStrings.dob,
+    ReportsStrings.address,
+    ReportsStrings.tags,
+    ReportsStrings.classroom,
+    ReportsStrings.status,
+    ReportsStrings.note,
+    ReportsStrings.allergies,
+    ReportsStrings.schedule,
+    ReportsStrings.medications,
+    ReportsStrings.enrollDate,
+    ReportsStrings.schoolLeavingDate,
+    ReportsStrings.dietRestriction,
   ];
 
   static const List<String> _parentFields = <String>[
-    'First name',
-    'Last name',
-    'Relation',
-    'Email',
-    'Phone number',
-    'Emergency Contact',
-    'Sign-in-Pin',
+    ReportsStrings.firstName,
+    ReportsStrings.lastName,
+    ReportsStrings.relation,
+    ReportsStrings.email,
+    ReportsStrings.phoneNumberAlt,
+    ReportsStrings.emergencyContact,
+    ReportsStrings.signInPin,
   ];
 
+  /// The columns ticked when the form opens. Only the *field* checkboxes get
+  /// a default — the classroom and tag filters stay empty, because an empty
+  /// filter means "all" there, whereas an empty column set means an empty
+  /// report.
   static const List<String> _defaultStudentFields = <String>[
-    'Full Name',
-    'DOB',
-    'Classroom',
+    ReportsStrings.fullName,
+    ReportsStrings.dob,
+    ReportsStrings.classroom,
   ];
 
   static const List<String> _defaultParentFields = <String>[
-    'First name',
-    'Last name',
-    'Relation',
-    'Email',
+    ReportsStrings.firstName,
+    ReportsStrings.lastName,
+    ReportsStrings.relation,
+    ReportsStrings.email,
   ];
 
   static const List<String> _statusOptions = <String>[
@@ -83,9 +89,9 @@ class _StudentsAndFamilyReportScreenState
     'Inactive',
   ];
 
-  late final ValueNotifier<Set<String>> _selectedStudentFields =
+  final ValueNotifier<Set<String>> _selectedStudentFields =
       ValueNotifier<Set<String>>(_defaultStudentFields.toSet());
-  late final ValueNotifier<Set<String>> _selectedParentFields =
+  final ValueNotifier<Set<String>> _selectedParentFields =
       ValueNotifier<Set<String>>(_defaultParentFields.toSet());
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
@@ -124,17 +130,12 @@ class _StudentsAndFamilyReportScreenState
     _selectedParentFields.value = next;
   }
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
   void _onGenerate() async {
     if (_selectedStudentFields.value.isEmpty &&
         _selectedParentFields.value.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Please select at least one field',
+        message: ReportsStrings.pleaseSelectAtLeastOneField,
         isError: true,
       );
       return;
@@ -155,24 +156,24 @@ class _StudentsAndFamilyReportScreenState
     final selectedTagNames = _selectedTags.value;
     List<String>? tagCodes;
     if (selectedTagNames.isNotEmpty) {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(storage_keys.StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) {
+      // The cubit already loads this map in loadTags(); top it up through the
+      // cubit rather than resolving the use case here.
+      final cubit = context.read<ReportsCubit>();
+      if (cubit.state.tagNameToCode.isEmpty) {
+        await cubit.loadTags();
+        if (!mounted) return;
+      }
+      final tagNameToCode = cubit.state.tagNameToCode;
+      if (tagNameToCode.isEmpty) {
         if (!mounted) return;
 
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Unable to resolve school code for tag lookup',
+          message: ReportsStrings.unableToResolveSchoolCodeForTagLookup,
           isError: true,
         );
         return;
       }
-
-      final tagNameToCode =
-          await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
-            schoolCode: schoolCode,
-          );
       final unresolved = selectedTagNames.where(
         (name) => tagNameToCode[name] == null || tagNameToCode[name]!.isEmpty,
       );
@@ -190,19 +191,8 @@ class _StudentsAndFamilyReportScreenState
       tagCodes = selectedTagNames.map((name) => tagNameToCode[name]!).toList();
     }
 
-    // Retrieve the school name from storage
-    final schoolName = await SchoolContextHelper.getSchoolName();
-    AppLogger.d('resolvedSchoolName=$schoolName');
-    if (schoolName == null || schoolName.isEmpty) {
-      if (!mounted) return;
-
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve school name',
-        isError: true,
-      );
-      return;
-    }
+    final schoolName = await resolveSchoolNameOrWarn(context);
+    if (schoolName == null || !mounted) return;
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
       startDate: AppTime.now(),
@@ -218,17 +208,13 @@ class _StudentsAndFamilyReportScreenState
     cubit.generateReport(params);
   }
 
-  TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-    fontSize: r.labelFontSize,
-    fontFamily: 'Manrope',
-    fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
-  );
+  TextStyle _labelStyle(BuildContext context) =>
+      AppTextStyles.reportsFieldLabel(
+        fontSize: context.responsive(compact: 14.0, medium: 16.0),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-
     return MultiBlocListener(
       listeners: [
         BlocListener<ReportsCubit, ReportsState>(
@@ -254,7 +240,7 @@ class _StudentsAndFamilyReportScreenState
                 state.generatedReport != null) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -262,12 +248,11 @@ class _StudentsAndFamilyReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  // Pop (not context.go) — this screen was pushed via plain
-                  // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             }
@@ -278,24 +263,23 @@ class _StudentsAndFamilyReportScreenState
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
-            title: 'Students and Family',
+            title: ReportsStrings.studentsAndFamilyName,
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Choose the below fields and generate a report',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.labelFontSize,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff573353),
+                  ReportsStrings.chooseTheBelowFieldsAndGenerateAReport,
+                  style: AppTextStyles.reportsFieldValue(
+                    fontSize: context.responsive(compact: 14.0, medium: 16.0),
                   ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const _SectionLabel(label: 'FIELDS'),
-                const SizedBox(height: 8),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportSectionLabel(label: ReportsStrings.fields),
+                const SizedBox(height: AppSizes.xs),
                 ValueListenableBuilder<Set<String>>(
                   valueListenable: _selectedStudentFields,
                   builder: (_, studentFields, __) => Column(
@@ -305,12 +289,12 @@ class _StudentsAndFamilyReportScreenState
                         alignment: Alignment.centerLeft,
                         child: CustomCheckbox(
                           value: studentFields.length == _studentFields.length,
-                          label: 'Select All',
+                          label: ReportsStrings.selectAll,
                           onChanged: (v) => _toggleSelectAll(v ?? false),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      _CheckboxGrid(
+                      const SizedBox(height: AppSizes.xs),
+                      ReportCheckboxGrid(
                         items: _studentFields,
                         selected: studentFields,
                         onChanged: _toggleStudentField,
@@ -318,14 +302,16 @@ class _StudentsAndFamilyReportScreenState
                     ],
                   ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const _SectionLabel(
-                  label: 'PARENT/GUARDIAN & AUTHORIZED PICKUP INFO',
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
                 ),
-                const SizedBox(height: 8),
+                const ReportSectionLabel(
+                  label: ReportsStrings.parentGuardianAuthorizedPickupInfo,
+                ),
+                const SizedBox(height: AppSizes.xs),
                 ValueListenableBuilder<Set<String>>(
                   valueListenable: _selectedParentFields,
-                  builder: (_, parentFields, __) => _CheckboxGrid(
+                  builder: (_, parentFields, __) => ReportCheckboxGrid(
                     items: _parentFields,
                     selected: parentFields,
                     onChanged: _toggleParentField,
@@ -335,50 +321,54 @@ class _StudentsAndFamilyReportScreenState
                 ValueListenableBuilder<List<String>>(
                   valueListenable: _selectedClassrooms,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
-                    label: 'Classroom',
-                    hintText: 'Select Classroom',
+                    label: ReportsStrings.classroom,
+                    hintText: ReportsStrings.allClassrooms,
                     items: widget.classrooms,
                     selectedItems: selected,
-                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
+                  text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                 ),
-                SizedBox(height: responsive.verticalSpacing),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
                 ValueListenableBuilder<List<String>>(
                   valueListenable: _selectedTags,
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
-                    label: 'Tag',
-                    hintText: 'Select Tag',
+                    label: ReportsStrings.tag,
+                    hintText: ReportsStrings.allTags,
                     items: widget.tags,
-                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedTags.value = s,
                     showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Tags will be selected by Default.',
+                  text: ReportsStrings.noteAllTagsIncludedByDefault,
                 ),
-                SizedBox(height: responsive.verticalSpacing),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
                 ValueListenableBuilder<String>(
                   valueListenable: _status,
                   builder: (_, status, __) => CustomDropdown(
-                    label: 'Status',
-                    hintText: 'Select',
+                    label: ReportsStrings.status,
+                    hintText: ReportsStrings.select,
                     items: _statusOptions,
                     selectedItem: status,
-                    labelStyle: _labelStyle(responsive),
+                    labelStyle: _labelStyle(context),
                     showAsterisk: true,
-                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    labelBottomSpacing: context.isTablet ? 8.0 : 6.0,
                     onSelect: (val) => _status.value = val ?? _status.value,
                   ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportFieldLabel(label: ReportsStrings.exportFormat),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(
@@ -392,68 +382,6 @@ class _StudentsAndFamilyReportScreenState
           );
         },
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.4,
-        color: Color(0xff4F46E5),
-      ),
-    );
-  }
-}
-
-class _CheckboxGrid extends StatelessWidget {
-  const _CheckboxGrid({
-    required this.items,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<String> items;
-  final Set<String> selected;
-  final void Function(String field, bool checked) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 480;
-        final columns = isWide ? 3 : 2;
-        return Wrap(
-          alignment: WrapAlignment.start,
-          crossAxisAlignment: WrapCrossAlignment.start,
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: (constraints.maxWidth - (columns - 1) * 8) / columns,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: CustomCheckbox(
-                    value: selected.contains(item),
-                    label: item,
-                    onChanged: (v) => onChanged(item, v ?? false),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
     );
   }
 }

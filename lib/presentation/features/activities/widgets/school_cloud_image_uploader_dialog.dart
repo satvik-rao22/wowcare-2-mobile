@@ -1,17 +1,17 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 
-import '../../../../app/di/di.dart';
-import '../../../../app/theme/colors.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/app_time.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
 
 /// Maximum number of images that can be uploaded to the school cloud gallery
 /// in a single "Image Uploader" run.
@@ -24,7 +24,10 @@ const int kSchoolCloudUploadMaxImages = 10;
 Future<void> showSchoolCloudImageUploaderDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
-    builder: (_) => const SchoolCloudImageUploaderDialog(),
+    builder: (_) => BlocProvider<SchoolCloudImageUploaderCubit>(
+      create: (_) => serviceLocator<SchoolCloudImageUploaderCubit>(),
+      child: const SchoolCloudImageUploaderDialog(),
+    ),
   );
 }
 
@@ -48,7 +51,8 @@ class _SchoolCloudImageUploaderDialogState
     if (_atCapacity) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'You can upload up to $kSchoolCloudUploadMaxImages images at a time.',
+        message:
+            'You can upload up to $kSchoolCloudUploadMaxImages images at a time.',
         isWarning: true,
       );
       return;
@@ -71,7 +75,8 @@ class _SchoolCloudImageUploaderDialogState
     if (newFiles.length > accepted.length) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Only the first $kSchoolCloudUploadMaxImages images were kept — that\'s the max per upload.',
+        message:
+            'Only the first $kSchoolCloudUploadMaxImages images were kept — that\'s the max per upload.',
         isWarning: true,
       );
     }
@@ -92,22 +97,18 @@ class _SchoolCloudImageUploaderDialogState
       _overallUploadPercent = 0;
     });
     try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final cubit = context.read<SchoolCloudImageUploaderCubit>();
+      final schoolCode = await cubit.getSchoolCode();
       if (schoolCode.isEmpty) {
         throw Exception(
           'Missing school context. Please re-login and try again.',
         );
       }
 
-      final uploadService = serviceLocator<ImageUploadService>();
-
       for (var i = 0; i < total; i++) {
         final image = files[i];
         try {
-          final uploadSession =
-              await uploadService.createSchoolCloudUploadSession(
+          final uploadSession = await cubit.createSchoolCloudUploadSession(
             schoolCode: schoolCode,
           );
 
@@ -117,7 +118,7 @@ class _SchoolCloudImageUploaderDialogState
           final contentType = lookupMimeType(image.path) ?? 'image/jpeg';
           final contentLengthBytes = await image.length();
 
-          final presign = await uploadService.createAssetPresign(
+          final presign = await cubit.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
@@ -128,7 +129,7 @@ class _SchoolCloudImageUploaderDialogState
             ownerCode: schoolCode,
           );
 
-          await uploadService.uploadFileToPresignedUrl(
+          await cubit.uploadFileToPresignedUrl(
             file: image,
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
@@ -137,13 +138,14 @@ class _SchoolCloudImageUploaderDialogState
               if (!mounted) return;
               final overallFraction = (i + (percent / 100)) / total;
               setState(() {
-                _overallUploadPercent =
-                    (overallFraction * 100).clamp(0, 100).round();
+                _overallUploadPercent = (overallFraction * 100)
+                    .clamp(0, 100)
+                    .round();
               });
             },
           );
 
-          await uploadService.completeAssetUpload(
+          await cubit.completeAssetUpload(
             sessionCode: uploadSession.sessionCode,
             assetCode: presign.assetCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
@@ -213,7 +215,7 @@ class _SchoolCloudImageUploaderDialogState
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -226,16 +228,13 @@ class _SchoolCloudImageUploaderDialogState
                   const Expanded(
                     child: Text(
                       'Image Uploader',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryColor,
-                      ),
+                      style: AppTextStyles.activityDialogTitle,
                     ),
                   ),
                   GestureDetector(
-                    onTap: _isUploading ? null : () => Navigator.of(context).pop(),
+                    onTap: _isUploading
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: Icon(
                       Icons.close,
                       size: 22,
@@ -260,12 +259,7 @@ class _SchoolCloudImageUploaderDialogState
                 ),
                 child: const Text(
                   'Upload',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryColor,
-                  ),
+                  style: AppTextStyles.activityUploadSectionLabel,
                 ),
               ),
               const SizedBox(height: 20),
@@ -285,11 +279,7 @@ class _SchoolCloudImageUploaderDialogState
                             Text(
                               'Only image files are supported (max $kSchoolCloudUploadMaxImages)',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 12,
-                                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                              ),
+                              style: AppTextStyles.activityUploaderHintText,
                             ),
                           ],
                         ),
@@ -297,12 +287,7 @@ class _SchoolCloudImageUploaderDialogState
                       const SizedBox(height: 20),
                       Text(
                         'Selected Images (${_selectedImages.length})',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryColor,
-                        ),
+                        style: AppTextStyles.activitySelectedImagesLabel,
                       ),
                       const SizedBox(height: 10),
                       if (hasImages)
@@ -310,12 +295,14 @@ class _SchoolCloudImageUploaderDialogState
                           spacing: 14,
                           runSpacing: 14,
                           children: _selectedImages
-                              .map((file) => _SelectedImageThumbnail(
-                                    file: file,
-                                    onRemove: _isUploading
-                                        ? null
-                                        : () => _removeSelectedImage(file),
-                                  ))
+                              .map(
+                                (file) => _SelectedImageThumbnail(
+                                  file: file,
+                                  onRemove: _isUploading
+                                      ? null
+                                      : () => _removeSelectedImage(file),
+                                ),
+                              )
                               .toList(),
                         ),
                       if (_isUploading) ...[
@@ -323,10 +310,14 @@ class _SchoolCloudImageUploaderDialogState
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: LinearProgressIndicator(
-                            value: (_overallUploadPercent / 100).clamp(0.0, 1.0),
+                            value: (_overallUploadPercent / 100).clamp(
+                              0.0,
+                              1.0,
+                            ),
                             minHeight: 6,
-                            backgroundColor:
-                                AppColors.primaryColor.withValues(alpha: 0.1),
+                            backgroundColor: AppColors.primaryColor.withValues(
+                              alpha: 0.1,
+                            ),
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               AppColors.themeColor,
                             ),
@@ -335,11 +326,7 @@ class _SchoolCloudImageUploaderDialogState
                         const SizedBox(height: 6),
                         Text(
                           'Uploading… $_overallUploadPercent%',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 12,
-                            color: AppColors.primaryColor.withValues(alpha: 0.6),
-                          ),
+                          style: AppTextStyles.activityUploadProgressText,
                         ),
                       ],
                     ],
@@ -349,11 +336,7 @@ class _SchoolCloudImageUploaderDialogState
               const SizedBox(height: 18),
               Text(
                 '${_selectedImages.length} file${_selectedImages.length == 1 ? '' : 's'} selected',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
-                  color: AppColors.primaryColor.withValues(alpha: 0.6),
-                ),
+                style: AppTextStyles.activitySelectedFilesCaption,
               ),
               const SizedBox(height: 12),
               CustomButtonLayout(
@@ -361,11 +344,13 @@ class _SchoolCloudImageUploaderDialogState
                 isLoading: _isUploading,
                 cancelButtonLabel: 'Cancel',
                 confirmButtonLabel: 'Upload',
-                onPressedCancel:
-                    _isUploading ? null : () => Navigator.of(context).pop(),
+                onPressedCancel: _isUploading
+                    ? null
+                    : () => Navigator.of(context).pop(),
                 onPressedConfirm: (hasImages && !_isUploading) ? _upload : null,
-                disabledConfirmTooltip:
-                    hasImages ? null : 'Choose at least one image to upload',
+                disabledConfirmTooltip: hasImages
+                    ? null
+                    : 'Choose at least one image to upload',
               ),
             ],
           ),
@@ -393,7 +378,7 @@ class _GradientChooseMediaButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: enabled ? AppColors.buildPrimaryGradient() : null,
-        color: enabled ? null : Colors.grey[300],
+        color: enabled ? null : AppColors.activityDisabledButtonBg,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -404,10 +389,8 @@ class _GradientChooseMediaButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             child: Text(
               'Choose Media',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontWeight: FontWeight.w600,
-                color: enabled ? Colors.white : Colors.grey[600],
+              style: AppTextStyles.activityGradientButtonLabel(
+                enabled: enabled,
               ),
             ),
           ),
@@ -430,12 +413,7 @@ class _SelectedImageThumbnail extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.file(
-            file,
-            width: 72,
-            height: 72,
-            fit: BoxFit.cover,
-          ),
+          child: Image.file(file, width: 72, height: 72, fit: BoxFit.cover),
         ),
         Positioned(
           top: -6,
@@ -450,7 +428,7 @@ class _SelectedImageThumbnail extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.close,
-                color: Colors.white,
+                color: AppColors.cardColor,
                 size: 14,
               ),
             ),

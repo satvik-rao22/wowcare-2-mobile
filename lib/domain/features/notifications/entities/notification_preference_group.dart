@@ -34,6 +34,26 @@ class NotificationPreferenceGroup extends Equatable {
   final Map<String, bool> channels;
   final bool overridden;
 
+  /// Human-readable section label for this group's category.
+  ///
+  /// The API returns the raw backend enum for `categoryName` on some
+  /// categories (and omits it on others), which surfaced in the section
+  /// header as `STAFF_SCHEDULING`. Anything that still looks like an enum
+  /// code — screaming snake case, or an all-caps word — is title-cased for
+  /// display; a name the backend already wrote for humans is left as is.
+  String get categoryLabel {
+    final trimmedName = categoryName.trim();
+    final raw = trimmedName.isNotEmpty ? trimmedName : categoryCode.trim();
+    if (raw.isEmpty) return '';
+    final looksLikeEnumCode = raw.contains('_') || raw == raw.toUpperCase();
+    if (!looksLikeEnumCode) return raw;
+    return raw
+        .split(RegExp(r'[_\s]+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
+  }
+
   bool isChannelAvailable(String channel) => channels.containsKey(channel);
 
   bool isChannelEnabled(String channel) => channels[channel] ?? false;

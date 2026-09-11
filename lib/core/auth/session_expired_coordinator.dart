@@ -1,18 +1,20 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local
@@ -24,19 +26,49 @@ class SessionExpiredCoordinator {
 
   bool _busy = false;
 
-  /// True when the app is already on an auth-entry route — the sign-in screen or
-  /// the splash (`/`, which runs its own auth check and routes) — or there is no
-  /// navigator yet. Used to avoid a redirect/snackbar loop when a burst of 401s
-  /// lands after we've already bounced the user out, and to avoid interrupting
-  /// the boot/login flow that splash drives.
-  bool _isOnSignInRoute() {
+  /// Set the moment a call actually proceeds past the guards below (not on
+  /// every invocation). Used to absorb a second, unrelated 401 — e.g. a
+  /// background RoleCubit/notifications call that was already in flight —
+  /// landing within moments of the first. [_busy] alone doesn't cover this:
+  /// it resets back to false as soon as the first call's `finally` runs,
+  /// which can be before go_router's `currentConfiguration` has actually
+  /// settled on the sign-in route, making [_isOnPreAuthRoute] read stale.
+  /// Without this, that second call slips through with its own snackbar,
+  /// landing on a Sign-In screen the user hasn't touched yet — the "error
+  /// shown before username/password" symptom.
+  DateTime? _lastHandledAt;
+
+  /// Routes the user can be on BEFORE they have a session: the splash (`/`,
+  /// which runs its own auth check and routes), the onboarding pages, sign-in
+  /// and forgot-password.
+  ///
+  /// Onboarding is in here for the fresh-install case: a stray 401 from a
+  /// startup call made with no token at all (see [FirebaseAuthService.signIn])
+  /// used to bounce the user off the onboarding pages onto Login with a
+  /// "session expired" error, for a session that never existed. Post-auth
+  /// routes that merely look entry-ish — `/org-selection`, `/school-selection`
+  /// — are deliberately NOT here: a 401 there IS a genuine expiry and must
+  /// still bounce.
+  static const Set<String> _preAuthRoutes = {
+    '/',
+    '/first-screen',
+    '/onboarding',
+    SignInScreen.routeName,
+    ForgotPasswordScreen.routeName,
+  };
+
+  /// True when the app is already on a pre-auth route ([_preAuthRoutes]) or
+  /// there is no navigator yet. Used to avoid a redirect/snackbar loop when a
+  /// burst of 401s lands after we've already bounced the user out, and to avoid
+  /// interrupting the boot/onboarding/login flow.
+  bool _isOnPreAuthRoute() {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return true;
     try {
       final location = GoRouter.of(
         ctx,
       ).routerDelegate.currentConfiguration.uri.path;
-      return location == SignInScreen.routeName || location == '/';
+      return _preAuthRoutes.contains(location);
     } catch (_) {
       // Router not ready — treat as "can't navigate" so we don't thrash.
       return true;
@@ -57,12 +89,20 @@ class SessionExpiredCoordinator {
     bool fromEntryRoute = false,
   }) async {
     if (_busy) return;
-    // Already on the sign-in screen (or no navigator yet): nothing to bounce.
+    // A recent handling already bounced the user out for (almost certainly)
+    // this same expired-session event — see [_lastHandledAt]'s doc comment.
+    final now = DateTime.now();
+    if (_lastHandledAt != null &&
+        now.difference(_lastHandledAt!) < const Duration(seconds: 5)) {
+      return;
+    }
+    // Already on a pre-auth route (or no navigator yet): nothing to bounce.
     // This guard makes the coordinator safe to call on EVERY 401 — including the
     // case where the session was already cleared underneath a stuck authenticated
     // screen — without re-clearing/re-navigating and spamming the snackbar on
     // each subsequent 401. Deliberate entry-route callers (splash) opt out.
-    if (!fromEntryRoute && _isOnSignInRoute()) return;
+    if (!fromEntryRoute && _isOnPreAuthRoute()) return;
+    _lastHandledAt = now;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
@@ -107,7 +147,10 @@ class SessionExpiredCoordinator {
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
         try {
-          ctx.read<ParentChildCubit>().invalidate();
+          // resetForLogout, not invalidate: an expired session must also
+          // erase the PERSISTED child selection, so nothing of this parent's
+          // context is left on disk for whoever signs in next.
+          unawaited(ctx.read<ParentChildCubit>().resetForLogout());
         } catch (_) {}
         try {
           ctx.read<RoleCubit>().resetSessionForLogout();

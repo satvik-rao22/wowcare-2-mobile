@@ -1,5 +1,6 @@
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
+import 'scheduling_json_parsing.dart';
 
 class StaffShiftHoursRangeRequestModel {
   const StaffShiftHoursRangeRequestModel({
@@ -49,17 +50,13 @@ class StaffShiftHoursEntryModel {
   final double unscheduledHours;
 
   factory StaffShiftHoursEntryModel.fromJson(Map<String, dynamic> json) {
-    double parseHours(dynamic raw) {
-      if (raw is num) return raw.toDouble();
-      return double.tryParse(raw?.toString() ?? '') ?? 0;
-    }
-
     return StaffShiftHoursEntryModel(
-      staffCode: (json['staffCode'] ?? '').toString(),
-      shiftDate: (json['shiftDate'] ?? '').toString(),
-      availableHours: parseHours(json['availableHours']),
-      scheduledHours: parseHours(json['scheduledHours']),
-      unscheduledHours: parseHours(json['unscheduledHours']),
+      staffCode: SchedulingJsonParsing.string(json['staffCode']),
+      shiftDate: SchedulingJsonParsing.string(json['shiftDate']),
+      availableHours: SchedulingJsonParsing.doubleValue(json['availableHours']),
+      scheduledHours: SchedulingJsonParsing.doubleValue(json['scheduledHours']),
+      unscheduledHours:
+          SchedulingJsonParsing.doubleValue(json['unscheduledHours']),
     );
   }
 

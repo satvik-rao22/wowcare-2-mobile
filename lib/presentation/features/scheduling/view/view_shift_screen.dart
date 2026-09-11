@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_bottom_sheet_scaffold.dart';
 
 /// Read-only view of a single shift. Mirrors the form layout of [AddShiftScreen]
 /// so the fields look familiar, but every field is non-interactive. The bottom
@@ -67,7 +69,7 @@ class ViewShiftScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
+    final responsive = SchedulingResponsive(context);
     final safeBottom = MediaQuery.of(context).padding.bottom;
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
@@ -197,7 +199,7 @@ class ViewShiftScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusHeader(ResponsiveHelper responsive) {
+  Widget _buildStatusHeader(SchedulingResponsive responsive) {
     final formatted = DateFormat('MMM d, yyyy').format(date);
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -206,25 +208,23 @@ class ViewShiftScreen extends StatelessWidget {
       child: Text(
         'Shift on $formatted (${status.label})',
         style: TextStyle(
-          fontFamily: 'Manrope',
           fontSize: responsive.titleFontSize * 0.85,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: AppColors.primaryColor,
         ),
       ),
     );
   }
 
   Widget _buildDateField(
-    ResponsiveHelper responsive, {
+    SchedulingResponsive responsive, {
     required String label,
     required DateTime date,
   }) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +251,7 @@ class ViewShiftScreen extends StatelessWidget {
   }
 
   Widget _buildReadOnlyDropdown(
-    ResponsiveHelper responsive, {
+    SchedulingResponsive responsive, {
     required String label,
     required String value,
   }) {
@@ -263,9 +263,8 @@ class ViewShiftScreen extends StatelessWidget {
         selectedItem: value,
         labelStyle: TextStyle(
           fontSize: responsive.labelFontSize,
-          fontFamily: 'Manrope',
           fontWeight: FontWeight.w400,
-          color: const Color(0xff573353),
+          color: AppColors.primaryColor,
         ),
         showAsterisk: true,
         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -289,12 +288,11 @@ class ViewShiftScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNote(ResponsiveHelper responsive) {
+  Widget _buildNote(SchedulingResponsive responsive) {
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,10 +311,9 @@ class ViewShiftScreen extends StatelessWidget {
           child: Text(
             note!,
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),
@@ -425,76 +422,38 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
-    final bottomSafe = MediaQuery.of(context).padding.bottom;
-
-    final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
-    final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
-
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: isLargeTablet ? 1200.0 : double.infinity,
-        ),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.only(
-            left: horizontalPadding,
-            right: horizontalPadding,
-            top: verticalPadding,
-            bottom: verticalPadding + bottomSafe,
+    return SchedulingBottomSheetScaffold(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: SchedulingBottomSheetScaffold.titleFontSize(context),
+            fontWeight: FontWeight.w700,
+            color: AppColors.primaryColor,
+            height: 1.2,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF8B7B89),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: context.isTablet ? 24.0 : 16.0),
+        for (final option in options)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _ScopeRadioTile(
+              option: option,
+              onTap: () => Navigator.of(context).pop(option.scope),
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff573353),
-                  height: 1.2,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF8B7B89),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: verticalPadding),
-              for (final option in options)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ScopeRadioTile(
-                    option: option,
-                    onTap: () => Navigator.of(context).pop(option.scope),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -537,7 +496,6 @@ class _ScopeRadioTile extends StatelessWidget {
                   Text(
                     option.label,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -547,7 +505,6 @@ class _ScopeRadioTile extends StatelessWidget {
                   Text(
                     option.description,
                     style: const TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFF8B7B89),

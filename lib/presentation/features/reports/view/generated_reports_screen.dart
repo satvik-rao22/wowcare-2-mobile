@@ -1,19 +1,21 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/reports/widgets/generated_reports_content.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class GeneratedReportsScreen extends StatefulWidget {
   const GeneratedReportsScreen({super.key});
@@ -35,7 +37,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: initState - starting initial load');
+    AppLogger.d(
+      '[REPORTS-UI] GeneratedReportsScreen: initState - starting initial load',
+    );
     _loadData();
   }
 
@@ -65,12 +69,18 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
 
   void _loadData({bool isRefresh = false}) {
     final cubit = context.read<ReportsCubit>();
-    AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: Loading data [isRefresh=$isRefresh]');
+    AppLogger.d(
+      '[REPORTS-UI] GeneratedReportsScreen: Loading data [isRefresh=$isRefresh]',
+    );
     // Load in sequence: first reports, then tags (chained with .then() to ensure order)
-    unawaited(cubit.loadRecentReports(isRefresh: isRefresh).then((_) {
-      AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: Reports loaded, now loading tags');
-      cubit.loadDynamicTags();
-    }));
+    unawaited(
+      cubit.loadRecentReports(isRefresh: isRefresh).then((_) {
+        AppLogger.d(
+          '[REPORTS-UI] GeneratedReportsScreen: Reports loaded, now loading tags',
+        );
+        cubit.loadDynamicTags();
+      }),
+    );
   }
 
   Future<void> _handleDownload(BuildContext context, String? assetCode) async {
@@ -78,7 +88,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       AppLogger.e('[REPORTS-UI-DOWN] Invalid assetCode: $assetCode');
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Unable to download: Invalid report identifier',
+        message: ReportsStrings.unableToDownloadInvalidReportIdentifier,
         isError: true,
       );
       return;
@@ -123,7 +133,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               const CircularProgressIndicator(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.md),
               Text('Downloading $fileName...'),
             ],
           ),
@@ -143,13 +153,15 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         AppLogger.e('[REPORTS-UI-DOWN] Bytes empty - assetCode: $assetCode');
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Failed to download report',
+          message: ReportsStrings.failedToDownloadReport,
           isError: true,
         );
         return;
       }
 
-      AppLogger.d('[REPORTS-UI-DOWN] Downloaded: bytesLength=${fileData.length}');
+      AppLogger.d(
+        '[REPORTS-UI-DOWN] Downloaded: bytesLength=${fileData.length}',
+      );
 
       // Show saving dialog
       if (mounted) {
@@ -162,8 +174,8 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                const Text('Saving file...'),
+                const SizedBox(height: AppSizes.md),
+                const Text(ReportsStrings.savingFile),
               ],
             ),
           ),
@@ -186,7 +198,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         AppLogger.e('[REPORTS-UI-DOWN] Save failed - assetCode: $assetCode');
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Failed to save file',
+          message: ReportsStrings.failedToSaveFile,
           isError: true,
         );
         return;
@@ -216,7 +228,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         AppLogger.w('[REPORTS-UI-DOWN] Auto-open failed, file still saved');
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Saved. Open from file manager to view',
+          message: ReportsStrings.savedOpenFromFileManager,
           isSuccess: true,
         );
       }
@@ -261,10 +273,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -286,298 +297,44 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.all(responsive.horizontalSpacing),
+                    padding: EdgeInsets.all(
+                      context.responsive(compact: 16.0, medium: 32.0),
+                    ),
                     child: Text(
-                      'Generated Reports',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: responsive.titleFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                      ReportsStrings.generatedReports,
+                      style: AppTextStyles.reportsHeading(
+                        fontSize: context.responsive(
+                          compact: 18.0,
+                          medium: 24.0,
+                        ),
                       ),
                     ),
                   ),
                   Padding(
                     padding: EdgeInsets.symmetric(
-                      horizontal: responsive.horizontalSpacing,
+                      horizontal: context.responsive(
+                        compact: 16.0,
+                        medium: 32.0,
+                      ),
                     ),
-                    child: _buildTagFilter(),
+                    child: GeneratedReportsTagFilter(selectedTag: _selectedTag),
                   ),
                   Padding(
-                    padding: EdgeInsets.all(responsive.horizontalSpacing),
-                    child: _buildReportsContent(),
+                    padding: EdgeInsets.all(
+                      context.responsive(compact: 16.0, medium: 32.0),
+                    ),
+                    child: GeneratedReportsContent(
+                      onRefresh: _loadData,
+                      selectedTag: _selectedTag,
+                      filterReports: _filterReports,
+                      onDownload: _handleDownload,
+                    ),
                   ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTagFilter() {
-    return BlocSelector<ReportsCubit, ReportsState, List<String>>(
-      selector: (state) => state.dynamicTagNames,
-      builder: (context, tags) {
-        if (tags.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Filter by Tag',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xff573353),
-                ),
-              ),
-            ),
-            ValueListenableBuilder<String?>(
-              valueListenable: _selectedTag,
-              builder: (context, selected, _) {
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildTagChip(
-                      label: 'All',
-                      isSelected: selected == null,
-                      onTap: () => _selectedTag.value = null,
-                    ),
-                    for (final tag in tags)
-                      _buildTagChip(
-                        label: tag,
-                        isSelected: selected == tag,
-                        onTap: () => _selectedTag.value = tag,
-                      ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildTagChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryColor : Colors.white,
-            border: Border.all(
-              color: isSelected
-                  ? AppColors.primaryColor
-                  : const Color(0xFFE9ECEF),
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isSelected ? Colors.white : const Color(0xff573353),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportsContent() {
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generatedReportsState != current.generatedReportsState ||
-          previous.generationSuccess != current.generationSuccess,
-      listener: (context, state) {
-        // Auto-refresh reports when a new report is generated
-        if (state.generationSuccess != null &&
-            state.generationSuccess!.isNotEmpty &&
-            state.generatedReport != null) {
-          AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] New report generated, refreshing list silently');
-          _loadData(isRefresh: true);
-
-          // Clear the success signal so future generations trigger this listener again
-          unawaited(
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                context.read<ReportsCubit>().clearGeneratedReport();
-              }
-            }),
-          );
-        }
-
-        // Show error snackbar when loading fails
-        if (state.generatedReportsState == GeneratedReportsLoadingState.error &&
-            state.generatedReportsError != null) {
-          AppLogger.e('[REPORTS-UI] Failed to load reports - ${state.generatedReportsError}');
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generatedReportsError ?? 'Failed to load reports',
-            isError: true,
-          );
-        }
-      },
-      child: BlocBuilder<ReportsCubit, ReportsState>(
-        builder: (context, state) {
-          AppLogger.d('[REPORTS-UI] Build: state=${state.generatedReportsState}, count=${state.recentReports.length}');
-
-          // Show shimmer placeholders while loading initial data
-          if (state.generatedReportsState == GeneratedReportsLoadingState.initial ||
-              state.generatedReportsState == GeneratedReportsLoadingState.loading) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: GeneratedReportsListShimmer(),
-            );
-          }
-
-          // Show error state with retry button
-          if (state.generatedReportsState == GeneratedReportsLoadingState.error) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to load reports',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353).withValues(alpha: 0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      state.generatedReportsError ?? 'Unknown error',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xff573353).withValues(alpha: 0.6),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _loadData(isRefresh: true),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          // Show empty state when no reports
-          final filtered = _filterReports(
-            state.recentReports,
-            _selectedTag.value,
-          );
-
-          if (filtered.isEmpty) {
-            AppLogger.d('[REPORTS-UI] Showing empty state: ${state.recentReports.length} total, ${filtered.length} filtered');
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.description_outlined,
-                      size: 48,
-                      color: const Color(0xff573353).withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No reports generated yet',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353).withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Generate your first report to see it here',
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xff573353).withValues(alpha: 0.4),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          AppLogger.d('[REPORTS-UI] Showing ${filtered.length} reports in list');
-
-          // Show reports list with pull-to-refresh
-          return RefreshIndicator(
-            onRefresh: () async {
-              AppLogger.d('[REPORTS-UI] Pull-to-refresh triggered');
-              await context.read<ReportsCubit>().loadRecentReports(isRefresh: true);
-              AppLogger.d('[REPORTS-UI] Refresh completed');
-            },
-            backgroundColor: AppColors.primaryColor,
-            color: Colors.white,
-            strokeWidth: 2.0,
-            displacement: 40,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                GeneratedReportsList(
-                  items: filtered
-                      .map(
-                        (report) => GeneratedReportItem(
-                          fileName: report.fileName ?? 'Report',
-                          generatedAt: report.generatedAt,
-                          type: (report.fileName ?? '').endsWith('.pdf')
-                              ? GeneratedReportFileType.pdf
-                              : GeneratedReportFileType.xlsx,
-                          assetCode: report.assetCode,
-                        ),
-                      )
-                      .toList(),
-                  onView: null,
-                  onDownload: (assetCode) => _handleDownload(context, assetCode),
-                ),
-                // Add padding at bottom to allow pull-to-refresh on short lists
-                if (filtered.isEmpty)
-                  const SizedBox(height: 200)
-                else
-                  const SizedBox(height: 20),
-              ],
-            ),
-          );
-        },
       ),
     );
   }

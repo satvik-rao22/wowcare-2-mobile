@@ -1,4 +1,4 @@
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:equatable/equatable.dart';
 
 class StaffListItemModel extends Equatable {

@@ -1,10 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 
 /// Mirrors the web's `firebaseAuth.ts` — exchanges the Keycloak JWT for a
 /// Firebase Custom Token via the messaging-service backend, then signs the
@@ -38,6 +39,20 @@ class FirebaseAuthService {
   /// will get permission-denied errors (as before) while the rest of the app
   /// (Keycloak auth, REST APIs) continues to work normally.
   Future<void> signIn() async {
+    // No WowCare session yet → there is no Keycloak JWT to exchange, so
+    // `/firebase/token` can only 401. That 401 is NOT a session expiry, but it
+    // rides the shared Dio and therefore reaches [SessionExpiredInterceptor],
+    // which (finding no refresh token either) runs the full logout cascade:
+    // red "Your session has expired" snackbar + a forced go(sign-in). On a
+    // FRESH INSTALL that fires from `_TokenLifecycleObserver._refreshAll()` on
+    // the first `resumed` lifecycle event — i.e. while the user is still on the
+    // onboarding pages — so they land on Login with an expiry error for a
+    // session that never existed. Bail out before the request instead.
+    final accessToken = await TokenRefreshService.instance.readAccessToken();
+    if (accessToken.isEmpty) {
+      AppLogger.d('[FirebaseAuth] No app session yet — skipping sign-in');
+      return;
+    }
     // Ensure the Firebase session matches the CURRENT app user. signIn() is called
     // on every auth change (login, session restore, org/school/persona switch), so
     // it MUST be able to re-authenticate — not permanently no-op.

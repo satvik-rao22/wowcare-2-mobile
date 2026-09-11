@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_physical_exam_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -24,6 +30,8 @@ class EditStudentPhysicalExamScreen extends StatefulWidget {
     this.initialStatus,
   });
 
+  static const String routeName = '/edit-student-physical-exam';
+
   final String studentCode;
   final DateTime? initialDate;
   final String? initialStatus;
@@ -35,49 +43,66 @@ class EditStudentPhysicalExamScreen extends StatefulWidget {
 
 class _EditStudentPhysicalExamScreenState
     extends State<EditStudentPhysicalExamScreen> {
-  DateTime? _examDate;
-  String? _status;
-  bool _isSaving = false;
+  // Single cubit instance for this screen — the serviceLocator registers the
+  // cubit as a factory, so holding one instance (rather than resolving per
+  // call) is what keeps its single-flight guard effective. Closed in dispose.
+  final StudentPhysicalExamCubit _examCubit =
+      serviceLocator<StudentPhysicalExamCubit>();
 
-  static const List<String> _statusOptions = <String>[
-    'Completed',
-  ];
+  static const List<String> _statusOptions = <String>['Completed'];
 
   @override
   void initState() {
     super.initState();
-    _examDate = widget.initialDate;
-    final initial = widget.initialStatus;
-    if (initial != null && initial.isNotEmpty) {
-      final upper = initial.toUpperCase();
-      if (upper == 'COMPLETED') {
-        _status = 'Completed';
-      } else if (upper == 'SCHEDULED') {
-        _status = 'Scheduled';
-      } else if (upper == 'DUE') {
-        _status = 'Due';
-      } else if (upper == 'OVERDUE') {
-        _status = 'Overdue';
-      } else {
-        _status = initial;
-      }
+    _examCubit.initializeForm(
+      examDate: widget.initialDate,
+      status: _displayStatus(widget.initialStatus),
+    );
+  }
+
+  /// Map an incoming API status to the display label the dropdown shows.
+  static String? _displayStatus(String? initial) {
+    if (initial == null || initial.isEmpty) return null;
+    switch (initial.toUpperCase()) {
+      case 'COMPLETED':
+        return 'Completed';
+      case 'SCHEDULED':
+        return 'Scheduled';
+      case 'DUE':
+        return 'Due';
+      case 'OVERDUE':
+        return 'Overdue';
+      default:
+        return initial;
     }
+  }
+
+  @override
+  void dispose() {
+    _examCubit.close();
+    super.dispose();
   }
 
   Future<void> _pickDate() async {
     try {
+      // A physical exam can only have happened in the past (or today) — cap
+      // the picker at the school's own "today" (same zone `_save()` already
+      // validates against below) rather than only warning after the fact.
+      final today = await _schoolTodayDateOnly();
+      if (!mounted) return;
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) => const CalendarDialog(
+        builder: (context) => CalendarDialog(
           isRangePicker: false,
           isTimePicker: false,
+          initialDate: _examCubit.state.formExamDate,
+          firstDate: DateTime(1900),
+          lastDate: today,
         ),
       );
 
       if (result != null && result['date'] != null) {
-        setState(() {
-          _examDate = result['date'] as DateTime;
-        });
+        _examCubit.setFormExamDate(result['date'] as DateTime);
       }
     } catch (e) {
       CoreUtils.logApiError(e.toString());
@@ -101,20 +126,25 @@ class _EditStudentPhysicalExamScreenState
   }
 
   Future<void> _save() async {
-    if (_isSaving) return;
+    // Re-entry guard reads the cubit's own in-flight flag (the cubit also
+    // single-flights identical add calls) — no local submit bool.
+    if (_examCubit.state.mutationInProgress) return;
 
-    if (_examDate == null) {
+    final examDate = _examCubit.state.formExamDate;
+    final status = _examCubit.state.formStatus;
+
+    if (examDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical Checkup Date is required',
+        message: StudentStrings.physicalCheckupDateIsRequired,
         isError: true,
       );
       return;
     }
-    if (_status == null || _status!.isEmpty) {
+    if (status == null || status.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical Checkup Status is required',
+        message: StudentStrings.physicalCheckupStatusIsRequired,
         isError: true,
       );
       return;
@@ -122,7 +152,7 @@ class _EditStudentPhysicalExamScreenState
 
     // Map display status text back to API enum values.
     String apiStatus;
-    switch ((_status ?? '').toUpperCase()) {
+    switch (status.toUpperCase()) {
       case 'COMPLETED':
         apiStatus = 'COMPLETED';
         break;
@@ -145,12 +175,11 @@ class _EditStudentPhysicalExamScreenState
     // same-day entry isn't rejected when the device is in another timezone.
     final today = await _schoolTodayDateOnly();
     if (!mounted) return;
-    final picked = DateTime(_examDate!.year, _examDate!.month, _examDate!.day);
+    final picked = DateTime(examDate.year, examDate.month, examDate.day);
     if (apiStatus == 'COMPLETED' && picked.isAfter(today)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Completed date cannot be a future date. Please select today or a past date.',
+        message: StudentStrings.completedDateCannotBeAFutureDatePleaseSelectTo,
         isWarning: true,
       );
       return;
@@ -160,40 +189,34 @@ class _EditStudentPhysicalExamScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            '$_status date cannot be a past date. Please select today or a future date.',
+            '$status date cannot be a past date. Please select today or a future date.',
         isWarning: true,
       );
       return;
     }
 
-    setState(() => _isSaving = true);
     try {
-      final repo = serviceLocator<StudentRepository>();
-
-      await repo.addStudentPhysicalExam(
+      await _examCubit.add(
         studentCode: widget.studentCode,
-        examDate: _examDate!,
+        examDate: examDate,
         status: apiStatus,
       );
 
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Physical exam added successfully',
+        message: StudentStrings.physicalExamAddedSuccessfully,
         isSuccess: true,
       );
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
+      context.pop(true);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: ApiErrorHandler.extractErrorMessage(e),
         isError: true,
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
     }
   }
 
@@ -201,110 +224,124 @@ class _EditStudentPhysicalExamScreenState
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final bottomSafe = media.padding.bottom == 0 ? 16.0 : media.padding.bottom;
-    final selectedDateText = _examDate != null
-        ? DateFormat('MMM dd, yyyy').format(_examDate!)
-        : 'Select Date';
 
-    return StaffFormLayout(
-      title: 'Add Physical Examination',
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          const Text.rich(
-            TextSpan(
-              text: 'Physical Checkup Date',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-                color: Color(0xff573353),
+    return BlocBuilder<StudentPhysicalExamCubit, StudentPhysicalExamState>(
+      bloc: _examCubit,
+      builder: (context, state) {
+        final examDate = state.formExamDate;
+        final selectedDateText = examDate != null
+            ? DateFormat('MMM dd, yyyy').format(examDate)
+            : StudentStrings.selectDate;
+
+        return StaffFormLayout(
+          title: StudentStrings.addPhysicalExamination,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              const Text.rich(
+                TextSpan(
+                  text: StudentStrings.physicalCheckupDate,
+                  style: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.primaryColor,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: AppColors.errorColor),
+                    ),
+                  ],
+                ),
               ),
-              children: [
-                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const SizedBox(height: AppSpacing.s6),
+              GestureDetector(
+                onTap: _pickDate,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.whiteColor,
+                    border: Border.all(color: AppColors.inputBorderColor),
+                    borderRadius: AppRadius.allSm,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        selectedDateText,
+                        style: TextStyle(
+                          color: examDate == null
+                              ? AppColors.attendanceMutedTextColor
+                              : AppColors.blackColor,
+                          fontSize: 14,
+                          fontFamily: Fonts.manrope,
+                        ),
+                      ),
+                      SvgPicture.asset(
+                        MediaRes.calender_icon,
+                        height: 20,
+                        colorFilter: const ColorFilter.mode(
+                          AppColors.primaryColor,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              AppSpacing.gapVMd,
+              CustomDropdown(
+                label: StudentStrings.physicalCheckupStatus,
+                hintText: StudentStrings.selectAnOption,
+                items: _statusOptions,
+                selectedItem: state.formStatus,
+                labelStyle: const TextStyle(
+                  fontSize: 15,
+                  fontFamily: Fonts.manrope,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.primaryColor,
+                ),
+                labelBottomSpacing: AppSpacing.s6,
+                onSelect: (val) =>
+                    _examCubit.setFormStatus(val ?? state.formStatus),
+              ),
+            ],
+          ),
+          bottomBar: Container(
+            padding: EdgeInsets.only(
+              bottom: bottomSafe,
+              left: AppSpacing.md,
+              right: AppSpacing.md,
+              top: AppSpacing.xs,
+            ),
+            decoration: const BoxDecoration(
+              color: AppColors.whiteColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  offset: Offset(0, -4),
+                  blurRadius: 16,
+                ),
               ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          GestureDetector(
-            onTap: _pickDate,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: const Color(0x66573353)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    selectedDateText,
-                    style: TextStyle(
-                      color: _examDate == null ? Colors.grey : Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                  SvgPicture.asset(
-                    MediaRes.calender_icon,
-                    height: 20,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
-                  ),
-                ],
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          CustomDropdown(
-            label: 'Physical Checkup Status',
-            hintText: 'Select an option',
-            items: _statusOptions,
-            selectedItem: _status,
-            labelStyle: const TextStyle(
-              fontSize: 15,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+            child: CustomButtonLayout(
+              confirmButtonLabel: StudentStrings.save,
+              onPressedConfirm: state.mutationInProgress ? null : _save,
+              showCancelButton: false,
+              isForm: false,
+              isLoading: state.mutationInProgress,
             ),
-            labelBottomSpacing: 6,
-            onSelect: (val) => setState(() => _status = val ?? _status),
           ),
-        ],
-      ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: bottomSafe,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              offset: Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Save',
-          onPressedConfirm: _isSaving ? null : _save,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: _isSaving,
-        ),
-      ),
+        );
+      },
     );
   }
 }
-
-

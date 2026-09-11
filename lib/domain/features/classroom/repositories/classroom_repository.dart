@@ -1,9 +1,11 @@
 import '../entities/classroom.dart';
 import '../entities/classroom_details.dart';
+import '../entities/classroom_logo_upload_session.dart';
 import '../entities/ratio_monitoring_classroom.dart';
 import '../entities/school_capacity.dart';
 import '../entities/classroom_count.dart';
 import '../entities/school_fte.dart';
+import '../entities/student_classroom_enrolled_count.dart';
 import '../../student_classroom/entities/student_classroom_item.dart';
 
 abstract class ClassroomRepository {
@@ -74,28 +76,24 @@ abstract class ClassroomRepository {
   });
 
   /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
-  /// classroom. Returns the raw backend response map.
-  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+  /// classroom. Throws if the response is malformed.
+  Future<StudentClassroomEnrolledCount> getStudentClassroomEnrolledCount({
     required String classroomCode,
     String? organizationCode,
     String? schoolCode,
   });
 
-  /// GET the logo asset codes list for a school's classrooms.
-  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
-    required String classroomCode,
-    required String schoolCode,
-  });
-
-  /// POST to create a classroom-logo upload session.
-  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+  /// POST to create a classroom-logo upload session. Throws with the
+  /// server-provided message if the request is rejected.
+  Future<ClassroomLogoUploadSession> createClassroomLogoUploadSession({
     required String classroomCode,
     required String organizationCode,
     required String schoolCode,
   });
 
-  /// POST to finalize a classroom logo with the uploaded [assetCode].
-  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+  /// POST to finalize a classroom logo with the uploaded [assetCode]. Throws
+  /// with the server-provided message if the request is rejected.
+  Future<void> finalizeClassroomLogo({
     required String classroomCode,
     required String assetCode,
   });

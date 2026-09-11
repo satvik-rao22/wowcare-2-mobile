@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../core/util/core_utils.dart';
-import '../view/activity_daily_tab.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 
 class ActivityMediaViewer extends StatefulWidget {
   final ActivityItem activity;
@@ -67,7 +69,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
         });
       }
     } catch (e) {
-      debugPrint("Video failed to initialize: $e");
+      AppLogger.e('Video failed to initialize', e);
       _controller?.dispose();
       _controller = null;
       if (!mounted) return;
@@ -119,15 +121,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null)
-          Text(
-            widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              fontFamily: 'Manrope',
-            ),
-          ),
+          Text(widget.label!, style: AppTextStyles.activityFieldLabel),
         if (widget.label != null)
           SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
 
@@ -136,7 +130,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
           child: Container(
             width: widget.width,
             height: widget.height ?? 200,
-            color: Colors.black12.withValues(alpha: 0.15),
+            color: AppColors.activityMediaPlaceholderBg.withValues(alpha: 0.15),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -150,7 +144,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                   _videoInitFailed
                       ? _buildVideoUnsupportedPlaceholder()
                       : const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
+                          child: CircularProgressIndicator(
+                            color: AppColors.cardColor,
+                          ),
                         )
                 else if (hasPhoto)
                   Image.network(
@@ -161,7 +157,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                         ? child
                         : const Center(
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: AppColors.cardColor,
                             ),
                           ),
                     errorBuilder: (context, error, _) =>
@@ -184,13 +180,13 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                           width: 80,
                           height: 80,
                           decoration: const BoxDecoration(
-                            color: Colors.black54,
+                            color: AppColors.activityIconBackdropColor,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             _isPlaying ? Icons.pause : Icons.play_arrow,
                             size: 50,
-                            color: Colors.white,
+                            color: AppColors.cardColor,
                           ),
                         ),
                       ),
@@ -206,9 +202,11 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                       _controller!,
                       allowScrubbing: true,
                       colors: const VideoProgressColors(
-                        playedColor: Colors.white,
-                        backgroundColor: Colors.white24,
-                        bufferedColor: Colors.white38,
+                        playedColor: AppColors.cardColor,
+                        backgroundColor:
+                            AppColors.activityVideoProgressTrackColor,
+                        bufferedColor:
+                            AppColors.activityVideoProgressBufferedColor,
                       ),
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
@@ -226,25 +224,33 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
 
   Widget _buildErrorPlaceholder() {
     return Container(
-      color: Colors.black12.withValues(alpha: 0.3),
+      color: AppColors.activityMediaPlaceholderBg.withValues(alpha: 0.3),
       child: const Center(
-        child: Icon(Icons.broken_image, size: 60, color: Colors.white70),
+        child: Icon(
+          Icons.broken_image,
+          size: 60,
+          color: AppColors.activityMediaPlaceholderIconColor,
+        ),
       ),
     );
   }
 
   Widget _buildVideoUnsupportedPlaceholder() {
     return Container(
-      color: Colors.black12.withValues(alpha: 0.25),
+      color: AppColors.activityMediaPlaceholderBg.withValues(alpha: 0.25),
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off_outlined, size: 42, color: Colors.white70),
+            Icon(
+              Icons.videocam_off_outlined,
+              size: 42,
+              color: AppColors.activityMediaPlaceholderIconColor,
+            ),
             SizedBox(height: 8),
             Text(
               'Video preview unavailable',
-              style: TextStyle(color: Colors.white70),
+              style: AppTextStyles.activityMediaUnavailableText,
             ),
           ],
         ),
@@ -267,7 +273,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
 
   Widget _buildProcessingPlaceholder() {
     return Container(
-      color: const Color(0xFFF2F8FF),
+      color: AppColors.activityProcessingBg,
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -277,17 +283,13 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2.4,
-                color: Color(0xFF1A73E8),
+                color: AppColors.activityProcessingAccent,
               ),
             ),
             SizedBox(height: 10),
             Text(
               'Video processing...',
-              style: TextStyle(
-                color: Color(0xFF1F3B64),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTextStyles.activityProcessingCaption,
             ),
           ],
         ),

@@ -23,10 +23,13 @@ abstract class StaffClassroomRepository {
   });
 
   /// Fetches the staff assignable to a classroom (manage-staff list),
-  /// excluding [excludeClassroomCode].
+  /// excluding [excludeClassroomCode]. [primaryClassroomCodes] and
+  /// [designation] filter server-side.
   Future<List<StaffClassroomItem>> getManageStaffList({
     required String schoolCode,
     required String excludeClassroomCode,
+    List<String>? primaryClassroomCodes,
+    List<String>? designation,
   });
 }
 

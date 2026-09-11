@@ -17,5 +17,6 @@ extension StudentGuardianModelMapper on StudentGuardianModel {
         legalCustody: legalCustody,
         profilePhotoUrl: profilePhotoUrl,
         profilePhotoAssetCode: profilePhotoAssetCode,
+        displayNameOverride: displayNameOverride,
       );
 }

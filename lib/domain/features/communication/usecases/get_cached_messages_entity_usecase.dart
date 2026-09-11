@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
-import '../repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 
 /// Reads messages straight from Isar (no network) — used to seed locally-only
 /// drafts (never confirmed by the server: interrupted mid-send, or the app

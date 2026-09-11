@@ -1,6 +1,7 @@
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/data/features/newsletter/models/newsletter_api_envelope.dart';
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 
 abstract class NewsletterRemoteDataSource {
@@ -89,15 +90,15 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
 
     final response = await _apiClient.client.get(requestUrl);
 
-    final body = response.data;
-    if (body is! Map<String, dynamic>) {
+    final envelope = NewsletterApiEnvelope.tryFrom(response.data);
+    if (envelope == null) {
       throw Exception('Invalid newsletters response');
     }
-    if (body['success'] != true) {
-      throw Exception(body['message'] as String? ?? 'Failed to load newsletters');
+    if (!envelope.success) {
+      throw Exception(envelope.message ?? 'Failed to load newsletters');
     }
 
-    return NewsletterPageModel.fromJson(body);
+    return NewsletterPageModel.fromApiResponse(envelope);
   }
 
   @override
@@ -115,16 +116,16 @@ class NewsletterRemoteDataSourceImpl implements NewsletterRemoteDataSource {
 
     final response = await _apiClient.client.get(endpoint);
 
-    final body = response.data;
-    if (body is! Map<String, dynamic>) {
+    final envelope = NewsletterApiEnvelope.tryFrom(response.data);
+    if (envelope == null) {
       throw Exception('Invalid newsletter response');
     }
-    if (body['success'] != true) {
-      throw Exception(body['message'] as String? ?? 'Failed to load newsletter');
+    if (!envelope.success) {
+      throw Exception(envelope.message ?? 'Failed to load newsletter');
     }
 
-    final data = body['data'];
-    if (data is! Map<String, dynamic>) {
+    final data = envelope.dataAsMap;
+    if (data == null) {
       throw Exception('Newsletter data is missing');
     }
 

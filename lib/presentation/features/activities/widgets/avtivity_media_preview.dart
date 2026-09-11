@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
-import '../../../../app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 
-class ActivityMediaPreview extends StatefulWidget {
+class ActivityMediaPreview extends StatelessWidget {
   final ActivityItem activity;
   final Color activityColor;
   const ActivityMediaPreview({
@@ -13,11 +17,6 @@ class ActivityMediaPreview extends StatefulWidget {
     required this.activityColor,
   });
 
-  @override
-  State<ActivityMediaPreview> createState() => _ActivityMediaPreviewState();
-}
-
-class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   static final Map<String, dynamic> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -31,16 +30,6 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   bool _isVideoRow(Map<String, dynamic> row) {
     final mt = (row['mediaType'] ?? '').toString().trim().toUpperCase();
@@ -60,8 +49,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   String? _resolveVideoThumbnailUrl() {
-    final rows =
-        widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       if (!_isVideoRow(r)) continue;
       final thumb = (r['thumbnailUrl'] ?? '').toString().trim();
@@ -77,8 +65,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   bool _hasProcessingMedia() {
-    final rows =
-        widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows = activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       final status = (r['status'] ?? '').toString().trim().toUpperCase();
       final isProcessing =
@@ -97,7 +84,10 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
       height: 76,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFEAF4FF), Color(0xFFF5F9FF)],
+          colors: [
+            AppColors.activityProcessingCardGradientStart,
+            AppColors.activityProcessingCardGradientEnd,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -112,17 +102,15 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2.2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A73E8)),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.activityProcessingAccent,
+                ),
               ),
             ),
             SizedBox(height: 8),
             Text(
               'Processing...',
-              style: TextStyle(
-                color: Color(0xFF1F3B64),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTextStyles.activityProcessingCardText,
             ),
           ],
         ),
@@ -131,20 +119,19 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   Widget _buildIconFallback() {
-    final icon =
-        activityIcons[widget.activity.name] ?? MediaRes.notesActivityIcon;
+    final icon = activityIcons[activity.name] ?? MediaRes.notesActivityIcon;
     return Container(
       width: 122,
       height: 76,
-      color: widget.activityColor.withValues(alpha: 0.25),
+      color: activityColor.withValues(alpha: 0.25),
       child: Center(child: Image.asset(icon, fit: BoxFit.fill)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String? videoUrl = widget.activity.videoUrl;
-    final String? photoUrl = widget.activity.photoUrl;
+    final String? videoUrl = activity.videoUrl;
+    final String? photoUrl = activity.photoUrl;
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
     final bool hasProcessingMedia = _hasProcessingMedia();
@@ -152,10 +139,9 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     return InkWell(
       onTap: () {
         if (photoUrl?.isNotEmpty == true || videoUrl?.isNotEmpty == true) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ShowFullScreenMedia(activity: widget.activity),
-            ),
+          context.push(
+            ShowFullScreenMedia.routeName,
+            extra: ShowFullScreenMediaArgs(activity: activity),
           );
         }
       },
@@ -170,25 +156,25 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                     loadingBuilder: (c, child, progress) => progress == null
                         ? child
                         : Container(
-                            color: widget.activityColor.withValues(alpha: 0.3),
+                            color: activityColor.withValues(alpha: 0.3),
                           ),
                     errorBuilder: (c, e, s) => Container(
-                      color: widget.activityColor.withValues(alpha: 0.3),
+                      color: activityColor.withValues(alpha: 0.3),
                       child: const Center(
                         child: Icon(
                           Icons.videocam_outlined,
-                          color: Colors.white70,
+                          color: AppColors.activityMediaPlaceholderIconColor,
                           size: 38,
                         ),
                       ),
                     ),
                   )
                 : Container(
-                    color: widget.activityColor.withValues(alpha: 0.3),
+                    color: activityColor.withValues(alpha: 0.3),
                     child: const Center(
                       child: Icon(
                         Icons.videocam_outlined,
-                        color: Colors.white70,
+                        color: AppColors.activityMediaPlaceholderIconColor,
                         size: 38,
                       ),
                     ),
@@ -199,9 +185,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               fit: BoxFit.cover,
               loadingBuilder: (c, child, progress) => progress == null
                   ? child
-                  : Container(
-                      color: widget.activityColor.withValues(alpha: 0.3),
-                    ),
+                  : Container(color: activityColor.withValues(alpha: 0.3)),
               errorBuilder: (c, e, s) => _buildIconFallback(),
             )
           else if (hasProcessingMedia)
@@ -213,7 +197,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
             const Center(
               child: Icon(
                 Icons.play_circle_outline,
-                color: Colors.white,
+                color: AppColors.cardColor,
                 size: 50,
               ),
             ),
@@ -224,16 +208,12 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD7E9FF),
+                  color: AppColors.activityProcessingBadgeBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
                   'PROCESSING',
-                  style: TextStyle(
-                    color: Color(0xFF1A56A5),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTextStyles.activityProcessingBadgeLabel,
                 ),
               ),
             ),

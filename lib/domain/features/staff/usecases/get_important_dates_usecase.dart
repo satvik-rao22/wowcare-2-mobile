@@ -1,7 +1,8 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
+import '../entities/staff_important_date.dart';
 import '../repositories/staff_repository.dart';
 
 class GetImportantDatesUseCase {
@@ -9,7 +10,7 @@ class GetImportantDatesUseCase {
 
   final StaffRepository _repository;
 
-  Future<Either<Failure, List<Map<String, String>>>> call({
+  Future<Either<Failure, List<StaffImportantDate>>> call({
     required String staffCode,
   }) async {
     try {

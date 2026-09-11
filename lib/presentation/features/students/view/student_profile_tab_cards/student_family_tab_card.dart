@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -17,7 +23,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import '../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentFamilyTabCard extends StatefulWidget {
   const StudentFamilyTabCard({
@@ -44,8 +50,13 @@ class StudentFamilyTabCard extends StatefulWidget {
 class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   static const int _maxParentsPerStudent = 4;
 
-  late Future<List<StudentGuardian>> _guardiansFuture;
   bool _isMutating = false;
+
+  /// One cubit instance for this card so its single-flight delete guard spans
+  /// taps (serviceLocator registers it as a factory — a fresh call per tap
+  /// would not dedupe).
+  final StudentGuardianCubit _guardianCubit =
+      serviceLocator<StudentGuardianCubit>();
 
   String _extractGuardianClockPin(StudentGuardian guardian) {
     final raw = (guardian.clockPin ?? '').trim();
@@ -75,23 +86,19 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   @override
   void initState() {
     super.initState();
-    _guardiansFuture = _loadGuardians();
+    _guardianCubit.load(widget.studentCode ?? '');
   }
 
-  Future<List<StudentGuardian>> _loadGuardians({
-    bool forceRefresh = false,
-  }) async {
-    final studentCode = widget.studentCode ?? '';
-    if (studentCode.isEmpty) {
-      return const <StudentGuardian>[];
-    }
+  @override
+  void dispose() {
+    _guardianCubit.close();
+    super.dispose();
+  }
 
-    // Use repository, which already applies caching via CacheManager.
-    final repo = serviceLocator<StudentRepository>();
-    return repo.getStudentGuardians(
-      studentCode: studentCode,
-      forceRefresh: forceRefresh,
-    );
+  /// Reload the cubit-owned guardian list, then notify the parent.
+  Future<void> _reload({bool force = false}) async {
+    await _guardianCubit.load(widget.studentCode ?? '', forceRefresh: force);
+    await widget.onRefresh?.call();
   }
 
   Future<void> _onAddParent() async {
@@ -100,14 +107,13 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || schoolCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Student details not loaded yet. Please try again.',
+        message: StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
     }
 
-    final repo = serviceLocator<StudentRepository>();
-    final existing = await repo.getStudentGuardians(studentCode: studentCode);
+    final existing = _guardianCubit.state.guardians;
     if (existing.length >= _maxParentsPerStudent) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -119,22 +125,18 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
       return;
     }
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddStudentStep2Screen(
-          studentCode: studentCode,
-          schoolCode: schoolCode,
-          createGuardianDirectly: true,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddStudentStep2Screen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'schoolCode': schoolCode,
+        'createGuardianDirectly': true,
+      },
     );
 
     if (!mounted || result != true) return;
 
-    setState(() {
-      _guardiansFuture = _loadGuardians();
-    });
-    await widget.onRefresh?.call();
+    await _reload();
   }
 
   Future<void> _onEditParent(StudentGuardian guardian) async {
@@ -144,7 +146,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || schoolCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Guardian details are not loaded yet. Please try again.',
+        message: StudentStrings.guardianDetailsAreNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
@@ -167,33 +169,29 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         normalizedRelation != null &&
         relationOptions.contains(normalizedRelation);
 
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => AddStudentStep2Screen(
-          studentCode: studentCode,
-          schoolCode: schoolCode,
-          createGuardianDirectly: true,
-          editGuardianCode: guardianCode,
-          initialUserCode: guardian.userCode.trim(),
-          initialFirstName: guardian.firstName,
-          initialLastName: guardian.lastName,
-          initialEmail: guardian.email,
-          initialPhoneNumber: guardian.mobile,
-          initialRelation: isKnownRelation ? normalizedRelation : 'Other',
-          initialRelationOther: isKnownRelation
-              ? null
-              : (rawRelation.isEmpty ? null : rawRelation),
-          initialIsEmergencyContact: guardian.primaryContact,
-          initialIsChildCustody: guardian.legalCustody,
-        ),
-      ),
+    final result = await context.push<bool>(
+      AddStudentStep2Screen.routeName,
+      extra: <String, dynamic>{
+        'studentCode': studentCode,
+        'schoolCode': schoolCode,
+        'createGuardianDirectly': true,
+        'editGuardianCode': guardianCode,
+        'initialUserCode': guardian.userCode.trim(),
+        'initialFirstName': guardian.firstName,
+        'initialLastName': guardian.lastName,
+        'initialEmail': guardian.email,
+        'initialPhoneNumber': guardian.mobile,
+        'initialRelation': isKnownRelation ? normalizedRelation : 'Other',
+        'initialRelationOther': isKnownRelation
+            ? null
+            : (rawRelation.isEmpty ? null : rawRelation),
+        'initialIsEmergencyContact': guardian.primaryContact,
+        'initialIsChildCustody': guardian.legalCustody,
+      },
     );
 
     if (!mounted || result != true) return;
-    setState(() {
-      _guardiansFuture = _loadGuardians();
-    });
-    await widget.onRefresh?.call();
+    await _reload();
   }
 
   Future<void> _onDeleteParent(StudentGuardian guardian) async {
@@ -204,7 +202,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     if (studentCode.isEmpty || guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Guardian details are not loaded yet. Please try again.',
+        message: StudentStrings.guardianDetailsAreNotLoadedYetPleaseTryAgain,
         isError: true,
       );
       return;
@@ -213,10 +211,12 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
-          name: guardianName.isEmpty ? 'this guardian' : guardianName,
+          name: guardianName.isEmpty
+              ? StudentStrings.thisGuardian
+              : guardianName,
           type: 'guardian',
           isLoading: _isMutating,
           onCancel: () => Navigator.of(sheetContext).pop(),
@@ -224,8 +224,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
             if (_isMutating) return;
             setState(() => _isMutating = true);
             try {
-              final repo = serviceLocator<StudentRepository>();
-              final message = await repo.deleteGuardian(
+              final message = await _guardianCubit.delete(
                 code: guardianCode,
                 studentCode: studentCode,
               );
@@ -236,10 +235,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                 message: message,
                 isSuccess: true,
               );
-              setState(() {
-                _guardiansFuture = _loadGuardians();
-              });
-              await widget.onRefresh?.call();
+              await _reload();
             } catch (e) {
               if (!mounted) return;
               Navigator.of(sheetContext).pop();
@@ -266,27 +262,29 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        setState(() {
-          _guardiansFuture = _loadGuardians(forceRefresh: true);
-        });
-        await widget.onRefresh?.call();
-      },
+      onRefresh: () => _reload(force: true),
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
           // Space between the tab bar and the heading/+ row.
-          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.none,
+            AppSpacing.md,
+            AppSpacing.none,
+            AppSpacing.md,
+          ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.none,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Parents & guardians',
+                      StudentStrings.parentsGuardians,
                       style: AppTextStyles.value.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -305,33 +303,33 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<StudentGuardian>>(
-                future: _guardiansFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              AppSpacing.gapVMd,
+              BlocBuilder<StudentGuardianCubit, StudentGuardianState>(
+                bloc: _guardianCubit,
+                builder: (context, state) {
+                  if (state.isLoading && state.guardians.isEmpty) {
                     return const StudentDetailCardsShimmer();
                   }
 
-                  if (snapshot.hasError) {
+                  if (state.errorMessage != null && state.guardians.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Text(
-                        'Failed to load parents',
+                        StudentStrings.failedToLoadParents,
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.errorColor,
                         ),
                       ),
                     );
                   }
 
-                  final data = snapshot.data ?? const [];
+                  final data = state.guardians;
                   if (data.isEmpty) {
                     return Padding(
-                      padding: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
-                        'No parents added yet',
+                        StudentStrings.noParentsAddedYet,
                         style: AppTextStyles.value.copyWith(fontSize: 14),
                       ),
                     );
@@ -353,7 +351,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),
                         ),
-                        if (i != data.length - 1) const SizedBox(height: 12),
+                        if (i != data.length - 1) AppSpacing.gapVSm,
                       ],
                     ],
                   );
@@ -396,22 +394,25 @@ class _FamilyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
 
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
         // Match the Health tab cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
-            topRight: Radius.circular(8),
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
+            topRight: Radius.circular(AppRadius.sm),
+            bottomLeft: Radius.circular(AppRadius.sm),
+            bottomRight: Radius.circular(AppRadius.sm),
           ),
           border: Border.fromBorderSide(
-            BorderSide(color: AppColors.themeColor, width: 1),
+            BorderSide(
+              color: AppColors.themeColor,
+              width: AppDimensions.hairline,
+            ),
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -419,7 +420,9 @@ class _FamilyCard extends StatelessWidget {
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
+              ),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
@@ -436,7 +439,7 @@ class _FamilyCard extends StatelessWidget {
                     name: name,
                     size: 45,
                   ),
-                  SizedBox(width: isTablet ? 16 : 9),
+                  SizedBox(width: isTablet ? AppSpacing.md : 9),
                   Flexible(
                     child: Text(
                       name,
@@ -451,13 +454,18 @@ class _FamilyCard extends StatelessWidget {
             ),
             Divider(
               height: 1,
-              thickness: 1,
-              indent: 16,
-              endIndent: 16,
+              thickness: AppDimensions.hairline,
+              indent: AppSpacing.md,
+              endIndent: AppSpacing.md,
               color: AppColors.dividerColor,
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.none,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -465,120 +473,54 @@ class _FamilyCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'Relation',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
-                      ),
-                      Text(
-                        relation,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
-                      ),
+                      Text(StudentStrings.relation, style: AppTextStyles.label),
+                      Text(relation, style: AppTextStyles.value),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(StudentStrings.emailId, style: AppTextStyles.label),
+                      Text(email, style: AppTextStyles.value),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Email ID',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        StudentStrings.phoneNumber,
+                        style: AppTextStyles.label,
                       ),
-                      Text(
-                        email,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
-                      ),
+                      Text(phone, style: AppTextStyles.value),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.s10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Phone Number',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
+                        StudentStrings.signInPin,
+                        style: AppTextStyles.label,
                       ),
-                      Text(
-                        phone,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
-                      ),
+                      Text(pin, style: AppTextStyles.value),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Sign-in Pin',
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xff573353),
-                          height: 16 / 13,
-                        ),
-                      ),
-                      Text(
-                        pin,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xff573353),
-                          height: 19 / 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                  AppSpacing.gapVLg,
                   if (showActionButtons)
                     CustomButtonLayout(
-                      confirmButtonLabel: 'Edit',
-                      cancelButtonLabel: 'Delete',
+                      confirmButtonLabel: StudentStrings.edit,
+                      cancelButtonLabel: StudentStrings.delete,
                       onPressedConfirm: isLoading ? null : onEdit,
                       onPressedCancel: isLoading ? null : onDelete,
                       isForm: false,
                       isLoading: isLoading,
                     ),
-                  if (showActionButtons) const SizedBox(height: 12),
+                  if (showActionButtons) AppSpacing.gapVSm,
                 ],
               ),
             ),

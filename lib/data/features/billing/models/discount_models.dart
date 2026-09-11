@@ -13,6 +13,7 @@ class DiscountModel extends Equatable {
     this.price,
     this.status,
     this.school,
+    this.totalAmountDiscounted = 0,
   });
 
   final String code;
@@ -27,6 +28,11 @@ class DiscountModel extends Equatable {
   final String? status;
   final String? school;
 
+  /// Lifetime amount actually deducted across invoices by this discount —
+  /// distinct from [deductionAmount], the fixed per-use deduction configured
+  /// for a `FIXED`-type discount (null for `PERCENTAGE`-type ones).
+  final double totalAmountDiscounted;
+
   factory DiscountModel.fromJson(Map<String, dynamic> json) => DiscountModel(
         code: (json['code'] as String?) ?? '',
         name: (json['name'] as String?) ?? '',
@@ -39,12 +45,15 @@ class DiscountModel extends Equatable {
         price: (json['price'] as num?)?.toDouble(),
         status: json['status'] as String?,
         school: json['school'] as String?,
+        totalAmountDiscounted:
+            (json['totalAmountDiscounted'] as num?)?.toDouble() ?? 0,
       );
 
   @override
   List<Object?> get props => [
         code, name, description, percentage, deductionAmount,
         maxInvoiceAmount, reference, discountType, price, status, school,
+        totalAmountDiscounted,
       ];
 }
 

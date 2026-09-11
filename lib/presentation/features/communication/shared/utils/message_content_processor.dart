@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Supported preview types for composer/message cards.
 enum PreviewKind { url, email, phone }

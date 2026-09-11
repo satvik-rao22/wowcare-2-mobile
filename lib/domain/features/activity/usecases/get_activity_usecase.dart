@@ -1,7 +1,7 @@
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 
-import '../entities/activity_detail.dart';
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class GetActivityUseCase {
   GetActivityUseCase(this._repository);

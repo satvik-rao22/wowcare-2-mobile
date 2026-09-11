@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../shared/common/widgets/profile_show_widget.dart';
-import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 
 /// Same chrome as student tiles on the activity student picker, without checkbox.
 /// Use for view/edit activity flows where the student is display-only.
@@ -36,7 +37,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(8),
-        color: backgroundColor ?? Colors.white,
+        color: backgroundColor ?? AppColors.cardColor,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -54,12 +55,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
               child: EllipsisTooltipText(
                 text: display,
                 maxLines: 2,
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.15,
-                ),
+                style: AppTextStyles.activityStudentTileName,
               ),
             ),
             if (onRemove != null)

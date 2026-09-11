@@ -5,47 +5,49 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/push_notification_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_cubit.dart';
+import 'package:wowcare/app/di/conversation_thread_cubit_factory.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/composer_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_cubit.dart';
+import 'package:wowcare/app/di/private_mode_toggle_cubit_factory.dart';
+import 'package:wowcare/presentation/features/communication/view_model/private_mode_toggle_state.dart';
+import 'package:wowcare/domain/features/communication/policies/room_chat_privacy_helper.dart';
+import 'package:wowcare/data/features/communication/mappers/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
-import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -94,17 +96,25 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// the moment a draft (e.g. a brand-new classroom chat) is created on first
   /// send — so participant-dependent UI (bubble alignment, header roster) uses
   /// the real participants immediately instead of waiting for a refresh/revisit.
-  ConversationEntity? _resolvedConversation;
+  // Screen view-flags (Mandate 2): the resolved conversation, scroll-position
+  // gate, delete permission, present-user codes, plus an identity-load
+  // revision (the set-once _senderCode/_senderName/_senderRole/
+  // _organizationCode stay plain fields; this notifier just triggers the one
+  // rebuild when they load). ValueNotifiers so the body rebuilds off one
+  // merged listenable rather than setState.
+  final ValueNotifier<ConversationEntity?> _resolvedConversation =
+      ValueNotifier<ConversationEntity?>(null);
+  final ValueNotifier<int> _identityRev = ValueNotifier<int>(0);
 
   /// Falls back to [widget.conversation] — always fully populated, since
   /// it's what opened this thread in the first place — whenever
-  /// [_resolvedConversation] would otherwise hand the header a blank title.
+  /// [_resolvedConversation.value] would otherwise hand the header a blank title.
   /// Pull-to-refresh was observed dropping the header to the generic
   /// placeholder name/logo; whatever transiently produces an
   /// incompletely-populated resolved conversation, the header should never
   /// actually render it over the known-good original.
   ConversationEntity get _conversation {
-    final resolved = _resolvedConversation;
+    final resolved = _resolvedConversation.value;
     if (resolved != null && resolved.title.trim().isNotEmpty) return resolved;
     return widget.conversation;
   }
@@ -144,7 +154,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// shimmer until this flips, so opening a thread shows the conversation
   /// already sitting at the latest message instead of visibly scrolling
   /// down to it from the top.
-  bool _isPositionedAtBottom = false;
+  final ValueNotifier<bool> _isPositionedAtBottom = ValueNotifier<bool>(false);
+
+  /// `communication-settings`-driven Delete visibility — see
+  /// [MessageBubble.isAdminCanDeleteAny] / [MessageBubble.deleteTimeLimitMinutes].
+  final ValueNotifier<MessageDeletePermission> _deletePermission =
+      ValueNotifier<MessageDeletePermission>(MessageDeletePermission.none);
+
+  Future<void> _loadDeletePermission() async {
+    final isAdminViewer = context.read<RoleCubit>().role == 'admin';
+    final permission = await _cubit.resolveDeletePermission(
+      schoolCode: widget.conversation.schoolCode,
+      isAdminViewer: isAdminViewer,
+    );
+    if (!mounted) return;
+    _deletePermission.value = permission;
+  }
 
   /// Guards against firing more than one `loadOlderMessages` request while
   /// one is already in flight — mirrors the cubit's own guard but avoids
@@ -159,12 +184,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   String _schoolCode = '';
 
   late final ReactionsController _reactionsController;
-  MessageEntity? _quotedMessage;
-  MessageEntity? _editingMessage;
   final FocusNode _inputFocusNode = FocusNode();
 
-  /// Attachments selected from [MessageAttachmentBottomSheet] but not yet sent.
-  List<ChatAttachment> _pendingAttachments = [];
+  /// Composer state — reply target / edit target / staged attachments (Mandate
+  /// 2, Bucket A). The `_inputController` stays a plain field: it is a Flutter
+  /// controller, not screen state.
+  final ComposerCubit<MessageEntity> _composer = ComposerCubit<MessageEntity>();
 
   /// Only non-null when [widget.showPrivateModeToggle] is true.
   PrivateModeToggleCubit? _privateModeToggleCubit;
@@ -269,6 +294,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           vsync: this,
           initialIndex: previousIndex < desiredLength ? previousIndex : 0,
         )..addListener(() {
+          // Mandate 2 (Bucket C): TabController tick — the active guardian tab
+          // drives which messages/composer scope show, so a rebuild here is a
+          // controller-driven rebuild; setState is the right tool.
           if (mounted) setState(() {});
         });
   }
@@ -327,17 +355,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// any non-classroom-chat conversation, where it's simply never fetched),
   /// in which case the participant header falls back to showing everyone —
   /// same as before this existed.
-  Set<String>? _presentUserCodes;
+  final ValueNotifier<Set<String>?> _presentUserCodes =
+      ValueNotifier<Set<String>?>(null);
 
   Future<void> _loadClassroomRosterStatus() async {
     final classroomCode = _conversation.classroomCode?.trim();
     if (classroomCode == null || classroomCode.isEmpty) return;
-    final result =
-        await serviceLocator<GetClassroomRosterPresentUserCodesUseCase>()(
-          classroomCode,
-        );
+    final result = await _cubit.loadClassroomRosterPresentUserCodes(
+      classroomCode,
+    );
     if (!mounted) return;
-    result.fold((_) {}, (codes) => setState(() => _presentUserCodes = codes));
+    result.fold((_) {}, (codes) => _presentUserCodes.value = codes);
   }
 
   @override
@@ -345,6 +373,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+    unawaited(_loadDeletePermission());
 
     final authState = context.read<AuthCubit>().state;
     final userCodeFromAuth = authState is AuthLoaded
@@ -355,27 +384,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       currentUserId: userCodeFromAuth.isNotEmpty ? userCodeFromAuth : 'me',
     );
 
-    _cubit = ConversationThreadCubit(
-      conversationCode: widget.conversation.code,
-      currentUserCode: userCodeFromAuth,
-      // Pass the full conversation so the Firestore message listener uses this
-      // conversation's own org/school (not the session's active school) — fixes
-      // no-live-messages for Classroom Notes and any cross-school thread.
+    // Cubit dependencies are resolved by an app-DI factory (Mandate 5: no
+    // serviceLocator in views). The full conversation is still seeded so the
+    // Firestore listener uses THIS conversation's own org/school (not the
+    // session's active school) — fixes no-live-messages for Classroom Notes and
+    // any cross-school thread. Construction, ownership and start-up order are
+    // otherwise unchanged.
+    _cubit = buildConversationThreadCubit(
       conversation: widget.conversation,
-      watchMessagesUseCase: serviceLocator(),
-      getMessagesUseCase: serviceLocator(),
-      sendMessageUseCase: serviceLocator(),
-      editMessageUseCase: serviceLocator(),
-      deleteMessageUseCase: serviceLocator(),
-      deleteAttachmentUseCase: serviceLocator(),
-      getMessageReceiptsUseCase: serviceLocator(),
-      addReactionUseCase: serviceLocator(),
-      removeReactionUseCase: serviceLocator(),
-      markConversationReadUseCase: serviceLocator(),
-      attachmentUploader: serviceLocator(),
-      cacheDraftMessageUseCase: serviceLocator(),
-      markDraftMessageFailedUseCase: serviceLocator(),
-      getCachedMessagesEntityUseCase: serviceLocator(),
+      currentUserCode: userCodeFromAuth,
       isDraft: widget.isDraft,
       onResolveConversation: widget.onResolveConversation,
     );
@@ -421,8 +438,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       // fetch below, never from `widget.conversation`. That local data is
       // exactly what was letting the toggle show a stale value until the
       // user's own interaction (or a lucky realtime event) corrected it.
-      _privateModeToggleCubit = PrivateModeToggleCubit(
-        togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
+      _privateModeToggleCubit = buildPrivateModeToggleCubit(
         conversationCode: widget.conversation.code,
         viewerRole: () => _senderRole == ParticipantRole.parent
             ? RoomChatViewerRole.guardian
@@ -438,12 +454,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   Future<void> _fetchConversationDetails() async {
-    final result = await serviceLocator<ConversationEntityRepository>()
-        .getConversation(widget.conversation.code);
+    final result = await _cubit.fetchConversation(widget.conversation.code);
     if (!mounted) return;
     result.fold((_) {}, (conversation) {
       if (conversation.participants.isNotEmpty) {
-        setState(() => _resolvedConversation = conversation);
+        _resolvedConversation.value = conversation;
         // Also feed the cubit — read/delivered-by-all tick aggregation reads
         // participants off cubit state, not this screen-local field (see
         // ConversationThreadCubit.updateConversation's own doc).
@@ -460,15 +475,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   Future<void> _loadSenderInfo() async {
-    final storage = serviceLocator<StorageService>();
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
-        .trim();
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final orgCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
+    // Identity through the owning cubit (Mandate 5) — same underlying reads.
+    final userCode = (await _cubit.readCurrentUserCode() ?? '').trim();
+    final displayName = (await _cubit.readDisplayName() ?? '').trim();
+    final orgCode = (await _cubit.readOrganizationCode() ?? '').trim();
+    final school = (await _cubit.readActiveSchoolCode() ?? '').trim();
     // Prefer the active-persona resolver (activeSchoolRole, falling back to
     // the per-school cached snapshot, then the raw login roles list as a
     // last resort) over reading the raw `roles` list directly. A dual-role
@@ -479,25 +490,24 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // every message's alignment/colour. See `resolveActiveBackendRole`'s own
     // doc comment — this is the single source of truth every other
     // persona-scoping decision in the app already uses.
-    final activeRole = (await resolveActiveBackendRole(
-      storage,
-    )).trim().toUpperCase();
+    final activeRole = (await _cubit.resolveActiveViewerRole())
+        .trim()
+        .toUpperCase();
 
     if (!mounted) return;
-    setState(() {
-      _senderCode = userCode;
-      _senderName = displayName.isNotEmpty ? displayName : userCode;
-      _organizationCode = orgCode;
-      _schoolCode = school;
-      _senderRole = ParticipantRole.fromApiString(activeRole);
-    });
+    _senderCode = userCode;
+    _senderName = displayName.isNotEmpty ? displayName : userCode;
+    _organizationCode = orgCode;
+    _schoolCode = school;
+    _senderRole = ParticipantRole.fromApiString(activeRole);
+    // Set-once identity fields stay plain; bump the rev to trigger the rebuild.
+    _identityRev.value++;
   }
 
   // ── Draft persistence ─────────────────────────────────────────────────────
 
   Future<void> _loadDraft() async {
-    final storage = serviceLocator<StorageService>();
-    final draft = await storage.getString(_draftStorageKey);
+    final draft = await _cubit.readComposerDraft(_draftStorageKey);
     if (draft != null && draft.isNotEmpty && mounted) {
       _inputController.text = draft;
       _inputController.selection = TextSelection.collapsed(
@@ -507,12 +517,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   Future<void> _saveDraft() async {
-    final storage = serviceLocator<StorageService>();
     final text = _inputController.text.trim();
     if (text.isEmpty) {
-      await storage.remove(_draftStorageKey);
+      await _cubit.removeComposerDraft(_draftStorageKey);
     } else {
-      await storage.saveString(_draftStorageKey, text);
+      await _cubit.saveComposerDraft(_draftStorageKey, text);
     }
   }
 
@@ -541,6 +550,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _scrollBehavior.dispose();
     _scrollController.dispose();
     _reactionsController.dispose();
+    unawaited(_composer.close());
+    _resolvedConversation.dispose();
+    _identityRev.dispose();
+    _isPositionedAtBottom.dispose();
+    _deletePermission.dispose();
+    _presentUserCodes.dispose();
     _inputFocusNode.dispose();
     super.dispose();
   }
@@ -589,7 +604,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
       _lastKeyboardInset = bottomInset;
       if (keyboardOpened) {
@@ -617,11 +632,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           animate: false,
           onSettled: () {
             if (!mounted) return;
-            setState(() => _isPositionedAtBottom = true);
+            _isPositionedAtBottom.value = true;
           },
         );
       } else {
-        _isPositionedAtBottom = true;
+        _isPositionedAtBottom.value = true;
       }
       return;
     }
@@ -700,7 +715,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       DateTime? readAt,
     }) {
       return MessageInfoRecipient(
-        name: r.userName.isNotEmpty ? r.userName : 'Participant',
+        name: r.userName.isNotEmpty ? r.userName : AppStrings.participantFallback,
         role: r.role,
         avatarSource: _avatarForCode(r.userCode),
         deliveredAt: deliveredAt,
@@ -751,7 +766,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
       String name;
       if (showAsYou) {
-        name = 'You';
+        name = AppStrings.you;
       } else if (r.userName?.trim().isNotEmpty == true) {
         name = r.userName!.trim();
       } else {
@@ -768,7 +783,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             .firstOrNull;
         name = roleMatch?.userName.trim().isNotEmpty == true
             ? roleMatch!.userName.trim()
-            : 'Participant';
+            : AppStrings.participantFallback;
       }
 
       return ReactionPerson(
@@ -788,7 +803,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       MessageAttachmentBottomSheet.show(
         context,
         onAttachmentsSelected: (attachments) {
-          setState(() => _pendingAttachments.addAll(attachments));
+          _composer.addAttachments(attachments);
         },
         onEmojiSelected: (emoji) {
           final pos = _inputController.selection.isValid
@@ -803,7 +818,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         onViewParticipants: _showParticipantsDialog,
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -811,34 +830,31 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if ((text.isEmpty && _pendingAttachments.isEmpty) || _senderCode.isEmpty) {
+    if ((text.isEmpty && !_composer.state.hasAttachments) ||
+        _senderCode.isEmpty) {
       return;
     }
 
-    if (_editingMessage != null) {
-      final messageCode = _editingMessage!.code;
-      final originalEditMsg = _editingMessage!;
+    if (_composer.state.editingMessage != null) {
+      final messageCode = _composer.state.editingMessage!.code;
+      final originalEditMsg = _composer.state.editingMessage!;
 
       // Only clear and submit if text actually changed
       if (text != originalEditMsg.text) {
-        setState(() {
-          _editingMessage = null;
-        });
+        _composer.cancelEdit();
         _inputController.clear();
 
         await _cubit.editMessage(messageCode: messageCode, newText: text);
         if (mounted) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Message updated successfully',
+            message: AppStrings.messageUpdatedSuccessfully,
             isSuccess: true,
           );
         }
       } else {
         // Text unchanged — just cancel edit
-        setState(() {
-          _editingMessage = null;
-        });
+        _composer.cancelEdit();
         _inputController.clear();
       }
       return;
@@ -857,10 +873,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // attachments out from under the send that was about to use them,
     // producing a text-less, attachment-less POST the backend correctly
     // rejected with "Message must contain text or at least one attachment".
-    final attachmentsBeingSent = List<ChatAttachment>.from(_pendingAttachments);
-    // Captured before the composer is cleared below — _quotedMessage is
-    // about to become null.
-    final quotedMessageCode = _quotedMessage?.code;
+    final attachmentsBeingSent = List<ChatAttachment>.from(
+      _composer.state.pendingAttachments,
+    );
+    // Captured before the composer is cleared below — the quote is about to
+    // become null.
+    final quotedMessageCode = _composer.state.quotedMessage?.code;
     // A guardian sends private via their own toggle; staff/admin has no such
     // toggle — instead, replying while a specific guardian's tab is active
     // (see [_showChatTabs]/[_buildChatTabChips]) scopes the reply as private
@@ -886,10 +904,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // retried from the bubble itself (EntityMessageTile's onRetry →
     // ConversationThreadCubit.retrySendMessage), which already carries its
     // own attachments, so there's nothing to "preserve here for retry".
-    setState(() {
-      _quotedMessage = null;
-      _pendingAttachments.clear();
-    });
+    _composer.reset();
 
     await _cubit.sendMessage(
       text: text,
@@ -932,8 +947,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       return 'Yesterday';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -963,11 +988,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   Color _roleColor(String role) {
     switch (role.toUpperCase()) {
       case 'GUARDIAN':
-        return const Color(0xFF6C63FF);
+        return AppColors.messagingRoleBadgeGuardian;
       case 'STAFF':
-        return const Color(0xFF00897B);
+        return AppColors.messagingRoleBadgeStaff;
       case 'ADMIN':
-        return const Color(0xFFE65100);
+        return AppColors.messagingRoleBadgeAdmin;
       default:
         return AppColors.primaryColor;
     }
@@ -985,7 +1010,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         .toList();
     final title = _conversation.title.isNotEmpty
         ? _conversation.title
-        : 'Conversation';
+        : AppStrings.conversationFallback;
     // 1:1 chats carry no conversation-level avatar — resolve the other participant's photo; group
     // chats use the conversation (student) avatar.
     final headerAvatar = _conversation.displayAvatar(_senderCode);
@@ -994,10 +1019,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: Colors.transparent,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        color: AppColors.transparentColor,
+        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xsPlus, AppSizes.md, AppSizes.xsPlus),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1023,7 +1048,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 size: 36,
                 fontSize: 15,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSizes.xsPlus),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1035,10 +1060,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     ),
                     if (count != null)
                       Text(
-                        '$count participant${count == 1 ? '' : 's'}',
-                        style: const TextStyle(
+                        AppStrings.participantCountLabel(count),
+                        style: AppTextStyles.size14.copyWith(
                           fontSize: 11,
-                          color: Color(0xFF636E72),
+                          color: AppColors.messagingTextSecondary,
                         ),
                       ),
                   ],
@@ -1085,32 +1110,30 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     return Tooltip(
                       message: pmState.isEnabled
                           ? (isActivator
-                                ? 'Private Mode ON'
-                                : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
-                          : 'Private Mode OFF',
+                                ? AppStrings.privateModeOn
+                                : AppStrings.privateModeEnabledByOther)
+                          : AppStrings.privateModeOff,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Private Mode',
-                            style: TextStyle(
+                            AppStrings.privateMode,
+                            style: AppTextStyles.size14.copyWith(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: pmState.isEnabled
-                                  ? const Color(0xFF6C63FF)
-                                  : const Color(0xFFB2BEC3),
+                                  ? AppColors.messagingRoleBadgeGuardian
+                                  : AppColors.messagingTextPlaceholder,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSizes.xxs),
                           Switch.adaptive(
                             value: pmState.isEnabled,
                             onChanged: canOperate
                                 ? (_) => _privateModeToggleCubit!.toggle()
                                 : null,
-                            activeThumbColor: const Color(0xFF6C63FF),
-                            activeTrackColor: const Color(
-                              0xFF6C63FF,
-                            ).withValues(alpha: 0.4),
+                            activeThumbColor: AppColors.messagingRoleBadgeGuardian,
+                            activeTrackColor: AppColors.messagingRoleBadgeGuardian.withValues(alpha: 0.4),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -1120,7 +1143,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   },
                 ),
               Tooltip(
-                message: 'View Participants',
+                message: AppStrings.viewParticipants,
                 child: IconButton(
                   icon: const Icon(
                     Icons.info_outline_rounded,
@@ -1139,7 +1162,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           // read-only `ParentParticipantChips` and its interactive tab
           // chips — never both at once.
           if (participants.isNotEmpty && !_showChatTabs) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSizes.xs),
             Builder(
               builder: (context) {
                 final isAdminChat =
@@ -1151,16 +1174,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 // Admin chat and Room chat → guardian/parent chips only.
                 // Classroom Notes → present-roster staff/admins only (the
                 // conversation can still list someone the classroom roster
-                // has since dropped — see [_presentUserCodes]/[GetClassroomRosterPresentUserCodesUseCase]).
+                // has since dropped — see [_presentUserCodes.value]/[GetClassroomRosterPresentUserCodesUseCase]).
                 // All other types → show everyone.
                 final visibleParticipants = (isAdminChat || isRoomChat)
                     ? participants.where((p) {
                         final role = p.role.toApiString().toUpperCase();
                         return role == 'PARENT' || role == 'GUARDIAN';
                       }).toList()
-                    : (isClassroomChat && _presentUserCodes != null)
+                    : (isClassroomChat && _presentUserCodes.value != null)
                     ? participants
-                          .where((p) => _presentUserCodes!.contains(p.userCode))
+                          .where(
+                            (p) =>
+                                _presentUserCodes.value!.contains(p.userCode),
+                          )
                           .toList()
                     : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
@@ -1184,7 +1210,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
                       return Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
+                          horizontal: AppSizes.xs,
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
@@ -1215,16 +1241,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               size: 16,
                               fontSize: 9,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: AppSizes.xxs),
                             Text(
                               name,
-                              style: TextStyle(
+                              style: AppTextStyles.size14.copyWith(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: color,
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: AppSizes.xxs),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 4,
@@ -1236,7 +1262,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               ),
                               child: Text(
                                 roleStr,
-                                style: TextStyle(
+                                style: AppTextStyles.size14.copyWith(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
                                   color: color,
@@ -1258,7 +1284,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           // legacy screen — that screen has always had this; this (v2,
           // Admin Chat included) screen never did.
           if (_showChatTabs) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSizes.xs),
             _buildChatTabChips(),
           ],
           // Shown to EVERY persona (previously parent-only, which meant an
@@ -1268,7 +1294,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           // check inside `_buildPrivateModeHeader` itself.
           if (_conversation.type == ConversationType.adminChat ||
               _conversation.type == ConversationType.roomChat) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSizes.xs),
             _buildPrivateModeHeader(),
           ],
         ],
@@ -1292,7 +1318,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         scrollDirection: Axis.horizontal,
         children: [
           _buildChatTabChip(
-            label: 'Group Chat',
+            label: AppStrings.groupChat,
             tabIndex: 0,
             // Matches the legacy Room Chat screen's own Group Chat chip
             // colour exactly (AppColors.themeColor, not primaryColor).
@@ -1310,7 +1336,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               child: _buildChatTabChip(
                 label: label,
                 tabIndex: tabIndex,
-                color: const Color(0xFF00B4DB),
+                color: AppColors.messagingRoleGuardian,
                 showLockIcon: _conversation.isPrivateModeEnabledFor(
                   guardian.userCode,
                 ),
@@ -1335,7 +1361,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         if (controller.index != tabIndex) controller.animateTo(tabIndex);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
@@ -1348,18 +1374,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: AppTextStyles.size14.copyWith(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : color,
+                color: isSelected ? AppColors.messagingOnAccent : color,
               ),
             ),
             if (showLockIcon) ...[
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSizes.xxs),
               Icon(
                 Icons.visibility_off,
                 size: 12,
-                color: isSelected ? Colors.white : const Color(0xFFD63031),
+                color: isSelected ? AppColors.messagingOnAccent : AppColors.messagingPrivateLock,
               ),
             ],
           ],
@@ -1435,26 +1461,26 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       alignment: Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: MediaQuery.sizeOf(context).width * 0.7,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF9E6),
+          color: AppColors.messagingNoticeBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFFFE8B3), width: 1),
+          border: Border.all(color: AppColors.messagingNoticeBorder, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.lock_outline, size: 14, color: Color(0xFFC9A000)),
+            const Icon(Icons.lock_outline, size: 14, color: AppColors.messagingNoticeText),
             const SizedBox(width: 5),
             Flexible(
               child: Text(
-                'Private by $parentName',
-                style: const TextStyle(
+                AppStrings.privateBy(parentName),
+                style: AppTextStyles.size14.copyWith(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFC9A000),
+                  color: AppColors.messagingNoticeText,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1510,7 +1536,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       final isUnauthorized = _isUnauthorizedConversationError(errorMessage);
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSizes.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1521,20 +1547,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 size: 48,
                 color: AppColors.primaryColor.withValues(alpha: 0.3),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSizes.sm),
               Text(
                 isUnauthorized
-                    ? 'This chat hasn\'t been created yet. Go back and start a new conversation.'
+                    ? AppStrings.chatNotCreatedGoBack
                     : errorMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF636E72)),
+                style: const TextStyle(color: AppColors.messagingTextSecondary),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.md),
               OutlinedButton(
                 onPressed: isUnauthorized
                     ? () => Navigator.of(context).pop()
                     : _cubit.loadMessages,
-                child: Text(isUnauthorized ? 'Go back' : 'Try again'),
+                child: Text(isUnauthorized ? AppStrings.goBack : AppStrings.tryAgain),
               ),
             ],
           ),
@@ -1555,10 +1581,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'No messages yet. Say hello!',
-                    style: TextStyle(color: Color(0xFFB2BEC3), fontSize: 14),
+                    AppStrings.noMessagesYetSayHello,
+                    style: AppTextStyles.size14.copyWith(color: AppColors.messagingTextPlaceholder),
                   ),
                 ),
               ),
@@ -1585,13 +1611,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         // visible child flips is what was triggering Flutter's
         // `!semantics.parentDataDirty` assertion crash on open.
         Visibility(
-          visible: _isPositionedAtBottom,
+          visible: _isPositionedAtBottom.value,
           maintainState: true,
           maintainAnimation: true,
           maintainSize: true,
           child: _buildRealMessageList(messages),
         ),
-        if (!_isPositionedAtBottom)
+        if (!_isPositionedAtBottom.value)
           const Positioned.fill(child: ChatThreadShimmer()),
       ],
     );
@@ -1608,7 +1634,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         // stay scrollable (and therefore pull-to-refresh-able) regardless
         // of message count.
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xs, vertical: AppSizes.sm),
         reverse: true,
         itemCount: messages.length,
         itemBuilder: (context, index) {
@@ -1634,15 +1660,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             children: [
               if (showDateHeader) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 10),
+                  padding: const EdgeInsets.only(top: AppSizes.xs, bottom: AppSizes.xsPlus),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
+                        horizontal: AppSizes.sm,
+                        vertical: AppSizes.xxs,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0x1A573353),
+                        color: AppColors.messagingChipBgPlum,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: CustomTextWidget(
@@ -1662,14 +1688,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 isGrouped: isGrouped,
                 reactionsController: _reactionsController,
                 currentUserCode: _senderCode,
+                isAdminCanDeleteAny:
+                    _deletePermission.value.isAdminCanDeleteAny,
+                deleteTimeLimitMinutes:
+                    _deletePermission.value.deleteTimeLimitMinutes,
                 onScrollToQuoted: (quoteId) => _scrollToMessage(quoteId),
                 // Deleted messages disable all interactions except viewing/adding reactions
-                onReply: msg.isDeleted
-                    ? null
-                    : () => setState(() => _quotedMessage = msg),
+                onReply: msg.isDeleted ? null : () => _composer.quote(msg),
                 onReplyFromMenu: msg.isDeleted
                     ? null
-                    : () => setState(() => _quotedMessage = msg),
+                    : () => _composer.quote(msg),
                 onCopy: msg.isDeleted
                     ? null
                     : () {
@@ -1682,7 +1710,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         );
                         CoreUtils.showTopSnackBar(
                           context: context,
-                          message: 'Message copied successfully',
+                          message: AppStrings.messageCopiedSuccessfully,
                           isSuccess: true,
                         );
                       },
@@ -1691,15 +1719,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     : () {
                         final cleanedText =
                             MessageContentProcessor.stripHtmlTags(msg.text);
-                        setState(() {
-                          _editingMessage = msg;
-                          _inputController.value = TextEditingValue(
-                            text: cleanedText,
-                            selection: TextSelection.collapsed(
-                              offset: cleanedText.length,
-                            ),
-                          );
-                        });
+                        _composer.startEdit(msg);
+                        _inputController.value = TextEditingValue(
+                          text: cleanedText,
+                          selection: TextSelection.collapsed(
+                            offset: cleanedText.length,
+                          ),
+                        );
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) {
                             _inputFocusNode.requestFocus();
@@ -1724,7 +1750,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         if (_cubit.state.errorMessage == null) {
                           CoreUtils.showTopSnackBar(
                             context: context,
-                            message: 'Message deleted successfully',
+                            message: AppStrings.messageDeletedSuccessfully,
                             isSuccess: true,
                           );
                         }
@@ -1749,7 +1775,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     );
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: 'Reaction removed',
+                      message: AppStrings.reactionRemoved,
                       isSuccess: true,
                     );
                   } else {
@@ -1760,7 +1786,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     );
                     CoreUtils.showTopSnackBar(
                       context: context,
-                      message: 'Reaction added',
+                      message: AppStrings.reactionAdded,
                       isSuccess: true,
                     );
                   }
@@ -1773,7 +1799,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   );
                   CoreUtils.showTopSnackBar(
                     context: context,
-                    message: 'Reaction removed',
+                    message: AppStrings.reactionRemoved,
                     isSuccess: true,
                   );
                 },
@@ -1806,7 +1832,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     if (resolved != null &&
         resolved.code.isNotEmpty &&
         resolved.code != _conversation.code) {
-      setState(() => _resolvedConversation = resolved);
+      _resolvedConversation.value = resolved;
     }
   }
 
@@ -1842,125 +1868,144 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       },
       builder: (context, state) {
         _syncTabController();
-        return Column(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // if (widget.showOwnScaffold) ...[
-            //   // CustomTextWidget(text: 'Messaging ', fontSize: 16),
-            //   const SizedBox(height: 10),
-            // ],
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFF4F7FD),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    _buildParticipantHeader(),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          _buildMessageList(state),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            top: 0,
-                            child: LoadingOlderIndicator(
-                              // The only path that sets `isLoading` while
-                              // `hasMessages` is already true is
-                              // loadOlderMessages() — the initial/full load
-                              // only ever runs while the list is still empty.
-                              visible: state.isLoading && state.hasMessages,
-                            ),
-                          ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 8,
-                            child: ValueListenableBuilder<bool>(
-                              valueListenable:
-                                  _scrollBehavior.showNewMessageIndicator,
-                              builder: (_, visible, __) => NewMessagesIndicator(
-                                visible: visible,
-                                onTap: () => _scrollBehavior.scrollToBottom(),
+        // Rebuild on the screen view-flags alongside the cubit state.
+        return ListenableBuilder(
+          listenable: Listenable.merge([
+            _resolvedConversation,
+            _identityRev,
+            _isPositionedAtBottom,
+            _deletePermission,
+            _presentUserCodes,
+          ]),
+          builder: (context, _) {
+            return Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.messagingMessageBoxBg,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        _buildParticipantHeader(),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              _buildMessageList(state),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                top: 0,
+                                child: LoadingOlderIndicator(
+                                  // The only path that sets `isLoading` while
+                                  // `hasMessages` is already true is
+                                  // loadOlderMessages() — the initial/full load
+                                  // only ever runs while the list is still empty.
+                                  visible: state.isLoading && state.hasMessages,
+                                ),
                               ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 8,
+                                child: ValueListenableBuilder<bool>(
+                                  valueListenable:
+                                      _scrollBehavior.showNewMessageIndicator,
+                                  builder: (_, visible, __) =>
+                                      NewMessagesIndicator(
+                                        visible: visible,
+                                        onTap: () =>
+                                            _scrollBehavior.scrollToBottom(),
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.cardColor,
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(12),
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.blackColor.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, -2),
+                          child: SafeArea(
+                            top: false,
+                            // Only the composer rebuilds on quote/edit/attachment
+                            // changes — the message list above is untouched.
+                            child:
+                                BlocBuilder<
+                                  ComposerCubit<MessageEntity>,
+                                  ComposerState<MessageEntity>
+                                >(
+                                  bloc: _composer,
+                                  builder: (context, composer) => ChatInputBar(
+                                    controller: _inputController,
+                                    focusNode: _inputFocusNode,
+                                    isSending: state.isSending,
+                                    enabled:
+                                        !_studentInactive &&
+                                        !_noActiveGuardian &&
+                                        !_currentUserInactive,
+                                    disabledMessage: _currentUserInactive
+                                        ? AppStrings.staffAccountInactiveMessage
+                                        : _studentInactive
+                                        ? AppStrings.studentInactiveMessage
+                                        : AppStrings.noActiveGuardianMessage,
+                                    onSend: () => unawaited(_sendMessage()),
+                                    onAttachmentTap: _showAttachmentSheet,
+                                    pendingAttachments:
+                                        composer.pendingAttachments,
+                                    showCharCounter: true,
+                                    onRemoveAttachment:
+                                        _composer.removeAttachment,
+                                    quotedMessage:
+                                        composer.quotedMessage != null
+                                        ? mapMessageEntityToMessage(
+                                            composer.quotedMessage!,
+                                            _senderCode,
+                                            viewingAsGuardian:
+                                                _senderRole ==
+                                                ParticipantRole.parent,
+                                          )
+                                        : null,
+                                    onCancelQuote: _composer.clearQuote,
+                                    editingMessage:
+                                        composer.editingMessage != null
+                                        ? mapMessageEntityToMessage(
+                                            composer.editingMessage!,
+                                            _senderCode,
+                                            viewingAsGuardian:
+                                                _senderRole ==
+                                                ParticipantRole.parent,
+                                          )
+                                        : null,
+                                    onCancelEdit: () {
+                                      _composer.cancelEdit();
+                                      _inputController.clear();
+                                    },
+                                  ),
+                                ),
                           ),
-                        ],
-                      ),
-                      child: SafeArea(
-                        top: false,
-                        child: ChatInputBar(
-                          controller: _inputController,
-                          focusNode: _inputFocusNode,
-                          isSending: state.isSending,
-                          enabled:
-                              !_studentInactive &&
-                              !_noActiveGuardian &&
-                              !_currentUserInactive,
-                          disabledMessage: _currentUserInactive
-                              ? 'Your staff account is inactive. You can no '
-                                    'longer send messages.'
-                              : _studentInactive
-                              ? 'This student is inactive. You can no '
-                                    'longer send messages.'
-                              : 'No active parent or guardian is available in '
-                                    'this conversation. You can no longer send '
-                                    'messages.',
-                          onSend: () => unawaited(_sendMessage()),
-                          onAttachmentTap: _showAttachmentSheet,
-                          pendingAttachments: _pendingAttachments,
-                          showCharCounter: true,
-                          onRemoveAttachment: (i) =>
-                              setState(() => _pendingAttachments.removeAt(i)),
-                          quotedMessage: _quotedMessage != null
-                              ? mapMessageEntityToMessage(
-                                  _quotedMessage!,
-                                  _senderCode,
-                                  viewingAsGuardian:
-                                      _senderRole == ParticipantRole.parent,
-                                )
-                              : null,
-                          onCancelQuote: () =>
-                              setState(() => _quotedMessage = null),
-                          editingMessage: _editingMessage != null
-                              ? mapMessageEntityToMessage(
-                                  _editingMessage!,
-                                  _senderCode,
-                                  viewingAsGuardian:
-                                      _senderRole == ParticipantRole.parent,
-                                )
-                              : null,
-                          onCancelEdit: () => setState(() {
-                            _editingMessage = null;
-                            _inputController.clear();
-                          }),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
@@ -1969,7 +2014,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   @override
   Widget build(BuildContext context) {
     final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     final body = BlocListener<PushNotificationCubit, PushNotificationState>(
       listenWhen: (prev, curr) =>
@@ -1987,7 +2032,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: !isLandscape,
-      body: Padding(padding: const EdgeInsets.all(10), child: body),
+      body: Padding(padding: const EdgeInsets.all(AppSizes.xsPlus), child: body),
     );
   }
 
@@ -2003,5 +2048,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             (current.senderCode == _senderCode) &&
         current.sentAt.difference(prev.sentAt).inMinutes <= 5;
   }
-
 }

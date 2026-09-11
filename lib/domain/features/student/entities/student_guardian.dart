@@ -15,6 +15,7 @@ class StudentGuardian extends Equatable {
     this.clockPin,
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
+    this.displayNameOverride,
   });
 
   final String guardianCode;
@@ -35,7 +36,17 @@ class StudentGuardian extends Equatable {
   /// image widget when no direct URL is present).
   final String? profilePhotoAssetCode;
 
-  String get fullName => '$firstName $lastName'.trim();
+  /// Fallback display name for a malformed guardian record whose
+  /// [firstName]/[lastName] are both empty — see
+  /// `StudentGuardianModel.displayNameOverride` (data layer) for how it's
+  /// resolved. Never overrides a genuine firstName+lastName.
+  final String? displayNameOverride;
+
+  String get fullName {
+    final structured = '$firstName $lastName'.trim();
+    if (structured.isNotEmpty) return structured;
+    return displayNameOverride ?? '';
+  }
 
   @override
   List<Object?> get props => [
@@ -51,5 +62,6 @@ class StudentGuardian extends Equatable {
         legalCustody,
         profilePhotoUrl,
         profilePhotoAssetCode,
+        displayNameOverride,
       ];
 }

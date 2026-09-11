@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 /// The five `x-role` buckets the backend validates against. Finer backend roles
 /// (TEACHER, DIRECTOR, ASSOCIATE_TEACHER …) are normalised into one of these so
@@ -81,8 +81,7 @@ class AuthInterceptor extends Interceptor {
     final existingAuth =
         options.headers['Authorization'] ?? options.headers['authorization'];
 
-    final token = (await _storage.getString(StorageKeys.accessToken) ?? '')
-        .trim();
+    final token = await TokenRefreshService.instance.readAccessToken();
 
     // Always add baseline JSON headers. Only attach Authorization when missing.
     final baseHeaders = ApiHeaders.authorizedJson(token);

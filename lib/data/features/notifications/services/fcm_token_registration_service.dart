@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/utils/logger_service.dart';
+import '../../../../core/utils/storage_keys.dart';
 import '../datasources/fcm_registration_remote_data_source.dart';
 import '../models/fcm_register_request_model.dart';
 import '../../../../shared/common/app/providers/device_info_provider.dart';

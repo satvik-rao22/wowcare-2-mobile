@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -11,33 +12,34 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_dropdown.dart';
-import '../../widgets/activity_dropdown_widget.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_dropdown_widget.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_attendance_window_feedback.dart';
+import 'package:wowcare/domain/features/activity/services/activity_school_time.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
+import 'package:wowcare/data/features/activity/mappers/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_photo_attachment_coordinator.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class LearningActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/learning';
+
   const LearningActivityScreen({
     super.key,
     this.selectedStudents,
@@ -52,14 +54,11 @@ class LearningActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _LearningActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _LearningActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -129,12 +128,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final _attachmentState = ActivityPhotoAttachmentState();
+
+  /// Cancels any in-flight media upload when this screen is disposed, so a
+  /// large upload doesn't keep running after the user leaves the screen.
+  final CancelToken _uploadCancelToken = CancelToken();
   List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -158,8 +160,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
-    _imageUploadService = serviceLocator<ImageUploadService>();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -198,7 +199,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -213,7 +216,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -322,7 +325,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
       await _loadLearningParameterOptions();
@@ -334,28 +339,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -397,7 +389,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
 
   /// Maps a UI label to [selectedOptionCode] only for dropdown-like parameters.
   /// Other types must use [value] — the API rejects [selectedOptionCode] otherwise.
-  Map<String, dynamic>? _paramEntryForOption(
+  ActivityParameterValue? _paramEntryForOption(
     ActivityTypeParameter? param,
     String label,
   ) {
@@ -413,12 +405,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         if (ol.isNotEmpty && ol.toLowerCase() == v.toLowerCase()) {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
-            return {'parameterCode': param.code, 'selectedOptionCode': oc};
+            return ActivityParameterValue(
+              parameterCode: param.code,
+              selectedOptionCode: oc,
+            );
           }
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   ActivityTypeParameter? _findActivityNameParameter(
@@ -518,7 +513,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+  Future<List<ActivityAttachment>> _ensurePhotoAssetsUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -541,7 +536,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
-      uploadService: _imageUploadService,
+      editor: _editor,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,
@@ -560,10 +555,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
+      cancelToken: _uploadCancelToken,
     );
   }
 
@@ -657,12 +651,16 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected —
+      // don't surface it as an error. Non-cancel failures show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -684,6 +682,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -758,7 +757,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -795,7 +794,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -830,32 +829,32 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final activityNameParam = _findActivityNameParameter(details.parameters);
       final categoryParam = _findCategoryParameter(details.parameters);
 
-      Map<String, dynamic>? activityEntry = _paramEntryForOption(
+      ActivityParameterValue? activityEntry = _paramEntryForOption(
         activityNameParam,
         _selectedActivityType!.trim(),
       );
       if (activityEntry == null && _selectedActivityType!.trim().isNotEmpty) {
         final c = findParamCode('activity') ?? findParamCode('learning');
         if (c != null && c.trim().isNotEmpty) {
-          activityEntry = {
-            'parameterCode': c,
-            'value': _selectedActivityType!.trim(),
-          };
+          activityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedActivityType!.trim(),
+          );
         }
       }
 
       final categoryValue = _selectedCategory!.trim();
-      Map<String, dynamic>? categoryEntry;
+      ActivityParameterValue? categoryEntry;
       if (categoryParam != null && categoryValue.isNotEmpty) {
         categoryEntry = _paramEntryForOption(categoryParam, categoryValue);
       }
       if (categoryEntry == null && categoryValue.isNotEmpty) {
         final fallbackCode = findParamCode('categor');
         if (fallbackCode != null && fallbackCode.trim().isNotEmpty) {
-          categoryEntry = {
-            'parameterCode': fallbackCode,
-            'value': categoryValue,
-          };
+          categoryEntry = ActivityParameterValue(
+            parameterCode: fallbackCode,
+            value: categoryValue,
+          );
         }
       }
 
@@ -865,17 +864,29 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (activityEntry != null) activityEntry,
         if (categoryEntry != null) categoryEntry,
       ];
@@ -939,6 +950,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1017,7 +1029,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1047,7 +1059,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1078,7 +1090,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newAttachments.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
@@ -1103,32 +1117,32 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final activityNameParam = _findActivityNameParameter(details.parameters);
       final categoryParam = _findCategoryParameter(details.parameters);
 
-      Map<String, dynamic>? activityEntry = _paramEntryForOption(
+      ActivityParameterValue? activityEntry = _paramEntryForOption(
         activityNameParam,
         _selectedActivityType!.trim(),
       );
       if (activityEntry == null && _selectedActivityType!.trim().isNotEmpty) {
         final c = findParamCode('activity') ?? findParamCode('learning');
         if (c != null && c.trim().isNotEmpty) {
-          activityEntry = {
-            'parameterCode': c,
-            'value': _selectedActivityType!.trim(),
-          };
+          activityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedActivityType!.trim(),
+          );
         }
       }
 
       final categoryValue = _selectedCategory!.trim();
-      Map<String, dynamic>? categoryEntry;
+      ActivityParameterValue? categoryEntry;
       if (categoryParam != null && categoryValue.isNotEmpty) {
         categoryEntry = _paramEntryForOption(categoryParam, categoryValue);
       }
       if (categoryEntry == null && categoryValue.isNotEmpty) {
         final fallbackCode = findParamCode('categor');
         if (fallbackCode != null && fallbackCode.trim().isNotEmpty) {
-          categoryEntry = {
-            'parameterCode': fallbackCode,
-            'value': categoryValue,
-          };
+          categoryEntry = ActivityParameterValue(
+            parameterCode: fallbackCode,
+            value: categoryValue,
+          );
         }
       }
 
@@ -1138,17 +1152,29 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (activityEntry != null) activityEntry,
         if (categoryEntry != null) categoryEntry,
       ];
@@ -1195,7 +1221,9 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         );
         try {
           await _editor.getActivity(code: code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
 
       if (!mounted) return;
@@ -1266,6 +1294,11 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
 
   @override
   void dispose() {
+    // Abort any in-flight media upload so it doesn't keep running after the
+    // user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }
@@ -1285,11 +1318,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityStrongLabel,
           ),
         ],
       );
@@ -1300,15 +1329,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1319,15 +1348,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
     if (_uploadedPhotoCount == _newPhotos.length) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1335,15 +1364,15 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
 
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: AppColors.activityUploadWarningColor,
+        ),
         const SizedBox(width: 8),
         Text(
           'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
-          ),
+          style: AppTextStyles.activityUploadWarningText,
         ),
       ],
     );

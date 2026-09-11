@@ -1,5 +1,5 @@
-import '../entities/activity_setting.dart';
-import '../repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 
 class GetClassroomActivitySettingsUseCase {
   GetClassroomActivitySettingsUseCase(this._repository);

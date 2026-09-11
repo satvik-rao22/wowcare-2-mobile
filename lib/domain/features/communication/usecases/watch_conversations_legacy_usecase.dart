@@ -1,5 +1,5 @@
-import '../entities/conversation.dart';
-import '../repositories/communication_repository.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 
 /// Firestore delta stream for the conversation list — see
 /// [CommunicationRepository.watchConversations] for the merge-into-Isar

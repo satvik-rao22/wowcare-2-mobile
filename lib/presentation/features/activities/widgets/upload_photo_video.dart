@@ -1,18 +1,30 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
-
-import '../../../../app/theme/colors.dart';
-import '../../../../app/theme/media_res.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../shared/utils/responsive_helper.dart';
-import '../view/activity_item.dart';
-import '../view/view_activity_screens/show_full_screen_media.dart';
+import 'package:wowcare/core/observability/media_upload_trace.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
+import 'package:wowcare/domain/features/activity/entities/recovered_media.dart';
+import 'package:wowcare/domain/features/activity/entities/staged_media.dart';
+import 'package:wowcare/domain/features/activity/entities/video_validation_result.dart';
+import 'package:wowcare/presentation/features/activities/activity_media_strings.dart';
+import 'package:wowcare/presentation/features/activities/utils/media_picker_error.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
+import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 enum MediaType { photos, video }
 
@@ -67,7 +79,8 @@ class MediaUploader extends StatefulWidget {
   State<MediaUploader> createState() => _MediaUploaderState();
 }
 
-class _MediaUploaderState extends State<MediaUploader> {
+class _MediaUploaderState extends State<MediaUploader>
+    with WidgetsBindingObserver {
   bool get _keepPhotoAndVideoTogether =>
       widget.allowPhoto &&
       widget.allowVideo &&
@@ -85,11 +98,13 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   late int maxPhotos;
   late int photoMaxSizeMB;
-  static const int videoMaxSizeMB = 200;
-  static const int videoMaxDurationSec = 60;
+  /// Caps the camera's own recording length. Sourced from
+  /// [VideoUploadLimits] so the recorder and the validator cannot drift apart —
+  /// the size cap now lives there too and is enforced by the validator, not
+  /// here.
+  static const int videoMaxDurationSec = VideoUploadLimits.maxDurationSeconds;
 
   static const List<String> _photoExt = FilePickerUtils.allowedImageExtensions;
-  static const List<String> _videoExt = FilePickerUtils.allowedVideoExtensions;
 
   bool get _hasMedia =>
       _newPhotos.isNotEmpty ||
@@ -101,10 +116,27 @@ class _MediaUploaderState extends State<MediaUploader> {
   bool _remoteThumbnailReady = false;
   bool _remoteThumbnailError = false;
 
+  /// True while a claim of the platform's lost-capture cache is in flight.
+  /// The claim is destructive, so overlapping runs must not both call it —
+  /// see the guards in [_recoverLostMedia].
+  bool _lostMediaClaimInFlight = false;
+
+  /// True from the moment a picker is launched until it returns. A recovery
+  /// must not land underneath a pick the user is actively making, and — more
+  /// importantly — the capture that is *currently* being taken is the one the
+  /// platform may be about to cache, so claiming during it would race the very
+  /// capture we are trying to protect.
+  bool _pickerInFlight = false;
+
   @override
   void initState() {
     super.initState();
-    debugPrint('[MediaUploader] initState — hashCode=$hashCode');
+    // Observed so a capture lost to activity death is claimed on the way back
+    // into the app, not only on a fresh mount. Android can recreate the host
+    // activity while keeping the Flutter widget tree alive, in which case
+    // initState never re-runs but a cached capture is still waiting.
+    WidgetsBinding.instance.addObserver(this);
+    AppLogger.d('[MediaUploader] initState — hashCode=$hashCode');
     maxPhotos = widget.limit;
     photoMaxSizeMB = widget.photoSizeLimit ?? 10;
 
@@ -130,12 +162,239 @@ class _MediaUploaderState extends State<MediaUploader> {
       _initializeRemoteVideoThumbnail(widget.initialVideoUrl!);
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyParent());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyParent();
+      // After the first frame so the cubit is readable and _showWarning has a
+      // Scaffold to attach to. Unawaited because recovery must never delay the
+      // frame; it swallows its own errors so nothing escapes into
+      // PlatformDispatcher.onError from here.
+      _recoverLostMedia();
+    });
+  }
+
+  /// Restores a camera capture that Android completed but could not deliver.
+  ///
+  /// When the OS destroys the host activity while the camera app is in the
+  /// foreground — routine on memory-constrained devices during a 60-second
+  /// recording — the capture still lands on disk but `pickVideo`/`pickImage`
+  /// never returns, so the file was silently abandoned and the user saw the app
+  /// restart with nothing to show for it. The platform caches that result;
+  /// this claims it on the next build of this widget.
+  ///
+  /// No-op whenever there is nothing pending, which is every normal run and
+  /// every run on iOS — so the untouched path is bit-for-bit what it was.
+  Future<void> _recoverLostMedia() async {
+    if (!mounted || widget.readOnly) return;
+
+    // GUARD 1 — re-entrancy. The claim is destructive (the platform hands each
+    // cached capture back exactly once), so two overlapping runs would have one
+    // of them silently swallow the result. Both entry points (initState and
+    // app-resume) funnel through here, and resume can fire while the initState
+    // run is still awaiting.
+    if (_lostMediaClaimInFlight) return;
+
+    // GUARD 2 — do not race a live pick. If the user is already in the picker,
+    // a restore landing underneath them would either be clobbered moments later
+    // or would clobber what they are about to choose. The pending capture stays
+    // cached; the next resume claims it.
+    if (_pickerInFlight) return;
+
+    final ActivityEditorCubit editor;
+    try {
+      editor = context.read<ActivityEditorCubit>();
+    } catch (_) {
+      // MediaUploader is only ever hosted inside the activity form screens,
+      // which all provide this cubit. Guarded anyway because recovery is an
+      // additive nicety: a future host without the provider must still get the
+      // exact screen it gets today, not a crash.
+      return;
+    }
+
+    _lostMediaClaimInFlight = true;
+    // Nothing below may escape. This runs unawaited from a post-frame callback
+    // and from a lifecycle callback, so an escaping error would reach
+    // PlatformDispatcher.onError and be logged as a FATAL crash — turning a
+    // failed best-effort restore into a worse signal than the dropped capture
+    // it was fixing. The file I/O in the restore helpers is the realistic
+    // source (the recovered path can have been reclaimed since it was cached).
+    try {
+      MediaUploadTrace.stage(MediaUploadStage.lostMediaCheckStarted);
+      final recovered = await editor.retrieveLostMedia();
+      if (!mounted) return;
+
+      // OUTCOME 1 — nothing pending. The normal result on every run, and the
+      // only result off Android.
+      if (recovered.isNothingToRecover) {
+        MediaUploadTrace.stage(MediaUploadStage.lostMediaNoneFound);
+        return;
+      }
+
+      MediaUploadTrace.platform();
+      MediaUploadTrace.source(MediaCaptureSource.camera);
+
+      // OUTCOME 2 — the platform cached a failure, not a file: the camera app
+      // itself died. Nothing to restore, but it is claimed and gone, and it is
+      // worth knowing this happens.
+      if (recovered.hasFailedCapture) {
+        MediaUploadTrace.stage(MediaUploadStage.lostMediaFailedCapture);
+        return;
+      }
+
+      // OUTCOME 3 — a real file came back.
+      MediaUploadTrace.stage(MediaUploadStage.lostMediaClaimed);
+      if (recovered.type == RecoveredMediaType.video) {
+        await _restoreLostVideo(recovered.filePaths.first);
+      } else {
+        await _restoreLostPhotos(recovered.filePaths);
+      }
+    } catch (error, stackTrace) {
+      // Redacted: the recovered path is exactly what a FileSystemException
+      // here would carry.
+      MediaUploadTrace.failure(
+        MediaUploadStage.lostMediaClaimed,
+        error,
+        stackTrace,
+      );
+    } finally {
+      _lostMediaClaimInFlight = false;
+    }
+  }
+
+  Future<void> _restoreLostVideo(String path) async {
+    // Each bail-out below is breadcrumbed: the claim already consumed the
+    // platform's cached copy, so a capture dropped here is gone for good and
+    // that is worth seeing in a report — it is not the same as never having
+    // had one.
+    //
+    // The uploader may not accept video at all (every screen but the Video
+    // activity passes allowVideo: false). Dropping it here matches what would
+    // have happened had the pick completed normally: no video option, no video.
+    if (!widget.allowVideo) {
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'video_not_allowed',
+      );
+      return;
+    }
+    // Replacing media the user has since chosen would be a surprise — the
+    // recovery is older than anything on screen now.
+    if (_newVideoFile != null) {
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'slot_already_filled',
+      );
+      return;
+    }
+
+    var file = File(path);
+    if (!await file.exists()) {
+      // The cached path outlived the file — Android reclaimed the cache dir
+      // between the capture and the claim.
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'file_gone',
+      );
+      return;
+    }
+    if (!mounted) return;
+    // Re-checked after the await: a pick could have started while we were on
+    // the filesystem.
+    if (_pickerInFlight) {
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'picker_started',
+      );
+      return;
+    }
+    // Staged before validation, exactly as a fresh capture is: a recovered
+    // file sits in the SAME cache the platform wrote it to, so it is just as
+    // evictable mid-upload.
+    final staged = await _stageForUpload(file);
+    if (staged == null) {
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'staging_failed',
+      );
+      return;
+    }
+    file = staged;
+
+    // The SAME validation a fresh capture goes through — format, size,
+    // decodability, duration — not a parallel, laxer path.
+    if (!await _isVideoAcceptable(file)) {
+      await _discardStaged(file);
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.lostMediaDiscarded,
+        'validation_rejected',
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _newVideoFile = file;
+      _videoThumbnailFile = null;
+      if (!_keepPhotoAndVideoTogether) {
+        _newPhotos.clear();
+      }
+      final hasPhotos = _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
+      _currentType = _keepPhotoAndVideoTogether && hasPhotos
+          ? MediaType.photos
+          : MediaType.video;
+    });
+    MediaUploadTrace.stage(MediaUploadStage.lostMediaRestored);
+    await _generateVideoThumbnail();
+    _notifyParent();
+  }
+
+  Future<void> _restoreLostPhotos(List<String> paths) async {
+    if (!widget.allowPhoto) return;
+
+    final remaining =
+        maxPhotos - (_newPhotos.length + _existingPhotoUrls.length);
+    // Deliberately NOT applying autoReplaceFirstPhotoWhenMaxReached: that
+    // swap is the answer to a deliberate "pick one more" gesture, and silently
+    // overwriting a photo the user can see during a restore is not the same
+    // thing. A full box simply keeps what it has.
+    if (remaining <= 0) return;
+
+    final valid = <File>[];
+    for (final path in paths.take(remaining)) {
+      final file = File(path);
+      if (!await file.exists()) continue;
+      final ext = file.path.split('.').last.toLowerCase();
+      if (!_photoExt.contains(ext)) continue;
+      final sizeMB = (await file.length()) / (1024 * 1024);
+      if (sizeMB > photoMaxSizeMB) continue;
+      valid.add(file);
+    }
+
+    if (!mounted || valid.isEmpty) return;
+    setState(() {
+      _newPhotos.addAll(valid);
+      _currentType = MediaType.photos;
+    });
+    _notifyParent();
+  }
+
+  /// Claims a capture lost while the app was away.
+  ///
+  /// Android caches a completed-but-undeliverable capture and hands it back on
+  /// the next claim, so the moment we come back to the foreground is exactly
+  /// when one may be waiting. [_recoverLostMedia] holds the re-entrancy and
+  /// racing guards, so a resume arriving mid-claim or mid-pick is a no-op
+  /// rather than a double-claim.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed) return;
+    _recoverLostMedia();
   }
 
   @override
   void dispose() {
-    debugPrint(
+    WidgetsBinding.instance.removeObserver(this);
+    AppLogger.d(
       '[MediaUploader] dispose — hashCode=$hashCode '
       '(if this fires while the file picker is open, the host activity is '
       'being recreated)',
@@ -160,7 +419,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         });
       }
     } catch (e) {
-      debugPrint('Failed to load remote video thumbnail: $e');
+      AppLogger.e('Failed to load remote video thumbnail', e);
       _remoteVideoController?.dispose();
       _remoteVideoController = null;
       if (mounted) {
@@ -174,8 +433,9 @@ class _MediaUploaderState extends State<MediaUploader> {
   Future<void> _generateVideoThumbnail() async {
     if (_newVideoFile == null) return;
 
-    final tempDir = await getTemporaryDirectory();
+    MediaUploadTrace.stage(MediaUploadStage.thumbnailStarted);
     try {
+      final tempDir = await getTemporaryDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: _newVideoFile!.path,
         thumbnailPath: tempDir.path,
@@ -189,8 +449,15 @@ class _MediaUploaderState extends State<MediaUploader> {
           _videoThumbnailFile = File(thumbnailPath);
         });
       }
-    } catch (e) {
-      debugPrint('Thumbnail failed: $e');
+      MediaUploadTrace.stage(MediaUploadStage.thumbnailDone);
+    } catch (e, stackTrace) {
+      // Native decode of a large/odd video is a plausible OOM site on Android,
+      // and until now it left no release trace at all.
+      MediaUploadTrace.stage(MediaUploadStage.thumbnailFailed);
+      // Replaces AppLogger.e here: that also reached Crashlytics in release,
+      // but with the raw exception, whose message carries the video's absolute
+      // path. MediaUploadTrace.failure redacts it and still prints in debug.
+      MediaUploadTrace.failure(MediaUploadStage.thumbnailFailed, e, stackTrace);
     }
   }
 
@@ -214,7 +481,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
-    debugPrint(
+    AppLogger.d(
       '[MediaUploader] _pickPhotos: start source=$source '
       'hashCode=$hashCode mounted=$mounted',
     );
@@ -229,37 +496,51 @@ class _MediaUploaderState extends State<MediaUploader> {
     final remaining = maxPhotos - totalCurrentPhotos;
 
     List<File> candidates = [];
-    if (source == ImageSource.camera) {
-      final XFile? camera = await _picker.pickImage(
-        source: source,
-        imageQuality: 85,
+    // Same reasoning as _pickVideo: a lost-capture claim must not run while the
+    // capture that could BECOME the lost one is being taken. The photo path can
+    // lose its result to activity death exactly as the video path can.
+    _pickerInFlight = true;
+    try {
+      if (source == ImageSource.camera) {
+        final XFile? camera = await _picker.pickImage(
+          source: source,
+          imageQuality: 85,
+        );
+        AppLogger.d(
+          '[MediaUploader] _pickPhotos: camera returned '
+          '${camera == null ? 'null' : 'image'} mounted=$mounted',
+        );
+        if (camera == null) return;
+        if (!mounted) return;
+        candidates = [File(camera.path)];
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: FileType.image,
+          allowMultiple: true,
+        );
+        if (!mounted) return;
+        if (result == null || result.files.isEmpty) return;
+        candidates = result.files
+            .map((f) => f.path)
+            .whereType<String>()
+            .where((p) => p.trim().isNotEmpty)
+            .map((p) => File(p))
+            .toList();
+      }
+    } catch (e, stackTrace) {
+      // This `try` previously had a `finally` and NO `catch`, so a
+      // PlatformException from either picker went straight through it and out
+      // of this unawaited callback — landing in PlatformDispatcher.onError and
+      // being recorded as a FATAL crash.
+      _reportPickerFailure(
+        e,
+        stackTrace,
+        isCamera: source == ImageSource.camera,
+        isVideo: false,
       );
-      debugPrint(
-        '[MediaUploader] _pickPhotos: camera returned '
-        '${camera == null ? 'null' : 'image'} mounted=$mounted',
-      );
-      if (camera == null) return;
-      if (!mounted) return;
-      candidates = [File(camera.path)];
-    } else {
-      // Use the SAF document picker (FilePicker) for the gallery so every
-      // allowed image format stays selectable — including GIF (animation
-      // preserved) and HEIC/HEIF. image_picker's pickMultiImage re-encodes
-      // through imageQuality, which flattens GIFs and transcodes HEIC to JPEG,
-      // so we keep FilePicker here and rely on allowedExtensions for filtering.
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _photoExt,
-        allowMultiple: true,
-      );
-      if (!mounted) return;
-      if (result == null || result.files.isEmpty) return;
-      candidates = result.files
-          .map((f) => f.path)
-          .whereType<String>()
-          .where((p) => p.trim().isNotEmpty)
-          .map((p) => File(p))
-          .toList();
+      return;
+    } finally {
+      _pickerInFlight = false;
     }
 
     if (candidates.isEmpty) return;
@@ -284,12 +565,12 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
 
     if (remaining <= 0) {
-      _showWarning('Maximum $maxPhotos photos allowed.');
+      _showWarning(ActivityMediaStrings.maxPhotosAllowed(maxPhotos));
       return;
     }
 
     if (source == ImageSource.gallery && candidates.length > remaining) {
-      _showWarning('You can only select up to $maxPhotos photos.');
+      _showWarning(ActivityMediaStrings.maxPhotosSelectable(maxPhotos));
       return;
     }
 
@@ -297,15 +578,31 @@ class _MediaUploaderState extends State<MediaUploader> {
     for (final f in candidates.take(remaining)) {
       final ext = f.path.split('.').last.toLowerCase();
       if (!_photoExt.contains(ext)) {
-        _showWarning('Unsupported image format.');
+        _showWarning(ActivityMediaStrings.unsupportedImageFormat);
         continue;
       }
 
       final file = f;
-      final sizeMB = (await file.length()) / (1024 * 1024);
+      final double sizeMB;
+      try {
+        sizeMB = (await file.length()) / (1024 * 1024);
+      } catch (e, stackTrace) {
+        // One unreadable candidate must not take down a multi-photo pick, and
+        // must not escape this unawaited callback as a fatal.
+        MediaUploadTrace.failure(
+          MediaUploadStage.validationRejected,
+          e,
+          stackTrace,
+        );
+        _showWarning(ActivityMediaStrings.captureUnreadable);
+        continue;
+      }
       if (sizeMB > photoMaxSizeMB) {
         _showWarning(
-          'Photo too large (${sizeMB.toStringAsFixed(1)} MB). Max: $photoMaxSizeMB MB',
+          ActivityMediaStrings.photoTooLarge(
+            sizeMB.toStringAsFixed(1),
+            photoMaxSizeMB,
+          ),
         );
         continue;
       }
@@ -331,89 +628,320 @@ class _MediaUploaderState extends State<MediaUploader> {
         !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('video');
       if (!replace) return;
+      if (!mounted) return;
     }
 
+    // Breadcrumbs are written on ENTERING each stage: a process killed
+    // mid-capture leaves only what was already recorded, so the last one in the
+    // report names the stage that died.
+    MediaUploadTrace.platform();
+    MediaUploadTrace.source(
+      source == ImageSource.camera
+          ? MediaCaptureSource.camera
+          : MediaCaptureSource.gallery,
+    );
+    MediaUploadTrace.stage(MediaUploadStage.pickerOpened);
+
+    // From here until the picker returns, a lost-capture claim must not run:
+    // the capture being taken right now is the one Android may be about to
+    // cache, so claiming mid-capture would race it. Cleared in the finally
+    // below, on every exit path.
+    _pickerInFlight = true;
     File? file;
-    if (source == ImageSource.camera) {
-      final XFile? picked = await _picker.pickVideo(
-        source: source,
-        maxDuration: const Duration(seconds: videoMaxDurationSec),
-      );
-      if (!mounted || picked == null) return;
-      file = File(picked.path);
-    } else {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _videoExt,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null || path.trim().isEmpty) return;
-      file = File(path);
-    }
-
-    final ext = file.path.split('.').last.toLowerCase();
-    if (!_videoExt.contains(ext)) {
-      _showWarning('Unsupported video format.');
-      return;
-    }
-
-    final sizeMB = (await file.length()) / (1024 * 1024);
-    if (sizeMB > videoMaxSizeMB) {
-      _showWarning('Video too large (${sizeMB.toStringAsFixed(1)} MB).');
-      return;
-    }
-
-    final controller = VideoPlayerController.file(file);
+    // Both pickers can throw a PlatformException (permission denied, an OEM
+    // gallery handing back a broken result, the camera being unavailable).
+    // Letting that escape kills the flow with no feedback at all, which reads
+    // as a freeze/crash to the user - surface it as a warning instead.
     try {
-      await controller.initialize();
-    } catch (e) {
-      await controller.dispose();
-      if (mounted) {
-        _showWarning(
-          'This video format is not supported on this device. Please use standard MP4 (H.264).',
+      if (source == ImageSource.camera) {
+        final XFile? picked = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(seconds: videoMaxDurationSec),
         );
+        if (picked == null) {
+          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+        }
+        if (!mounted || picked == null) return;
+        file = File(picked.path);
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+        );
+        if (!mounted) return;
+        if (result == null || result.files.isEmpty) {
+          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+          return;
+        }
+        final path = result.files.single.path;
+        if (path == null || path.trim().isEmpty) {
+          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+          return;
+        }
+        file = File(path);
       }
+      MediaUploadTrace.stage(MediaUploadStage.pickerReturned);
+    } catch (e, stackTrace) {
+      _reportPickerFailure(
+        e,
+        stackTrace,
+        isCamera: source == ImageSource.camera,
+        isVideo: true,
+      );
       return;
+    } finally {
+      // Always cleared, on every exit path, so a failure can never leave the
+      // picker permanently blocked by the recovery guard.
+      _pickerInFlight = false;
     }
-    if (!mounted) {
-      await controller.dispose();
-      return;
-    }
-    final durationSec = controller.value.duration.inSeconds;
-    await controller.dispose();
 
-    if (durationSec > videoMaxDurationSec) {
-      _showWarning('Video must be ≤60 seconds.');
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _newVideoFile = file;
-      _videoThumbnailFile = null;
-      if (!_keepPhotoAndVideoTogether) {
-        _newPhotos.clear();
+    // Everything past the picker is filesystem and decoder work, and every
+    // step of it can throw on a file the OS reclaimed underneath us. This
+    // method is invoked as an unawaited VoidCallback, so an escape here lands
+    // in PlatformDispatcher.onError and is recorded as a FATAL crash for
+    // something the user could simply retry.
+    try {
+      // On iOS the picked video is a *copy* in the app's temp directory; if the
+      // system reclaimed it (or the copy-out failed) every later step -
+      // length(), AVPlayer init, thumbnailing - would fail on a missing path.
+      if (!await file.exists()) {
+        MediaUploadTrace.stage(MediaUploadStage.fileMissing);
+        if (!mounted) return;
+        _showWarning(ActivityMediaStrings.videoUnreadable);
+        return;
       }
-      final hasPhotos = _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
-      _currentType = _keepPhotoAndVideoTogether && hasPhotos
-          ? MediaType.photos
-          : MediaType.video;
-    });
-    await _generateVideoThumbnail();
-    _notifyParent();
+      MediaUploadTrace.stage(MediaUploadStage.fileOnDisk);
+      MediaUploadTrace.fileSizeBytes(await file.length());
+      if (!mounted) return;
+
+      // Copy out of cache BEFORE validation, so everything downstream —
+      // validation, thumbnail, checksum, the S3 PUT — reads a file Android
+      // cannot reclaim mid-upload. Both pickers hand back a cache path.
+      final staged = await _stageForUpload(file);
+      if (staged == null) return;
+      file = staged;
+
+      if (!await _isVideoAcceptable(file)) {
+        // Validation rejected it, so it will never be uploaded and the copy has
+        // no owner. Drop it now rather than leaving it for the 7-day sweep.
+        await _discardStaged(file);
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _newVideoFile = file;
+        _videoThumbnailFile = null;
+        if (!_keepPhotoAndVideoTogether) {
+          _newPhotos.clear();
+        }
+        final hasPhotos =
+            _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
+        _currentType = _keepPhotoAndVideoTogether && hasPhotos
+            ? MediaType.photos
+            : MediaType.video;
+      });
+      await _generateVideoThumbnail();
+      _notifyParent();
+    } catch (e, stackTrace) {
+      // Handled, so non-fatal — and the form is left exactly as it was, with
+      // the picker re-openable.
+      MediaUploadTrace.failure(MediaUploadStage.fileMissing, e, stackTrace);
+      if (!mounted) return;
+      _showWarning(ActivityMediaStrings.videoUnreadable);
+    }
+  }
+
+  /// Runs every pre-upload rule against [file] and reports the verdict.
+  ///
+  /// Delegates to [ActivityEditorCubit.validateVideoForUpload] rather than
+  /// probing here: the decoder call is a plugin call and does not belong in a
+  /// widget (Mandate 5), and routing it through the use case is what lets the
+  /// rules be unit-tested without a platform channel.
+  ///
+  /// Returns true only if every rule passed. On rejection the caller deletes
+  /// the staged copy — see [_pickVideo] and [_restoreLostVideo].
+  Future<bool> _isVideoAcceptable(File file) async {
+    MediaUploadTrace.stage(MediaUploadStage.validationStarted);
+
+    final ActivityEditorCubit editor;
+    try {
+      editor = context.read<ActivityEditorCubit>();
+    } catch (_) {
+      // No editor cubit in scope: accept, matching the pre-validation
+      // behaviour rather than blocking a capture outright.
+      return true;
+    }
+
+    MediaUploadTrace.stage(MediaUploadStage.validationProbeStarted);
+    final VideoValidationResult result;
+    try {
+      result = await editor.validateVideoForUpload(file.path);
+    } catch (e, stackTrace) {
+      // The use case is written not to throw; if it ever does, treat it as a
+      // rejection rather than letting it escape this unawaited call path.
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.validationRejected,
+        'validator_threw',
+      );
+      MediaUploadTrace.failure(
+        MediaUploadStage.validationRejected,
+        e,
+        stackTrace,
+      );
+      if (mounted) _showWarning(ActivityMediaStrings.couldNotPrepareVideo);
+      return false;
+    }
+
+    switch (result) {
+      case VideoValidationAccepted(
+        :final sizeBytes,
+        :final durationMs,
+        :final mimeType,
+      ):
+        MediaUploadTrace.fileSizeBytes(sizeBytes);
+        MediaUploadTrace.durationMs(durationMs);
+        MediaUploadTrace.mimeType(mimeType);
+        MediaUploadTrace.stage(MediaUploadStage.validationPassed);
+        return true;
+
+      case VideoValidationRejected(
+        :final reason,
+        :final sizeBytes,
+        :final durationMs,
+      ):
+        if (sizeBytes != null) MediaUploadTrace.fileSizeBytes(sizeBytes);
+        if (durationMs != null) MediaUploadTrace.durationMs(durationMs);
+        // One breadcrumb detail per rule, so a report names exactly which one
+        // tripped rather than a generic "rejected".
+        MediaUploadTrace.stageWithDetail(
+          MediaUploadStage.validationRejected,
+          reason.name,
+        );
+        if (mounted) _showWarning(_messageForRejection(reason, sizeBytes));
+        return false;
+    }
+  }
+
+  /// The sentence for each rule, so the user is told which one they hit.
+  String _messageForRejection(VideoRejectionReason reason, int? sizeBytes) {
+    switch (reason) {
+      case VideoRejectionReason.fileMissing:
+        return ActivityMediaStrings.videoUnreadable;
+      case VideoRejectionReason.emptyFile:
+        return ActivityMediaStrings.videoEmpty;
+      case VideoRejectionReason.tooLarge:
+        final mb = ((sizeBytes ?? 0) / (1024 * 1024)).toStringAsFixed(1);
+        return ActivityMediaStrings.videoTooLarge(mb);
+      case VideoRejectionReason.unsupportedMimeType:
+        return ActivityMediaStrings.unsupportedVideoFormat;
+      case VideoRejectionReason.undecodable:
+      case VideoRejectionReason.zeroDuration:
+        // Both are the truncated-capture case.
+        return ActivityMediaStrings.videoCorrupt;
+      case VideoRejectionReason.tooLong:
+        return ActivityMediaStrings.videoTooLong;
+    }
+  }
+
+  /// Classifies a picker exception, shows the matching sentence and reports it
+  /// at the right severity.
+  ///
+  /// Nothing here is ever fatal: the exception was caught, the user was told,
+  /// and the picker can be reopened — `fatal` is for uncaught crashes only.
+  /// Cancellation is not routed here at all (both pickers signal it with a null
+  /// result, not a throw), so every call site is a real refusal or failure.
+  void _reportPickerFailure(
+    Object error,
+    StackTrace stackTrace, {
+    required bool isCamera,
+    required bool isVideo,
+  }) {
+    final classified = MediaPickerError.from(
+      error,
+      isCamera: isCamera,
+      isVideo: isVideo,
+    );
+    // The platform code is a fixed plugin vocabulary, never user text, so it is
+    // safe in a breadcrumb — and it is the single most useful fact for telling
+    // a permission refusal apart from a broken camera in a report.
+    MediaUploadTrace.stageWithDetail(
+      MediaUploadStage.pickerFailed,
+      classified.code,
+    );
+    if (classified.shouldReport) {
+      MediaUploadTrace.failure(MediaUploadStage.pickerFailed, error, stackTrace);
+    }
+    if (classified.message.isNotEmpty) _showWarning(classified.message);
+  }
+
+  /// Copies [file] into persistent storage, returning the copy — or null if
+  /// the copy could not be made, having already told the user why.
+  ///
+  /// The plugin call lives behind [ActivityEditorCubit] (Mandate 5); this only
+  /// decides what the user sees.
+  Future<File?> _stageForUpload(File file) async {
+    final ActivityEditorCubit editor;
+    try {
+      editor = context.read<ActivityEditorCubit>();
+    } catch (_) {
+      // No editor cubit in scope — keep the pre-staging behaviour (upload
+      // straight from cache) rather than refusing the capture outright.
+      return file;
+    }
+    try {
+      final staged = await editor.stageMediaForUpload(file.path);
+      return File(staged.path);
+    } on MediaStagingException catch (e) {
+      if (!mounted) return null;
+      // A clean, actionable sentence — never the OS error or the path.
+      _showWarning(
+        e.failure == MediaStagingFailure.outOfSpace
+            ? ActivityMediaStrings.storageFullPreparingVideo
+            : ActivityMediaStrings.couldNotPrepareVideo,
+      );
+      return null;
+    } catch (_) {
+      // The repository contract narrows every failure to MediaStagingException;
+      // this is belt-and-braces so an unexpected throw degrades to a message
+      // rather than an unhandled async error reported as a fatal crash.
+      if (!mounted) return null;
+      _showWarning(ActivityMediaStrings.couldNotPrepareVideo);
+      return null;
+    }
+  }
+
+  /// Deletes a staged copy that will never be uploaded. Best-effort.
+  Future<void> _discardStaged(File file) async {
+    try {
+      if (!mounted) return;
+      await context.read<ActivityEditorCubit>().discardStagedMedia(file.path);
+    } catch (_) {}
   }
 
   void _clearVideo() {
+    // Explicit user cancellation: the staged copy exists only to survive an
+    // upload that is now never going to happen.
+    final discarded = _newVideoFile;
     setState(() {
       _newVideoFile = null;
       _videoThumbnailFile = null;
       _existingVideoUrl = null;
     });
+    if (discarded != null) _discardStaged(discarded);
   }
 
   Future<bool> _showReplaceConfirmation(String newType) async {
+    try {
+      return await _showReplaceConfirmationDialog(newType);
+    } catch (_) {
+      // A dialog that cannot be shown (host route already popping) must read as
+      // "user declined", not crash the picker that asked.
+      return false;
+    }
+  }
+
+  Future<bool> _showReplaceConfirmationDialog(String newType) async {
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
@@ -428,7 +956,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text(
                   'Replace',
-                  style: TextStyle(color: Colors.red),
+                  style: AppTextStyles.activityDestructiveActionText,
                 ),
               ),
             ],
@@ -450,29 +978,31 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   void _removeVideo() {
+    // Explicit user cancellation — see _clearVideo.
+    final discarded = _newVideoFile;
     setState(() {
       _newVideoFile = null;
       _videoThumbnailFile = null;
       _existingVideoUrl = null;
       if (!_hasMedia) _currentType = null;
     });
+    if (discarded != null) _discardStaged(discarded);
     _notifyParent();
   }
 
   void _openVideoFullscreen() {
     final url = _existingVideoUrl?.trim();
     if (url != null && url.isNotEmpty) {
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => ShowFullScreenMedia(
-            activity: ActivityItem(
-              time: '',
-              date: '',
-              name: '',
-              studentList: const [],
-              createdBy: '',
-              videoUrl: url,
-            ),
+      context.push<void>(
+        ShowFullScreenMedia.routeName,
+        extra: ShowFullScreenMediaArgs(
+          activity: ActivityItem(
+            time: '',
+            date: '',
+            name: '',
+            studentList: const [],
+            createdBy: '',
+            videoUrl: url,
           ),
         ),
       );
@@ -480,10 +1010,9 @@ class _MediaUploaderState extends State<MediaUploader> {
     }
     final file = _newVideoFile;
     if (file != null) {
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => FullscreenLocalVideoPlayerPage(videoFile: file),
-        ),
+      context.push<void>(
+        FullscreenLocalVideoPlayerPage.routeName,
+        extra: FullscreenLocalVideoArgs(videoFile: file),
       );
     }
   }
@@ -505,11 +1034,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               Text(
                 'Select Media Source',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryColor,
-                ),
+                style: AppTextStyles.activityPickerDialogTitle,
               ),
               const SizedBox(height: 20),
               if (widget.allowPhoto) ...[
@@ -586,18 +1111,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) =>
                         AppColors.buildPrimaryGradient().createShader(bounds),
-                    child: Icon(icon, size: 26, color: Colors.white),
+                    child: Icon(icon, size: 26, color: AppColors.cardColor),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
+                    style: AppTextStyles.activityPickerOptionLabel,
                   ),
                 ),
                 Icon(
@@ -639,19 +1160,19 @@ class _MediaUploaderState extends State<MediaUploader> {
               !_remoteThumbnailReady &&
               !_remoteThumbnailError)
             Container(
-              color: Colors.grey[800],
+              color: AppColors.activityVideoPlaceholderBg,
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(color: AppColors.cardColor),
               ),
             )
           else
             Container(
-              color: Colors.grey[800],
+              color: AppColors.activityVideoPlaceholderBg,
               child: const Center(
                 child: Icon(
                   Icons.play_circle_fill,
                   size: 60,
-                  color: Colors.white70,
+                  color: AppColors.activityMediaPlaceholderIconColor,
                 ),
               ),
             ),
@@ -660,41 +1181,21 @@ class _MediaUploaderState extends State<MediaUploader> {
             child: Icon(
               Icons.play_circle_fill,
               size: 60,
-              color: Colors.white.withValues(alpha: 0.9),
-              shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
+              color: AppColors.cardColor.withValues(alpha: 0.9),
+              shadows: const [
+                Shadow(
+                  blurRadius: 10,
+                  color: AppColors.activityIconBackdropColor,
+                ),
+              ],
             ),
           ),
-
-          // if (hasRemoteVideoOnly)
-          //   const Positioned(
-          //     bottom: 8,
-          //     left: 8,
-          //     child: Padding(
-          //       padding: EdgeInsets.all(8),
-          //       child: Text(
-          //         'Video',
-          //         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          //       ),
-          //     ),
-          //   ),
         ],
       ),
       onRemove: _removeVideo,
       canRemove: !widget.readOnly,
     );
   }
-
-  // Widget _buildVideoPreview() {
-  //   final hasThumbnail = _videoThumbnailFile != null;
-  //
-  //   return _previewItem(
-  //     child: hasThumbnail
-  //         ? Image.file(_videoThumbnailFile!, fit: BoxFit.cover)
-  //         : const Center(child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70)),
-  //     isVideo: true,
-  //     onRemove: _removeVideo,
-  //   );
-  // }
 
   Widget _buildPhotoPreviewNetwork(String url) {
     return _previewItem(
@@ -703,15 +1204,17 @@ class _MediaUploaderState extends State<MediaUploader> {
         fit: BoxFit.cover,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : const CircularProgressIndicator(),
-        errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+        errorBuilder: (_, __, ___) =>
+            Container(color: AppColors.activityMediaLoadingPlaceholderBg),
       ),
       onRemove: () => _removeExistingPhoto(url),
       // Open the shared full-screen viewer so a saved (network) photo gets the
       // SAME experience as the feed list: full-screen zoom viewport + a
       // download button. (Local, not-yet-uploaded files keep the lightweight
       // dialog since there is nothing to download.)
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ShowFullScreenMedia(photoUrl: url)),
+      onTap: () => context.push(
+        ShowFullScreenMedia.routeName,
+        extra: ShowFullScreenMediaArgs(photoUrl: url),
       ),
       canRemove: !widget.readOnly,
     );
@@ -726,7 +1229,11 @@ class _MediaUploaderState extends State<MediaUploader> {
           file,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
+            child: Icon(
+              Icons.broken_image,
+              color: AppColors.activityMediaPlaceholderIconColor,
+              size: 60,
+            ),
           ),
         ),
       ),
@@ -738,7 +1245,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.blackColor,
         insetPadding: const EdgeInsets.all(0),
         child: Stack(
           children: [
@@ -754,7 +1261,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               right: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: AppColors.cardColor),
               ),
             ),
           ],
@@ -780,7 +1287,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               child: Container(
                 width: 120,
                 height: 120,
-                color: Colors.grey[300],
+                color: AppColors.activityMediaLoadingPlaceholderBg,
                 child: child,
               ),
             ),
@@ -794,10 +1301,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                    color: Colors.black54,
+                    color: AppColors.activityIconBackdropColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.cardColor,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
@@ -810,6 +1321,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     final showVideoPreview = _keepPhotoAndVideoTogether
         ? (_newVideoFile != null || _existingVideoUrl != null)
         : _currentType == MediaType.video;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -842,7 +1354,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
               decoration: BoxDecoration(
-                color: const Color(0x1AB1AFE9),
+                color: AppColors.activityBorderLight,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -853,10 +1365,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                     widget.allowVideo
                         ? 'Take/Upload Photo or Video'
                         : 'Take/Upload Photo',
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                    ),
+                    style: AppTextStyles.activityUploadBoxHint,
                   ),
                 ],
               ),
@@ -869,15 +1378,14 @@ class _MediaUploaderState extends State<MediaUploader> {
               RichText(
                 text: TextSpan(
                   text: widget.label,
-                  style: TextStyle(
+                  style: AppTextStyles.activityMediaLabelText(
                     fontSize: responsive.labelFontSize,
-                    color: const Color(0xff573353),
                   ),
                   children: widget.isRequired
                       ? [
                           const TextSpan(
                             text: ' *',
-                            style: TextStyle(color: Colors.red),
+                            style: AppTextStyles.activityRequiredMarker,
                           ),
                         ]
                       : null,
@@ -889,16 +1397,18 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0x66573353)),
+                    border: Border.all(color: AppColors.inputBorderColor),
                     borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
+                    color: AppColors.cardColor,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Select Media',
-                        style: TextStyle(fontSize: responsive.labelFontSize),
+                        style: AppTextStyles.activityResponsiveBodyText(
+                          fontSize: responsive.labelFontSize,
+                        ),
                       ),
                       const Icon(
                         Icons.file_upload_outlined,
@@ -916,7 +1426,7 @@ class _MediaUploaderState extends State<MediaUploader> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               'Please upload at least one media *',
-              style: TextStyle(color: Colors.red, fontSize: 13),
+              style: AppTextStyles.activityValidationErrorText,
             ),
           ),
 
@@ -932,6 +1442,8 @@ class _MediaUploaderState extends State<MediaUploader> {
 
 /// Full-screen playback for a locally picked video file (preview tap).
 class FullscreenLocalVideoPlayerPage extends StatefulWidget {
+  static const String routeName = '/activity-fullscreen-local-video';
+
   const FullscreenLocalVideoPlayerPage({super.key, required this.videoFile});
 
   final File videoFile;
@@ -944,6 +1456,10 @@ class FullscreenLocalVideoPlayerPage extends StatefulWidget {
 class _FullscreenLocalVideoPlayerPageState
     extends State<FullscreenLocalVideoPlayerPage> {
   VideoPlayerController? _controller;
+
+  // Only offered for landscape-shot clips: a portrait video already fills a
+  // portrait screen, so rotating it would just turn it on its side.
+  bool _isRotated = false;
 
   void _onCtrlUpdate() {
     if (mounted) setState(() {});
@@ -972,10 +1488,41 @@ class _FullscreenLocalVideoPlayerPageState
     );
   }
 
+  void _toggleRotated() {
+    final rotated = !_isRotated;
+    setState(() => _isRotated = rotated);
+    if (rotated) {
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      _restoreOrientationAndChrome();
+    }
+  }
+
+  // Matches the app-wide default from setPreferredOrientations() in
+  // device_configuration.dart — leaving a landscape-only lock behind after
+  // this page pops would break rotation for the rest of the app.
+  void _restoreOrientationAndChrome() {
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+  }
+
   @override
   void dispose() {
     _controller?.removeListener(_onCtrlUpdate);
     _controller?.dispose();
+    if (_isRotated) _restoreOrientationAndChrome();
     super.dispose();
   }
 
@@ -983,47 +1530,93 @@ class _FullscreenLocalVideoPlayerPageState
   Widget build(BuildContext context) {
     final c = _controller;
     final ready = c != null && c.value.isInitialized;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Center(
-        child: !ready
-            ? const CircularProgressIndicator(color: Colors.white)
-            : GestureDetector(
-                onTap: () {
-                  if (c.value.isPlaying) {
-                    c.pause();
-                  } else {
-                    c.play();
-                  }
-                },
-                child: AspectRatio(
-                  aspectRatio: c.value.aspectRatio,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      VideoPlayer(c),
-                      AnimatedOpacity(
-                        opacity: c.value.isPlaying ? 0 : 1,
-                        duration: const Duration(milliseconds: 300),
-                        child: const Icon(
-                          Icons.play_circle_fill,
-                          color: Colors.white70,
-                          size: 72,
+    final isLandscapeVideo = ready && c.value.aspectRatio >= 1.0;
+
+    return PopScope(
+      canPop: !_isRotated,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isRotated) _toggleRotated();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.blackColor,
+        extendBodyBehindAppBar: true,
+        appBar: _isRotated
+            ? null
+            : AppBar(
+                backgroundColor: AppColors.transparentColor,
+                elevation: 0,
+                automaticallyImplyLeading: false,
+                leading: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back,
+                    color: AppColors.cardColor,
+                    size: 28,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+        body: Stack(
+          children: [
+            Center(
+              child: !ready
+                  ? const CircularProgressIndicator(color: AppColors.cardColor)
+                  : GestureDetector(
+                      onTap: () {
+                        if (c.value.isPlaying) {
+                          c.pause();
+                        } else {
+                          c.play();
+                        }
+                      },
+                      child: AspectRatio(
+                        aspectRatio: c.value.aspectRatio,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            VideoPlayer(c),
+                            AnimatedOpacity(
+                              opacity: c.value.isPlaying ? 0 : 1,
+                              duration: const Duration(milliseconds: 300),
+                              child: const Icon(
+                                Icons.play_circle_fill,
+                                color:
+                                    AppColors.activityMediaPlaceholderIconColor,
+                                size: 72,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+            ),
+            if (isLandscapeVideo)
+              Positioned(
+                top: 14,
+                right: 14,
+                child: SafeArea(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.activityIconBackdropColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      tooltip: _isRotated
+                          ? 'Exit fullscreen'
+                          : 'Rotate to fullscreen',
+                      icon: Icon(
+                        _isRotated
+                            ? Icons.close_fullscreen_rounded
+                            : Icons.screen_rotation_alt_rounded,
+                        color: AppColors.cardColor,
+                        size: 20,
+                      ),
+                      onPressed: _toggleRotated,
+                    ),
                   ),
                 ),
               ),
+          ],
+        ),
       ),
     );
   }

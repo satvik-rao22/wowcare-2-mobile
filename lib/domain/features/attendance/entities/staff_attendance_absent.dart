@@ -12,6 +12,7 @@ class StaffAttendanceAbsentItem extends Equatable {
     this.absenceNote,
     this.markAbsentMethod,
     required this.absentDays,
+    this.absenceRecordCode,
   });
 
   final String staffCode;
@@ -25,6 +26,10 @@ class StaffAttendanceAbsentItem extends Equatable {
   final String? markAbsentMethod;
   final int absentDays;
 
+  /// Server identifier for DELETE `/api/v1/staff-absence-records/{code}`
+  /// (used to clear the day's absence record before an admin override sign-in).
+  final String? absenceRecordCode;
+
   @override
   List<Object?> get props => [
         staffCode,
@@ -37,6 +42,7 @@ class StaffAttendanceAbsentItem extends Equatable {
         absenceNote,
         markAbsentMethod,
         absentDays,
+        absenceRecordCode,
       ];
 }
 

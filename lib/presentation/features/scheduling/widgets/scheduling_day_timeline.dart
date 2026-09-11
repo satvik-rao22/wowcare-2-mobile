@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import '../model/scheduling_models.dart';
-import '../utils/scheduling_block_status_style.dart';
-import '../utils/scheduling_staff_shift_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
+import '../model/scheduling_staff_shift_style.dart';
 
 /// Left column width for daily classroom Gantt rows.
 const double kSchedulingDayLeftColumnWidth = 152;
@@ -57,7 +57,6 @@ double _maxHourLabelWidth(BuildContext context, List<int> ticks) {
 }
 
 final TextStyle _kHourLabelStyle = TextStyle(
-  fontFamily: 'Manrope',
   fontSize: 10,
   fontWeight: FontWeight.w500,
   color: AppColors.primaryColor.withValues(alpha: 0.55),
@@ -154,7 +153,6 @@ class _RatioLegendDot extends StatelessWidget {
         Text(
           SchedulingBlockStatusStyle.ratioBadgeLabel(kind),
           style: const TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryColor,
@@ -203,7 +201,6 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
           child: Text(
             emptyMessage ?? 'No schedule',
             style: TextStyle(
-              fontFamily: 'Manrope',
               fontSize: 11,
               color: AppColors.primaryColor.withValues(alpha: 0.5),
             ),
@@ -419,37 +416,46 @@ class SchedulingClassroomDayTimeline extends StatefulWidget {
 
 class _SchedulingClassroomDayTimelineState
     extends State<SchedulingClassroomDayTimeline> {
-  int? _selectedIndex;
+  final ValueNotifier<int?> _selectedIndex = ValueNotifier<int?>(null);
+
+  @override
+  void dispose() {
+    _selectedIndex.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SchedulingDayTimelineTrack(
-      slotCount: widget.slots.length,
-      dayStartMinutes: widget.dayStartMinutes,
-      dayEndMinutes: widget.dayEndMinutes,
-      slotMinutes: widget.slotMinutes,
-      emptyMessage: 'No schedule',
-      blocks: [
-        for (int i = 0; i < widget.slots.length; i++)
-          _RatioSlotTapTarget(
-            status: widget.slots[i],
-            detail: i < widget.slotDetails.length
-                ? widget.slotDetails[i]
-                : null,
-            isSelected: _selectedIndex == i,
-            onTap: () {
-              setState(() => _selectedIndex = i);
-              _showSlotDetails(
-                context,
-                slotIndex: i,
-                status: widget.slots[i],
-                detail: i < widget.slotDetails.length
-                    ? widget.slotDetails[i]
-                    : null,
-              );
-            },
-          ),
-      ],
+    return ValueListenableBuilder<int?>(
+      valueListenable: _selectedIndex,
+      builder: (context, selectedIndex, _) => SchedulingDayTimelineTrack(
+        slotCount: widget.slots.length,
+        dayStartMinutes: widget.dayStartMinutes,
+        dayEndMinutes: widget.dayEndMinutes,
+        slotMinutes: widget.slotMinutes,
+        emptyMessage: 'No schedule',
+        blocks: [
+          for (int i = 0; i < widget.slots.length; i++)
+            _RatioSlotTapTarget(
+              status: widget.slots[i],
+              detail: i < widget.slotDetails.length
+                  ? widget.slotDetails[i]
+                  : null,
+              isSelected: selectedIndex == i,
+              onTap: () {
+                _selectedIndex.value = i;
+                _showSlotDetails(
+                  context,
+                  slotIndex: i,
+                  status: widget.slots[i],
+                  detail: i < widget.slotDetails.length
+                      ? widget.slotDetails[i]
+                      : null,
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -473,7 +479,7 @@ class _SchedulingClassroomDayTimelineState
         staffName: widget.staffName,
       ),
     ).then((_) {
-      if (mounted) setState(() => _selectedIndex = null);
+      if (mounted) _selectedIndex.value = null;
     });
   }
 }
@@ -512,45 +518,54 @@ class SchedulingStaffDayTimeline extends StatefulWidget {
 }
 
 class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline> {
-  int? _selectedIndex;
+  final ValueNotifier<int?> _selectedIndex = ValueNotifier<int?>(null);
+
+  @override
+  void dispose() {
+    _selectedIndex.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SchedulingDayTimelineTrack(
-      slotCount: widget.slots.length,
-      dayStartMinutes: widget.dayStartMinutes,
-      dayEndMinutes: widget.dayEndMinutes,
-      slotMinutes: widget.slotMinutes,
-      emptyMessage: 'No shift',
-      blocks: [
-        for (int i = 0; i < widget.slots.length; i++)
-          _StaffSlotTapTarget(
-            status: widget.slots[i],
-            detail: i < widget.slotDetails.length
-                ? widget.slotDetails[i]
-                : null,
-            isSelected: _selectedIndex == i,
-            onTap: () {
-              setState(() => _selectedIndex = i);
-              final detail = i < widget.slotDetails.length
+    return ValueListenableBuilder<int?>(
+      valueListenable: _selectedIndex,
+      builder: (context, selectedIndex, _) => SchedulingDayTimelineTrack(
+        slotCount: widget.slots.length,
+        dayStartMinutes: widget.dayStartMinutes,
+        dayEndMinutes: widget.dayEndMinutes,
+        slotMinutes: widget.slotMinutes,
+        emptyMessage: 'No shift',
+        blocks: [
+          for (int i = 0; i < widget.slots.length; i++)
+            _StaffSlotTapTarget(
+              status: widget.slots[i],
+              detail: i < widget.slotDetails.length
                   ? widget.slotDetails[i]
-                  : null;
-              final onShiftTap = widget.onShiftSlotTap;
-              if (onShiftTap != null &&
-                  detail != null &&
-                  detail.hasShiftData) {
-                onShiftTap(detail);
-                setState(() => _selectedIndex = null);
-                return;
-              }
-              _showStaffSlotDetails(
-                context,
-                slotIndex: i,
-                detail: detail,
-              );
-            },
-          ),
-      ],
+                  : null,
+              isSelected: selectedIndex == i,
+              onTap: () {
+                _selectedIndex.value = i;
+                final detail = i < widget.slotDetails.length
+                    ? widget.slotDetails[i]
+                    : null;
+                final onShiftTap = widget.onShiftSlotTap;
+                if (onShiftTap != null &&
+                    detail != null &&
+                    detail.hasShiftData) {
+                  onShiftTap(detail);
+                  _selectedIndex.value = null;
+                  return;
+                }
+                _showStaffSlotDetails(
+                  context,
+                  slotIndex: i,
+                  detail: detail,
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
@@ -572,7 +587,7 @@ class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline>
         slotMinutes: widget.slotMinutes,
       ),
     ).then((_) {
-      if (mounted) setState(() => _selectedIndex = null);
+      if (mounted) _selectedIndex.value = null;
     });
   }
 }
@@ -773,7 +788,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
               Text(
                 DateFormat('EEEE, MMM d, yyyy').format(day),
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,
@@ -783,7 +797,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
               Text(
                 '$classroomName · $staffName',
                 style: TextStyle(
-                  fontFamily: 'Manrope',
                   fontSize: 13,
                   color: AppColors.primaryColor.withValues(alpha: 0.7),
                 ),
@@ -798,7 +811,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
                 child: Text(
                   label,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
@@ -809,7 +821,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
               Text(
                 'Block: ${_formatTime(slotStart)} - ${_formatTime(slotEnd)}',
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: AppColors.primaryColor,
@@ -821,7 +832,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
                   'Shift hours: ${_formatTime(detail!.shiftStart!)} - '
                   '${_formatTime(detail!.shiftEnd!)}',
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 13,
                     color: AppColors.primaryColor,
                   ),
@@ -833,7 +843,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
                   'Break: ${_formatTime(detail!.breakStart!)} - '
                   '${_formatTime(detail!.breakEnd!)}',
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 13,
                     color: AppColors.primaryColor,
                   ),
@@ -844,7 +853,6 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
                 Text(
                   'Published shift',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 12,
                     color: AppColors.primaryColor.withValues(alpha: 0.6),
                   ),
@@ -940,7 +948,6 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                         Text(
                           DateFormat('EEEE, MMM d, yyyy').format(day),
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -950,7 +957,6 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                         Text(
                           '${_formatTime(start)} - ${_formatTime(end)}',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             color:
@@ -961,54 +967,62 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        classroomName,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                      if (staffName != null && staffName!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          staffName!,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color:
-                                AppColors.primaryColor.withValues(alpha: 0.65),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 150),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            classroomName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryColor,
+                            ),
+                            textAlign: TextAlign.end,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.end,
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          badge,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                          if (staffName != null &&
+                              staffName!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              staffName!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryColor
+                                    .withValues(alpha: 0.65),
+                              ),
+                              textAlign: TextAlign.end,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              badge,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -1040,7 +1054,6 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                 Text(
                   monitoringMessage,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 1.4,
@@ -1123,7 +1136,6 @@ class _CountRow extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
@@ -1139,7 +1151,6 @@ class _CountRow extends StatelessWidget {
           child: Text(
             '$count',
             style: const TextStyle(
-              fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,

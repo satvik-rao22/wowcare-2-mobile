@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-import '../../../../../core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_logout_cubit.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
+import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
+import '../../../../../core/utils/api_error_handler.dart';
 
 class KioskLogoutPage extends StatefulWidget {
   const KioskLogoutPage({super.key});
@@ -23,10 +24,8 @@ class KioskLogoutPage extends StatefulWidget {
 }
 
 class _KioskLogoutPageState extends State<KioskLogoutPage> {
-  String _currentPin = '';
   final int maxPinLength = 4;
   bool _isSubmitting = false;
-  late BuildContext _blocContext; // Store BlocBuilder's context
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +115,6 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
             ),
             body: BlocBuilder<KioskLogoutCubit, KioskLogoutState>(
               builder: (ctx, state) {
-                _blocContext = ctx; // ← Capture the BlocBuilder's context
                 final isLoading = state is KioskLogoutLoading;
 
                 return Center(
@@ -155,46 +153,6 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                             ),
                           ),
 
-                        // PIN Display Boxes
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 30,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              maxPinLength,
-                              (index) => Container(
-                                width: 55,
-                                height: 55,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppColors.primaryColor,
-                                    width: 2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    index < _currentPin.length
-                                        ? _currentPin[index]
-                                        : '',
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.themeColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
                         // Instruction Text
                         Padding(
                           padding: const EdgeInsets.only(bottom: 30),
@@ -210,118 +168,24 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                           ),
                         ),
 
-                        const SizedBox(height: 40),
-
-                        // PIN Pad
-                        _buildLogoutPinPad(ctx),
-
-                        const SizedBox(height: 50),
-
-                        // Action Buttons (styled to match KioskPinPadWidget)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 30),
-                          child: Row(
-                            children: [
-                              // Cancel Button
-                              Expanded(
-                                child: Container(
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    gradient:
-                                        AppColors.buildSecondaryGradient(),
-                                  ),
-                                  padding: const EdgeInsets.all(1),
-                                  child: TextButton(
-                                    onPressed: isLoading
-                                        ? null
-                                        : () {
-                                            AppLogger.d(
-                                              '[Kiosk Logout] Cancel pressed',
-                                            );
-                                            _currentPin = '';
-                                            setState(() {});
-                                            context.go('/kiosk');
-                                          },
-                                    style: TextButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: ShaderMask(
-                                      shaderCallback: (Rect bounds) =>
-                                          AppColors.buildSecondaryGradient()
-                                              .createShader(bounds),
-                                      blendMode: BlendMode.srcIn,
-                                      child: const Text(
-                                        'Cancel',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 16 * (-3 / 100),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Next Button (styled to match KioskPinPadWidget)
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    gradient:
-                                        AppColors.buildSecondaryGradient(),
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed:
-                                        isLoading ||
-                                            _currentPin.length != maxPinLength
-                                        ? null
-                                        : () => _submitPin(ctx),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 10,
-                                      ),
-                                      shadowColor: Colors.transparent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    child: isLoading
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
-                                                  ),
-                                            ),
-                                          )
-                                        : const Text(
-                                            'Next',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 16 * (-3 / 100),
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        // PIN entry — shared with the dashboard's sign-in/out
+                        // flow instead of a second hand-rolled copy (own PIN
+                        // dots, keypad and Cancel/Next buttons). `title: null`
+                        // because the instruction text above already covers
+                        // it; `isLogout: true` skips the widget's internal
+                        // KioskDashboardCubit listener (not provided on this
+                        // page) in favour of resetting once submit completes.
+                        KioskPinPadWidget(
+                          maxPinLength: maxPinLength,
+                          isLogout: true,
+                          title: null,
+                          onPinSubmit: (pin, {isLogout = false}) =>
+                              _submitPin(ctx, pin),
+                          onCancel: () {
+                            AppLogger.d('[Kiosk Logout] Cancel pressed');
+                            context.go('/kiosk');
+                          },
                         ),
-                        const SizedBox(height: 30),
                       ],
                     ),
                   ),
@@ -334,34 +198,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
     );
   }
 
-  void _addDigit(String digit) {
-    if (_currentPin.length < maxPinLength) {
-      setState(() {
-        _currentPin += digit;
-      });
-
-      // TODO: Temporarily disabled auto-trigger for Next button.
-      // User must explicitly tap the Next button.
-      // Auto-submit when max PIN length is reached
-      // if (_currentPin.length == maxPinLength) {
-      //   Future.delayed(const Duration(milliseconds: 300), () {
-      //     if (mounted) {
-      //       _submitPin(_blocContext);  // ← Use captured BlocBuilder context
-      //     }
-      //   });
-      // }
-    }
-  }
-
-  void _removeDigit() {
-    if (_currentPin.isNotEmpty) {
-      setState(() {
-        _currentPin = _currentPin.substring(0, _currentPin.length - 1);
-      });
-    }
-  }
-
-  Future<void> _submitPin(BuildContext ctx) async {
+  Future<void> _submitPin(BuildContext ctx, String pin) async {
     // Prevent multiple concurrent submissions
     if (_isSubmitting) {
       AppLogger.w(
@@ -371,9 +208,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
     }
 
     _isSubmitting = true;
-    AppLogger.d(
-      '[Kiosk Logout] PIN submitted - proceeding with logout: $_currentPin',
-    );
+    AppLogger.d('[Kiosk Logout] PIN submitted - proceeding with logout: $pin');
 
     try {
       final cubit = ctx.read<KioskLogoutCubit>();
@@ -381,7 +216,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
 
       // Execute logout with timeout to prevent hanging
       final success = await cubit
-          .logout(pin: _currentPin)
+          .logout(pin: pin)
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
@@ -406,97 +241,6 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
       }
     } finally {
       _isSubmitting = false;
-      if (mounted) {
-        _currentPin = '';
-        setState(() {});
-      }
     }
-  }
-
-  Widget _buildLogoutPinPad(BuildContext context) {
-    return Container(
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildPadButton('1'),
-              _buildPadButton('2'),
-              _buildPadButton('3'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildPadButton('4'),
-              _buildPadButton('5'),
-              _buildPadButton('6'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildPadButton('7'),
-              _buildPadButton('8'),
-              _buildPadButton('9'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 90),
-              _buildPadButton('0'),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                width: 70,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _removeDigit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[200],
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Icon(Icons.backspace_outlined, size: 20),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPadButton(String number) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      width: 70,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: () => _addDigit(number),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 0,
-        ),
-        child: Center(
-          child: Text(
-            number,
-            style: const TextStyle(fontSize: 20),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
   }
 }

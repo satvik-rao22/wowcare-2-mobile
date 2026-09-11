@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/core/util/jwt_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/jwt_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
 abstract class AuthLocalDataSource {
@@ -76,9 +76,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       AppTime.nowUtc().millisecondsSinceEpoch,
     );
 
-    // Save individual fields for quick access
-    await _storage.saveString(StorageKeys.accessToken, response.accessToken);
-    await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
+    // Access + refresh tokens live only in secure storage (see
+    // TokenRefreshService). The refresh token is saved securely below via
+    // saveRefreshToken; save the access token securely here.
+    await TokenRefreshService.instance.saveAccessToken(response.accessToken);
     if (response.refreshToken.trim().isEmpty) {
       // Silent time bomb otherwise: the access token keeps working until its
       // own TTL elapses, then TokenRefreshService has nothing to refresh

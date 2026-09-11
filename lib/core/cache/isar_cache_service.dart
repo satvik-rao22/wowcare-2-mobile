@@ -4,7 +4,7 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
 // Communication v2.1 schemas

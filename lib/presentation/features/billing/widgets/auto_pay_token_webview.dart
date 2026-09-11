@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/model/auto_pay_webview_payload.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Hosts `assets/forte_auto_pay.html` to collect card / ACH details and
@@ -20,8 +22,10 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 class AutoPayTokenWebView extends StatefulWidget {
   const AutoPayTokenWebView({super.key, required this.payload});
 
+  static const String routeName = '/billing/auto-pay-webview';
+
   /// Init payload injected into the HTML: `{ env, apiLoginId, isAutoPayEnabled }`.
-  final Map<String, dynamic> payload;
+  final AutoPayWebviewPayload payload;
 
   @override
   State<AutoPayTokenWebView> createState() => _AutoPayTokenWebViewState();
@@ -48,7 +52,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
 
   Future<void> _injectPayload() async {
     if (_controller == null || _hasInjectedData || _html == null) return;
-    final payloadJson = jsonEncode(widget.payload);
+    final payloadJson = jsonEncode(widget.payload.toJsonMap());
     // Double-encode so the JSON string is passed as a safe string literal.
     final script = 'window.initializeAutoPay(${jsonEncode(payloadJson)});';
     await _controller!.evaluateJavascript(source: script);
@@ -56,14 +60,17 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   }
 
   void _handleCallback(dynamic data) {
-    // Surface the Forte-side response (incl. onetime_token) in app logs.
-    debugPrint('[AUTOPAY][WEBVIEW] autopayTokenCallback: $data');
+    // Log only the non-sensitive SHAPE of the tokenization result — never the
+    // one-time payment token itself, which must not reach device logs. The
+    // token is passed through in [data] to the caller, which forwards it to the
+    // backend; it is never logged.
     if (data is Map) {
       final tokenData = data['data'];
-      final token = tokenData is Map
-          ? (tokenData['onetime_token'] ?? tokenData['onetimeToken'])
-          : null;
-      debugPrint('[AUTOPAY][WEBVIEW] one_time_token: $token');
+      final hasToken = tokenData is Map &&
+          ((tokenData['onetime_token'] ?? tokenData['onetimeToken']) != null);
+      debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (tokenPresent=$hasToken)');
+    } else {
+      debugPrint('[AUTOPAY][WEBVIEW] tokenization callback (no data)');
     }
     if (_hasPopped || !mounted) return;
     _hasPopped = true;
@@ -74,9 +81,9 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Payment Method'),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        title: const Text(BillingStrings.addPaymentMethod),
+        backgroundColor: AppColors.transparentColor,
+        foregroundColor: AppColors.billingCardOnColorText,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -94,7 +101,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
               initialData: InAppWebViewInitialData(
                 data: _html!,
                 baseUrl: WebUri.uri(Uri.parse(
-                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}')),
+                    'https://forte-autopay.${widget.payload.env}')),
               ),
               onWebViewCreated: (controller) {
                 _controller = controller;
@@ -111,11 +118,9 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
               onLoadStop: (_, __) async {
                 await _injectPayload();
               },
-              onConsoleMessage: (controller, consoleMessage) {
-                // Forwards the HTML's `[AutoPay]` logs (incl. the Forte token
-                // response) into the Flutter console.
-                debugPrint('[AUTOPAY][WEBVIEW][JS] ${consoleMessage.message}');
-              },
+              // Deliberately NOT forwarding the webview's JS console into the
+              // Flutter log: the Forte page logs the tokenization response
+              // (including the one-time token), which must not reach app logs.
               onPermissionRequest: (controller, request) async {
                 return PermissionResponse(
                   resources: request.resources,

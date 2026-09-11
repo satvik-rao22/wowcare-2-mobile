@@ -1,30 +1,35 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/widgets/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 // import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../core/util/school_context_helper.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/model/report_form_result.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/presentation/features/reports/widgets/resolve_school_name.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class StudentIncidentReportScreen extends StatefulWidget {
   const StudentIncidentReportScreen({
     super.key,
     required this.students,
     this.classrooms = const [],
-    // required this.classrooms,
   });
 
   static const String routeName = '/reports/student/incident';
+
+  /// Accepted and passed by the route, but no Classroom filter is rendered:
+  /// the incident request omits `roomCodes` entirely.
 
   final List<String> students;
   final List<String> classrooms;
@@ -36,40 +41,39 @@ class StudentIncidentReportScreen extends StatefulWidget {
 
 class _StudentIncidentReportScreenState
     extends State<StudentIncidentReportScreen> {
-  late DateTime _startDate;
-  late DateTime _endDate;
-  List<String> _selectedStudents = <String>[];
-  // late List<String> _selectedClassrooms;
-  String _format = 'XLSX';
+  late final ValueNotifier<DateTime> _startDate;
+  late final ValueNotifier<DateTime> _endDate;
+  final ValueNotifier<List<String>> _selectedStudents =
+      ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
     super.initState();
     final now = AppTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-    _endDate = DateTime(now.year, now.month + 1, 0);
-    _selectedStudents = List<String>.from(widget.students);
-    // _selectedClassrooms = List<String>.from(widget.classrooms);
+    _startDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
+    _endDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
   }
 
   @override
   void didUpdateWidget(covariant StudentIncidentReportScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.students != widget.students) {
-      setState(() {
-        _selectedStudents = List<String>.from(widget.students);
-      });
+      // Keep only selections that still exist; never re-select all.
+      _selectedStudents.value = _selectedStudents.value
+          .where(widget.students.contains)
+          .toList();
     }
   }
 
   void _onGenerate() async {
     AppLogger.d('[INCIDENT-UI] Generate button tapped');
 
-    if (_toDate.isBefore(_startDate)) {
+    if (_toDate.isBefore(_startDate.value)) {
       AppLogger.w('[INCIDENT-UI] Generation blocked: To date before From date');
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'End date cannot be before Start date',
+        message: ReportsStrings.endDateCannotBeBeforeStartDate,
         isError: true,
       );
       return;
@@ -80,40 +84,21 @@ class _StudentIncidentReportScreenState
     final studentNameToCode = cubit.state.studentNameToCode;
     final studentCodes = resolveReportCodes(
       context: context,
-      names: _selectedStudents,
+      names: _selectedStudents.value,
       nameToCode: studentNameToCode,
       labelPlural: 'students',
     );
     if (studentCodes == null) return;
 
-    // final classroomCodes = resolveReportCodes(
-    //   context: context,
-    //   names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
-    //   nameToCode: cubit.state.classroomNameToCode,
-    //   labelPlural: 'classrooms',
-    // );
-    // if (classroomCodes == null) return;
-
-    // Retrieve the school name from storage
-    final schoolName = await SchoolContextHelper.getSchoolName();
-    AppLogger.d('resolvedSchoolName=$schoolName');
-    if (schoolName == null || schoolName.isEmpty) {
-      if (!mounted) return;
-
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve school name',
-        isError: true,
-      );
-      return;
-    }
+    final schoolName = await resolveSchoolNameOrWarn(context);
+    if (schoolName == null || !mounted) return;
     final params = ReportRequestParams(
       reportType: ReportType.studentIncident,
-      startDate: _startDate,
-      endDate: _endDate,
-      studentCodes: studentCodes,
-      // roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
-      format: _format,
+      startDate: _startDate.value,
+      endDate: _endDate.value,
+      // Empty selection → `studentCodes` omitted, i.e. all students.
+      studentCodes: studentCodes.isEmpty ? null : studentCodes,
+      format: _format.value,
       schoolName: schoolName,
     );
 
@@ -121,12 +106,19 @@ class _StudentIncidentReportScreenState
     unawaited(cubit.generateReport(params));
   }
 
-  DateTime get _toDate => _endDate;
+  DateTime get _toDate => _endDate.value;
+
+  @override
+  void dispose() {
+    _endDate.dispose();
+    _format.dispose();
+    _selectedStudents.dispose();
+    _startDate.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-
     return MultiBlocListener(
       listeners: [
         BlocListener<ReportsCubit, ReportsState>(
@@ -151,7 +143,7 @@ class _StudentIncidentReportScreenState
                 state.generationSuccess!.isNotEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: ReportsStrings.reportGeneratedSuccessfully,
                 isSuccess: true,
               );
 
@@ -159,12 +151,11 @@ class _StudentIncidentReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  // Pop (not context.go) — this screen was pushed via plain
-                  // Navigator.push, so only popping actually dismisses it;
-                  // the hub's own .then((success) => tab 0) callback reacts
-                  // to the pop(true) result.
+                  // Hand the hub a typed result. The report is generated
+                  // but the file is not attached, so the hub animates to the
+                  // Generated tab -- the outcome pop(true) used to encode.
                   context.read<ReportsCubit>().clearGeneratedReport();
-                  Navigator.of(context).pop(true);
+                  context.pop(const ReportGeneratedRefreshList());
                 });
               }
             }
@@ -175,65 +166,70 @@ class _StudentIncidentReportScreenState
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
-            title: 'School Incident Report',
+            title: ReportsStrings.studentIncidentName,
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ReportFieldLabel(label: 'Start Date'),
-                CustomDateTimeField(
-                  hasLabel: false,
-                  dateFormat: 'MM/dd/yyyy',
-                  fetchInitialTime: false,
-                  initialDate: _startDate,
-                  onDateSelected: (d) => setState(() => _startDate = d),
+                const ReportFieldLabel(label: ReportsStrings.startDate),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _startDate,
+                  builder: (_, v, __) => CustomDateTimeField(
+                    hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
+                    fetchInitialTime: false,
+                    initialDate: v,
+                    onDateSelected: (d) => _startDate.value = d,
+                  ),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'End Date'),
-                CustomDateTimeField(
-                  hasLabel: false,
-                  dateFormat: 'MM/dd/yyyy',
-                  fetchInitialTime: false,
-                  initialDate: _endDate,
-                  onDateSelected: (d) => setState(() => _endDate = d),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                MultiSelectFilterField<String>(
-                  label: 'Student',
-                  hintText: 'Select Students',
-                  items: widget.students,
-                  selectedItems: _selectedStudents,
-                  onChanged: (s) => setState(() => _selectedStudents = s),
-                  itemToString: (item) => item,
-                  singularLabel: 'Student',
-                  pluralLabel: 'Students',
-                  isRequired: true,
-                  showSelectAll: true,
-                  enableSearch: true,
-                  searchHintText: 'Search Students',
+                const ReportFieldLabel(label: ReportsStrings.endDate),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _endDate,
+                  builder: (_, v, __) => CustomDateTimeField(
+                    hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
+                    fetchInitialTime: false,
+                    initialDate: v,
+                    onDateSelected: (d) => _endDate.value = d,
+                  ),
+                ),
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedStudents,
+                  builder: (_, v, __) => MultiSelectFilterField<String>(
+                    label: ReportsStrings.tabStudent,
+                    hintText: ReportsStrings.allStudents,
+                    items: widget.students,
+                    selectedItems: v,
+                    onChanged: (s) => _selectedStudents.value = s,
+                    itemToString: (item) => item,
+                    singularLabel: ReportsStrings.tabStudent,
+                    pluralLabel: ReportsStrings.students,
+                    showSelectAll: true,
+                    enableSearch: true,
+                    searchHintText: ReportsStrings.searchStudents,
+                  ),
                 ),
                 const ReportDefaultNote(
-                  text: 'Note: All Students will be selected by Default.',
+                  text: ReportsStrings.noteAllStudentsIncludedByDefault,
                 ),
-                // SizedBox(height: responsive.verticalSpacing),
-                // CustomMultiSelectDropdown(
-                //   label: 'Classroom',
-                //   hintText: 'Select Classroom',
-                //   items: widget.classrooms,
-                //   selectedItems: _selectedClassrooms,
-                //   onChanged: (s) => setState(() => _selectedClassrooms = s),
-                //   showSelectAll: true,
-                // ),
-                // const ReportDefaultNote(
-                //   text: 'Note: All Classrooms will be selected by Default.',
-                // ),
-                SizedBox(height: responsive.verticalSpacing),
-                const ReportFieldLabel(label: 'Export Format'),
-                ReportFormatSelector(
-                  selectedFormat: _format,
-                  onFormatChanged: (value) => setState(() => _format = value),
-                  showLabel: false,
+                SizedBox(
+                  height: context.responsive(compact: 16.0, medium: 24.0),
+                ),
+                const ReportFieldLabel(label: ReportsStrings.exportFormat),
+                ValueListenableBuilder<String>(
+                  valueListenable: _format,
+                  builder: (_, v, __) => ReportFormatSelector(
+                    selectedFormat: v,
+                    onFormatChanged: (value) => _format.value = value,
+                    showLabel: false,
+                  ),
                 ),
               ],
             ),

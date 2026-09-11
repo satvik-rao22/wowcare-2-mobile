@@ -9,27 +9,27 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/domain/features/activity/services/activity_description_limits.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_attendance_window_feedback.dart';
+import 'package:wowcare/domain/features/activity/services/activity_school_time.dart';
+import 'package:wowcare/domain/features/activity/services/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class MealActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/meal';
+
   const MealActivityScreen({
     super.key,
     this.selectedStudents,
@@ -44,14 +44,11 @@ class MealActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _MealActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _MealActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -142,7 +139,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
     super.initState();
     _activityDate = null;
     _activityTime = null;
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -169,7 +166,9 @@ class _MealActivityViewState extends State<_MealActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -184,7 +183,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -279,7 +278,9 @@ class _MealActivityViewState extends State<_MealActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
       await _loadMealParameterOptions();
@@ -291,28 +292,15 @@ class _MealActivityViewState extends State<_MealActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -351,7 +339,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
   }
 
   /// [selectedOptionCode] only for DROPDOWN / SELECT / MULTISELECT.
-  Map<String, dynamic>? _paramEntryForOption(
+  ActivityParameterValue? _paramEntryForOption(
     ActivityTypeParameter? param,
     String label,
   ) {
@@ -367,12 +355,15 @@ class _MealActivityViewState extends State<_MealActivityView> {
         if (ol.isNotEmpty && ol.toLowerCase() == v.toLowerCase()) {
           final oc = (o.optionCode ?? o.code).trim();
           if (oc.isNotEmpty) {
-            return {'parameterCode': param.code, 'selectedOptionCode': oc};
+            return ActivityParameterValue(
+              parameterCode: param.code,
+              selectedOptionCode: oc,
+            );
           }
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   ActivityTypeParameter? _findMealTypeParameter(
@@ -483,6 +474,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -568,7 +560,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -606,7 +598,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
         _activityDate = prefilled;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -633,31 +625,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final mealTypeParam = _findMealTypeParameter(details.parameters);
       final quantityParam = _findQuantityParameter(details.parameters);
 
-      Map<String, dynamic>? mealTypeEntry = _paramEntryForOption(
+      ActivityParameterValue? mealTypeEntry = _paramEntryForOption(
         mealTypeParam,
         _selectedMealType!.trim(),
       );
       if (mealTypeEntry == null && _selectedMealType!.trim().isNotEmpty) {
         final c = findParamCode('meal');
         if (c != null && c.trim().isNotEmpty) {
-          mealTypeEntry = {
-            'parameterCode': c,
-            'value': _selectedMealType!.trim(),
-          };
+          mealTypeEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedMealType!.trim(),
+          );
         }
       }
 
-      Map<String, dynamic>? quantityEntry = _paramEntryForOption(
+      ActivityParameterValue? quantityEntry = _paramEntryForOption(
         quantityParam,
         _selectedQuantity!.trim(),
       );
       if (quantityEntry == null && _selectedQuantity!.trim().isNotEmpty) {
         final c = findParamCode('quant');
         if (c != null && c.trim().isNotEmpty) {
-          quantityEntry = {
-            'parameterCode': c,
-            'value': _selectedQuantity!.trim(),
-          };
+          quantityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedQuantity!.trim(),
+          );
         }
       }
 
@@ -667,19 +659,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];
@@ -743,6 +747,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -787,7 +792,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -808,7 +813,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -835,31 +840,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final mealTypeParam = _findMealTypeParameter(details.parameters);
       final quantityParam = _findQuantityParameter(details.parameters);
 
-      Map<String, dynamic>? mealTypeEntry = _paramEntryForOption(
+      ActivityParameterValue? mealTypeEntry = _paramEntryForOption(
         mealTypeParam,
         _selectedMealType!.trim(),
       );
       if (mealTypeEntry == null && _selectedMealType!.trim().isNotEmpty) {
         final c = findParamCode('meal');
         if (c != null && c.trim().isNotEmpty) {
-          mealTypeEntry = {
-            'parameterCode': c,
-            'value': _selectedMealType!.trim(),
-          };
+          mealTypeEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedMealType!.trim(),
+          );
         }
       }
 
-      Map<String, dynamic>? quantityEntry = _paramEntryForOption(
+      ActivityParameterValue? quantityEntry = _paramEntryForOption(
         quantityParam,
         _selectedQuantity!.trim(),
       );
       if (quantityEntry == null && _selectedQuantity!.trim().isNotEmpty) {
         final c = findParamCode('quant');
         if (c != null && c.trim().isNotEmpty) {
-          quantityEntry = {
-            'parameterCode': c,
-            'value': _selectedQuantity!.trim(),
-          };
+          quantityEntry = ActivityParameterValue(
+            parameterCode: c,
+            value: _selectedQuantity!.trim(),
+          );
         }
       }
 
@@ -869,19 +874,31 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         if (mealTypeEntry != null) mealTypeEntry,
         if (quantityEntry != null) quantityEntry,
       ];
