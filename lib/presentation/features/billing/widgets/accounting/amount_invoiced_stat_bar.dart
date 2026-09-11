@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
@@ -105,12 +105,6 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-          final numberFormat = NumberFormat('#,##0');
-          String formatAmount(double value) {
-            final sign = value < 0 ? '-' : '';
-            return '$sign\$${numberFormat.format(value.abs())}';
-          }
-
           // Share of the invoiced amount; shown verbatim in labels.
           double pct(double value) =>
               widget.totalAmount <= 0 ? 0 : (value / widget.totalAmount) * 100;
@@ -119,7 +113,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
           double barValue(double value) => pct(value).clamp(0, 100).toDouble();
 
           String labelFor(String name, double amount) =>
-              '$name\n${formatAmount(amount)} (${pctText(amount)})';
+              '$name\n${billingAmount(amount)} (${pctText(amount)})';
 
           // Keep Net Paid and Outstanding as the first-row items
           final netPaidItem = ProgressItemHelper(
@@ -177,7 +171,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
             inProcessItem,
           ];
 
-          final outstandingAmountText = formatAmount(widget.outstandingAmount);
+          final outstandingAmountText = billingAmount(widget.outstandingAmount);
           final outstandingPercentage = pct(
             widget.outstandingAmount,
           ).toStringAsFixed(1);
@@ -194,7 +188,7 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
               // tapping the card body itself does nothing.
               CustomStatBarCard(
                 title: widget.title,
-                number: '\$${numberFormat.format(widget.totalAmount)}',
+                number: billingAmount(widget.totalAmount),
                 numberFontSize: 26,
                 titleFontSize: 17,
                 items: itemsToShow,

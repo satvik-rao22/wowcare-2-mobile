@@ -16,19 +16,20 @@ class TransactionsState extends Equatable {
     this.successMessage,
   });
 
-  const TransactionsState.initial()
-      : transactions = const [],
-        searchQuery = '',
-        overview = null,
-        dateFrom = null,
-        dateTo = null,
-        activeFilter = null,
-        isLoading = true,
-        isLoadingMore = false,
-        hasMore = false,
-        page = 0,
-        errorMessage = null,
-        successMessage = null;
+  /// Initial state for the Student(s) and Transactions tabs.
+  ///
+  /// The date range defaults to the current school-calendar month. Both tabs
+  /// used to land with a null range, which showed "Select Date Range" and let
+  /// the backend apply its own all-time window — so the totals covered a
+  /// different period than any range the user later picked. Not `const` for
+  /// this reason: the month has to be computed per construction.
+  factory TransactionsState.initial() => TransactionsState(
+        transactions: const [],
+        searchQuery: '',
+        dateFrom: billingSchoolMonthStart(),
+        dateTo: billingSchoolMonthEnd(),
+        isLoading: true,
+      );
 
   final List<TransactionRecord> transactions;
   final String searchQuery;

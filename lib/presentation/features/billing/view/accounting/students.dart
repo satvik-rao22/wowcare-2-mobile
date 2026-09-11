@@ -4,6 +4,7 @@ import 'package:wowcare/presentation/features/billing/model/billing_route_args.d
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/family_summary_cubit.dart';
@@ -12,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/family_summary_list.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
+import 'package:wowcare/shared/common/view/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -71,6 +73,55 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
       return;
     }
     widget.onNavigateToTransactions?.call(filter);
+  }
+
+  /// Opens the funnel sheet for the family list. Options come from the loaded
+  /// rows (see [FamilySummaryState.availableInvoiceStatuses]), so this waits
+  /// for data rather than showing an empty sheet.
+  Future<void> _openFilter() async {
+    final state = _familyCubit.state;
+    final statuses = state.availableInvoiceStatuses;
+    final methods = state.availablePaymentMethods;
+
+    if (statuses.isEmpty && methods.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: BillingStrings.noFilterOptionsYet,
+        isWarning: true,
+      );
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => FilterScreen(
+          sections: [
+            if (statuses.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.lastPaymentStatus,
+                items: statuses,
+                initialSelected: state.invoiceStatuses.toList(),
+              ),
+            if (methods.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.paymentMethod,
+                items: methods,
+                initialSelected: state.paymentMethods.toList(),
+              ),
+          ],
+          // A section left out above (no options) yields no key here, which
+          // clears that dimension — correct, since it had nothing to select.
+          onApply: (applied) => _familyCubit.setFilters(
+            invoiceStatuses:
+                (applied[BillingStrings.lastPaymentStatus] ?? const <String>[])
+                    .toSet(),
+            paymentMethods:
+                (applied[BillingStrings.paymentMethod] ?? const <String>[])
+                    .toSet(),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Reloads the overview totals and the family list together.
@@ -169,12 +220,41 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () {},
+                              onTap: _openFilter,
                               child: Center(
-                                child: SvgPicture.asset(
-                                  MediaRes.filterIcon,
-                                  width: 20,
-                                  height: 20,
+                                // Dot marks an applied filter, which is
+                                // otherwise invisible once the sheet closes.
+                                child: BlocSelector<FamilySummaryCubit,
+                                    FamilySummaryState, bool>(
+                                  selector: (s) => s.hasActiveFilters,
+                                  builder: (context, hasActiveFilters) => Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        width: 20,
+                                        height: 20,
+                                      ),
+                                      if (hasActiveFilters)
+                                        Positioned(
+                                          right: -2,
+                                          top: -2,
+                                          child: Container(
+                                            width: 9,
+                                            height: 9,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.errorColor,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: AppColors
+                                                    .billingCardColor,
+                                                width: 1.2,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -185,6 +265,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                           onTap: () {
                             _searchController.clear();
                             _familyCubit.clearSearch();
+                            _familyCubit.clearFilters();
                           },
                         ),
                       ],
@@ -215,7 +296,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                             ),
                             const Spacer(),
                             Text(
-                              '\$${familyState.totalOutstanding.toStringAsFixed(0)}',
+                              billingAmount(familyState.totalOutstanding),
                               style: AppTextStyles.body.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.themeColor,

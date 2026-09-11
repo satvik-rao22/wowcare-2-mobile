@@ -69,4 +69,28 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
 
   void setShowOutstandingOnly(bool value) =>
       emit(state.copyWith(showOutstandingOnly: value));
+
+  /// Applies the funnel sheet's selections. Values are normalised to trimmed
+  /// upper case to match how the rows are compared; an empty set clears that
+  /// dimension rather than matching nothing.
+  void setFilters({
+    required Set<String> invoiceStatuses,
+    required Set<String> paymentMethods,
+  }) {
+    emit(state.copyWith(
+      invoiceStatuses: _normalizeAll(invoiceStatuses),
+      paymentMethods: _normalizeAll(paymentMethods),
+    ));
+  }
+
+  /// Drops the funnel selections, leaving search and the outstanding toggle.
+  void clearFilters() => emit(state.copyWith(
+        invoiceStatuses: const <String>{},
+        paymentMethods: const <String>{},
+      ));
+
+  static Set<String> _normalizeAll(Set<String> values) => values
+      .map((v) => v.trim().toUpperCase())
+      .where((v) => v.isNotEmpty)
+      .toSet();
 }

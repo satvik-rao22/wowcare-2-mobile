@@ -77,7 +77,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         _cancelInvoice = cancelInvoice,
         _deleteInvoice = deleteInvoice,
         _storage = storage,
-        super(const TransactionsState.initial());
+        super(TransactionsState.initial());
 
   final GetInvoiceOverviewUseCase _getOverview;
   final GetInvoiceTransactionsUseCase _getTransactions;

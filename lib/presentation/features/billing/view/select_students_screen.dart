@@ -4,6 +4,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_recipient_skip_notice.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/select_students_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -254,10 +255,10 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               return;
             }
 
-            // Confirm every selected student can actually receive an
-            // invoice before advancing — e.g. a student with no
-            // family/billing profile yet must be blocked here rather than
-            // failing later at invoice creation.
+            // Find out which selected students can actually receive an
+            // invoice before advancing — e.g. one with no family/billing
+            // profile yet has to be dropped here rather than failing later
+            // at invoice creation.
             final result = await _cubit.checkRecipients(
               selectedStudents.map((s) => s.code).toList(),
             );
@@ -271,30 +272,48 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               );
               return;
             }
+            // Students the backend rejected are dropped from the batch rather
+            // than blocking the whole selection — with "Select All" on a big
+            // school, one student missing a billing profile used to dead-end
+            // the flow for everyone else.
+            var recipients = selectedStudents;
             if (!result.allEligible) {
-              final nameByCode = {
-                for (final s in selectedStudents) s.code: s.fullName,
-              };
-              // Single line: showTopSnackBar's warning path truncates at the
-              // first newline, so multiple reasons are joined with "; ".
-              final message = result.ineligible.map((r) {
-                final name = nameByCode[r.studentCode] ?? r.studentCode;
-                final reason = (r.reason ?? '').trim();
-                return reason.isEmpty ? name : '$name: $reason';
-              }).join('; ');
+              final ineligibleCodes =
+                  result.ineligible.map((r) => r.studentCode).toSet();
+              recipients = selectedStudents
+                  .where((s) => !ineligibleCodes.contains(s.code))
+                  .toList();
+
+              if (recipients.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: BillingStrings.noStudentsCanBeInvoiced,
+                  isWarning: true,
+                  duration: const Duration(seconds: 4),
+                );
+                return;
+              }
+
+              // Keep the checkboxes honest about what's moving forward.
+              _cubit.deselectStudents(ineligibleCodes);
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: message,
+                message: InvoiceRecipientSkipNotice.build(
+                  ineligible: result.ineligible,
+                  nameByCode: {
+                    for (final s in selectedStudents) s.code: s.fullName,
+                  },
+                  totalSelected: selectedStudents.length,
+                ),
                 isWarning: true,
-                duration: const Duration(seconds: 4),
+                duration: const Duration(seconds: 5),
               );
-              return;
             }
 
             final created = await context.push<bool>(
               CreateInvoiceScreen.routeName,
               extra: CreateInvoiceArgs(
-                selectedStudents: selectedStudents,
+                selectedStudents: recipients,
                 initialInvoiceData: widget.invoiceData,
               ),
             );

@@ -225,6 +225,15 @@ class SelectStudentsCubit extends Cubit<SelectStudentsState> {
       .where((s) => state.selectedStudentCodes.contains(s.code))
       .toList();
 
+  /// Drops [codes] from the selection — used after check-recipients reports
+  /// some students can't be invoiced, so the checkboxes match the set the
+  /// wizard actually carries forward.
+  void deselectStudents(Iterable<String> codes) {
+    final set = Set<String>.from(state.selectedStudentCodes)..removeAll(codes);
+    if (set.length == state.selectedStudentCodes.length) return;
+    emit(state.copyWith(selectedStudentCodes: set));
+  }
+
   /// Runs on "Next": confirms every selected student can actually receive an
   /// invoice (has a family/billing profile). Returns null on failure —
   /// [state.errorMessage] carries the reason and the caller should not
