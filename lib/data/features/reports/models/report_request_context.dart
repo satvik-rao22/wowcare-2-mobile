@@ -11,6 +11,7 @@ class ReportRequestContext extends Equatable {
     this.organizationCode,
     this.generatedBy,
     this.schoolName,
+    this.schoolTimeZone,
   });
 
   /// No identity — used by tests and by any caller that only wants the
@@ -19,11 +20,17 @@ class ReportRequestContext extends Equatable {
     : schoolCode = null,
       organizationCode = null,
       generatedBy = null,
-      schoolName = null;
+      schoolName = null,
+      schoolTimeZone = null;
 
   final String? schoolCode;
   final String? organizationCode;
   final String? generatedBy;
+
+  /// The school's IANA zone (e.g. `America/New_York`), which the scheduling
+  /// report needs to place a shift on the right calendar day — a `startDate`
+  /// and `endDate` alone are ambiguous without it.
+  final String? schoolTimeZone;
 
   /// The resolved, human-readable school name. Overrides whatever the form
   /// supplied, but only when non-empty — an unresolved name must not blank
@@ -36,5 +43,6 @@ class ReportRequestContext extends Equatable {
     organizationCode,
     generatedBy,
     schoolName,
+    schoolTimeZone,
   ];
 }

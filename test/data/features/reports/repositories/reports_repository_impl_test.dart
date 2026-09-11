@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource.dart';
@@ -142,7 +143,14 @@ void main() {
     serviceLocator.registerSingleton<AuthLocalDataSource>(
       _FakeAuthLocalDataSource(),
     );
-    repository = ReportsRepositoryImpl(fakeDataSource, fakeStorageService);
+    // The repository only reaches for the ApiClient on the cold timezone
+    // path; these tests leave the storage cache empty, so the lookup fails
+    // fast and the `schoolTimeZone` key is simply omitted.
+    repository = ReportsRepositoryImpl(
+      fakeDataSource,
+      fakeStorageService,
+      ApiClient(baseUrl: 'https://example.invalid'),
+    );
   });
 
   tearDown(() async {
