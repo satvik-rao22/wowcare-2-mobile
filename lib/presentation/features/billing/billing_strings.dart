@@ -56,6 +56,7 @@ class BillingStrings {
   static const String cardHolderCaps = 'CARD HOLDER';
   static const String cardNumber = 'Card Number';
   static const String checking = 'Checking';
+  static const String classroom = 'Classroom';
   static const String chequeNumber = 'Cheque Number';
   static const String confirm = 'Confirm';
   static const String confirmPayment = 'Confirm Payment';
@@ -102,6 +103,7 @@ class BillingStrings {
   static const String discover = 'Discover';
   static const String done = 'Done';
   static const String download = 'Download';
+  static const String draft = 'Draft';
   static const String downloadingStatementPdf = 'Downloading statement PDF…';
   static const String dueDate = 'Due Date: ';
   static const String dueDateColon = 'Due Date : ';
@@ -198,6 +200,7 @@ class BillingStrings {
   static const String noDetailsAvailable = 'No details available';
   static const String noDiscountsFound = 'No discounts found.';
   static const String noFamiliesFound = 'No families found.';
+  static const String noFilterOptionsYet = 'No filter options yet — load some billing activity first.';
   static const String noFamilyTransactionsFound = 'No family transactions found';
   static const String noInvoice = 'NO INVOICE';
   static const String noInvoicedDataAvailable = 'No invoiced data available for this family.';
@@ -207,6 +210,7 @@ class BillingStrings {
   static const String noStatementsAvailable = 'No statements available';
   static const String noStatementsAvailableForSelectedDateRange = 'No statements available for the selected date range';
   static const String noStatementsFound = 'No statements found';
+  static const String noStudentsCanBeInvoiced = 'None of the selected students can be invoiced yet. Create their family/billing profile first.';
   static const String noStudentsFound = 'No students found.';
   static const String noStudentsFoundForFamily = 'No students found for this family.';
   static const String noStudentsSelectedGoBack = 'No students selected. Go back to add a student.';
@@ -223,6 +227,7 @@ class BillingStrings {
   static const String oneTimeInvoice = 'One-Time Invoice';
   static const String openBalance = 'Open Balance';
   static const String outstanding = 'Outstanding';
+  static const String overdue = 'Overdue';
   static const String paid = 'Paid';
   static const String parents = 'Parents: ';
   static const String payNow = 'Pay Now';
@@ -279,6 +284,7 @@ class BillingStrings {
   static const String runningBalance = 'Running Balance';
   static const String save = 'Save';
   static const String saveAndSend = 'Save and Send';
+  static const String saveAsDraft = 'Save as Draft';
   static const String saveChanges = 'Save Changes';
   static const String saveDetails = 'Save details';
   static const String savedPaymentMethods = 'Saved Payment Methods';

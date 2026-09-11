@@ -2577,11 +2577,21 @@ final GoRouter appRouter = GoRouter(
               activityData: args.activityData,
               selectedStudents: args.selectedStudents,
             ),
-          child: BottleActivityScreen(
-            selectedStudents: args.selectedStudents,
-            isEdit: args.isEdit,
-            activityData: args.activityData,
-            readOnly: args.readOnly,
+          // The shared form widgets (staff-present dropdown, date and time
+          // pickers) resolve ActivityEditorCubit from the tree, which every
+          // other activity route above provides. Hand them the instance this
+          // form cubit was built with — `.value`, because the form cubit's
+          // own close() closes it — rather than resolving a second one.
+          child: Builder(
+            builder: (context) => BlocProvider<ActivityEditorCubit>.value(
+              value: context.read<BottleActivityCubit>().editor,
+              child: BottleActivityScreen(
+                selectedStudents: args.selectedStudents,
+                isEdit: args.isEdit,
+                activityData: args.activityData,
+                readOnly: args.readOnly,
+              ),
+            ),
           ),
         );
       },
@@ -2635,11 +2645,19 @@ final GoRouter appRouter = GoRouter(
               activityData: args.activityData,
               selectedStudents: args.selectedStudents,
             ),
-          child: MedicationActivityScreen(
-            selectedStudents: args.selectedStudents,
-            isEdit: args.isEdit,
-            activityData: args.activityData,
-            readOnly: args.readOnly,
+          // Same as the Bottle route: the staff-present dropdown and the
+          // date/time pickers read ActivityEditorCubit from the tree, so
+          // provide the one this form cubit already owns.
+          child: Builder(
+            builder: (context) => BlocProvider<ActivityEditorCubit>.value(
+              value: context.read<MedicationActivityCubit>().editor,
+              child: MedicationActivityScreen(
+                selectedStudents: args.selectedStudents,
+                isEdit: args.isEdit,
+                activityData: args.activityData,
+                readOnly: args.readOnly,
+              ),
+            ),
           ),
         );
       },

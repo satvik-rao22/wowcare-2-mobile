@@ -3,6 +3,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -351,16 +352,12 @@ class _ParticipantTile extends StatelessWidget {
     final badgeBg = ParticipantInfoDialog._badgeBg(role);
     final badgeFg = ParticipantInfoDialog._badgeFg(role);
     final badgeLabel = ParticipantInfoDialog._badgeLabel(role);
-    const staffRoles = {
-      'STAFF',
-      'TEACHER',
-      'ADMIN',
-      'DIRECTOR',
-      'PRINCIPAL',
-      'ASSISTANT_DIRECTOR',
-      'LEAD_TEACHER',
-    };
-    final isStaffPersona = staffRoles.contains(role);
+    final avatar = ParticipantAvatarSource.of(
+      avatarUrl: data.avatarUrl,
+      staffCode: data.staffCode,
+      userCode: data.userCode,
+      role: role,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -370,15 +367,10 @@ class _ParticipantTile extends StatelessWidget {
           DocumentImageWidget(
             disableAttendanceStatusLookup: true,
             fileUuid: '',
-            imageUrl: (data.avatarUrl ?? '').startsWith('http')
-                ? data.avatarUrl
-                : null,
-            mediaAssetCode:
-                (data.avatarUrl ?? '').isNotEmpty &&
-                    !(data.avatarUrl ?? '').startsWith('http')
-                ? data.avatarUrl
-                : null,
-            staffCode: isStaffPersona ? data.staffCode : null,
+            imageUrl: avatar.imageUrl,
+            mediaAssetCode: avatar.mediaAssetCode,
+            staffCode: avatar.staffCode,
+            userCode: avatar.userCode,
             name: data.displayName,
             size: 42,
             fontSize: 14,

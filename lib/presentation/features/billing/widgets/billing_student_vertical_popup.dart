@@ -198,16 +198,22 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               ),
             ];
           case BillingInvoiceMenuVariant.paid:
-            // Issue Refund is hidden once the invoice is fully refunded
-            // (amount == refundedAmount → nothing left to refund).
-            final bool canRefund = (transaction?.maxRefundable ?? 0) > 0;
+            // Issue Refund is intentionally NOT offered on an invoice card's
+            // action bar — a refund is raised against the payment, so the
+            // action lives on the payment card (BillingPopupType.payment
+            // below). Commented out rather than deleted so the gating logic
+            // is here if it needs to come back.
+            //
+            // Was hidden once the invoice was fully refunded
+            // (amount == refundedAmount → nothing left to refund):
+            // final bool canRefund = (transaction?.maxRefundable ?? 0) > 0;
             return <_PopupActionConfig>[
-              if (canRefund)
-                _PopupActionConfig(
-                  iconData: Icons.attach_money,
-                  label: BillingStrings.issueRefund,
-                  onTap: onIssueRefundTap,
-                ),
+              // if (canRefund)
+              //   _PopupActionConfig(
+              //     iconData: Icons.attach_money,
+              //     label: BillingStrings.issueRefund,
+              //     onTap: onIssueRefundTap,
+              //   ),
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
                 label: BillingStrings.view,

@@ -10,6 +10,10 @@ import 'package:wowcare/domain/features/billing/usecases/cancel_invoice_usecase.
 import 'package:wowcare/domain/features/billing/usecases/delete_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_overview_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_transactions_usecase.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 
 import '../widgets/transactions/transaction_item.dart';
 
@@ -71,21 +75,52 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     required GetInvoiceTransactionsUseCase getTransactions,
     required CancelInvoiceUseCase cancelInvoice,
     required DeleteInvoiceUseCase deleteInvoice,
+    required GetActiveClassroomsUseCase getActiveClassrooms,
+    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMap,
+    required GetStudentPageUseCase getStudentPage,
     required StorageService storage,
   })  : _getOverview = getOverview,
         _getTransactions = getTransactions,
         _cancelInvoice = cancelInvoice,
         _deleteInvoice = deleteInvoice,
+        _getActiveClassrooms = getActiveClassrooms,
+        _getTagNameCodeMap = getTagNameCodeMap,
+        _getStudentPage = getStudentPage,
         _storage = storage,
-        super(const TransactionsState.initial());
+        super(TransactionsState.initial());
 
   final GetInvoiceOverviewUseCase _getOverview;
   final GetInvoiceTransactionsUseCase _getTransactions;
   final CancelInvoiceUseCase _cancelInvoice;
   final DeleteInvoiceUseCase _deleteInvoice;
+  final GetActiveClassroomsUseCase _getActiveClassrooms;
+  final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMap;
+  final GetStudentPageUseCase _getStudentPage;
   final StorageService _storage;
 
   static const int _pageSize = 10;
+
+  /// Students requested when resolving a classroom/tag selection — the whole
+  /// matching set is needed at once to intersect against the loaded rows.
+  static const int _studentLookupSize = 1000;
+
+  /// The `type` query param for the current query. The funnel sheet's explicit
+  /// selection wins over the stat-bar legend filter; they're kept mutually
+  /// exclusive by [applyFilter] / [applyTransactionFilters]. Sent verbatim in
+  /// its display casing (`type=Payment`), matching the web client.
+  String? get _typeParam {
+    final picked = state.selectedType?.trim() ?? '';
+    return picked.isNotEmpty ? picked : state.activeFilter?.typeParam;
+  }
+
+  /// The `status` query param, same precedence as [_typeParam]. Status values
+  /// go up in upper case (`status=OVERDUE`) to match the backend.
+  String? get _statusParam {
+    final picked = state.selectedStatus?.trim() ?? '';
+    return picked.isNotEmpty
+        ? picked.toUpperCase()
+        : state.activeFilter?.statusParam;
+  }
 
   /// Monotonic load generation. Bumped whenever the logical list query changes
   /// (a fresh [loadTransactions], an [applyFilter], or a [setDateRange] — the
@@ -177,9 +212,151 @@ class TransactionsCubit extends Cubit<TransactionsState> {
   /// reloads the Transactions list from page 0 scoped to it. The overview
   /// totals are intentionally left untouched — they always reflect the full
   /// date range so the stat bar keeps showing every bucket.
+  /// Applies a stat-bar legend filter. It owns the same `type`/`status` params
+  /// as the funnel sheet, so it clears the sheet's Type/Status selections —
+  /// otherwise the two would each overwrite half of the other's query.
   Future<void> applyFilter(TransactionFilter? filter) async {
-    if (state.activeFilter == filter) return;
-    emit(state.copyWith(activeFilter: () => filter));
+    if (state.activeFilter == filter &&
+        (state.selectedType ?? '').isEmpty &&
+        (state.selectedStatus ?? '').isEmpty) {
+      return;
+    }
+    emit(state.copyWith(
+      activeFilter: () => filter,
+      selectedType: () => null,
+      selectedStatus: () => null,
+    ));
+    await loadTransactions();
+  }
+
+  /// Loads the funnel sheet's classroom and tag options.
+  ///
+  /// Non-fatal: the list is the screen's job, so an outage here leaves it
+  /// rendered (the sheet simply offers fewer facets) rather than erroring.
+  Future<void> loadFilterOptions() async {
+    if (isClosed || state.classroomNames.isNotEmpty) return;
+    try {
+      final school =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final List<Classroom> classrooms =
+          await _getActiveClassrooms(schoolCode: school);
+      final Map<String, String> tagNameToCode =
+          await _getTagNameCodeMap(schoolCode: school);
+
+      final classroomNameToCode = <String, String>{
+        for (final c in classrooms)
+          if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
+      };
+
+      if (isClosed) return;
+      emit(state.copyWith(
+        classroomNames: classroomNameToCode.keys.toList(),
+        classroomNameToCode: classroomNameToCode,
+        tagNames: tagNameToCode.keys.toList()..sort(),
+        tagNameToCode: tagNameToCode,
+      ));
+    } catch (_) {
+      // Options stay empty; the sheet hides those sections.
+    }
+  }
+
+  /// Applies every funnel selection at once.
+  ///
+  /// [type] and [status] are sent to the transactions endpoint, so they
+  /// refetch from page 0. [classroomNames] and [tagNames] are not supported by
+  /// that endpoint — they're resolved through the student list API and
+  /// intersected with each row's `studentCode` (see
+  /// [TransactionsState.visibleTransactions]).
+  Future<void> applyTransactionFilters({
+    required String? type,
+    required String? status,
+    required List<String> classroomNames,
+    required List<String> tagNames,
+  }) async {
+    final hasStudentFacet =
+        classroomNames.isNotEmpty || tagNames.isNotEmpty;
+    final pickedType = (type ?? '').trim();
+    final pickedStatus = (status ?? '').trim();
+
+    emit(state.copyWith(
+      selectedType: () => pickedType.isEmpty ? null : pickedType,
+      selectedStatus: () => pickedStatus.isEmpty ? null : pickedStatus,
+      selectedClassroomNames: classroomNames,
+      selectedTagNames: tagNames,
+      // An explicit Type/Status pick supersedes the legend filter.
+      activeFilter: () => pickedType.isEmpty && pickedStatus.isEmpty
+          ? state.activeFilter
+          : null,
+      matchingStudentCodes: () => null,
+      isApplyingFilters: hasStudentFacet,
+    ));
+
+    // Type/Status changed the server query, so the list reloads from page 0.
+    final reload = loadTransactions();
+    if (!hasStudentFacet) {
+      await reload;
+      return;
+    }
+    await Future.wait<void>([reload, _resolveStudentCodes(classroomNames, tagNames)]);
+  }
+
+  Future<void> _resolveStudentCodes(
+    List<String> classroomNames,
+    List<String> tagNames,
+  ) async {
+    // Reuses the list generation: a newer list query (filter, date change or
+    // refresh) invalidates this lookup too.
+    final gen = _generation;
+    try {
+      final school =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final classroomCodes = classroomNames
+          .map((n) => state.classroomNameToCode[n])
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+      final tagCodes = tagNames
+          .map((n) => state.tagNameToCode[n])
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      final page = await _getStudentPage(
+        schoolCode: school,
+        classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+        tagCodes: tagCodes.isEmpty ? null : tagCodes,
+        page: 0,
+        size: _studentLookupSize,
+      );
+      if (isClosed || gen != _generation) return;
+      emit(state.copyWith(
+        matchingStudentCodes: () => page.items
+            .map((s) => s.code.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet(),
+        isApplyingFilters: false,
+      ));
+    } catch (e) {
+      if (isClosed || gen != _generation) return;
+      // Leave the restriction unset so the list stays usable, and say why.
+      emit(state.copyWith(
+        isApplyingFilters: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
+  /// Drops every funnel selection and the legend filter, then reloads.
+  Future<void> clearFilters() async {
+    emit(state.copyWith(
+      activeFilter: () => null,
+      selectedType: () => null,
+      selectedStatus: () => null,
+      selectedClassroomNames: const <String>[],
+      selectedTagNames: const <String>[],
+      matchingStudentCodes: () => null,
+      isApplyingFilters: false,
+    ));
     await loadTransactions();
   }
 
@@ -200,14 +377,13 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         emit(state.copyWith(isLoading: false, transactions: const []));
         return;
       }
-      final filter = state.activeFilter;
       final result = await _getTransactions(
         organizationCode: org,
         school: school,
         dateFrom: dateFrom ?? state.dateFrom,
         dateTo: dateTo ?? state.dateTo,
-        type: filter?.typeParam,
-        status: filter?.statusParam,
+        type: _typeParam,
+        status: _statusParam,
         page: 0,
         size: _pageSize,
       );
@@ -243,14 +419,13 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final filter = state.activeFilter;
       final result = await _getTransactions(
         organizationCode: org,
         school: school,
         dateFrom: state.dateFrom,
         dateTo: state.dateTo,
-        type: filter?.typeParam,
-        status: filter?.statusParam,
+        type: _typeParam,
+        status: _statusParam,
         page: nextPage,
         size: _pageSize,
       );
