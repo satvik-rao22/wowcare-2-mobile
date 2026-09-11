@@ -36,7 +36,7 @@ class ReportFormLauncher {
     BuildContext context,
     String assetCode,
     String fileName, {
-    bool previewPdfInApp,
+    bool previewInApp,
   })
   onDownloadReport;
 
@@ -219,7 +219,7 @@ class ReportFormLauncher {
               context,
               assetCode,
               report.fileName ?? 'report.xlsx',
-              previewPdfInApp: true,
+              previewInApp: true,
             ),
           );
         } else {

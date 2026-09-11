@@ -25,6 +25,13 @@ Future<String> _hashFileSha256Base64(String path) async {
   return base64Encode(digest.bytes);
 }
 
+/// Which kind of profile a photo belongs to, for [ImageUploadService.deleteProfilePhoto].
+///
+/// Declared here rather than in `image_upload_models.dart` because that file
+/// holds only the upload-session/presign DTOs and no enums; this is the single
+/// discriminator for the one method that needs it.
+enum ProfilePhotoOwner { student, guardian, staff }
+
 class ImageUploadService {
   ImageUploadService(this._apiClient);
 
@@ -1206,6 +1213,105 @@ class ImageUploadService {
     );
     if (profileUrl.isNotEmpty) return profileUrl;
     throw Exception('Profile photo URL missing after finalize');
+  }
+
+  /// Deletes [code]'s profile photo. Returns normally on success; the caller
+  /// then runs its own post-success reset (clear the state field, forget the
+  /// cached avatar URL, snackbar).
+  ///
+  /// Deliberately NOT opted out of the 401-refresh auto-replay (unlike the
+  /// upload mutations' [_noReplayOptions]): a replayed delete is harmless —
+  /// the second one just 404s, which this method already treats as
+  /// "already deleted" — and opting out would suppress the refresh-then-retry
+  /// that every other call gets.
+  Future<void> deleteProfilePhoto({
+    required ProfilePhotoOwner owner,
+    required String code,
+  }) async {
+    final trimmedCode = code.trim();
+
+    // One switch picks BOTH the path and the microservice host, mirroring how
+    // each finalize* method pairs its own path with a base URL: staff uses
+    // [ApiConstants.staffBaseUrl], student uses [ApiConstants.studentBaseUrl],
+    // and guardian ALSO uses the student base (the guardian resource is served
+    // by the student MS — see [finalizeGuardianProfilePhoto], which does the
+    // same). URL assembly itself is the same `ApiPaths.urlWithBase(path, base)`
+    // all three already use.
+    late final String path;
+    late final String baseUrl;
+    switch (owner) {
+      case ProfilePhotoOwner.student:
+        path = ApiPaths.studentDeleteProfilePhotoPath(trimmedCode);
+        baseUrl = ApiConstants.studentBaseUrl;
+        break;
+      case ProfilePhotoOwner.guardian:
+        path = ApiPaths.guardianDeleteProfilePhotoPath(trimmedCode);
+        baseUrl = ApiConstants.studentBaseUrl;
+        break;
+      case ProfilePhotoOwner.staff:
+        path = ApiPaths.staffDeleteProfilePhotoPath(trimmedCode);
+        baseUrl = ApiConstants.staffBaseUrl;
+        break;
+    }
+    final endpoint = ApiPaths.urlWithBase(path, baseUrl);
+
+    // Debug builds only (AppLogger.d no-ops in release). URL + owner only —
+    // never the headers or the bearer token, which the interceptor owns.
+    AppLogger.d('[photo] delete ${owner.name} photo → POST $endpoint');
+
+    final Response<dynamic> response;
+    try {
+      response = await _apiClient.client.post<dynamic>(
+        endpoint,
+        data: const <String, dynamic>{},
+      );
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 404) {
+        // ALREADY DELETED — the user's intent is already satisfied, so this is
+        // success, not an error. Covers double-tap and a stale UI offering
+        // delete for a photo that is already gone.
+        //
+        // OPEN RISK: this branch cannot tell "no photo to delete" apart from
+        // "no such entity". If a wrong identifier is ever passed (e.g. a `USR_*`
+        // user code where the guardian endpoint wants `GUA_*`), every call would
+        // 404 and this would report success while the server keeps the photo.
+        // That is why step 7 verifies guardian deletion survives an app restart
+        // rather than trusting the snackbar.
+        AppLogger.d(
+          '[photo] delete ${owner.name} $trimmedCode → 404, treating as '
+          'already deleted',
+        );
+        return;
+      }
+      if (status == 401 || status == 403) {
+        // Propagate untouched so the session interceptor's refresh-then-retry
+        // runs exactly as it does for every other call. Logged (not swallowed)
+        // so a staff my-profile scope rejection is greppable: a 403 here is the
+        // signal that the endpoint refused an admin acting on someone else.
+        AppLogger.w(
+          '[photo] delete REJECTED $status for ${owner.name} $trimmedCode',
+        );
+        rethrow;
+      }
+      // Timeout, offline, 500, anything else: propagate unchanged. No retry
+      // loop, no special-casing — same as every other delete in the app.
+      rethrow;
+    }
+
+    // Same unwrap/throw shape as [finalizeStaffProfilePhoto]: a 2xx is NOT
+    // success on its own, and the server's own `message` is user-showable, so
+    // it is surfaced verbatim rather than replaced with a generic string.
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected delete-profile-photo response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Unable to delete profile photo',
+      );
+    }
   }
 
   Future<String> _waitForDocumentAssetUrlByCode({

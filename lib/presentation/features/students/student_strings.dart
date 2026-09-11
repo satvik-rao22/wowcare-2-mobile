@@ -239,6 +239,8 @@ class StudentStrings {
   static const String profileInformation = 'Profile Information';
   static const String profilePhoto = 'Profile Photo';
   static const String profilePhotoUpdatedSuccessfully = 'Profile photo updated successfully';
+  static const String profilePhotoDeletedSuccessfully = 'Profile photo deleted successfully';
+  static const String failedToDeleteProfilePhoto = 'Failed to delete profile photo:';
   static const String reactivate = 'Reactivate';
   static const String registrationForms = 'Registration Forms';
   static const String relation = 'Relation';
