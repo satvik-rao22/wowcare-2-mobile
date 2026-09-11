@@ -225,7 +225,15 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final toDate = now;
 
     await Future.wait([
-      myChildsDayCubit.loadForChild(studentCode: selectedChild.code),
+      // `background: true` is what makes this a refresh at all — without it
+      // loadForChild sees the same child already loaded and returns without
+      // fetching anything, so pull-to-refresh never reached the API (and the
+      // sign-in PIN never changed). Matches the forceRefresh on its sibling
+      // call below.
+      myChildsDayCubit.loadForChild(
+        studentCode: selectedChild.code,
+        background: true,
+      ),
       studentAttendanceProfileCubit.loadAttendanceProfile(
         studentCode: selectedChild.code,
         fromDate: fromDate,
