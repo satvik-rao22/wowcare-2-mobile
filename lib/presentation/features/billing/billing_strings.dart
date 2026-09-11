@@ -56,6 +56,7 @@ class BillingStrings {
   static const String cardHolderCaps = 'CARD HOLDER';
   static const String cardNumber = 'Card Number';
   static const String checking = 'Checking';
+  static const String classroom = 'Classroom';
   static const String chequeNumber = 'Cheque Number';
   static const String confirm = 'Confirm';
   static const String confirmPayment = 'Confirm Payment';
@@ -102,6 +103,7 @@ class BillingStrings {
   static const String discover = 'Discover';
   static const String done = 'Done';
   static const String download = 'Download';
+  static const String draft = 'Draft';
   static const String downloadingStatementPdf = 'Downloading statement PDF…';
   static const String dueDate = 'Due Date: ';
   static const String dueDateColon = 'Due Date : ';
@@ -225,6 +227,7 @@ class BillingStrings {
   static const String oneTimeInvoice = 'One-Time Invoice';
   static const String openBalance = 'Open Balance';
   static const String outstanding = 'Outstanding';
+  static const String overdue = 'Overdue';
   static const String paid = 'Paid';
   static const String parents = 'Parents: ';
   static const String payNow = 'Pay Now';

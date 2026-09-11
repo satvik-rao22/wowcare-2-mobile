@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
@@ -53,6 +55,15 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
       serviceLocator<FamilySummaryCubit>();
   final TextEditingController _searchController = TextEditingController();
 
+  /// Student status options for the funnel sheet, matching the app-wide
+  /// student filter (`StudentFilterScreen`). Single-select — they're mutually
+  /// exclusive, and the student list API takes one `status`.
+  static const List<String> _studentStatusOptions = <String>[
+    'Active',
+    'Inactive',
+    'Upcoming',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -75,15 +86,15 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
     widget.onNavigateToTransactions?.call(filter);
   }
 
-  /// Opens the funnel sheet for the family list. Options come from the loaded
-  /// rows (see [FamilySummaryState.availableInvoiceStatuses]), so this waits
-  /// for data rather than showing an empty sheet.
+  /// Opens the funnel sheet for the family list. Classroom and tag options are
+  /// loaded from their APIs by the cubit, so this waits for that data rather
+  /// than showing an empty sheet.
   Future<void> _openFilter() async {
     final state = _familyCubit.state;
-    final statuses = state.availableInvoiceStatuses;
-    final methods = state.availablePaymentMethods;
+    final classrooms = state.classroomNames;
+    final tags = state.tagNames;
 
-    if (statuses.isEmpty && methods.isEmpty) {
+    if (classrooms.isEmpty && tags.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: BillingStrings.noFilterOptionsYet,
@@ -96,29 +107,42 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
       MaterialPageRoute<void>(
         builder: (_) => FilterScreen(
           sections: [
-            if (statuses.isNotEmpty)
+            if (classrooms.isNotEmpty)
               FilerSection(
-                label: BillingStrings.lastPaymentStatus,
-                items: statuses,
-                initialSelected: state.invoiceStatuses.toList(),
+                label: BillingStrings.classroom,
+                items: classrooms,
+                initialSelected: state.selectedClassroomNames,
               ),
-            if (methods.isNotEmpty)
+            if (tags.isNotEmpty)
               FilerSection(
-                label: BillingStrings.paymentMethod,
-                items: methods,
-                initialSelected: state.paymentMethods.toList(),
+                label: BillingStrings.tags,
+                items: tags,
+                initialSelected: state.selectedTagNames,
               ),
+            FilerSection(
+              label: BillingStrings.status,
+              items: _studentStatusOptions,
+              initialSelected: [
+                if ((state.selectedStatus ?? '').isNotEmpty)
+                  state.selectedStatus!,
+              ],
+              // Mutually exclusive, so a single-value dropdown rather than
+              // checkboxes. Note it has no "clear" entry — Clear All resets it.
+              isSingleSelect: true,
+            ),
           ],
           // A section left out above (no options) yields no key here, which
           // clears that dimension — correct, since it had nothing to select.
-          onApply: (applied) => _familyCubit.setFilters(
-            invoiceStatuses:
-                (applied[BillingStrings.lastPaymentStatus] ?? const <String>[])
-                    .toSet(),
-            paymentMethods:
-                (applied[BillingStrings.paymentMethod] ?? const <String>[])
-                    .toSet(),
-          ),
+          onApply: (applied) {
+            final pickedStatus =
+                applied[BillingStrings.status] ?? const <String>[];
+            unawaited(_familyCubit.applyFilters(
+              classroomNames:
+                  applied[BillingStrings.classroom] ?? const <String>[],
+              tagNames: applied[BillingStrings.tags] ?? const <String>[],
+              status: pickedStatus.isEmpty ? null : pickedStatus.first,
+            ));
+          },
         ),
       ),
     );
@@ -308,7 +332,11 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                       const SizedBox(height: 8),
                       FamilySummaryList(
                         families: familyState.filteredFamilies,
-                        isLoading: familyState.isLoading,
+                        // Also covers the student-code lookup behind a
+                        // classroom/tag/status pick, so the list doesn't show
+                        // stale rows while that request is in flight.
+                        isLoading: familyState.isLoading ||
+                            familyState.isApplyingFilters,
                         errorMessage: familyState.errorMessage,
                         onBillingProfile: (family) => context.push(
                           TransactionDetailsScreen.routeName,

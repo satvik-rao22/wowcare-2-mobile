@@ -4,6 +4,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Legacy-compatible participant chips for ParentMessagingThread.
@@ -57,16 +58,12 @@ class ParentParticipantChips extends StatelessWidget {
               ? p.userName
               : _roleFallbackName(roleStr);
           final color = _roleColor(roleStr);
-          const staffRoles = {
-            'STAFF',
-            'TEACHER',
-            'ADMIN',
-            'DIRECTOR',
-            'PRINCIPAL',
-            'ASSISTANT_DIRECTOR',
-            'LEAD_TEACHER',
-          };
-          final isStaffPersona = staffRoles.contains(p.role.toUpperCase());
+          final avatar = ParticipantAvatarSource.of(
+            avatarUrl: p.avatarUrl,
+            staffCode: p.staffCode,
+            userCode: p.userCode,
+            role: p.role,
+          );
 
           return Container(
             padding: const EdgeInsets.symmetric(
@@ -84,15 +81,10 @@ class ParentParticipantChips extends StatelessWidget {
                 DocumentImageWidget(
                   disableAttendanceStatusLookup: true,
                   fileUuid: '',
-                  imageUrl: (p.avatarUrl ?? '').startsWith('http')
-                      ? p.avatarUrl
-                      : null,
-                  mediaAssetCode:
-                      (p.avatarUrl ?? '').isNotEmpty &&
-                          !(p.avatarUrl ?? '').startsWith('http')
-                      ? p.avatarUrl
-                      : null,
-                  staffCode: isStaffPersona ? p.staffCode : null,
+                  imageUrl: avatar.imageUrl,
+                  mediaAssetCode: avatar.mediaAssetCode,
+                  staffCode: avatar.staffCode,
+                  userCode: avatar.userCode,
                   name: name,
                   size: 16,
                   fontSize: 9,

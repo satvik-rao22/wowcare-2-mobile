@@ -23,6 +23,7 @@ class StudentStrings {
   static const String addStudentStep1Of3 = 'Add Student - Step 1 of 3';
   static const String addStudentStep3Of3Optional = 'Add Student - Step 3 of 3 (Optional)';
   static const String address = 'Address';
+  static const String allImmunizationsMarkedExempt = 'All immunizations marked as exempt';
   static const String allergies = 'Allergies';
   static const String applyFilters = 'Apply Filters';
   static const String assistantTeacher = 'assistant teacher';
@@ -47,6 +48,8 @@ class StudentStrings {
   static const String classroomIsRequired = 'Classroom is required';
   static const String close = 'Close';
   static const String completed = 'Completed';
+  static const String confirmation = 'Confirmation';
+  static const String confirmExemptAllImmunizations = 'Are you sure you want to exempt student from all immunizations?';
   static const String completedDateCannotBeAFutureDatePleaseSelectTo = 'Completed date cannot be a future date. Please select today or a past date.';
   static const String continueAnyway = 'Continue anyway';
   static const String copyToAllDays = 'Copy to all days';
@@ -99,7 +102,6 @@ class StudentStrings {
   static const String errorSelectingFilePleaseTryAgain = 'Error selecting file. Please try again.';
   static const String exempt = 'Exempt';
   static const String exemptStudentsFromImmunizations = 'Exempt students from immunizations';
-  static const String exemptionReason = 'Exemption Reason *';
   static const String expected = 'Expected';
   static const String expectedNstudents = 'Expected\nStudents';
   static const String expiryDate = 'Expiry Date';
@@ -374,6 +376,7 @@ class StudentStrings {
   static const String wednesday = 'Wednesday';
   static const String wouldYouLikeToAddAnyOfThemAsSiblings = 'Would you like to add any of them as siblings?';
   static const String yes = 'Yes';
+  static const String yesExemptAll = 'Yes, Exempt All';
   static const String youCannotMarkAttendanceForInactiveStudent = 'You cannot mark attendance for inactive student.';
   static const String youCannotRecordActivitiesForInactiveStudent = 'You cannot record activities for inactive student.';
   static const String youDoNotHaveAccessToThisAreaForYourSelectedSch = 'You do not have access to this area for your selected school.';
