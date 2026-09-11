@@ -5,11 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/guardian_clock_pin_resolver.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -132,36 +132,13 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
             (await _storageService.getString(StorageKeys.guardianCode) ?? '')
                 .trim();
 
-        final withPin = guardians
-            .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
-            .toList(growable: false);
-
-        StudentGuardian? matchForUser;
-        if (loggedInUserCode.isNotEmpty || loggedInGuardianCode.isNotEmpty) {
-          for (final g in withPin) {
-            if (loggedInUserCode.isNotEmpty &&
-                g.userCode.trim() == loggedInUserCode) {
-              matchForUser = g;
-              break;
-            }
-            if (loggedInGuardianCode.isNotEmpty &&
-                g.guardianCode.trim() == loggedInGuardianCode) {
-              matchForUser = g;
-              break;
-            }
-          }
-        }
-
-        final primaryWithPin = withPin
-            .where((g) => g.primaryContact)
-            .firstOrNull;
-
-        guardianClockPin =
-            ((matchForUser?.clockPin) ??
-                    (primaryWithPin?.clockPin) ??
-                    (withPin.firstOrNull?.clockPin) ??
-                    '')
-                .trim();
+        // Shared with the app bar's kebab menu, so the PIN on this card and the
+        // one in the menu can't drift apart.
+        guardianClockPin = selectGuardianClockPin(
+          guardians: guardians,
+          loggedInUserCode: loggedInUserCode,
+          loggedInGuardianCode: loggedInGuardianCode,
+        );
       } catch (_) {
         // Non-blocking: pin is optional for dashboard display.
       }

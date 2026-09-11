@@ -40,9 +40,15 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
   @override
   void initState() {
     super.initState();
+    // Default the range to the current week, Monday through Sunday. Calendar
+    // arithmetic (not `subtract(Duration(days:))`) so a DST boundary inside the
+    // week can't land the result an hour short and roll it onto the wrong day.
     final now = AppTime.now();
-    _startDate = ValueNotifier<DateTime>(now);
-    _endDate = ValueNotifier<DateTime>(now.add(const Duration(days: 6)));
+    final monday = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    final sunday = DateTime(monday.year, monday.month, monday.day + 6);
+
+    _startDate = ValueNotifier<DateTime>(monday);
+    _endDate = ValueNotifier<DateTime>(sunday);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {

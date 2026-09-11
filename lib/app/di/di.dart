@@ -1090,6 +1090,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ReportsRepositoryImpl(
       serviceLocator<ReportsRemoteDataSource>(),
       serviceLocator<StorageService>(),
+      serviceLocator<ApiClient>(),
     ),
   );
 
