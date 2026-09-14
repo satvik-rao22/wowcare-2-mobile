@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/data/features/reports/models/report_request_payload.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -32,11 +33,15 @@ class FakeRemoteDataSource extends Fake implements ReportsRemoteDataSource {
   recentStudentManagementResponse;
   late Future<List<String>> Function() tagsResponse;
 
+  /// The payload the repository handed over on the last generate call.
+  ReportRequestPayload? lastPayload;
+
   @override
   Future<ReportResponseModel> generateReport({
     required ReportType reportType,
-    required Map<String, dynamic> requestBody,
+    required ReportRequestPayload payload,
   }) async {
+    lastPayload = payload;
     if (shouldThrow) throw Exception('API Error');
     return generateReportResponse();
   }
@@ -134,7 +139,9 @@ void main() {
     fakeDataSource = FakeRemoteDataSource();
     fakeStorageService = FakeStorageService();
     serviceLocator.registerSingleton<StorageService>(fakeStorageService);
-    serviceLocator.registerSingleton<AuthLocalDataSource>(_FakeAuthLocalDataSource());
+    serviceLocator.registerSingleton<AuthLocalDataSource>(
+      _FakeAuthLocalDataSource(),
+    );
     repository = ReportsRepositoryImpl(fakeDataSource, fakeStorageService);
   });
 

@@ -1,10 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
@@ -575,8 +575,9 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
 
   // ─── Realtime streams (Firestore) ────────────────────────────────────────────
 
-  /// Coarse persona bucket ('ADMIN' / 'GUARDIAN') matching the keys on a
-  /// user_inbox doc's `unreadByRole` map — see
+  /// Coarse persona bucket ('STAFF' / 'ADMIN' / 'GUARDIAN') matching the
+  /// keys on a user_inbox doc's `unreadByRole` map (== each conversation's
+  /// `participantType`: STAFF / ADMIN / GUARDIAN) — see
   /// [resolveRoleAwareUnreadCount]'s own doc for why this matters. Sourced
   /// from [resolveActiveBackendRole], the same single source of truth the
   /// `x-role` request header uses, so a dual-role account's unread badges
@@ -591,9 +592,20 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   /// ADMIN` instead of `.GUARDIAN` — a stale count their own read receipts
   /// never touch, which for a dual-role (guardian + admin/staff) account
   /// looked like the badge never decrementing after reading as guardian.
+  ///
+  /// This was previously a 2-way ADMIN/GUARDIAN split with no STAFF bucket
+  /// at all, so every plain staff account (x-role: STAFF, not admin/owner/
+  /// director) got mis-bucketed into 'ADMIN' here too — looking up
+  /// `unreadByRole.ADMIN` on a doc that only has a `.STAFF` entry for them,
+  /// which resolves to 0 every time (roleAwareNoEntry) regardless of their
+  /// real unread count. [roleStringIsStaffPersona] (tolerates `STAFF` and
+  /// `TEACHER`) is the same helper already used elsewhere in the app to
+  /// distinguish plain staff from admin-tier roles.
   Future<String> get _unreadRoleBucket async {
     final raw = await resolveActiveBackendRole(_storage);
-    return roleStringIsGuardianPersona(raw) ? 'GUARDIAN' : 'ADMIN';
+    if (roleStringIsGuardianPersona(raw)) return 'GUARDIAN';
+    if (roleStringIsStaffPersona(raw)) return 'STAFF';
+    return 'ADMIN';
   }
 
   @override

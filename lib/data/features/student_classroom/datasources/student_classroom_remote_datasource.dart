@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
+import '../../../../core/utils/storage_keys.dart';
 import '../models/student_classroom_models.dart';
 
 abstract class StudentClassroomRemoteDataSource {

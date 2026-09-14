@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/open_report_file_usecase.dart';
 import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
@@ -17,19 +19,30 @@ import 'package:wowcare/domain/features/reports/usecases/report_request_params.d
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
-import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_state.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/notification_badge_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/student_incident_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
+import 'package:wowcare/domain/features/student_classroom/repositories/student_classroom_repository.dart';
+import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_immunization_settings_usecase.dart';
+import 'package:wowcare/domain/features/reports/repositories/school_context_repository.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_code_usecase.dart';
+import 'package:wowcare/domain/features/reports/usecases/get_school_name_usecase.dart';
 
 class _FakeStorageService implements StorageService {
   final Map<String, dynamic> _data = {
@@ -174,13 +187,32 @@ void main() {
     );
 
     reportsCubit = ReportsCubit(
-      storageService: fakeStorage,
+      getSchoolCodeUseCase: GetSchoolCodeUseCase(
+        _FakeSchoolContextRepository(),
+      ),
+      getSchoolNameUseCase: GetSchoolNameUseCase(
+        _FakeSchoolContextRepository(),
+      ),
 
       generateReportUseCase: GenerateReportUseCase(fakeReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(fakeReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(fakeReportsRepo),
-      fileDownloadRepository: _FakeFileDownloadRepository(),
+      saveReportFileUseCase: SaveReportFileUseCase(
+        _FakeFileDownloadRepository(),
+      ),
+      openReportFileUseCase: OpenReportFileUseCase(
+        _FakeFileDownloadRepository(),
+      ),
+      getActiveClassroomsUseCase: GetActiveClassroomsUseCase(
+        _FakeClassroomRepository(const <String, String>{}),
+      ),
+      getStudentClassroomListUseCase: GetStudentClassroomListUseCase(
+        _FakeStudentClassroomRepo(),
+      ),
+      getImmunizationSettingsUseCase: GetImmunizationSettingsUseCase(
+        _FakeStudentRepository(),
+      ),
       getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
         mockStudentRepo,
       ),
@@ -217,38 +249,59 @@ void main() {
         BlocProvider<AuthCubit>(create: (_) => _MockAuthCubit()),
         BlocProvider<ReportsCubit>.value(value: reportsCubit),
       ],
-      child: MaterialApp(
-        home: StudentIncidentReportScreen(students: testStudents),
+      child: MaterialApp.router(
+        // The form screens are GoRoute children of the reports hub,
+        // so they must be hosted by a router here too: they call
+        // context.pop(ReportFormResult) on success, which needs both a
+        // GoRouter in scope and a page beneath them to pop back to.
+        routerConfig: GoRouter(
+          initialLocation: '/form',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const SizedBox.shrink(),
+              routes: [
+                GoRoute(
+                  path: 'form',
+                  builder: (_, __) =>
+                      StudentIncidentReportScreen(students: testStudents),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   testWidgets(
-    'StudentIncidentReportScreen auto-selects all students by default and does not show classroom dropdown',
+    'StudentIncidentReportScreen selects no student by default and does not show classroom dropdown',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Verify student multi-select filter field exists and has all students selected
+      // The student filter starts empty and reads "All Students" — nothing is
+      // pre-selected, and an empty filter already means every student.
       final studentFieldFinder = find.byType(MultiSelectFilterField<String>);
       expect(studentFieldFinder, findsOneWidget);
 
       final studentField = tester.widget<MultiSelectFilterField<String>>(
         studentFieldFinder,
       );
-      expect(studentField.selectedItems, equals(testStudents));
+      expect(studentField.selectedItems, isEmpty);
+      expect(find.text('All Students'), findsOneWidget);
 
       // Verify Classroom dropdown is not rendered
-      expect(find.text('Select Classroom'), findsNothing);
+      expect(find.text('All Classrooms'), findsNothing);
       expect(
-        find.text('Note: All Classrooms will be selected by Default.'),
+        find.textContaining('All Classrooms are included'),
         findsNothing,
       );
     },
   );
 
   testWidgets(
-    'Tapping Generate generates student incident report without classroom codes',
+    'Tapping Generate generates student incident report with no student or classroom filter',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
@@ -263,8 +316,65 @@ void main() {
       expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
       final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, equals(ReportType.studentIncident));
-      expect(params.studentCodes, equals(['STU-001', 'STU-002', 'STU-003']));
+      // Nothing selected → "all students" is the absence of the key, never an
+      // implicitly expanded list of every code.
+      expect(params.studentCodes, isNull);
       expect(params.roomCodes, isNull);
     },
   );
+}
+
+/// Returns the fixture classrooms so the form's `loadFormClassrooms` call
+/// resolves to the same list the screen was handed, matching what the old
+/// in-view fetch produced.
+class _FakeClassroomRepository implements ClassroomRepository {
+  _FakeClassroomRepository(this.nameToCode);
+
+  final Map<String, String> nameToCode;
+
+  @override
+  Future<List<Classroom>> getActiveClassrooms({
+    required String schoolCode,
+    bool onlyTypeClassroom = true,
+    String? typeOverride,
+  }) async => nameToCode.entries
+      .map((e) => Classroom(code: e.value, name: e.key))
+      .toList();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The reports cubit now owns the per-classroom student fetch, so it needs a
+/// student-classroom source. These screens never exercise it; an empty source
+/// keeps construction valid without changing what the tests assert.
+class _FakeStudentClassroomRepo implements StudentClassroomRepository {
+  @override
+  Future<List<StudentClassroomItem>> getStudentClassroomList({
+    required String schoolCode,
+    required String classroomCode,
+    String? firstName,
+    String? lastName,
+    String? search,
+    List<String>? studentCodes,
+    List<String>? tagCodes,
+    List<String>? guardianCodes,
+    List<String>? status,
+    String? attendanceStatus,
+    bool refresh = false,
+  }) async => const <StudentClassroomItem>[];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Mirrors the fake storage service the tests already install: school code
+/// and name resolve to the same fixture values the cubit used to read
+/// straight off StorageService.
+class _FakeSchoolContextRepository implements SchoolContextRepository {
+  @override
+  Future<String> getSchoolCode() async => 'school-123';
+
+  @override
+  Future<String> getSchoolName() async => 'Test School';
 }

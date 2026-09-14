@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/data/features/billing/models/auto_pay_models.dart';
 
 abstract class AutoPayRemoteDataSource {

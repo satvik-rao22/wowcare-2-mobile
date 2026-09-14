@@ -1,4 +1,4 @@
-import '../../../../domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 
 /// One row from `GET /api/v1/invoices/transactions` (UAT: `accounts/invoices/...`).
 class InvoiceTransactionModel {

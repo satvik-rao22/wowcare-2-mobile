@@ -1,7 +1,7 @@
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 
 import '../core/utils/reg_time_zone.dart';
 

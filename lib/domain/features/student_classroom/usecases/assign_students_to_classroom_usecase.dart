@@ -1,4 +1,4 @@
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
 import '../repositories/student_classroom_repository.dart';
 
 class AssignStudentsToClassroomUseCase {

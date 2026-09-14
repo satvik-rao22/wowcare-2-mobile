@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/colors.dart';
-import '../../../../shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 /// Resolves which student rows to PATCH when saving an edit.
 ///
@@ -93,11 +94,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                 const Expanded(
                   child: Text(
                     'Select All',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: Color(0xff573353),
-                    ),
+                    style: AppTextStyles.activityBodyValue,
                   ),
                 ),
               ],
@@ -135,8 +132,11 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.themeColor, width: 1),
-                        color: Colors.white,
+                        border: Border.all(
+                          color: AppColors.themeColor,
+                          width: 1,
+                        ),
+                        color: AppColors.cardColor,
                       ),
                       child: Row(
                         children: [
@@ -151,11 +151,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                             backgroundColor: AppColors.themeColor,
                             child: Text(
                               initials.isEmpty ? 'S' : initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.activitySmallBadgeText,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -165,11 +161,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                               maxLines: 2,
                               softWrap: true,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                color: Color(0xff573353),
-                              ),
+                              style: AppTextStyles.activityBodyValue,
                             ),
                           ),
                         ],

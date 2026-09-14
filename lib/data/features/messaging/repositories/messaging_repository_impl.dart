@@ -1,6 +1,6 @@
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../core/util/attendance_classroom_scope.dart';
+import '../../../../core/utils/storage_keys.dart';
+import '../../../../core/utils/attendance_classroom_scope.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/messaging/repositories/messaging_repository.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 /// Gradient switch used across the app for compact toggles.
 class GradientToggleButton extends StatelessWidget {

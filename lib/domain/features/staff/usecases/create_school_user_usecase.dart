@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
 import '../entities/create_school_user_result.dart';
 import '../repositories/staff_repository.dart';
 

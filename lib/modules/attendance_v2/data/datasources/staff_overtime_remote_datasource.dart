@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 
 /// Calls the overtime endpoints using the host app's Dio client (so the auth +
 /// org/school header interceptors apply automatically).

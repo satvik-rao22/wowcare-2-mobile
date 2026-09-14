@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/core/util/notification_events.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/active_school_switcher.dart';
+import 'package:wowcare/core/utils/notification_events.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -19,7 +20,7 @@ import 'package:wowcare/src/app_router.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../widgets/notification_category_style.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
-import '../cubit/notification_center_cubit.dart';
+import '../view_model/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
 
@@ -159,9 +160,9 @@ class _Header extends StatelessWidget {
                       final module = (label == null)
                           ? null
                           : labelToModule[label];
-                      context
-                          .read<NotificationCenterCubit>()
-                          .setModuleFilter(module);
+                      context.read<NotificationCenterCubit>().setModuleFilter(
+                        module,
+                      );
                     },
                   ),
                 ),
@@ -329,14 +330,31 @@ class _NotificationsListState extends State<_NotificationsList> {
       );
     }
     // Resolve with the persona: billing opens the PARENT billing screen for
-    // guardians and the admin billing screen for staff/admins. Without this a
-    // parent landed on the admin billing screen, which shows no data for them.
+    // guardians and the admin billing screen for staff/admins, and
+    // newsletter/pending-approval actions deep-link straight to the specific
+    // item for the admin persona (mirrors [NotificationNavigator]). Without
+    // this a parent landed on the admin billing screen, which shows no data
+    // for them.
     final destination = NotificationRouteResolver.resolve(
       message,
       isGuardian: roleCubit.isParent,
+      isAdminPersona: roleCubit.role == 'admin',
     );
     if (destination == null) return;
-    appRouter.go(destination.location);
+    // Keep the parent persona's sibling selector (the global child dropdown)
+    // in sync with whichever child this notification is about — otherwise
+    // tapping Child B's notification while Child A is selected navigates to
+    // Child B's screen but leaves the dropdown (and every other screen that
+    // reads ParentChildCubit) still showing Child A. Mirrors
+    // [NotificationNavigator], which already does this for an FCM tap; this
+    // in-app notification-center tap was missing it.
+    if (mounted && roleCubit.isParent) {
+      final studentCode = NotificationRouteResolver.studentCodeFor(message);
+      if (studentCode != null) {
+        context.read<ParentChildCubit>().selectByCode(studentCode);
+      }
+    }
+    appRouterGo(destination.location);
   }
 
   @override
@@ -363,10 +381,7 @@ class _NotificationsListState extends State<_NotificationsList> {
               ? ListView(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 120),
-                    _EmptyView(),
-                  ],
+                  children: const [SizedBox(height: 120), _EmptyView()],
                 )
               : ListView.separated(
                   controller: _scrollController,
@@ -461,10 +476,7 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

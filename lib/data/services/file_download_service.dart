@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:path_provider/path_provider.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 class FileDownloadService {
   /// Returns the deterministic local cache location for [fileName] without

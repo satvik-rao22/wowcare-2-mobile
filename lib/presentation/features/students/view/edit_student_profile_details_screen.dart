@@ -1,10 +1,13 @@
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -13,23 +16,27 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_address_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_student_profile_request.dart';
+import 'package:wowcare/domain/features/student/entities/update_guardian_request.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_profile_edit_cubit.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -82,6 +89,13 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
 class _EditStudentProfileDetailsScreenState
     extends State<EditStudentProfileDetailsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  // Single cubit instance that routes every read/write for this screen through
+  // use cases → repository, so the view never touches StudentRepository or
+  // StudentRemoteDataSource directly. Closed in dispose().
+  final StudentProfileEditCubit _profileEditCubit =
+      serviceLocator<StudentProfileEditCubit>();
+
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -90,43 +104,60 @@ class _EditStudentProfileDetailsScreenState
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipCodeController = TextEditingController();
 
-  String? _selectedStatus;
-  String? _selectedStateSubsidyOption;
-  List<String> _selectedSiblings = [];
-  List<String> _selectedTags = [];
-  String? _selectedClassroom;
-  DateTime? _selectedBirthDate;
-  List<String> _selectedChildCustody = [];
-  String? _selectedState;
-  String? _selectedCountry;
-  bool _isSubmitting = false;
-
-  // Today's sign-in status — drives disabling the Classroom dropdown while
-  // the student is currently signed in. Fails closed (disabled) on error or
-  // while loading, matching the convention in student_attendance_profile.dart.
-  bool _isTodayStatusLoading = true;
-  bool _isSignedInToday = false;
-
-  // API-backed options and mappings
-  List<String> _availableTagNames = [];
-  Map<String, String> _tagNameToCode = {};
-
-  List<String> _availableStudentNames = [];
-  Map<String, String> _studentNameToCode = {};
-
-  List<String> _availableGuardianNames = [];
-  Map<String, String> _guardianNameToCode = {};
-  Map<String, bool> _guardianInitialCustody = {};
-  // Waitlist and Graduated removed: no mobile workflow exists for either
-  // status, so offering them here just let a student get stuck in a status
-  // nothing on mobile can act on. A student already carrying one of these
-  // (set elsewhere, e.g. web) still displays it correctly — CustomDropdown
-  // shows selectedItem as plain text and doesn't require it to be a member
-  // of items — this only removes them as something to select going forward.
+  // The full profile form model + server-fetched options/maps now live in
+  // StudentProfileEditCubit's state (see the `_selected*`/`_available*` getters
+  // below that read it). Guardians are kept as typed `StudentGuardian` records
+  // keyed by code (`guardianRawByCode`): the custody PATCH validates as a FULL
+  // update (firstName/lastName/email/mobile/relationToStudent/userCode/schoolCode
+  // all required), not a partial patch, so `legalCustody` alone 400s — the rest
+  // are echoed back from the loaded record.
+  //
+  // Waitlist and Graduated are intentionally omitted from the status options:
+  // no mobile workflow exists for either, so offering them just lets a student
+  // get stuck in a status nothing on mobile can act on. A student already
+  // carrying one (set on web) still displays it — CustomDropdown shows
+  // selectedItem as plain text without requiring membership in items.
   final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _genderOptions = const ['Male', 'Female', 'Other'];
-  String? _selectedGender;
+
+  // Read-through getters onto the cubit-owned form model — all writes go through
+  // the cubit setters; reads stay reactive under the build's BlocBuilder.
+  String? get _selectedStatus => _profileEditCubit.state.status;
+  String? get _selectedStateSubsidyOption =>
+      _profileEditCubit.state.stateSubsidyOption;
+  List<String> get _selectedSiblings =>
+      _profileEditCubit.state.selectedSiblings;
+  List<String> get _selectedTags => _profileEditCubit.state.selectedTags;
+  String? get _selectedClassroom => _profileEditCubit.state.classroom;
+  bool get _classroomChangedByUser =>
+      _profileEditCubit.state.classroomChangedByUser;
+  DateTime? get _selectedBirthDate => _profileEditCubit.state.birthDate;
+  List<String> get _selectedChildCustody =>
+      _profileEditCubit.state.selectedChildCustody;
+  String? get _selectedState => _profileEditCubit.state.stateName;
+  String? get _selectedCountry => _profileEditCubit.state.country;
+  String? get _selectedGender => _profileEditCubit.state.gender;
+  bool get _isSubmitting => _profileEditCubit.state.submitting;
+  bool get _isTodayStatusLoading =>
+      _profileEditCubit.state.isTodayStatusLoading;
+  bool get _isSignedInToday => _profileEditCubit.state.isSignedInToday;
+  List<String> get _availableTagNames =>
+      _profileEditCubit.state.availableTagNames;
+  Map<String, String> get _tagNameToCode =>
+      _profileEditCubit.state.tagNameToCode;
+  List<String> get _availableStudentNames =>
+      _profileEditCubit.state.availableStudentNames;
+  Map<String, String> get _studentNameToCode =>
+      _profileEditCubit.state.studentNameToCode;
+  List<String> get _availableGuardianNames =>
+      _profileEditCubit.state.availableGuardianNames;
+  Map<String, String> get _guardianNameToCode =>
+      _profileEditCubit.state.guardianNameToCode;
+  Map<String, bool> get _guardianInitialCustody =>
+      _profileEditCubit.state.guardianInitialCustody;
+  Map<String, StudentGuardian> get _guardianRawByCode =>
+      _profileEditCubit.state.guardianRawByCode;
   final List<String> _stateOptions = US_STATES
       .map((s) => s.name)
       .toList(growable: false);
@@ -181,18 +212,12 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
-    _selectedStatus = widget.initialStatus;
-    _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
-    _selectedClassroom = widget.initialClassroom;
-    _selectedBirthDate = widget.initialBirthDate;
-    _selectedTags = List<String>.from(widget.initialTags);
-    _selectedSiblings = List<String>.from(widget.initialSiblings);
-    _selectedChildCustody = List<String>.from(widget.initialLegalCustodians);
     _streetController.text = widget.initialStreet ?? '';
     _street2Controller.text = '';
     _cityController.text = widget.initialCity ?? '';
 
     // Map initial state (name or abbreviation) to display name from US_STATES.
+    String? initialStateName;
     if (widget.initialState != null && widget.initialState!.isNotEmpty) {
       final raw = widget.initialState!;
       final match = US_STATES.firstWhere(
@@ -201,18 +226,29 @@ class _EditStudentProfileDetailsScreenState
             s.abbreviation.toLowerCase() == raw.toLowerCase(),
         orElse: () => US_STATES.first,
       );
-      _selectedState = match.name;
+      initialStateName = match.name;
     }
-
-    // Country is fixed to United States on this screen.
-    _selectedCountry = 'United States';
 
     // Accept legacy stored formats: "12345", "123456789", or "12345-6789"
     final initialZipRaw = widget.initialZipCode ?? '';
     _zipCodeController.text = _formatUsZipForDisplay(initialZipRaw);
 
     final g = _genderDisplayFromApi(widget.initialGender);
-    _selectedGender = g != null && _genderOptions.contains(g) ? g : null;
+
+    // Controllers stay local; the rest of the form model seeds the cubit.
+    // Country is fixed to United States on this screen.
+    _profileEditCubit.initialize(
+      status: widget.initialStatus,
+      stateSubsidyOption: widget.initialSubsidy ? 'Yes' : 'No',
+      classroom: widget.initialClassroom,
+      birthDate: widget.initialBirthDate,
+      selectedTags: List<String>.from(widget.initialTags),
+      selectedSiblings: List<String>.from(widget.initialSiblings),
+      selectedChildCustody: List<String>.from(widget.initialLegalCustodians),
+      stateName: initialStateName,
+      country: 'United States',
+      gender: g != null && _genderOptions.contains(g) ? g : null,
+    );
 
     // Load dynamic dropdown data
     _loadTags();
@@ -228,7 +264,7 @@ class _EditStudentProfileDetailsScreenState
     final code = widget.studentCode.trim();
     if (code.isEmpty) {
       if (!mounted) return;
-      setState(() => _isTodayStatusLoading = false);
+      _profileEditCubit.setTodayStatus(isSignedInToday: false);
       return;
     }
     try {
@@ -239,18 +275,12 @@ class _EditStudentProfileDetailsScreenState
         isActiveProfile: true,
         todayStatusRaw: status,
       );
-      setState(() {
-        _isSignedInToday = gate.isSignedInToday;
-        _isTodayStatusLoading = false;
-      });
+      _profileEditCubit.setTodayStatus(isSignedInToday: gate.isSignedInToday);
     } catch (_) {
       if (!mounted) return;
       // Fail closed: keep the Classroom field disabled if the status can't
       // be determined, same convention as student_attendance_profile.dart.
-      setState(() {
-        _isSignedInToday = true;
-        _isTodayStatusLoading = false;
-      });
+      _profileEditCubit.setTodayStatus(isSignedInToday: true);
     }
   }
 
@@ -267,12 +297,15 @@ class _EditStudentProfileDetailsScreenState
       final nameCodeMap = await mapUseCase(schoolCode: schoolCode);
       if (!mounted) return;
 
-      setState(() {
-        _availableTagNames = names;
-        _tagNameToCode = nameCodeMap;
-        // Drop any selected tags that no longer exist.
-        _selectedTags.removeWhere((t) => !_availableTagNames.contains(t));
-      });
+      // Drop any selected tags that no longer exist.
+      final prunedTags = _profileEditCubit.state.selectedTags
+          .where(names.contains)
+          .toList();
+      _profileEditCubit.applyTagsLoaded(
+        names: names,
+        nameToCode: nameCodeMap,
+        selectedTags: prunedTags,
+      );
     } catch (_) {
       // Non-critical for this form; keep selections as-is.
     }
@@ -284,10 +317,8 @@ class _EditStudentProfileDetailsScreenState
       final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final repo = serviceLocator<StudentRepository>();
-
       // Always fetch from API (no cached student list for this dropdown).
-      final page = await repo.getStudentPage(
+      final page = await _profileEditCubit.fetchStudentPage(
         schoolCode: schoolCode,
         status: 'ACTIVE',
         page: 0,
@@ -331,23 +362,25 @@ class _EditStudentProfileDetailsScreenState
         codeToDisplay[code] = displayLabel;
       }
 
-      setState(() {
-        _availableStudentNames = names;
-        _studentNameToCode = nameToCode;
+      // If initial siblings are codes, map them to names for display; else
+      // ensure existing selected names still exist in the fetched list.
+      final List<String> selectedSiblings;
+      if (widget.initialSiblings.isNotEmpty) {
+        selectedSiblings = widget.initialSiblings
+            .map((code) => codeToDisplay[code] ?? code)
+            .where((n) => n.trim().isNotEmpty)
+            .toList();
+      } else {
+        selectedSiblings = _profileEditCubit.state.selectedSiblings
+            .where(names.contains)
+            .toList();
+      }
 
-        // If initial siblings are codes, map them to names for display.
-        if (widget.initialSiblings.isNotEmpty) {
-          _selectedSiblings = widget.initialSiblings
-              .map((code) => codeToDisplay[code] ?? code)
-              .where((n) => n.trim().isNotEmpty)
-              .toList();
-        } else {
-          // Ensure existing selected names still exist.
-          _selectedSiblings.removeWhere(
-            (name) => !_availableStudentNames.contains(name),
-          );
-        }
-      });
+      _profileEditCubit.applyStudentsLoaded(
+        names: names,
+        nameToCode: nameToCode,
+        selectedSiblings: selectedSiblings,
+      );
     } catch (_) {
       // Non-critical; leave siblings dropdown empty.
     }
@@ -356,70 +389,48 @@ class _EditStudentProfileDetailsScreenState
   Future<void> _loadGuardiansForCustody() async {
     try {
       if (widget.studentCode.trim().isEmpty) return;
-      final dataSource = serviceLocator<StudentRemoteDataSource>();
-      final guardians = await dataSource.getStudentGuardians(
-        studentCode: widget.studentCode,
+      final guardians = await _profileEditCubit.fetchGuardians(
+        widget.studentCode,
       );
-
-      String _guardianDisplayName(Map<String, dynamic> g) {
-        final first = (g['firstName'] ?? g['first_name'] ?? '')
-            .toString()
-            .trim();
-        final last = (g['lastName'] ?? g['last_name'] ?? '').toString().trim();
-        final full = '$first $last'.trim();
-        if (full.isNotEmpty) return full;
-        final direct = (g['fullName'] ?? g['name'] ?? '').toString().trim();
-        if (direct.isNotEmpty) return direct;
-        final user = g['user'];
-        if (user is Map<String, dynamic>) {
-          final uf = (user['firstName'] ?? user['first_name'] ?? '')
-              .toString()
-              .trim();
-          final ul = (user['lastName'] ?? user['last_name'] ?? '')
-              .toString()
-              .trim();
-          final ufull = '$uf $ul'.trim();
-          if (ufull.isNotEmpty) return ufull;
-          final uname = (user['fullName'] ?? user['name'] ?? '')
-              .toString()
-              .trim();
-          if (uname.isNotEmpty) return uname;
-        }
-        return '';
-      }
 
       final rawRows = <Map<String, dynamic>>[];
       for (final g in guardians) {
-        final base = _guardianDisplayName(g);
-        final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
-        final legalCustody = g['legalCustody'] == true;
+        final base = g.fullName.trim();
+        final code = g.guardianCode.trim();
+        final legalCustody = g.legalCustody;
         if (base.isEmpty || code.isEmpty) continue;
         rawRows.add(<String, dynamic>{
           'name': base,
           'code': code,
           'legalCustody': legalCustody,
+          'raw': g,
         });
       }
 
       final names = <String>[];
       final nameToCode = <String, String>{};
       final initialCustody = <String, bool>{};
+      final rawByCode = <String, StudentGuardian>{};
       for (final row in rawRows) {
         final base = row['name'] as String;
+        final code = row['code'] as String;
         names.add(base);
-        nameToCode[base] = row['code'] as String;
+        nameToCode[base] = code;
         initialCustody[base] = row['legalCustody'] as bool;
+        rawByCode[code] = row['raw'] as StudentGuardian;
       }
       if (!mounted) return;
 
-      setState(() {
-        _availableGuardianNames = names;
-        _guardianNameToCode = nameToCode;
-        _guardianInitialCustody = initialCustody;
-        _selectedChildCustody.removeWhere(
-          (g) => !_availableGuardianNames.contains(g),
-        );
-      });
+      final prunedCustody = _profileEditCubit.state.selectedChildCustody
+          .where(names.contains)
+          .toList();
+      _profileEditCubit.applyGuardiansLoaded(
+        names: names,
+        nameToCode: nameToCode,
+        initialCustody: initialCustody,
+        rawByCode: rawByCode,
+        selectedChildCustody: prunedCustody,
+      );
     } catch (_) {
       // Non-critical; keep any existing selections.
     }
@@ -434,6 +445,7 @@ class _EditStudentProfileDetailsScreenState
     _streetController.dispose();
     _cityController.dispose();
     _zipCodeController.dispose();
+    _profileEditCubit.close();
     super.dispose();
   }
 
@@ -444,7 +456,7 @@ class _EditStudentProfileDetailsScreenState
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name is required',
+        message: StudentStrings.firstNameIsRequired,
         isError: true,
       );
       return;
@@ -452,7 +464,7 @@ class _EditStudentProfileDetailsScreenState
     if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'First Name must be letters only and max 50 characters',
+        message: StudentStrings.firstNameMustBeLettersOnlyAndMax50Characters2,
         isError: true,
       );
       return;
@@ -460,7 +472,7 @@ class _EditStudentProfileDetailsScreenState
     if (last.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name is required',
+        message: StudentStrings.lastNameIsRequired,
         isError: true,
       );
       return;
@@ -468,7 +480,7 @@ class _EditStudentProfileDetailsScreenState
     if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Last Name must be letters only and max 50 characters',
+        message: StudentStrings.lastNameMustBeLettersOnlyAndMax50Characters2,
         isError: true,
       );
       return;
@@ -476,7 +488,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedStatus == null || _selectedStatus!.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Status is required',
+        message: StudentStrings.statusIsRequired,
         isError: true,
       );
       return;
@@ -484,7 +496,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedClassroom == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Classroom is required',
+        message: StudentStrings.classroomIsRequired,
         isError: true,
       );
       return;
@@ -493,7 +505,7 @@ class _EditStudentProfileDetailsScreenState
     if (_selectedBirthDate == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Birthdate is required',
+        message: StudentStrings.birthdateIsRequired,
         isError: true,
       );
       return;
@@ -505,7 +517,7 @@ class _EditStudentProfileDetailsScreenState
       )) {
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Birthdate must be a past date',
+          message: StudentStrings.birthdateMustBeAPastDate,
           isError: true,
         );
         return;
@@ -515,7 +527,7 @@ class _EditStudentProfileDetailsScreenState
     if (_notesController.text.trim().length > 500) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Notes cannot exceed 500 characters',
+        message: StudentStrings.notesCannotExceed500Characters,
         isError: true,
       );
       return;
@@ -527,7 +539,7 @@ class _EditStudentProfileDetailsScreenState
     if (street.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Street is required',
+        message: StudentStrings.streetIsRequired,
         isError: true,
       );
       return;
@@ -535,7 +547,7 @@ class _EditStudentProfileDetailsScreenState
     if (street.length > 150) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Street address cannot exceed 150 characters',
+        message: StudentStrings.streetAddressCannotExceed150Characters,
         isError: true,
       );
       return;
@@ -543,7 +555,7 @@ class _EditStudentProfileDetailsScreenState
     if (city.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'City is required',
+        message: StudentStrings.cityIsRequired,
         isError: true,
       );
       return;
@@ -551,7 +563,7 @@ class _EditStudentProfileDetailsScreenState
     if (city.length > 50) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'City name cannot exceed 50 characters',
+        message: StudentStrings.cityNameCannotExceed50Characters,
         isError: true,
       );
       return;
@@ -559,7 +571,7 @@ class _EditStudentProfileDetailsScreenState
     if (zipDigits.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code is required',
+        message: StudentStrings.zipCodeIsRequired,
         isError: true,
       );
       return;
@@ -567,7 +579,7 @@ class _EditStudentProfileDetailsScreenState
     if (!_zipDigitsRegex.hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
+        message: StudentStrings.zipCodeMustBe5Digits12345OrZip4123456789,
         isError: true,
       );
       return;
@@ -575,7 +587,7 @@ class _EditStudentProfileDetailsScreenState
     if ((_selectedState ?? '').trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'State is required',
+        message: StudentStrings.stateIsRequired,
         isError: true,
       );
       return;
@@ -583,7 +595,7 @@ class _EditStudentProfileDetailsScreenState
     if ((_selectedCountry ?? '').trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Country is required',
+        message: StudentStrings.countryIsRequired,
         isError: true,
       );
       return;
@@ -592,32 +604,34 @@ class _EditStudentProfileDetailsScreenState
     // WARN (never block) when the DOB is outside the selected classroom's age
     // range. An out-of-range placement is a legitimate staff decision, so we
     // surface it and let them proceed — matching the web "warn but allow".
-    ClassroomCubit? classroomCubitForWarning;
-    try {
-      classroomCubitForWarning = context.read<ClassroomCubit>();
-    } catch (_) {
-      classroomCubitForWarning = null;
-    }
-    final classroomsForWarning =
-        classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
-    final matchingClassrooms = classroomsForWarning.where(
-      (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
-    );
-    if (matchingClassrooms.isNotEmpty) {
-      final ageWarning = classroomAgeRangeWarning(
-        classroom: matchingClassrooms.first,
-        birthDate: _selectedBirthDate,
-        studentName: first,
+    // Only relevant when the user actually changed the classroom on this
+    // screen; editing unrelated fields shouldn't re-trigger it.
+    if (_classroomChangedByUser) {
+      ClassroomCubit? classroomCubitForWarning;
+      try {
+        classroomCubitForWarning = context.read<ClassroomCubit>();
+      } catch (_) {
+        classroomCubitForWarning = null;
+      }
+      final classroomsForWarning =
+          classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
+      final matchingClassrooms = classroomsForWarning.where(
+        (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
       );
-      if (ageWarning != null) {
-        final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
-        if (!proceedAnyway || !mounted) return;
+      if (matchingClassrooms.isNotEmpty) {
+        final ageWarning = classroomAgeRangeWarning(
+          classroom: matchingClassrooms.first,
+          birthDate: _selectedBirthDate,
+          studentName: first,
+        );
+        if (ageWarning != null) {
+          final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+          if (!proceedAnyway || !mounted) return;
+        }
       }
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    _profileEditCubit.setSubmitting(true);
 
     try {
       // Map status display name to API value (e.g., "Active" -> "ACTIVE")
@@ -679,46 +693,37 @@ class _EditStudentProfileDetailsScreenState
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
-      final repository = serviceLocator<StudentRepository>();
-
       // 1) Core profile PATCH /api/v1/student/{code}/profile
       final genderApi = _genderApiFromDisplay(_selectedGender);
 
-      final profilePayload = <String, dynamic>{
-        'firstName': first,
-        'lastName': last,
-        'status': statusApi,
-        if (dobFormatted != null) 'dob': dobFormatted,
-        'notes': _notesController.text.trim(),
-        'subsidy': subsidy,
-        if (genderApi != null) 'gender': genderApi.toUpperCase(),
-        'classroom': <String, dynamic>{
-          'code': classroomCode,
-          'name': selectedClassroomName,
-        },
-      };
-
-      final message = await repository.updateStudentProfile(
+      final message = await _profileEditCubit.updateProfile(
         code: widget.studentCode,
-        fields: profilePayload,
+        request: UpdateStudentProfileRequest(
+          firstName: first,
+          lastName: last,
+          status: statusApi,
+          dob: dobFormatted,
+          notes: _notesController.text.trim(),
+          subsidy: subsidy,
+          gender: genderApi?.toUpperCase(),
+          classroomCode: classroomCode,
+          classroomName: selectedClassroomName,
+        ),
       );
 
       // 2) Address PATCH /api/v1/student/{studentCode}/address
-      final addressPayload = <String, dynamic>{
-        'line1': street,
-        'line2': _street2Controller.text.trim(),
-        'street': street,
-        'city': city,
-        'state': stateCode,
-        'country': countryCode,
-        // Backend uses postalCode; UI display layer will format as needed.
-        'postalCode': zipDigits,
-        'addressType': 'CURRENT',
-      };
-
-      await repository.updateStudentAddress(
+      await _profileEditCubit.updateAddress(
         studentCode: widget.studentCode,
-        fields: addressPayload,
+        request: UpdateStudentAddressRequest(
+          street: street,
+          line2: _street2Controller.text.trim(),
+          city: city,
+          state: stateCode,
+          country: countryCode,
+          // Backend uses postalCode; UI display layer formats as needed.
+          postalCode: zipDigits,
+          addressType: 'CURRENT',
+        ),
       );
 
       // 3) Tags POST /api/v1/student-tags
@@ -731,7 +736,7 @@ class _EditStudentProfileDetailsScreenState
         final schoolCode =
             await storage.getString(StorageKeys.schoolCode) ?? '';
         if (schoolCode.isNotEmpty) {
-          await repository.updateStudentTags(
+          await _profileEditCubit.updateTags(
             studentCode: widget.studentCode,
             schoolCode: schoolCode,
             tagCodes: selectedTagCodes,
@@ -745,7 +750,7 @@ class _EditStudentProfileDetailsScreenState
           .where((code) => code.trim().isNotEmpty)
           .toList();
       if (siblingCodes.isNotEmpty) {
-        await repository.updateStudentSiblings(
+        await _profileEditCubit.updateSiblings(
           studentCode: widget.studentCode,
           siblingCodes: siblingCodes,
         );
@@ -753,36 +758,60 @@ class _EditStudentProfileDetailsScreenState
 
       // 5) Child custody PATCH /api/v1/guardian/{code} — only for guardians
       // whose custody selection actually changed, so unrelated guardians
-      // aren't touched.
-      for (final entry in _guardianNameToCode.entries) {
-        final name = entry.key;
-        final code = entry.value;
-        final desiredCustody = _selectedChildCustody.contains(name);
-        final currentCustody = _guardianInitialCustody[name] ?? false;
-        if (desiredCustody == currentCustody) continue;
-        await repository.updateGuardian(
-          code: code,
-          studentCode: widget.studentCode,
-          fields: <String, dynamic>{'legalCustody': desiredCustody},
-        );
+      // aren't touched. The endpoint validates as a full guardian update
+      // (firstName/lastName/email/mobile/relationToStudent/userCode/
+      // schoolCode all required), so `legalCustody` alone 400s — the rest of
+      // the fields are echoed back unchanged from the guardian record loaded
+      // in `_loadGuardiansForCustody`.
+      if (_guardianNameToCode.entries.any(
+        (entry) =>
+            _selectedChildCustody.contains(entry.key) !=
+            (_guardianInitialCustody[entry.key] ?? false),
+      )) {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            await storage.getString(StorageKeys.schoolCode) ?? '';
+
+        for (final entry in _guardianNameToCode.entries) {
+          final name = entry.key;
+          final code = entry.value;
+          final desiredCustody = _selectedChildCustody.contains(name);
+          final currentCustody = _guardianInitialCustody[name] ?? false;
+          if (desiredCustody == currentCustody) continue;
+
+          final raw = _guardianRawByCode[code];
+          if (raw == null) continue;
+          await _profileEditCubit.updateGuardian(
+            code: code,
+            studentCode: widget.studentCode,
+            request: UpdateGuardianRequest(
+              userCode: raw.userCode,
+              schoolCode: schoolCode,
+              studentCode: widget.studentCode,
+              firstName: raw.firstName,
+              lastName: raw.lastName,
+              email: raw.email,
+              mobile: raw.mobile,
+              relationToStudent: raw.relationToStudent,
+              primaryContact: raw.primaryContact,
+              legalCustody: desiredCustody,
+            ),
+          );
+        }
       }
 
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _profileEditCubit.setSubmitting(false);
 
       CoreUtils.showTopSnackBar(
         context: context,
         message: message,
         isSuccess: true,
       );
-      Navigator.pop(context, true);
+      context.pop(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
+      _profileEditCubit.setSubmitting(false);
       final message = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBar(
         context: context,
@@ -797,12 +826,12 @@ class _EditStudentProfileDetailsScreenState
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparentColor,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
-        confirmText: 'Continue anyway',
-        cancelText: 'Cancel',
+        confirmText: StudentStrings.continueAnyway,
+        cancelText: StudentStrings.cancel,
         onConfirm: () => Navigator.of(ctx).pop(true),
         onCancel: () => Navigator.of(ctx).pop(false),
       ),
@@ -830,15 +859,13 @@ class _EditStudentProfileDetailsScreenState
         if (selectedDate.isAfter(today.subtract(const Duration(days: 1)))) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Birthdate must be a past date',
+            message: StudentStrings.birthdateMustBeAPastDate,
             isError: true,
           );
           return;
         }
 
-        setState(() {
-          _selectedBirthDate = selectedDate;
-        });
+        _profileEditCubit.setBirthDate(selectedDate);
       }
     } catch (e) {
       AppLogger.d('Error opening calendar dialog: $e');
@@ -870,6 +897,13 @@ class _EditStudentProfileDetailsScreenState
   }
 
   Widget _buildScreen(BuildContext context) {
+    return BlocBuilder<StudentProfileEditCubit, StudentProfileEditState>(
+      bloc: _profileEditCubit,
+      builder: (context, editState) => _buildScreenBody(context),
+    );
+  }
+
+  Widget _buildScreenBody(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
@@ -898,7 +932,7 @@ class _EditStudentProfileDetailsScreenState
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.whiteColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -916,7 +950,7 @@ class _EditStudentProfileDetailsScreenState
             ),
             Column(
               children: [
-                const SizedBox(height: 16),
+                AppSpacing.gapVMd,
                 Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: responsive.horizontalSpacing,
@@ -924,12 +958,12 @@ class _EditStudentProfileDetailsScreenState
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Edit Student',
+                      StudentStrings.editStudent,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                       ),
                     ),
                   ),
@@ -943,13 +977,13 @@ class _EditStudentProfileDetailsScreenState
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.blackColor.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -971,16 +1005,16 @@ class _EditStudentProfileDetailsScreenState
                               size: 40,
                               fontSize: 14,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: AppSpacing.s10),
                             Expanded(
                               child: Text(
                                 '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
                                     .trim(),
                                 style: const TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: Fonts.manrope,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xff573353),
+                                  color: AppColors.primaryColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -992,16 +1026,16 @@ class _EditStudentProfileDetailsScreenState
                           children: [
                             Expanded(
                               child: _buildInputField(
-                                "First Name",
-                                "E.g. John",
+                                StudentStrings.firstName,
+                                StudentStrings.eGJohn,
                                 _firstNameController,
                               ),
                             ),
                             SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
                               child: _buildInputField(
-                                "Last Name",
-                                "E.g. Smith",
+                                StudentStrings.lastName,
+                                StudentStrings.eGSmith,
                                 _lastNameController,
                               ),
                             ),
@@ -1009,147 +1043,149 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Status",
-                          "Select",
+                          StudentStrings.status,
+                          StudentStrings.select,
                           _statusOptions,
                           _selectedStatus,
-                          (v) => setState(() => _selectedStatus = v),
+                          (v) => _profileEditCubit.setStatus(v),
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Gender",
-                          "Select",
+                          StudentStrings.gender,
+                          StudentStrings.select,
                           _genderOptions,
                           _selectedGender,
-                          (v) => setState(() => _selectedGender = v),
+                          (v) => _profileEditCubit.setGender(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "Classroom",
+                          StudentStrings.classroom,
                           (classroomState.isLoading && classroomOptions.isEmpty)
-                              ? "Loading..."
-                              : "Select",
+                              ? StudentStrings.loadingEllipsis
+                              : StudentStrings.select,
                           classroomOptions,
                           selectedClassroomName,
-                          (v) => setState(() => _selectedClassroom = v),
+                          (v) => _profileEditCubit.setClassroom(v),
                           isRequired: true,
                           isEnabled:
                               !_isTodayStatusLoading && !_isSignedInToday,
                           disabledTooltip: _isTodayStatusLoading
                               ? null
-                              : "Classroom can't be changed while the student is signed in.",
+                              : StudentStrings
+                                    .classroomCantBeChangedWhileSignedIn,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Tags',
-                          hintText: 'Select',
+                          label: StudentStrings.tags,
+                          hintText: StudentStrings.select,
                           items: _availableTagNames,
                           selectedItems: _selectedTags,
-                          onChanged: (tags) {
-                            setState(() => _selectedTags = tags);
-                          },
+                          onChanged: (tags) =>
+                              _profileEditCubit.setSelectedTags(tags),
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildDateField("Date of birth", _selectedBirthDate),
+                        _buildDateField(
+                          StudentStrings.dateOfBirth,
+                          _selectedBirthDate,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField("Notes", "", _notesController),
+                        _buildInputField(
+                          StudentStrings.notes,
+                          "",
+                          _notesController,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Siblings',
-                          hintText: 'Select student',
+                          label: StudentStrings.siblings,
+                          hintText: StudentStrings.selectStudent,
                           items: _availableStudentNames,
                           selectedItems: _selectedSiblings,
-                          onChanged: (siblings) {
-                            setState(() => _selectedSiblings = siblings);
-                          },
+                          onChanged: (siblings) =>
+                              _profileEditCubit.setSelectedSiblings(siblings),
                           maxDropdownHeight: 200,
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
-                          label: 'Child Custody',
-                          hintText: 'Select guardian',
+                          label: StudentStrings.childCustody,
+                          hintText: StudentStrings.selectGuardian,
                           items: _availableGuardianNames,
                           selectedItems: _selectedChildCustody,
-                          onChanged: (custodyOptions) {
-                            setState(
-                              () => _selectedChildCustody = custodyOptions,
-                            );
-                          },
+                          onChanged: (custodyOptions) => _profileEditCubit
+                              .setSelectedChildCustody(custodyOptions),
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "State Subsidy",
-                          "Select",
+                          StudentStrings.stateSubsidy,
+                          StudentStrings.select,
                           _stateSubsidyOptions,
                           _selectedStateSubsidyOption,
-                          (v) =>
-                              setState(() => _selectedStateSubsidyOption = v),
+                          (v) => _profileEditCubit.setStateSubsidyOption(v),
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Street",
-                          "Eg. Street no",
+                          StudentStrings.street,
+                          StudentStrings.egStreetNo,
                           _streetController,
                           isRequired: true,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Address line 2",
-                          "(Optional)",
+                          StudentStrings.addressLine2,
+                          StudentStrings.optionalParenthetical,
                           _street2Controller,
                           isRequired: false,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "City",
-                          "Eg. Nashua",
+                          StudentStrings.city,
+                          StudentStrings.egNashua,
                           _cityController,
                           isRequired: true,
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
-                          "State",
-                          "Select",
+                          StudentStrings.state,
+                          StudentStrings.select,
                           _stateOptions,
                           _selectedState,
-                          (v) => setState(() => _selectedState = v),
+                          (v) => _profileEditCubit.setStateName(v),
                           isRequired: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         Opacity(
                           opacity: 0.8,
                           child: CustomDropdown(
-                            label: "Country",
-                            hintText: 'United States',
+                            label: StudentStrings.country,
+                            hintText: StudentStrings.unitedStates,
                             items: const <String>['United States'],
                             selectedItem: 'United States',
                             isEnabled: false,
                             showAsterisk: true,
                             labelStyle: TextStyle(
                               fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
+                              fontFamily: Fonts.manrope,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                              color: AppColors.primaryColor,
                             ),
                             selectedTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                              color: AppColors.attendanceSearchHintColor,
                               height: 19 / 14,
                             ),
                             popupItemTextStyle: TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: Fonts.manrope,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
+                              color: AppColors.primaryColor,
                             ),
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1160,8 +1196,8 @@ class _EditStudentProfileDetailsScreenState
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
-                          "Zip Code",
-                          "Eg. 85001 or 850012222",
+                          StudentStrings.zipCode,
+                          StudentStrings.egZipExample,
                           _zipCodeController,
                           isRequired: true,
                           keyboardType: TextInputType.number,
@@ -1176,7 +1212,7 @@ class _EditStudentProfileDetailsScreenState
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                AppSpacing.gapVSm,
               ],
             ),
           ],
@@ -1184,15 +1220,15 @@ class _EditStudentProfileDetailsScreenState
         bottomNavigationBar: Container(
           padding: EdgeInsets.only(
             bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            top: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.blackColor.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -1203,7 +1239,7 @@ class _EditStudentProfileDetailsScreenState
             ),
           ),
           child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
+            confirmButtonLabel: StudentStrings.save,
             onPressedConfirm: _saveProfileDetails,
             showCancelButton: false,
             isForm: false,
@@ -1226,9 +1262,9 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1242,7 +1278,7 @@ class _EditStudentProfileDetailsScreenState
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.errorColor),
                 ),
             ],
           ),
@@ -1251,8 +1287,8 @@ class _EditStudentProfileDetailsScreenState
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            color: AppColors.whiteColor,
+            border: Border.all(color: AppColors.inputBorderColor),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1264,7 +1300,9 @@ class _EditStudentProfileDetailsScreenState
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.attendanceMutedTextColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1272,10 +1310,10 @@ class _EditStudentProfileDetailsScreenState
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
               height: 19 / 14,
             ),
           ),
@@ -1305,24 +1343,24 @@ class _EditStudentProfileDetailsScreenState
       isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
+        fontFamily: Fonts.manrope,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: Fonts.manrope,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       contentPadding: EdgeInsets.symmetric(
         horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1340,9 +1378,9 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
     );
 
     return Column(
@@ -1356,8 +1394,8 @@ class _EditStudentProfileDetailsScreenState
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.inputBorderColor),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1374,20 +1412,20 @@ class _EditStudentProfileDetailsScreenState
                     child: Text(
                       selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
-                          : 'Select Date',
+                          : StudentStrings.selectDate,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
                             : FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: AppColors.primaryColor,
                         height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  AppSpacing.gapHXxs,
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,

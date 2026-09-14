@@ -2,14 +2,14 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_remote_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 

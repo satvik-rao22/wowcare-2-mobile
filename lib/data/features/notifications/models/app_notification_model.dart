@@ -1,4 +1,4 @@
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 

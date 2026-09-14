@@ -1,4 +1,7 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'student_document_models.g.dart';
 
 /// Request model for POST /api/v1/student-documents.
 class StudentDocumentRequestModel extends Equatable {
@@ -63,6 +66,7 @@ class StudentDocumentRequestModel extends Equatable {
 }
 
 /// Response model for POST /api/v1/student-documents.
+@JsonSerializable(createToJson: false)
 class StudentDocumentResponseModel extends Equatable {
   const StudentDocumentResponseModel({
     required this.success,
@@ -71,19 +75,13 @@ class StudentDocumentResponseModel extends Equatable {
     required this.timestamp,
   });
 
-  final bool success;
-  final String message;
+  @JsonKey(defaultValue: false) final bool success;
+  @JsonKey(defaultValue: '') final String message;
   final Map<String, dynamic>? data;
-  final String timestamp;
+  @JsonKey(defaultValue: '') final String timestamp;
 
-  factory StudentDocumentResponseModel.fromJson(Map<String, dynamic> json) {
-    return StudentDocumentResponseModel(
-      success: json['success'] as bool? ?? false,
-      message: json['message'] as String? ?? '',
-      data: json['data'] as Map<String, dynamic>?,
-      timestamp: json['timestamp'] as String? ?? '',
-    );
-  }
+  factory StudentDocumentResponseModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentDocumentResponseModelFromJson(json);
 
   @override
   List<Object?> get props => [success, message, data, timestamp];

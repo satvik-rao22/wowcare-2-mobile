@@ -1,5 +1,5 @@
-import '../../../../domain/features/activity/entities/activity_upload_session.dart';
-import '../../../../core/util/api_constants.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_upload_session.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
 
 class ActivityUploadSessionModel extends ActivityUploadSession {
   const ActivityUploadSessionModel({

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -9,29 +10,28 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../core/util/user_details_school_roles.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../cubit/nap_activity_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/presentation/features/activities/view_model/nap_activity_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class NapActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/nap';
+
   const NapActivityScreen({
     super.key,
     this.selectedStudents,
@@ -46,21 +46,11 @@ class NapActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<ActivityEditorCubit>(
-          create: (_) => serviceLocator<ActivityEditorCubit>(),
-        ),
-        BlocProvider<NapActivityCubit>(
-          create: (_) => serviceLocator<NapActivityCubit>(),
-        ),
-      ],
-      child: _NapActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _NapActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -147,7 +137,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
@@ -164,7 +154,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -197,7 +189,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   Future<void> _syncSchoolAttendanceDateForCreate() async {
     if (!mounted || _layoutAsEdit) return;
     if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+    await _editor.ensureAttendanceDateOnStudentMapsForSchoolToday(
       _selectedStudentsData,
     );
     if (!mounted) return;
@@ -211,7 +203,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -288,7 +280,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
       if (tc.isNotEmpty) {
         try {
           typeDetailsForRemind = await _editor.getActivityTypeDetails(code: tc);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('getActivityTypeDetails failed for $tc: $e');
+        }
       }
       final item = activityItemFromActivityDetail(
         detail,
@@ -310,7 +304,9 @@ class _NapActivityViewState extends State<_NapActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
         if (typeDetailsForRemind != null &&
             !_napEventIsEnd(detail.activityTypeName)) {
@@ -342,35 +338,17 @@ class _NapActivityViewState extends State<_NapActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
-        .trim();
-    final activeRole = await resolveActiveBackendRole(storage);
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
-      _currentUserCode = userCode.isNotEmpty ? userCode : null;
-      _currentUserRole = activeRole.trim().isNotEmpty
-          ? activeRole.trim().toUpperCase()
-          : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
+      _currentUserCode = ctx.currentUserCode;
+      _currentUserRole = ctx.currentUserRole;
     });
   }
 
@@ -438,7 +416,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
   /// Sends nap start / nap end as JSON booleans on matching BOOLEAN parameters.
   static void _appendNapStartEndBooleans(
     ActivityTypeDetails details,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
     bool isNapEnd,
   ) {
     final napStartFlag = !isNapEnd;
@@ -471,10 +449,14 @@ class _NapActivityViewState extends State<_NapActivityView> {
       return;
     }
     if (startCode != null && startCode.isNotEmpty) {
-      parameterValues.add({'parameterCode': startCode, 'value': napStartFlag});
+      parameterValues.add(
+        ActivityParameterValue(parameterCode: startCode, value: napStartFlag),
+      );
     }
     if (endCode != null && endCode.isNotEmpty) {
-      parameterValues.add({'parameterCode': endCode, 'value': napEndFlag});
+      parameterValues.add(
+        ActivityParameterValue(parameterCode: endCode, value: napEndFlag),
+      );
     }
   }
 
@@ -504,16 +486,18 @@ class _NapActivityViewState extends State<_NapActivityView> {
 
   void _appendRemindNap15IfNapStart(
     ActivityTypeDetails details,
-    List<Map<String, dynamic>> parameterValues,
+    List<ActivityParameterValue> parameterValues,
     bool isNapEnd,
   ) {
     if (isNapEnd) return;
     final code = _resolveRemindNap15ParamCode(details);
     if (code == null || code.isEmpty) return;
-    parameterValues.add({
-      'parameterCode': code,
-      'value': _remindCheckNapEvery15Minutes,
-    });
+    parameterValues.add(
+      ActivityParameterValue(
+        parameterCode: code,
+        value: _remindCheckNapEvery15Minutes,
+      ),
+    );
   }
 
   Future<bool?> _resolveNapEndFromCurrentStatus({
@@ -624,6 +608,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -681,7 +666,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -740,26 +725,38 @@ class _NapActivityViewState extends State<_NapActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
       final activityDateIso = resolvedActivityTime.iso;
       final localTime = resolvedActivityTime.localTimeHms;
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final isNapEnd = await _resolveNapEndForCreate(
@@ -840,6 +837,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -865,7 +863,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -886,7 +884,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -915,19 +913,31 @@ class _NapActivityViewState extends State<_NapActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null &&
             descParamCode.trim().isNotEmpty &&
             description.isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       _appendNapStartEndBooleans(
@@ -1222,11 +1232,7 @@ class _NapActivityViewState extends State<_NapActivityView> {
                               });
                             },
                       label: 'Remind to check nap every 15 minutes',
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      labelStyle: AppTextStyles.activityCheckboxLabelMuted,
                     ),
                   ),
                 ),

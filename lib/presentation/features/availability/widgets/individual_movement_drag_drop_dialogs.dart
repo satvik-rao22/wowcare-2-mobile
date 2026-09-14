@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
@@ -184,7 +184,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
 
   @override
   Widget build(BuildContext context) {
-    const headerBg = Color.fromRGBO(243, 238, 250, 1);
+    const headerBg = AppColors.movementDialogHeaderColor;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -195,7 +195,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardColor,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -248,7 +248,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                 child: Text(
                   widget.message,
                   style: AppTextStyles.body.copyWith(
-                    color: const Color(0xFF424242),
+                    color: AppColors.attendanceDialogBodyTextColor,
                     height: 1.35,
                   ),
                 ),
@@ -263,7 +263,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppColors.attendanceBorderLightColor),
                       ),
                       child: Row(
                         children: [
@@ -282,7 +282,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                                 : DateFormat('MMM dd, yyyy').format(_selectedDate!),
                             style: AppTextStyles.body.copyWith(
                               color: _selectedDate == null
-                                  ? Colors.grey[600]
+                                  ? AppColors.attendanceDialogHintTextColor
                                   : AppColors.primaryColor,
                             ),
                           ),
@@ -301,7 +301,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         widget.commentLabel,
                         style: AppTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF424242),
+                          color: AppColors.attendanceDialogBodyTextColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -312,7 +312,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         decoration: InputDecoration(
                           hintText: widget.commentHint,
                           hintStyle: AppTextStyles.body.copyWith(
-                            color: Colors.grey[600],
+                            color: AppColors.attendanceDialogHintTextColor,
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -320,11 +320,11 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
                           ),
                         ),
                       ),

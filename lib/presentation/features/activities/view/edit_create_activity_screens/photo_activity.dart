@@ -1,8 +1,10 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/observability/media_upload_trace.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -14,30 +16,32 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class PhotoVideoActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/photo-video';
+
   const PhotoVideoActivityScreen({
     super.key,
     this.selectedStudents,
@@ -55,15 +59,12 @@ class PhotoVideoActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _PhotoVideoActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        isPhoto: isPhoto,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _PhotoVideoActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      isPhoto: isPhoto,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -89,8 +90,6 @@ class _PhotoVideoActivityView extends StatefulWidget {
 }
 
 class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
-  static const String _pendingUploadPollStorageKey =
-      'activity_media_pending_upload_poll_v1';
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -144,7 +143,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   List<String> _remainingExistingPhotoUrls = [];
   String? _remainingExistingVideoUrl;
   final Map<String, String> _uploadedAssetCodeByPath = {};
-  List<Map<String, dynamic>> _uploadedAttachments = [];
+
+  /// The upload context the [_uploadedAssetCodeByPath] cache belongs to. Retried
+  /// saves with the SAME context reuse the cache (no re-upload); a context
+  /// change clears it. See [_uploadAndBuildAttachments].
+  String? _uploadContextKey;
+  List<ActivityAttachment> _uploadedAttachments = [];
 
   bool get _hasMedia =>
       _photos.isNotEmpty ||
@@ -153,7 +157,10 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       _existingVideoUrl != null;
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final ImageUploadService _uploadService;
+
+  /// Cancels any in-flight activity media upload when this screen is disposed,
+  /// so a large video PUT doesn't keep burning bandwidth after the user leaves.
+  final CancelToken _uploadCancelToken = CancelToken();
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -202,8 +209,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
-    _uploadService = serviceLocator<ImageUploadService>();
+    _editor.bootstrapSchoolTimezone();
 
     // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
     // [resolveForCurrentSchool] (avoid stale [lastKnownTimeZone] from classroom tab).
@@ -243,7 +249,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -256,7 +264,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   Future<void> _syncSchoolAttendanceDateForCreate() async {
     if (!mounted || _layoutAsEdit) return;
     if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+    await _editor.ensureAttendanceDateOnStudentMapsForSchoolToday(
       _selectedStudentsData,
     );
     if (!mounted) return;
@@ -270,7 +278,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -366,7 +374,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
     } catch (e) {
@@ -413,27 +423,15 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -476,7 +474,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('getClassroomActivitySettings failed for $classroomCode: $e');
+    }
   }
 
   void _onMediaChanged(
@@ -587,6 +587,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           _uploadedAttachments = attachments;
         });
       }
+      MediaUploadTrace.stage(MediaUploadStage.uploadSucceeded);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -595,13 +596,28 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
             : 'Video uploaded. Processing continues in background.',
         isSuccess: true,
       );
-    } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+    } catch (error, stackTrace) {
+      // A cancellation (the screen was disposed mid-upload) is expected — don't
+      // surface it as an error. Non-cancel failures still show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        MediaUploadTrace.stage(MediaUploadStage.uploadFailed);
+        // Terminal failure of the whole flow: everything already uploaded is
+        // discarded and the user is back to square one. Still non-fatal — the
+        // UI surfaces it and Save can be retried.
+        MediaUploadTrace.failure(
+          MediaUploadStage.uploadFailed,
+          error,
+          stackTrace,
+        );
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      } else {
+        MediaUploadTrace.stage(MediaUploadStage.uploadCancelled);
+      }
     } finally {
       if (mounted) {
         setState(() => _isUploadingMedia = false);
@@ -609,7 +625,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _uploadAndBuildAttachments({
+  Future<List<ActivityAttachment>> _uploadAndBuildAttachments({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -625,114 +641,129 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     if (mounted) {
       setState(() => _uploadTotalCount = media.length);
     }
-    // Asset codes are scoped to a specific upload session. Reusing a previous
-    // session's cached assetCode causes polling on a new session with no assets.
-    _uploadedAssetCodeByPath.clear();
     // Single student → PER_STUDENT, multiple → SHARED. Owner follows the same
     // rule: STUDENT/studentCode for per-student, CLASSROOM/classroomCode shared.
     final isShared = studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
     final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
     final ownerCode = isShared ? classroomCode : studentCodes.first;
-    final uploadSession = await _uploadService.createActivityUploadSession(
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      classroomCode: classroomCode,
-      activityTypeCode: activityTypeCode,
-      bindingMode: bindingMode,
-      studentCodes: studentCodes,
-    );
-    final uploadedCodes = <String>[];
-    for (var i = 0; i < media.length; i++) {
-      final file = media[i];
-      final fileIndex = i + 1;
-      final totalFiles = media.length;
-      if (_uploadedAssetCodeByPath.containsKey(file.path)) {
-        uploadedCodes.add(_uploadedAssetCodeByPath[file.path]!);
-        continue;
+    // Asset codes are session-scoped for POLLING but stay valid to LINK at
+    // create time. Keep the already-uploaded map across retries with the SAME
+    // upload context, so a Save retried after a partial failure reuses what
+    // already uploaded instead of re-uploading every file into a fresh session
+    // (which orphans the first set); clear it only when the context actually
+    // changes. Newly-uploaded files are polled against THIS run's session; the
+    // reused ones were already confirmed ready in the run that uploaded them.
+    final contextKey = [
+      organizationCode.trim(),
+      schoolCode.trim(),
+      classroomCode.trim(),
+      (studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+            ..sort())
+          .join(','),
+      activityTypeCode.trim(),
+      bindingMode,
+    ].join('|');
+    if (_uploadContextKey != contextKey) {
+      _uploadedAssetCodeByPath.clear();
+      _uploadContextKey = contextKey;
+    }
+    final missing = media
+        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
+        .toList();
+
+    String? uploadedSessionCode;
+    var newlyUploadedCodes = const <String>[];
+    if (missing.isNotEmpty) {
+      final items = <ActivityUploadItem>[];
+      for (final file in missing) {
+        final lower = file.path.toLowerCase();
+        final isVideoByExt =
+            lower.endsWith('.mp4') ||
+            lower.endsWith('.mov') ||
+            lower.endsWith('.webm');
+        final forceVideoPayload = !widget.isPhoto;
+        final isVideo = forceVideoPayload || isVideoByExt;
+        final extension = lower.contains('.')
+            ? lower.split('.').last
+            : (isVideo ? 'mp4' : 'jpg');
+        final generatedFileName =
+            '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
+        final contentType = isVideo
+            ? (lower.endsWith('.mov')
+                  ? 'video/quicktime'
+                  : lower.endsWith('.webm')
+                  ? 'video/webm'
+                  : 'video/mp4')
+            : 'image/jpeg';
+        items.add(
+          ActivityUploadItem(
+            file: file,
+            fileName: generatedFileName,
+            contentType: contentType,
+            mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+          ),
+        );
       }
-      final lower = file.path.toLowerCase();
-      final isVideoByExt =
-          lower.endsWith('.mp4') ||
-          lower.endsWith('.mov') ||
-          lower.endsWith('.webm');
-      final forceVideoPayload = !widget.isPhoto;
-      final isVideo = forceVideoPayload || isVideoByExt;
-      final extension = lower.contains('.')
-          ? lower.split('.').last
-          : (isVideo ? 'mp4' : 'jpg');
-      final generatedFileName =
-          '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
-      final contentType = isVideo
-          ? (lower.endsWith('.mov')
-                ? 'video/quicktime'
-                : lower.endsWith('.webm')
-                ? 'video/webm'
-                : 'video/mp4')
-          : 'image/jpeg';
-      final checksumSha256 = await _uploadService.computeFileChecksumSha256(
-        file,
-      );
-      final presign = await _uploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-        fileName: generatedFileName,
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        checksumSha256: checksumSha256,
-        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
+      final result = await _editor.uploadActivityAssets(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        bindingMode: bindingMode,
+        studentCodes: studentCodes,
         ownerType: ownerType,
         ownerCode: ownerCode,
-      );
-      await _uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onProgress: (_, __, percent) {
+        items: items,
+        onItemProgress: (itemIndex, totalItems, percent) {
           if (!mounted) return;
           final overallFraction =
-              ((fileIndex - 1) + (percent / 100)) / totalFiles;
+              ((itemIndex - 1) + (percent / 100)) / totalItems;
           final overallPercent = (overallFraction * 100).clamp(0, 100).round();
           setState(() => _uploadProgressPercent = overallPercent);
         },
+        onItemComplete: (completed, total) {
+          if (mounted) {
+            setState(() => _uploadCompletedCount = completed);
+          }
+        },
+        cancelToken: _uploadCancelToken,
       );
-      await _uploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      if (mounted) {
-        setState(() => _uploadCompletedCount = fileIndex);
-      }
-      _uploadedAssetCodeByPath[file.path] = presign.assetCode;
-      uploadedCodes.add(presign.assetCode);
+      _uploadedAssetCodeByPath.addAll(result.assetCodeByPath);
+      uploadedSessionCode = result.sessionCode;
+      newlyUploadedCodes = result.newAssetCodes;
     }
 
     if (mounted) {
       setState(() => _uploadProgressPercent = 100);
     }
-    _startProcessingPoll(
-      sessionCode: uploadSession.sessionCode,
-      assetCodes: uploadedCodes,
-      persist: true,
-    );
+    // Poll only the codes uploaded in THIS run's session — reused codes were
+    // already confirmed ready and belong to a prior session.
+    if (uploadedSessionCode != null && newlyUploadedCodes.isNotEmpty) {
+      _startProcessingPoll(
+        sessionCode: uploadedSessionCode,
+        assetCodes: newlyUploadedCodes,
+        persist: true,
+      );
+    }
+    final uploadedCodes = media
+        .map((f) => _uploadedAssetCodeByPath[f.path]!)
+        .toList();
     return uploadedCodes.map((code) {
       if (isShared) {
-        return <String, dynamic>{'assetCode': code};
+        return ActivityAttachment(assetCode: code);
       }
-      return <String, dynamic>{
-        'assetCode': code,
-        'studentCode': ownerCode,
-        'bindingMode': bindingMode,
-      };
+      return ActivityAttachment(
+        assetCode: code,
+        studentCode: ownerCode,
+        bindingMode: bindingMode,
+      );
     }).toList();
   }
 
   Future<void> _restorePendingProcessingPollIfAny() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final raw = await storage.getString(_pendingUploadPollStorageKey);
+      final raw = await _editor.getPendingUploadPoll();
       if (raw == null || raw.trim().isEmpty) return;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
@@ -756,7 +787,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         assetCodes: assetCodes,
         persist: false,
       );
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('resume pending upload poll failed: $e');
+    }
   }
 
   Future<void> _savePendingProcessingPoll({
@@ -764,9 +797,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     required List<String> assetCodes,
   }) async {
     try {
-      final storage = serviceLocator<StorageService>();
-      await storage.saveString(
-        _pendingUploadPollStorageKey,
+      await _editor.savePendingUploadPoll(
         jsonEncode(<String, dynamic>{
           'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
           'sessionCode': sessionCode,
@@ -774,14 +805,17 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           'savedAt': AppTime.now().toIso8601String(),
         }),
       );
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('savePendingUploadPoll failed: $e');
+    }
   }
 
   Future<void> _clearPendingProcessingPoll() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      await storage.remove(_pendingUploadPollStorageKey);
-    } catch (_) {}
+      await _editor.clearPendingUploadPoll();
+    } catch (e) {
+      AppLogger.d('clearPendingUploadPoll failed: $e');
+    }
   }
 
   void _startProcessingPoll({
@@ -819,15 +853,33 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
     );
   }
 
+  /// Deletes the staged copies of everything this screen uploaded, now that the
+  /// server has confirmed them READY.
+  ///
+  /// Best-effort: anything missed here is caught by the orphan sweep on a later
+  /// app start, so a failure has no user-visible consequence.
+  Future<void> _discardStagedMediaForConfirmedUpload() async {
+    final paths = _uploadedAssetCodeByPath.keys.toList(growable: false);
+    if (paths.isEmpty) return;
+    for (final path in paths) {
+      try {
+        await _editor.discardStagedMedia(path);
+      } catch (_) {
+        // discardStagedMedia never throws by contract; belt-and-braces so one
+        // bad path cannot abort the rest of the cleanup.
+      }
+    }
+  }
+
   Future<void> _pollProcessingStatusOnce() async {
     final sessionCode = _processingSessionCode;
     final assetCodes = _processingAssetCodes;
     if (sessionCode == null || sessionCode.isEmpty || assetCodes.isEmpty)
       return;
     try {
-      final statuses = await _uploadService.getUploadAssetStatuses(
+      final statuses = await _editor.getActivityUploadAssetStatuses(
         sessionCode: sessionCode,
-        expectedAssetCodes: assetCodes,
+        assetCodes: assetCodes,
       );
       if (statuses.isEmpty) return;
       var ready = 0;
@@ -865,6 +917,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
               : 'Video ready';
         });
         await _clearPendingProcessingPoll();
+        // THE server-confirmed point: every asset in this session reports
+        // READY, so the bytes are safely server-side and the persistent copy
+        // has done its job. This is the earliest moment it is safe to delete —
+        // a PUT that returned 200 is not enough, because the asset can still
+        // fail processing and need re-uploading from the local file.
+        await _discardStagedMediaForConfirmedUpload();
         return;
       }
       setState(() {
@@ -906,6 +964,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -944,7 +1003,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           .toList();
       if (studentCodes.isEmpty) return;
 
-      final staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
       final activityTypeCode = _activityTypeCode;
@@ -982,7 +1041,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1005,53 +1064,53 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
               studentCodes: studentCodes,
             );
       final uploadAssetCodes = attachments
-          .map((row) => (row['assetCode'] ?? '').toString().trim())
+          .map((a) => a.assetCode.trim())
           .where((code) => code.isNotEmpty)
           .toList();
       final uploadPhotoCode = _findParameterCode(
         details.parameters,
         exactName: 'upload photo',
       );
-      final createParameterValues = <Map<String, dynamic>>[
+      final createParameterValues = <ActivityParameterValue>[
         if (_findParameterCode(details.parameters, exactName: 'date') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'date',
-            ),
-            'value': localDate,
-          },
+            )!,
+            value: localDate,
+          ),
         if (_findParameterCode(details.parameters, exactName: 'time') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'time',
-            ),
-            'value': localTime,
-          },
+            )!,
+            value: localTime,
+          ),
         if (_findParameterCode(details.parameters, contains: 'staff') != null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               contains: 'staff',
-            ),
-            'value': staffPresentCode,
-          },
+            )!,
+            value: staffPresentCode,
+          ),
         if (descriptionTrim.isNotEmpty &&
             _findParameterCode(details.parameters, exactName: 'description') !=
                 null)
-          {
-            'parameterCode': _findParameterCode(
+          ActivityParameterValue(
+            parameterCode: _findParameterCode(
               details.parameters,
               exactName: 'description',
-            ),
-            'value': descriptionTrim,
-          },
+            )!,
+            value: descriptionTrim,
+          ),
         if (uploadPhotoCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadPhotoCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadPhotoCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       // Shared media flow (photos + videos): create one shared activity per attachment.
@@ -1123,6 +1182,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1182,7 +1242,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         return;
       }
 
-      final staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
       final activityTypeCode = _activityTypeCode;
@@ -1204,7 +1264,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
 
       final localDate =
           '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1222,7 +1282,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         return;
       }
 
-      List<Map<String, dynamic>> newUploads = const [];
+      List<ActivityAttachment> newUploads = const [];
       if (_photos.isNotEmpty || _video != null) {
         newUploads = _uploadedAttachments.isNotEmpty
             ? _uploadedAttachments
@@ -1247,7 +1307,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newUploads,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newUploads.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
       final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
@@ -1279,18 +1341,23 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
           .map((row) => (row['assetCode'] ?? '').toString().trim())
           .where((code) => code.isNotEmpty)
           .toList();
-      final parameterValues = <Map<String, dynamic>>[
-        if (dateCode != null) {'parameterCode': dateCode, 'value': localDate},
-        if (timeCode != null) {'parameterCode': timeCode, 'value': localTime},
+      final parameterValues = <ActivityParameterValue>[
+        if (dateCode != null)
+          ActivityParameterValue(parameterCode: dateCode, value: localDate),
+        if (timeCode != null)
+          ActivityParameterValue(parameterCode: timeCode, value: localTime),
         if (staffCodeParam != null)
-          {'parameterCode': staffCodeParam, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffCodeParam,
+            value: staffPresentCode,
+          ),
         if (descriptionCode != null && desc.isNotEmpty)
-          {'parameterCode': descriptionCode, 'value': desc},
+          ActivityParameterValue(parameterCode: descriptionCode, value: desc),
         if (uploadMediaCode != null && uploadAssetCodes.isNotEmpty)
-          {
-            'parameterCode': uploadMediaCode,
-            'value': uploadAssetCodes.join(','),
-          },
+          ActivityParameterValue(
+            parameterCode: uploadMediaCode,
+            value: uploadAssetCodes.join(','),
+          ),
       ];
 
       final targets = studentMapsForScopedActivityUpdate(
@@ -1333,7 +1400,9 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
         );
         try {
           await _editor.getActivity(code: code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
       if (!mounted) return;
       _lastUpdateSucceeded = true;
@@ -1391,6 +1460,11 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   @override
   void dispose() {
     _mediaProcessingPollTimer?.cancel();
+    // Abort any in-flight media upload so a large video PUT doesn't keep
+    // running (and burning bandwidth) after the user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }
@@ -1550,10 +1624,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                   const SizedBox(height: 8),
                   Text(
                     '${widget.isPhoto ? 'Uploading photo' : 'Uploading video'}... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 13,
-                    ),
+                    style: AppTextStyles.activityUploadProgressPlain,
                   ),
                 ] else if (_isMediaProcessing) ...[
                   const SizedBox(height: 8),
@@ -1564,8 +1635,10 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2F8FF),
-                      border: Border.all(color: const Color(0xFFD5E9FF)),
+                      color: AppColors.activityProcessingBg,
+                      border: Border.all(
+                        color: AppColors.activityProcessingBorder,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1575,7 +1648,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Color(0xFF1A73E8),
+                            color: AppColors.activityProcessingAccent,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1586,11 +1659,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                                 : (widget.isPhoto
                                       ? 'Photo processing in background...'
                                       : 'Video processing in background...'),
-                            style: const TextStyle(
-                              color: Color(0xFF1F3B64),
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTextStyles.activityMediaProcessingLabel,
                           ),
                         ),
                       ],
@@ -1605,16 +1674,12 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
                       const Icon(
                         Icons.check_circle,
                         size: 16,
-                        color: Colors.green,
+                        color: AppColors.activityUploadSuccessColor,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
+                        style: AppTextStyles.activityUploadSuccessText,
                       ),
                     ],
                   ),

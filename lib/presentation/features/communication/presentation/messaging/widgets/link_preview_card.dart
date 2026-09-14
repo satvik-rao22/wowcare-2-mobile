@@ -1,6 +1,9 @@
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
 /// Extracts the first HTTP/HTTPS URL from [text] and returns it, or null if
@@ -37,15 +40,14 @@ class LinkPreviewCard extends StatelessWidget {
     if (!AnyLinkPreview.isValidLink(url)) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: AppSizes.xxs),
       child: GestureDetector(
         onTap: () => MessageContentProcessor.launchLink(url),
         child: Text(
           url,
-          style: TextStyle(
-            color: isMe ? Colors.white : AppColors.primaryColor,
+          style: AppTextStyles.size14.copyWith(
+            color: isMe ? AppColors.messagingOnAccent : AppColors.primaryColor,
             fontSize: 13,
-            fontFamily: 'Manrope',
             decoration: TextDecoration.underline,
           ),
         ),
@@ -69,16 +71,16 @@ class PreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (preview.kind) {
       PreviewKind.url => LinkPreviewCard(url: preview.value, isMe: isMe),
-      PreviewKind.email => _buildContactPreview(
+      PreviewKind.email => _ContactPreviewChip(
         icon: Icons.email_outlined,
-        title: 'Email',
+        title: AppStrings.email,
         value: preview.value,
         launchHref: 'mailto:${preview.value}',
         isMe: isMe,
       ),
-      PreviewKind.phone => _buildContactPreview(
+      PreviewKind.phone => _ContactPreviewChip(
         icon: Icons.call_outlined,
-        title: 'Phone',
+        title: AppStrings.phone,
         value: preview.value,
         launchHref: 'tel:${preview.value.replaceAll(RegExp(r'\D'), '')}',
         isMe: isMe,
@@ -86,82 +88,6 @@ class PreviewCard extends StatelessWidget {
     };
   }
 
-  Widget _buildContactPreview({
-    required IconData icon,
-    required String title,
-    required String value,
-    required String launchHref,
-    required bool isMe,
-  }) {
-    final textColor = isMe ? Colors.white : const Color(0xFF1E293B);
-    final subColor = isMe
-        ? Colors.white.withValues(alpha: 0.75)
-        : const Color(0xFF64748B);
-    final chipColor = isMe
-        ? Colors.white.withValues(alpha: 0.15)
-        : const Color(0xFFF0F4FF);
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: GestureDetector(
-        onTap: () => MessageContentProcessor.launchLink(launchHref),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: chipColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.18)
-                      : AppColors.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: isMe ? Colors.white : AppColors.primaryColor,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: subColor,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Manrope',
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: textColor,
-                        fontFamily: 'Manrope',
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class ComposerLinkPreview extends StatelessWidget {
@@ -183,24 +109,22 @@ class ComposerLinkPreview extends StatelessWidget {
         showMultimedia: true,
         bodyMaxLines: 1,
         bodyTextOverflow: TextOverflow.ellipsis,
-        titleStyle: TextStyle(
+        titleStyle: AppTextStyles.size14.copyWith(
           color: AppColors.primaryColor,
           fontWeight: FontWeight.w600,
           fontSize: 12,
-          fontFamily: 'Manrope',
         ),
-        bodyStyle: const TextStyle(
-          color: Color(0xFF64748B),
+        bodyStyle: AppTextStyles.size14.copyWith(
+          color: AppColors.messagingCloseIcon,
           fontSize: 11,
-          fontFamily: 'Manrope',
         ),
         cache: const Duration(days: 1),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         borderRadius: 8,
         removeElevation: true,
         errorWidget: Text(
           preview.value,
-          style: TextStyle(
+          style: AppTextStyles.size14.copyWith(
             fontSize: 11,
             color: AppColors.primaryColor,
             decoration: TextDecoration.underline,
@@ -220,11 +144,11 @@ class ComposerLinkPreview extends StatelessWidget {
                   color: AppColors.primaryColor.withValues(alpha: 0.5),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSizes.xs),
               Expanded(
                 child: Text(
                   preview.value,
-                  style: TextStyle(
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: 11,
                     color: AppColors.primaryColor.withValues(alpha: 0.7),
                   ),
@@ -235,22 +159,22 @@ class ComposerLinkPreview extends StatelessWidget {
           ),
         ),
       ),
-      PreviewKind.email => _buildContactPreview(
+      PreviewKind.email => _ComposerContactPreview(
         icon: Icons.email_outlined,
-        title: 'Email',
+        title: AppStrings.email,
         value: preview.value,
         launchHref: 'mailto:${preview.value}',
       ),
-      PreviewKind.phone => _buildContactPreview(
+      PreviewKind.phone => _ComposerContactPreview(
         icon: Icons.call_outlined,
-        title: 'Phone',
+        title: AppStrings.phone,
         value: preview.value,
         launchHref: 'tel:${preview.value.replaceAll(RegExp(r'\D'), '')}',
       ),
     };
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      margin: const EdgeInsets.fromLTRB(AppSizes.sm, 0, AppSizes.sm, 6),
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
@@ -262,15 +186,15 @@ class ComposerLinkPreview extends StatelessWidget {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
+              padding: const EdgeInsets.fromLTRB(AppSizes.sm, AppSizes.xs, 0, AppSizes.xs),
               child: child,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 16),
-            color: const Color(0xFF94A3B8),
+            color: AppColors.messagingDismissIcon,
             onPressed: onDismiss,
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSizes.xs),
             constraints: const BoxConstraints(),
           ),
         ],
@@ -278,12 +202,115 @@ class ComposerLinkPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildContactPreview({
-    required IconData icon,
-    required String title,
-    required String value,
-    required String launchHref,
-  }) {
+}
+
+/// Contact (email/phone) preview chip shown inside a message bubble.
+class _ContactPreviewChip extends StatelessWidget {
+  const _ContactPreviewChip({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.launchHref,
+    required this.isMe,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String launchHref;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isMe
+        ? AppColors.messagingOnAccent
+        : AppColors.messagingTextStrong;
+    final subColor = isMe
+        ? AppColors.messagingOnAccent.withValues(alpha: 0.75)
+        : AppColors.messagingCloseIcon;
+    final chipColor = isMe
+        ? AppColors.messagingOnAccent.withValues(alpha: 0.15)
+        : AppColors.messagingContactChipBg;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSizes.xs),
+      child: GestureDetector(
+        onTap: () => MessageContentProcessor.launchLink(launchHref),
+        child: Container(
+          padding: const EdgeInsets.all(AppSizes.sm),
+          decoration: BoxDecoration(
+            color: chipColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? AppColors.messagingOnAccent.withValues(alpha: 0.18)
+                      : AppColors.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: isMe
+                      ? AppColors.messagingOnAccent
+                      : AppColors.primaryColor,
+                ),
+              ),
+              const SizedBox(width: AppSizes.xsPlus),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.size14.copyWith(
+                        fontSize: 11,
+                        color: subColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      style: AppTextStyles.size14.copyWith(
+                        fontSize: 12,
+                        color: textColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Contact (email/phone) preview shown in the composer's link-preview strip.
+class _ComposerContactPreview extends StatelessWidget {
+  const _ComposerContactPreview({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.launchHref,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String launchHref;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => MessageContentProcessor.launchLink(launchHref),
       child: Row(
@@ -297,27 +324,25 @@ class ComposerLinkPreview extends StatelessWidget {
             ),
             child: Icon(icon, color: AppColors.primaryColor, size: 16),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSizes.xsPlus),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: 11,
                     color: AppColors.primaryColor.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w700,
-                    fontFamily: 'Manrope',
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: AppTextStyles.size14.copyWith(
                     fontSize: 12,
-                    color: Color(0xFF1E293B),
-                    fontFamily: 'Manrope',
+                    color: AppColors.messagingTextStrong,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,

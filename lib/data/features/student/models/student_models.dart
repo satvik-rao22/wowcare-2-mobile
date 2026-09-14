@@ -1,4 +1,23 @@
 import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'student_models.g.dart';
+
+/// Coerces a loosely-typed JSON bool (bool / 0|1 / "true"|"yes"|"false"|"no").
+bool? _photoPermissionFromJson(dynamic value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+  }
+  return null;
+}
 
 class StudentListItemModel extends Equatable {
   const StudentListItemModel({
@@ -295,6 +314,7 @@ class StudentPageModel extends Equatable {
   }
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentImportantDatesModel extends Equatable {
   const StudentImportantDatesModel({
     this.enrollDate,
@@ -310,29 +330,13 @@ class StudentImportantDatesModel extends Equatable {
   final String? upcomingMoveDate;
   final String? schoolLeavingDate;
 
-  factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return const StudentImportantDatesModel();
-    }
-    return StudentImportantDatesModel(
-      enrollDate: json['enrollDate'] as String?,
-      schoolStartDate: json['schoolStartDate'] as String?,
-      currentClassroomStartDate: json['currentClassroomStartDate'] as String?,
-      upcomingMoveDate: json['upcomingMoveDate'] as String?,
-      schoolLeavingDate: json['schoolLeavingDate'] as String?,
-    );
-  }
+  /// Null-safe wrapper around the generated fromJson (the caller may pass null).
+  factory StudentImportantDatesModel.fromJson(Map<String, dynamic>? json) =>
+      json == null
+          ? const StudentImportantDatesModel()
+          : _$StudentImportantDatesModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return {
-      if (enrollDate != null) 'enrollDate': enrollDate,
-      if (schoolStartDate != null) 'schoolStartDate': schoolStartDate,
-      if (currentClassroomStartDate != null)
-        'currentClassroomStartDate': currentClassroomStartDate,
-      if (upcomingMoveDate != null) 'upcomingMoveDate': upcomingMoveDate,
-      if (schoolLeavingDate != null) 'schoolLeavingDate': schoolLeavingDate,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentImportantDatesModelToJson(this);
 
   @override
   List<Object?> get props => [
@@ -344,6 +348,7 @@ class StudentImportantDatesModel extends Equatable {
   ];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentHealthModel extends Equatable {
   const StudentHealthModel({
     this.allergy,
@@ -355,43 +360,17 @@ class StudentHealthModel extends Equatable {
   final String? allergy;
   final String? medications;
   final String? dietRestrictions;
+
+  /// Coerced from a loosely-typed JSON bool via [_photoPermissionFromJson].
+  @JsonKey(fromJson: _photoPermissionFromJson)
   final bool? photoPermission;
 
-  static bool? _asBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    if (value is String) {
-      final normalized = value.trim().toLowerCase();
-      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
-        return true;
-      }
-      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
-        return false;
-      }
-    }
-    return null;
-  }
+  /// Null-safe wrapper around the generated fromJson.
+  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) => json == null
+      ? const StudentHealthModel()
+      : _$StudentHealthModelFromJson(json);
 
-  factory StudentHealthModel.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return const StudentHealthModel();
-    }
-    return StudentHealthModel(
-      allergy: json['allergy'] as String?,
-      medications: json['medications'] as String?,
-      dietRestrictions: json['dietRestrictions'] as String?,
-      photoPermission: _asBool(json['photoPermission']),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      if (allergy != null) 'allergy': allergy,
-      if (medications != null) 'medications': medications,
-      if (dietRestrictions != null) 'dietRestrictions': dietRestrictions,
-      if (photoPermission != null) 'photoPermission': photoPermission,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentHealthModelToJson(this);
 
   @override
   List<Object?> get props => [
@@ -402,6 +381,7 @@ class StudentHealthModel extends Equatable {
   ];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentPhysicalExamModel extends Equatable {
   const StudentPhysicalExamModel({
     required this.code,
@@ -410,6 +390,7 @@ class StudentPhysicalExamModel extends Equatable {
     this.notes,
   });
 
+  @JsonKey(defaultValue: '')
   final String code;
 
   /// ISO date string `YYYY-MM-DD` (per backend contract).
@@ -419,28 +400,16 @@ class StudentPhysicalExamModel extends Equatable {
   final String? status;
   final String? notes;
 
-  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) {
-    return StudentPhysicalExamModel(
-      code: json['code'] as String? ?? '',
-      examDate: json['examDate'] as String?,
-      status: json['status'] as String?,
-      notes: json['notes'] as String?,
-    );
-  }
+  factory StudentPhysicalExamModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentPhysicalExamModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'code': code,
-      if (examDate != null) 'examDate': examDate,
-      if (status != null) 'status': status,
-      if (notes != null) 'notes': notes,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentPhysicalExamModelToJson(this);
 
   @override
   List<Object?> get props => [code, examDate, status, notes];
 }
 
+@JsonSerializable(includeIfNull: false)
 class StudentImmunizationModel extends Equatable {
   const StudentImmunizationModel({
     required this.code,
@@ -455,46 +424,27 @@ class StudentImmunizationModel extends Equatable {
     this.notes,
   });
 
+  @JsonKey(defaultValue: '')
   final String code;
+  @JsonKey(defaultValue: '')
   final String studentCode;
+  @JsonKey(defaultValue: '')
   final String vaccineName;
+  @JsonKey(defaultValue: '')
   final String vaccineDoseCode;
+  @JsonKey(defaultValue: 0)
   final int doseNumber;
   final String? dueDate;
   final String? administeredDate;
+  @JsonKey(defaultValue: '')
   final String status;
   final String? exemptionReason;
   final String? notes;
 
-  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) {
-    return StudentImmunizationModel(
-      code: json['code'] as String? ?? '',
-      studentCode: json['studentCode'] as String? ?? '',
-      vaccineName: json['vaccineName'] as String? ?? '',
-      vaccineDoseCode: json['vaccineDoseCode'] as String? ?? '',
-      doseNumber: json['doseNumber'] as int? ?? 0,
-      dueDate: json['dueDate'] as String?,
-      administeredDate: json['administeredDate'] as String?,
-      status: json['status'] as String? ?? '',
-      exemptionReason: json['exemptionReason'] as String?,
-      notes: json['notes'] as String?,
-    );
-  }
+  factory StudentImmunizationModel.fromJson(Map<String, dynamic> json) =>
+      _$StudentImmunizationModelFromJson(json);
 
-  Map<String, dynamic> toJson() {
-    return {
-      'code': code,
-      'studentCode': studentCode,
-      'vaccineName': vaccineName,
-      'vaccineDoseCode': vaccineDoseCode,
-      'doseNumber': doseNumber,
-      if (dueDate != null) 'dueDate': dueDate,
-      if (administeredDate != null) 'administeredDate': administeredDate,
-      'status': status,
-      if (exemptionReason != null) 'exemptionReason': exemptionReason,
-      if (notes != null) 'notes': notes,
-    };
-  }
+  Map<String, dynamic> toJson() => _$StudentImmunizationModelToJson(this);
 
   @override
   List<Object?> get props => [
@@ -525,6 +475,7 @@ class StudentGuardianModel extends Equatable {
     required this.legalCustody,
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
+    this.displayNameOverride,
   });
 
   final String guardianCode;
@@ -545,13 +496,52 @@ class StudentGuardianModel extends Equatable {
   /// code instead of a ready URL (resolved to a URL by [DocumentImageWidget]).
   final String? profilePhotoAssetCode;
 
-  String get fullName => '$firstName $lastName'.trim();
+  /// Set by [fromJson] only when [firstName]/[lastName] are both empty but a
+  /// display name is available from a fallback field (top-level `fullName`/
+  /// `name`, or a nested `user` object) — a malformed-but-real guardian
+  /// record. Never overrides a genuine firstName+lastName, so it's purely
+  /// additive; [firstName]/[lastName] themselves stay exactly what the
+  /// backend sent for any consumer that needs the structured name parts
+  /// (e.g. pre-filling an edit-guardian form).
+  final String? displayNameOverride;
+
+  String get fullName {
+    final structured = '$firstName $lastName'.trim();
+    if (structured.isNotEmpty) return structured;
+    return displayNameOverride ?? '';
+  }
 
   factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
-    String? firstNonEmpty(List<String> keys) {
+    String? firstNonEmpty(List<String> keys, [Map<String, dynamic>? source]) {
+      final map = source ?? json;
       for (final k in keys) {
-        final v = (json[k] as Object?)?.toString().trim() ?? '';
+        final v = (map[k] as Object?)?.toString().trim() ?? '';
         if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    // Fallback display-name resolution for a malformed guardian record whose
+    // top-level firstName/lastName are both empty — mirrors the pre-MVVM-
+    // migration View helper this replaced: top-level fullName/name, then the
+    // same pair nested under a `user` object.
+    String? resolveDisplayNameOverride() {
+      // Cache round-trip: toJson() persists the already-resolved override
+      // under this key, and the raw API response never uses this exact key
+      // name, so checking it first is safe and avoids re-deriving (and
+      // avoids losing it, since a cached payload won't carry the original
+      // fullName/name/user fields toJson() doesn't persist).
+      final cached = firstNonEmpty(const ['displayNameOverride']);
+      if (cached != null) return cached;
+      final direct = firstNonEmpty(const ['fullName', 'name']);
+      if (direct != null) return direct;
+      final user = json['user'];
+      if (user is Map<String, dynamic>) {
+        final uFirst = firstNonEmpty(const ['firstName', 'first_name'], user);
+        final uLast = firstNonEmpty(const ['lastName', 'last_name'], user);
+        final uCombined = '${uFirst ?? ''} ${uLast ?? ''}'.trim();
+        if (uCombined.isNotEmpty) return uCombined;
+        return firstNonEmpty(const ['fullName', 'name'], user);
       }
       return null;
     }
@@ -583,6 +573,7 @@ class StudentGuardianModel extends Equatable {
         'photoAssetCode',
         'mediaAssetCode',
       ]),
+      displayNameOverride: resolveDisplayNameOverride(),
     );
   }
 
@@ -600,6 +591,7 @@ class StudentGuardianModel extends Equatable {
       'legalCustody': legalCustody,
       'profilePhotoUrl': profilePhotoUrl,
       'profilePhotoAssetCode': profilePhotoAssetCode,
+      'displayNameOverride': displayNameOverride,
     };
   }
 
@@ -617,6 +609,7 @@ class StudentGuardianModel extends Equatable {
     legalCustody,
     profilePhotoUrl,
     profilePhotoAssetCode,
+    displayNameOverride,
   ];
 }
 

@@ -1,4 +1,4 @@
-import '../../../../core/util/cache_manager.dart';
+import '../../../../core/utils/cache_manager.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';

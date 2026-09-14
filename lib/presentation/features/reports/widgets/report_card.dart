@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 
 class ReportItem {
   const ReportItem({
+    required this.type,
     required this.name,
     required this.description,
   });
+
+  /// Stable identity of this report, used for navigation and for the request
+  /// payload. Switch on this — never on [name].
+  ///
+  /// [name] and [description] are purely presentational: they are display
+  /// copy, they are localisable, and two different reports may legitimately
+  /// share a [name] (the Student and Staff tabs both offer an "Absent
+  /// Report"). Keying control flow off display text made renaming a report
+  /// silently break the form it opens.
+  final ReportType type;
 
   final String name;
   final String description;
@@ -37,12 +53,18 @@ class ReportCard extends StatefulWidget {
 }
 
 class _ReportCardState extends State<ReportCard> {
-  bool _isExpanded = false;
+  /// §2.2 bucket B — expand/collapse is UI micro-state.
+  final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isExpanded.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = context.isTablet;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -50,112 +72,102 @@ class _ReportCardState extends State<ReportCard> {
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.cardColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
-                onTap: () =>
-                    setState(() => _isExpanded = !_isExpanded),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      height: 64,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 24 : 16,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.report.name,
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: isTablet ? 16 : 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xff573353),
-                                  height: 19 / 14,
+                onTap: () => _isExpanded.value = !_isExpanded.value,
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _isExpanded,
+                  builder: (context, expanded, _) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 64,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? 24 : 16,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.report.name,
+                                  style: AppTextStyles.reportsFieldValue(
+                                    fontSize: isTablet ? 16 : 14,
+                                  ).copyWith(height: 19 / 14),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    if (_isExpanded) ...[
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Color(0xFFE9ECEF),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Description',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: Color(0xff573353),
-                                height: 16 / 13,
+                      if (expanded) ...[
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: AppColors.reportsCardDividerColor,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(AppSizes.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                ReportsStrings.description,
+                                style: AppTextStyles.reportsFieldLabel(
+                                  fontSize: 13,
+                                ).copyWith(height: 16 / 13),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.report.description,
-                              style: const TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xff573353),
-                                height: 19 / 14,
+                              const SizedBox(height: AppSizes.xxs),
+                              Text(
+                                widget.report.description,
+                                style: AppTextStyles.reportsFieldValue(
+                                  fontSize: 14,
+                                ).copyWith(height: 19 / 14),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                for (int j = 0;
+                              const SizedBox(height: AppSizes.md),
+                              Row(
+                                children: [
+                                  for (
+                                    int j = 0;
                                     j < widget.formats.length;
-                                    j++) ...[
-                                  Expanded(
-                                    child: _GenerateButton(
-                                      format: widget.formats[j],
-                                      // When there are multiple buttons, the
-                                      // last one is solid (primary) and the
-                                      // rest are outlined (secondary).
-                                      isPrimary:
-                                          j == widget.formats.length - 1,
-                                      onPressed: widget.onGenerate == null
-                                          ? null
-                                          : () => widget.onGenerate!(
-                                              widget.formats[j]),
+                                    j++
+                                  ) ...[
+                                    Expanded(
+                                      child: _GenerateButton(
+                                        format: widget.formats[j],
+                                        // When there are multiple buttons, the
+                                        // last one is solid (primary) and the
+                                        // rest are outlined (secondary).
+                                        isPrimary:
+                                            j == widget.formats.length - 1,
+                                        onPressed: widget.onGenerate == null
+                                            ? null
+                                            : () => widget.onGenerate!(
+                                                widget.formats[j],
+                                              ),
+                                      ),
                                     ),
-                                  ),
-                                  if (j != widget.formats.length - 1)
-                                    const SizedBox(width: 12),
+                                    if (j != widget.formats.length - 1)
+                                      const SizedBox(width: AppSizes.sm),
+                                  ],
                                 ],
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -181,18 +193,6 @@ class _GenerateButton extends StatelessWidget {
   /// color text/icon (matches [CustomCancelButton]).
   final bool isPrimary;
 
-  Widget _buildIcon({required Color color, required double size}) {
-    if (format == ReportExportFormat.pdf) {
-      return Icon(Icons.picture_as_pdf_rounded, size: size, color: color);
-    }
-    return SvgPicture.asset(
-      'assets/icons/excel_icon.svg',
-      width: size,
-      height: size,
-      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isEnabled = onPressed != null;
@@ -202,16 +202,15 @@ class _GenerateButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          gradient:
-              isEnabled ? AppColors.buildPrimaryGradient() : null,
-          color: isEnabled ? null : Colors.grey[300],
+          gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
+          color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
         ),
         padding: const EdgeInsets.all(1),
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
-            backgroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            backgroundColor: AppColors.cardColor,
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -223,23 +222,26 @@ class _GenerateButton extends StatelessWidget {
               isEnabled
                   ? ShaderMask(
                       shaderCallback: (bounds) =>
-                          AppColors.buildPrimaryGradient()
-                              .createShader(bounds),
+                          AppColors.buildPrimaryGradient().createShader(bounds),
                       blendMode: BlendMode.srcIn,
-                      child:
-                          _buildIcon(color: Colors.white, size: 18),
+                      child: _ReportFormatIcon(
+                        format: format,
+                        color: AppColors.cardColor,
+                        size: 18,
+                      ),
                     )
-                  : _buildIcon(color: Colors.grey[600]!, size: 18),
-              const SizedBox(width: 8),
+                  : _ReportFormatIcon(
+                      format: format,
+                      color: AppColors.reportsDisabledForegroundColor,
+                      size: 18,
+                    ),
+              const SizedBox(width: AppSizes.xs),
               Text(
-                'Generate',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                ReportsStrings.generateAction,
+                style: AppTextStyles.reportsHeading(fontSize: 15).copyWith(
                   color: isEnabled
                       ? AppColors.primaryColor
-                      : Colors.grey[600],
+                      : AppColors.reportsDisabledForegroundColor,
                 ),
               ),
             ],
@@ -253,40 +255,70 @@ class _GenerateButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : Colors.grey[300],
+        color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
       ),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
-          disabledForegroundColor: Colors.grey[600],
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          backgroundColor: AppColors.transparentColor,
+          foregroundColor: isEnabled
+              ? AppColors.cardColor
+              : AppColors.reportsDisabledForegroundColor,
+          disabledForegroundColor: AppColors.reportsDisabledForegroundColor,
+          padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildIcon(
-              color: isEnabled ? Colors.white : Colors.grey[600]!,
+            _ReportFormatIcon(
+              format: format,
+              color: isEnabled
+                  ? AppColors.cardColor
+                  : AppColors.reportsDisabledForegroundColor,
               size: 18,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSizes.xs),
             Text(
-              'Generate',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: isEnabled ? Colors.white : Colors.grey[600],
+              ReportsStrings.generateAction,
+              style: AppTextStyles.reportsHeading(fontSize: 15).copyWith(
+                color: isEnabled
+                    ? AppColors.cardColor
+                    : AppColors.reportsDisabledForegroundColor,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// PDF / Excel glyph for a generate button.
+///
+/// Was `Widget _buildIcon({...})` on the State (§6.4).
+class _ReportFormatIcon extends StatelessWidget {
+  const _ReportFormatIcon({
+    required this.format,
+    required this.color,
+    required this.size,
+  });
+
+  final ReportExportFormat format;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (format == ReportExportFormat.pdf) {
+      return Icon(Icons.picture_as_pdf_rounded, size: size, color: color);
+    }
+    return SvgPicture.asset(
+      'assets/icons/excel_icon.svg',
+      width: size,
+      height: size,
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
     );
   }
 }

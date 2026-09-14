@@ -1,6 +1,6 @@
 import '../../../../core/network/api_client.dart';
-import '../../../../core/util/api_constants.dart';
-import '../../../../core/util/api_paths.dart';
+import '../../../../core/utils/api_constants.dart';
+import '../../../../core/utils/api_paths.dart';
 import '../../staff/models/staff_models.dart';
 import '../../communication/models/get_conversations_response.dart';
 

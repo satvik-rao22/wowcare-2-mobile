@@ -1,5 +1,5 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import '../repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
 /// Lightweight per-type unread counter.
 ///

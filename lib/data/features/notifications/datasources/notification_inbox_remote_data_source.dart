@@ -1,5 +1,5 @@
 import '../../../../core/network/api_client.dart';
-import '../../../../core/util/api_paths.dart';
+import '../../../../core/utils/api_paths.dart';
 import '../models/app_notification_model.dart';
 
 /// One page of inbox notifications plus whether more pages exist.

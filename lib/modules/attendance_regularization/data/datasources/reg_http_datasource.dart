@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 
 import 'reg_api_paths.dart';
 import 'reg_remote_datasource.dart';

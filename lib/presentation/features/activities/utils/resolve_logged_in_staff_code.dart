@@ -1,17 +1,18 @@
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/login_persona_util.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 /// Resolves `staffCode` for the logged-in user: prefers validated cache, then
 /// `/api/v1/staff/code` (same as login). Persists to storage when fetched.
 Future<String?> resolveLoggedInStaffCode() async {
   try {
     final storage = serviceLocator<StorageService>();
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (userCode.isEmpty) return null;
 
     final orgCode =
@@ -20,8 +21,8 @@ Future<String?> resolveLoggedInStaffCode() async {
         (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
     if (orgCode.isNotEmpty) {
-      final rolesJson =
-          (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (shouldSkipStaffCodeResolutionForContext(
         rolesJson: rolesJson,
         organizationCode: orgCode,
@@ -102,7 +103,9 @@ Future<String> resolveLoggedInStaffDisplayNameFromApi({
       final composed = '${myProfile.firstName} ${myProfile.lastName}'.trim();
       final resolved = full.isNotEmpty ? full : composed;
       if (resolved.isNotEmpty) return resolved;
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('resolveLoggedInStaffDisplayNameFromApi: my-profile lookup failed, falling back: $e');
+    }
     try {
       final profileByCode = await staffRepo.getStaffProfile(
         staffCode: code,
@@ -113,7 +116,9 @@ Future<String> resolveLoggedInStaffDisplayNameFromApi({
           .trim();
       final resolved = full.isNotEmpty ? full : composed;
       if (resolved.isNotEmpty) return resolved;
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.d('resolveLoggedInStaffDisplayNameFromApi: profile-by-code lookup failed: $e');
+    }
     return '';
   } catch (e) {
     CoreUtils.logApiError('resolveLoggedInStaffDisplayNameFromApi failed: $e');

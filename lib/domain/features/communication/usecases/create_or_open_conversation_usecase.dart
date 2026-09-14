@@ -2,7 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import '../repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
 /// Single shared "create-or-open" entry point for starting a conversation,
 /// used by Staff, Parent, and Admin messaging alike.

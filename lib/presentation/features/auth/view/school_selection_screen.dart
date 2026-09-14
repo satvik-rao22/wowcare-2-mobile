@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/extensions/string_ext.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -38,20 +38,26 @@ class SchoolSelectionScreen extends StatefulWidget {
 }
 
 class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
-  String? _selectedSchool;
-  String? _selectedSchoolCode;
+  // UI-local selection + in-flight state, never read outside this screen —
+  // ValueNotifier rather than setState so only the dropdown/button subtree
+  // rebuilds, not the whole screen (Mandate 2). _schoolStatuses stays a
+  // plain field + setState: it's sourced from an API, which per Mandate 2
+  // belongs in cubit state — promoting it there is a larger, separate change
+  // (AuthCubit's state shape is shared well beyond this screen), so this one
+  // call is left as the smallest correct compromise rather than mislabelling
+  // API data as local UI state.
+  final _selectedSchool = ValueNotifier<String?>(null);
+  final _selectedSchoolCode = ValueNotifier<String?>(null);
+  final _isSubmitting = ValueNotifier<bool>(false);
   bool _hasTriggeredLoad = false;
-  bool _isSubmitting = false;
   Map<String, String> _schoolStatuses = const <String, String>{};
 
-  String _formatRole(String role) {
-    if (role.isEmpty) return '';
-    final cleaned = role.toLowerCase().replaceAll('_', ' ');
-    return cleaned
-        .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
-        .join(' ');
+  @override
+  void dispose() {
+    _selectedSchool.dispose();
+    _selectedSchoolCode.dispose();
+    _isSubmitting.dispose();
+    super.dispose();
   }
 
   @override
@@ -128,7 +134,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
           final rawRole = login?.roles.isNotEmpty == true
               ? login!.roles.first.role
               : '';
-          final userRole = _formatRole(rawRole);
+          final userRole = rawRole.toDisplayRole;
 
           // Get organization codes and names to find the display name
           final orgCodes = (login?.roles ?? [])
@@ -188,11 +194,9 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
             });
           }
 
-          final isNextEnabled = _selectedSchool != null && schools.isNotEmpty;
-
           return Scaffold(
             body: Container(
-              color: Colors.white,
+              color: AppColors.cardColor,
               child: SafeArea(
                 child: Column(
                   children: [
@@ -204,7 +208,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                         child: IconButton(
                           icon: Icon(
                             Icons.arrow_back,
-                            color: const Color(0xFF333333),
+                            color: AppColors.authPrimaryTextColor,
                             size: screenHeight * 0.03,
                           ),
                           onPressed: onBack,
@@ -237,7 +241,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   style: TextStyle(
                                     fontSize: screenHeight * 0.03,
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.white,
+                                    color: AppColors.cardColor,
                                   ),
                                 ),
                               ),
@@ -260,20 +264,20 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                       Text(
                                         userName,
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: screenHeight * 0.022,
                                           fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF573353),
+                                          color: AppColors.authAccentTextColor,
                                         ),
                                       ),
                                       SizedBox(height: screenHeight * 0.004),
                                       Text(
                                         userRole,
                                         style: TextStyle(
-                                          fontFamily: 'Manrope',
+                                          fontFamily: Fonts.manrope,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
-                                          color: Colors.grey.shade600,
+                                          color: AppColors.authSecondaryTextColor,
                                         ),
                                       ),
                                     ],
@@ -286,10 +290,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 orgDisplayName,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: Fonts.manrope,
                                   fontSize: screenHeight * 0.02,
                                   fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF573353),
+                                  color: AppColors.authAccentTextColor,
                                 ),
                               ),
                               SizedBox(height: screenHeight * 0.02),
@@ -298,11 +302,11 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 child: Text(
                                   'Select your School',
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: screenHeight * 0.022,
                                     height: 2 / 6,
                                     fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF333333),
+                                    color: AppColors.authPrimaryTextColor,
                                   ),
                                 ),
                               ),
@@ -312,10 +316,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 child: Text(
                                   "Choose the school you want to continue with.",
                                   style: TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: Fonts.manrope,
                                     fontSize: screenHeight * 0.016,
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF333333),
+                                    color: AppColors.authPrimaryTextColor,
                                     height: 22 / 12,
                                   ),
                                   textAlign: TextAlign.left,
@@ -325,7 +329,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                               Container(
                                 width: double.infinity,
                                 height: 1,
-                                color: const Color(0xFFFFF3E9),
+                                color: AppColors.authDividerColor,
                               ),
                               SizedBox(height: screenHeight * 0.02),
                               if (isLoading)
@@ -333,43 +337,45 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   padding: EdgeInsets.only(bottom: screenHeight * 0.02),
                                   child: const LinearProgressIndicator(),
                                 ),
-                              CustomDropdown(
-                                hintText: isLoading
-                                    ? 'Loading schools...'
-                                    : (schools.isNotEmpty
-                                        ? 'Select school'
-                                        : 'No schools found'),
-                                items: schools,
-                                selectedItem: _selectedSchool,
-                                height: screenHeight * 0.06,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: screenHeight * 0.01,
-                                  horizontal: screenWidth * 0.04,
-                                ),
-                                leadingIcon: SvgPicture.asset(
-                                  MediaRes.homeIcon,
-                                  height: screenHeight * 0.022,
-                                  width: screenHeight * 0.022,
-                                  colorFilter: const ColorFilter.mode(
-                                    Color(0xFF573353),
-                                    BlendMode.srcIn,
+                              ValueListenableBuilder<String?>(
+                                valueListenable: _selectedSchool,
+                                builder: (context, selectedSchool, _) =>
+                                    CustomDropdown(
+                                  hintText: isLoading
+                                      ? 'Loading schools...'
+                                      : (schools.isNotEmpty
+                                          ? 'Select school'
+                                          : 'No schools found'),
+                                  items: schools,
+                                  selectedItem: selectedSchool,
+                                  height: screenHeight * 0.06,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: screenHeight * 0.01,
+                                    horizontal: screenWidth * 0.04,
                                   ),
-                                ),
-                                selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF333333),
-                                ),
-                                popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.02,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF333333),
-                                ),
-                                onSelect: (value) {
-                                  setState(() {
-                                    _selectedSchool = value;
+                                  leadingIcon: SvgPicture.asset(
+                                    MediaRes.homeIcon,
+                                    height: screenHeight * 0.022,
+                                    width: screenHeight * 0.022,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.authAccentTextColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  selectedTextStyle: TextStyle(
+                                    fontFamily: Fonts.manrope,
+                                    fontSize: screenHeight * 0.022,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.authPrimaryTextColor,
+                                  ),
+                                  popupItemTextStyle: TextStyle(
+                                    fontFamily: Fonts.manrope,
+                                    fontSize: screenHeight * 0.02,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.authPrimaryTextColor,
+                                  ),
+                                  onSelect: (value) {
+                                    _selectedSchool.value = value;
                                     if (value != null && schoolEntries.isNotEmpty) {
                                       final entry = schoolEntries.firstWhere(
                                         (e) =>
@@ -377,11 +383,11 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                             value,
                                         orElse: () => <String, String>{},
                                       );
-                                      _selectedSchoolCode =
+                                      _selectedSchoolCode.value =
                                           entry['schoolCode'] ?? entry['schoolName'];
                                     }
-                                  });
-                                },
+                                  },
+                                ),
                               ),
                               SizedBox(height: screenHeight * 0.02),
                             ],
@@ -391,84 +397,95 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                     ),
                     Padding(
                       padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: CustomButtonLayout(
-                        confirmButtonLabel: 'Next',
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading: _isSubmitting,
-                        onPressedConfirm: isNextEnabled
-                            ? () async {
-                                if (_isSubmitting) return;
-                                setState(() => _isSubmitting = true);
-                                if (_selectedSchool == null) {
-                                  if (mounted) {
-                                    setState(() => _isSubmitting = false);
+                      child: ListenableBuilder(
+                        listenable:
+                            Listenable.merge([_selectedSchool, _isSubmitting]),
+                        builder: (context, _) {
+                          final selectedSchool = _selectedSchool.value;
+                          final isSubmitting = _isSubmitting.value;
+                          final isNextEnabled =
+                              selectedSchool != null && schools.isNotEmpty;
+                          return CustomButtonLayout(
+                            confirmButtonLabel: 'Next',
+                            showCancelButton: false,
+                            isForm: false,
+                            isLoading: isSubmitting,
+                            onPressedConfirm: isNextEnabled
+                                ? () async {
+                                    if (_isSubmitting.value) return;
+                                    _isSubmitting.value = true;
+                                    final schoolName = _selectedSchool.value;
+                                    if (schoolName == null) {
+                                      _isSubmitting.value = false;
+                                      return;
+                                    }
+                                    final authCubit = context.read<AuthCubit>();
+                                    final schoolCode =
+                                        _selectedSchoolCode.value ?? schoolName;
+                                    try {
+                                      final blockMessage = await authCubit
+                                          .verifySchoolActiveOrBlockMessage(
+                                        organizationCode: widget.selectedOrg,
+                                        schoolCode: schoolCode,
+                                      );
+                                      if (blockMessage != null) {
+                                        if (!context.mounted) return;
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message: blockMessage,
+                                          isError: true,
+                                        );
+                                        return;
+                                      }
+                                      await authCubit.updateLoginContext(
+                                        lastLoginOrganizationCode:
+                                            widget.selectedOrg,
+                                        lastLoginSchoolCode: schoolCode,
+                                      );
+                                      if (widget.isSwitchFlow) {
+                                        await authCubit.setSelectedOrgAndSchool(
+                                          organizationCode: widget.selectedOrg,
+                                          schoolCode: schoolCode,
+                                          schoolName: schoolName,
+                                        );
+                                      } else {
+                                        await authCubit.completeLogin(
+                                          selectedOrgCode: widget.selectedOrg,
+                                          selectedSchoolName: schoolName,
+                                          selectedSchoolCode:
+                                              _selectedSchoolCode.value,
+                                        );
+                                      }
+                                      // Prefetch profile + permissions + parent-child
+                                      // BEFORE opening Dashboard so UI doesn't lazily
+                                      // trigger guardian/children calls.
+                                      await authCubit
+                                          .prefetchStaffProfileForOrgAndSchool(
+                                        organizationCode: widget.selectedOrg,
+                                        schoolCode: schoolCode,
+                                      );
+                                      if (!context.mounted) return;
+                                      await context
+                                          .read<RoleCubit>()
+                                          .refreshAccessFromServer(force: true);
+                                      if (!context.mounted) return;
+                                      context
+                                          .read<ParentChildCubit>()
+                                          .invalidate();
+                                      await context
+                                          .read<ParentChildCubit>()
+                                          .ensureLoaded(force: true);
+                                      if (!context.mounted) return;
+                                      context.go(DashboardScreen.routeName);
+                                    } finally {
+                                      if (mounted) {
+                                        _isSubmitting.value = false;
+                                      }
+                                    }
                                   }
-                                  return;
-                                }
-                                final authCubit = context.read<AuthCubit>();
-                                final schoolCode = _selectedSchoolCode ??
-                                    _selectedSchool!;
-                                try {
-                                  final blockMessage = await authCubit
-                                      .verifySchoolActiveOrBlockMessage(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
-                                  if (blockMessage != null) {
-                                    if (!context.mounted) return;
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: blockMessage,
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-                                  await authCubit.updateLoginContext(
-                                    lastLoginOrganizationCode:
-                                        widget.selectedOrg,
-                                    lastLoginSchoolCode: schoolCode,
-                                  );
-                                  if (widget.isSwitchFlow) {
-                                    await authCubit.setSelectedOrgAndSchool(
-                                      organizationCode: widget.selectedOrg,
-                                      schoolCode: schoolCode,
-                                      schoolName: _selectedSchool,
-                                    );
-                                  } else {
-                                    await authCubit.completeLogin(
-                                      selectedOrgCode: widget.selectedOrg,
-                                      selectedSchoolName: _selectedSchool!,
-                                      selectedSchoolCode: _selectedSchoolCode,
-                                    );
-                                  }
-                                  // Prefetch profile + permissions + parent-child
-                                  // BEFORE opening Dashboard so UI doesn't lazily
-                                  // trigger guardian/children calls.
-                                  await authCubit.prefetchStaffProfileForOrgAndSchool(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
-                                  if (!context.mounted) return;
-                                  await context
-                                      .read<RoleCubit>()
-                                      .refreshAccessFromServer(force: true);
-                                  if (!context.mounted) return;
-                                  context
-                                      .read<ParentChildCubit>()
-                                      .invalidate();
-                                  await context
-                                      .read<ParentChildCubit>()
-                                      .ensureLoaded(force: true);
-                                  if (!context.mounted) return;
-                                  context.go(DashboardScreen.routeName);
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isSubmitting = false);
-                                  }
-                                }
-                              }
-                            : null,
+                                : null,
+                          );
+                        },
                       ),
                     ),
                   ],

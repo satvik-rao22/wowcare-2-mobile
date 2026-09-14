@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../../core/errors/reg_exceptions.dart';
 import '../../data/mappers/reg_mappers.dart';

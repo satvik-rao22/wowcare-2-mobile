@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';

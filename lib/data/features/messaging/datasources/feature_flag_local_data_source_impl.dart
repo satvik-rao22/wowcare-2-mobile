@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/feature_flags/feature_flag_names.dart';
-import '../../../../core/util/app_time.dart';
+import '../../../../core/utils/app_time.dart';
 import 'feature_flag_local_data_source.dart';
 
 /// Implementation of FeatureFlagLocalDataSource using SharedPreferences.

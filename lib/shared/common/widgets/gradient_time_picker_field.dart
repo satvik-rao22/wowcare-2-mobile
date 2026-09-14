@@ -1,7 +1,7 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
-// import 'package:wowcare/app/theme/colors.dart';
-// import 'package:wowcare/app/theme/media_res.dart';
+// import 'package:wowcare/core/theme/app_colors.dart';
+// import 'package:wowcare/core/theme/app_media_res.dart';
 // import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 // class GradientTimePickerField extends StatelessWidget {
@@ -111,8 +111,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class GradientTimePickerField extends StatelessWidget {

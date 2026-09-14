@@ -1,7 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+
+/// `RequestOptions.extra` flag marking a request as UNSAFE to auto-replay after
+/// a 401 token refresh — a non-idempotent mutation (e.g. a create/upload) whose
+/// silent replay could duplicate a write that already reached the server. Such a
+/// request still triggers the refresh, but the interceptor surfaces the error
+/// instead of replaying, so the caller retries under its own single-flight guard
+/// with the now-valid token. Idempotent requests (GET, and updates/deletes that
+/// converge) are left to replay as before, so no existing behaviour regresses.
+const String kNoAutoReplayExtraKey = 'noAutoReplay';
 
 /// Handles 401s: first try to RENEW the session, and only log the user out if
 /// renewal isn't possible.
@@ -34,6 +43,18 @@ class SessionExpiredInterceptor extends Interceptor {
     if (!alreadyRetried) {
       final newToken = await TokenRefreshService.instance.refreshSession();
       if (newToken != null && newToken.isNotEmpty) {
+        if (!shouldReplayAfterRefresh(err.requestOptions)) {
+          // Session refreshed successfully, but this request opted OUT of
+          // automatic replay (an unsafe/non-idempotent mutation). Replaying it
+          // could duplicate a write that already reached the server. Surface the
+          // error so the caller retries deliberately with the now-valid token.
+          AppLogger.d(
+            '[TokenRefresh] refreshed but not replaying non-idempotent request '
+            '${err.requestOptions.method} ${err.requestOptions.uri.path}',
+          );
+          handler.next(err);
+          return;
+        }
         try {
           final options = err.requestOptions
             ..extra[_retriedFlag] = true
@@ -80,6 +101,12 @@ class SessionExpiredInterceptor extends Interceptor {
     await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession();
     handler.next(err);
   }
+
+  /// Whether a request may be automatically replayed after a successful token
+  /// refresh. A request that set [kNoAutoReplayExtraKey] in its `extra` (a
+  /// non-idempotent mutation) opts out; everything else replays as before.
+  static bool shouldReplayAfterRefresh(RequestOptions options) =>
+      options.extra[kNoAutoReplayExtraKey] != true;
 
   /// Login/forgot-password 401 means invalid credentials, not global session expiry.
   /// Login-context 401 is handled explicitly by the splash screen (and auth cubit).

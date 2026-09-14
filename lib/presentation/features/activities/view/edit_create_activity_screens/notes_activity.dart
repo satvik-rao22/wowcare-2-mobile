@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
@@ -10,31 +11,32 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/services/image_upload/image_upload_service.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/activity_patch_attachments.dart';
-import '../../utils/activity_photo_attachment_upload.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../../widgets/upload_photo_video.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_patch_attachments.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_photo_attachment_upload.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class NotesActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/notes';
+
   const NotesActivityScreen({
     super.key,
     this.selectedStudents,
@@ -49,14 +51,11 @@ class NotesActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _NotesActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _NotesActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -118,12 +117,15 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
   final _attachmentState = ActivityPhotoAttachmentState();
+
+  /// Cancels any in-flight media upload when this screen is disposed, so a
+  /// large upload doesn't keep running after the user leaves the screen.
+  final CancelToken _uploadCancelToken = CancelToken();
   List<String> _remainingExistingPhotoUrls = [];
 
   int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
   ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
-  late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -147,8 +149,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
-    _imageUploadService = serviceLocator<ImageUploadService>();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -184,7 +185,9 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -198,7 +201,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -302,7 +305,9 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
     } catch (e) {
@@ -324,28 +329,15 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -400,6 +392,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -464,7 +457,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -501,7 +494,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -539,17 +532,29 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final message = await _editor.createActivity(
@@ -612,6 +617,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -680,7 +686,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -715,7 +721,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -762,17 +768,29 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
       ];
 
       final remainingNorm = _remainingExistingPhotoUrls
@@ -783,7 +801,9 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         existingRows: _detailAttachmentRows
             .map((e) => Map<String, dynamic>.from(e))
             .toList(),
-        newUploadRows: newAttachments,
+        // Holdout: the PATCH/merge helper works on Map rows — convert the typed
+        // outbound attachments back to the wire Map shape at this boundary.
+        newUploadRows: newAttachments.map((a) => a.toPayload()).toList(),
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
@@ -831,7 +851,9 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         );
         try {
           await _editor.getActivity(code: code);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('post-update cache-warm refetch failed: $e');
+        }
       }
 
       if (!mounted) return;
@@ -856,7 +878,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _ensurePhotoAssetsUploaded({
+  Future<List<ActivityAttachment>> _ensurePhotoAssetsUploaded({
     required String classroomCode,
     required String activityTypeCode,
     required String organizationCode,
@@ -879,7 +901,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
 
     return uploadActivityPhotoAttachments(
-      uploadService: _imageUploadService,
+      editor: _editor,
       state: _attachmentState,
       files: _newPhotos,
       classroomCode: classroomCode,
@@ -898,10 +920,9 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           _uploadTotalCount = _newPhotos.length;
         }
       },
-      onOverallProgressPercent: (percent) =>
-          _uploadProgressPercent = percent,
-      onFileCompleted: (completed, total) =>
-          _uploadCompletedCount = completed,
+      onOverallProgressPercent: (percent) => _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) => _uploadCompletedCount = completed,
+      cancelToken: _uploadCancelToken,
     );
   }
 
@@ -995,12 +1016,16 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         isSuccess: true,
       );
     } catch (error) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(error),
-        isError: true,
-      );
+      // A cancellation (the screen was disposed mid-upload) is expected —
+      // don't surface it as an error. Non-cancel failures show as before.
+      if (!(error is DioException && CancelToken.isCancel(error))) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ApiErrorHandler.extractErrorMessage(error),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -1039,6 +1064,11 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
 
   @override
   void dispose() {
+    // Abort any in-flight media upload so it doesn't keep running after the
+    // user leaves this screen.
+    if (!_uploadCancelToken.isCancelled) {
+      _uploadCancelToken.cancel('activity screen disposed');
+    }
     _descriptionController.dispose();
     super.dispose();
   }
@@ -1300,11 +1330,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
           const SizedBox(width: 8),
           Text(
             'Uploading photo... $_uploadProgressPercent% ($_uploadCompletedCount/$_uploadTotalCount)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.activityStrongLabel,
           ),
         ],
       );
@@ -1315,15 +1341,15 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadCompletedCount/$_uploadTotalCount',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1332,15 +1358,15 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
     if (_uploadedPhotoCount == _newPhotos.length) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(
+            Icons.check_circle,
+            size: 16,
+            color: AppColors.activityUploadSuccessColor,
+          ),
           const SizedBox(width: 8),
           Text(
             'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.green,
-            ),
+            style: AppTextStyles.activityUploadSuccessText,
           ),
         ],
       );
@@ -1348,15 +1374,15 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
 
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(
+          Icons.error_outline,
+          size: 16,
+          color: AppColors.activityUploadWarningColor,
+        ),
         const SizedBox(width: 8),
         Text(
           'Uploaded $_uploadedPhotoCount/${_newPhotos.length} photo(s)',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.orange,
-          ),
+          style: AppTextStyles.activityUploadWarningText,
         ),
       ],
     );

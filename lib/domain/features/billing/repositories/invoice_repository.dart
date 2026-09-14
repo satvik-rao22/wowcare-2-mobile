@@ -77,4 +77,11 @@ abstract class InvoiceRepository {
   Future<InvoiceResultEntity> cancelInvoice(String code);
   Future<InvoiceResultEntity> issueInvoice(String code);
   Future<InvoiceResultEntity> resendInvoice(String code);
+
+  /// Confirms every student in [studentCodes] can receive an invoice before
+  /// creation is attempted (`POST /api/v1/invoices/check-recipients`).
+  Future<CheckRecipientsResultEntity> checkRecipients({
+    required String schoolCode,
+    required List<String> studentCodes,
+  });
 }

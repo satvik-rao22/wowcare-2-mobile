@@ -1,14 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/network/session_expired_interceptor.dart'
+    show kNoAutoReplayExtraKey;
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
 import '../models/student_physician_models.dart';
 import '../models/vaccine_model.dart';
-import '../../../../core/util/logger_service.dart';
+import '../../../../core/utils/logger_service.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({
@@ -226,6 +228,7 @@ abstract class StudentRemoteDataSource {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   });
 
   /// Fetches guardians/parents for a student via `GET /api/v1/guardian/{studentCode}`.
@@ -290,9 +293,7 @@ abstract class StudentRemoteDataSource {
   /// Updates the logged-in guardian's own profile via
   /// `PATCH /api/v1/guardian/my-profile`. The guardian is identified by the
   /// `code` field inside [body].
-  Future<String> updateGuardianMyProfile({
-    required Map<String, dynamic> body,
-  });
+  Future<String> updateGuardianMyProfile({required Map<String, dynamic> body});
 
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
   Future<String> deleteGuardian({
@@ -406,21 +407,35 @@ abstract class StudentRemoteDataSource {
 
   /// Fetches student counts (active, upcoming, enrolled) for a school via
   /// `GET /api/v1/student/count`.
-  Future<Map<String, int>> getStudentCounts({required String schoolCode});
+  Future<({int activeCount, int upcomingCount, int enrolledCount})>
+  getStudentCounts({required String schoolCode});
 
   /// `GET /api/v1/student/student-documents/expiry-count`
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode});
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode});
 
   /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode});
+  getStudentPhysicalCheckupCount({required String schoolCode});
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   StudentRemoteDataSourceImpl(this._client);
 
   final Dio _client;
+
+  /// Options marking a non-idempotent create as UNSAFE to auto-replay after a
+  /// 401 token refresh (see [kNoAutoReplayExtraKey]). Applied to the create/add
+  /// mutations so a silently-replayed request can't duplicate a student,
+  /// guardian, pickup, physician, document, sibling or physical-exam record.
+  Options get _noReplayOptions =>
+      Options(extra: const {kNoAutoReplayExtraKey: true});
 
   @override
   Future<StudentPageModel> getStudentPage({
@@ -522,6 +537,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: request.toJson(),
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -742,7 +758,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'notes': notes ?? '',
     };
 
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: _noReplayOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected add physician API response format');
@@ -896,7 +916,14 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'studentCode': studentCode,
       'firstName': firstName,
       'lastName': lastName,
-      'email': email,
+      // Email has no "required" validation in the Add Pickup form (unlike
+      // first/last name, phone, relation, which all block submit when
+      // empty) - it's intentionally optional. Sending 'email': '' anyway
+      // got rejected by backend validation ("must be a valid email") that
+      // treats an empty string as present-but-invalid rather than absent.
+      // Omit the key entirely when blank, same as relationshipDescription/
+      // carpoolId below.
+      if (email.trim().isNotEmpty) 'email': email.trim(),
       'phoneNumber': phoneNumber,
       'relation': relation,
       if (relationshipDescription != null &&
@@ -907,7 +934,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
         'carpoolId': carpoolId.trim(),
     };
 
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: _noReplayOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected pickup create API response format');
@@ -991,7 +1022,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       body['schoolStartDate'] = dateFormatter.format(schoolStartDate);
     }
 
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: _noReplayOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected create student API response format');
@@ -1088,6 +1123,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final response = await _client.post<dynamic>(
       endpoint,
       data: <String, dynamic>{'siblingCodes': siblingCodes},
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1227,6 +1263,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? profilePhotoUrl,
     String? userCode,
     String? organizationCode,
+    String? relationshipDescription,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.guardianUser,
@@ -1253,8 +1290,16 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     if (organizationCode != null && organizationCode.trim().isNotEmpty) {
       body['organizationCode'] = organizationCode.trim();
     }
+    if (relationshipDescription != null &&
+        relationshipDescription.trim().isNotEmpty) {
+      body['relationshipDescription'] = relationshipDescription.trim();
+    }
 
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: _noReplayOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian-user API response format');
@@ -1391,10 +1436,12 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       code: (data['code'] ?? '').toString(),
       schoolCode: (data['schoolCode'] ?? '').toString(),
       organizationCode: (data['organizationCode'] ?? '').toString(),
-      canParentEditChildHealthRecords:
-          asBool(data['canParentEditChildHealthRecords']),
-      canStaffEditTheirOwnHealthRecords:
-          asBool(data['canStaffEditTheirOwnHealthRecords']),
+      canParentEditChildHealthRecords: asBool(
+        data['canParentEditChildHealthRecords'],
+      ),
+      canStaffEditTheirOwnHealthRecords: asBool(
+        data['canStaffEditTheirOwnHealthRecords'],
+      ),
     );
   }
 
@@ -1412,9 +1459,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       queryParameters: <String, dynamic>{'schoolCode': schoolCode},
     );
 
-    AppLogger.d(
-      '[IMMUNIZATION_API] Raw immunization API response: ${response.data}',
-    );
+    // Do NOT log the raw response body (may carry sensitive student/health data).
+    AppLogger.d('[IMMUNIZATION_API] immunization settings response received');
 
     final root = response.data;
     List<dynamic> list = const [];
@@ -1453,7 +1499,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       }
     }
 
-    AppLogger.d('[IMMUNIZATION_API] Parsed vaccine models: $vaccines');
+    AppLogger.d('[IMMUNIZATION_API] parsed ${vaccines.length} vaccine models');
     return vaccines;
   }
 
@@ -1487,9 +1533,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       return const <Map<String, dynamic>>[];
     }
 
-    return data
-        .whereType<Map<String, dynamic>>()
-        .toList(growable: false);
+    return data.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   @override
@@ -1515,6 +1559,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
             relationDescription.trim().isNotEmpty)
           'relationDescription': relationDescription.trim(),
       },
+      options: _noReplayOptions,
     );
 
     if (response.data is! Map<String, dynamic>) {
@@ -1557,7 +1602,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final response = await _client.patch<dynamic>(endpoint, data: body);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected guardian my-profile update API response format');
+      throw Exception(
+        'Unexpected guardian my-profile update API response format',
+      );
     }
 
     final data = response.data! as Map<String, dynamic>;
@@ -1606,6 +1653,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
           'schoolCode': schoolCode,
           'page': '$page',
           'size': '$pageSize',
+          'sort': 'name,asc',
+          // Archived/inactive tags shouldn't surface in the filter dropdown.
+          'status': 'ACTIVE',
         },
       );
 
@@ -1629,7 +1679,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       // "a short page means no more".
       final last = data['last'];
       final totalPages = data['totalPages'];
-      final isLast = (last is bool && last) ||
+      final isLast =
+          (last is bool && last) ||
           (totalPages is int && page >= totalPages - 1) ||
           pageItems.length < pageSize;
       if (isLast) break;
@@ -1679,7 +1730,9 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     );
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student regular schedules GET response format');
+      throw Exception(
+        'Unexpected student regular schedules GET response format',
+      );
     }
 
     final root = response.data! as Map<String, dynamic>;
@@ -1744,9 +1797,8 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
-  Future<Map<String, int>> getStudentCounts({
-    required String schoolCode,
-  }) async {
+  Future<({int activeCount, int upcomingCount, int enrolledCount})>
+  getStudentCounts({required String schoolCode}) async {
     final endpoint = ApiPaths.urlWithBase(
       '${ApiPaths.studentList}/count',
       ApiConstants.studentBaseUrl,
@@ -1766,11 +1818,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final upcoming = root['upcomingCount'] as int? ?? 0;
     final enrolled = root['enrolledCount'] as int? ?? 0;
 
-    return <String, int>{
-      'activeCount': active,
-      'upcomingCount': upcoming,
-      'enrolledCount': enrolled,
-    };
+    return (
+      activeCount: active,
+      upcomingCount: upcoming,
+      enrolledCount: enrolled,
+    );
   }
 
   @override
@@ -1903,7 +1955,11 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       ApiConstants.studentBaseUrl,
     );
 
-    final response = await _client.post<dynamic>(endpoint, data: body);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: body,
+      options: _noReplayOptions,
+    );
 
     if (response.data is! Map<String, dynamic>) {
       throw Exception('Unexpected add physical exam API response format');
@@ -1945,34 +2001,47 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode}) async {
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.studentDocumentExpiryCount);
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{'schoolCode': schoolCode},
     );
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student document expiry count response format');
+      throw Exception(
+        'Unexpected student document expiry count response format',
+      );
     }
     final root = response.data! as Map<String, dynamic>;
     final data = root['data'] as Map<String, dynamic>? ?? {};
     return (
-      expiredDocumentCount: (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
-      expiringWithinWeekCount: (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
-      totalDocumentsWithExpiry: (data['totalDocumentsWithExpiry'] as num?)?.toInt() ?? 0,
+      expiredDocumentCount:
+          (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
+      expiringWithinWeekCount:
+          (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
+      totalDocumentsWithExpiry:
+          (data['totalDocumentsWithExpiry'] as num?)?.toInt() ?? 0,
     );
   }
 
   @override
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+  getStudentPhysicalCheckupCount({required String schoolCode}) async {
     final endpoint = ApiPaths.url(
       ApiPaths.studentPhysicalCheckupCount(schoolCode),
     );
     final response = await _client.get<dynamic>(endpoint);
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected student physical checkup count response format');
+      throw Exception(
+        'Unexpected student physical checkup count response format',
+      );
     }
     final root = response.data! as Map<String, dynamic>;
     final data = root['data'] as Map<String, dynamic>? ?? {};

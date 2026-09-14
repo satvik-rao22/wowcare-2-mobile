@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../app/theme/colors.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Isolated QR code section with RepaintBoundary optimization.
 /// Prevents QR widget from rebuilding when parent state changes.

@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
 
-import '../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -46,7 +54,7 @@ class StudentCard extends StatefulWidget {
   final String? profilePhotoAssetCode;
   final String classroom;
   final List<String> tags;
-  final Map<String, dynamic> sibling;
+  final StudentSiblingInfo sibling;
   final List<String> schedule;
   final Map<String, String> scheduleByDay;
   final String birthDate;
@@ -58,6 +66,7 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+
   /// From nap-start API (current classroom roster); shown on avatar like classroom list.
   final bool isNapping;
 
@@ -123,14 +132,12 @@ class _StudentCardState extends State<StudentCard> {
 
   static Future<List<String>> _fetchSchoolOpenDays() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return const <String>[];
     final repo = serviceLocator<StaffRepository>();
     final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-    final open = <String>{
-      for (final d in days) d.dayOfWeek.toUpperCase(),
-    };
+    final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
     final ordered = _weekOrder
         .where(open.contains)
         .map((k) => _enumToShort[k]!)
@@ -163,8 +170,8 @@ class _StudentCardState extends State<StudentCard> {
     // student from the card — those actions are admin-only.
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTabletCompact;
     final tags = widget.tags;
     // Upcoming students get the same actions as active ones (Deactivate + Edit),
     // not the inactive set (Reactivate + Delete + Edit).
@@ -198,13 +205,16 @@ class _StudentCardState extends State<StudentCard> {
             width: constraints.maxWidth,
             height: isExpanded ? null : 64.0,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              color: AppColors.whiteColor,
+              borderRadius: AppRadius.allMd,
+              border: Border.all(
+                color: AppColors.cardBorderColor,
+                width: AppDimensions.hairline,
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparentColor,
               child: InkWell(
                 onTap: () {
                   setState(() {
@@ -216,7 +226,7 @@ class _StudentCardState extends State<StudentCard> {
                     Container(
                       height: 60,
                       padding: EdgeInsets.symmetric(
-                        horizontal: isTablet ? 24 : 16,
+                        horizontal: isTablet ? AppSpacing.xl : AppSpacing.md,
                       ),
                       alignment: Alignment.center,
                       child: Row(
@@ -249,7 +259,8 @@ class _StudentCardState extends State<StudentCard> {
                                   right: 0,
                                   top: 0,
                                   child: Tooltip(
-                                    message: 'Student is currently napping',
+                                    message: StudentStrings
+                                        .studentIsCurrentlyNapping,
                                     child: SvgPicture.asset(
                                       MediaRes.napIcon.isNotEmpty
                                           ? MediaRes.napIcon
@@ -261,7 +272,7 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                             ],
                           ),
-                          SizedBox(width: isTablet ? 16 : 9),
+                          SizedBox(width: isTablet ? AppSpacing.md : 9),
                           Expanded(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -270,24 +281,24 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.name,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: Fonts.manrope,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                AppSpacing.gapHXs,
                                 Flexible(
                                   child: Text(
                                     widget.classroom,
                                     style: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: Fonts.manrope,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -303,75 +314,76 @@ class _StudentCardState extends State<StudentCard> {
                     if (isExpanded) ...[
                       const Divider(
                         height: 1,
-                        thickness: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        thickness: AppDimensions.hairline,
+                        indent: AppSpacing.md,
+                        endIndent: AppSpacing.md,
+                        color: AppColors.attendanceCardDividerColor,
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Row(
                               children: [
                                 const Text(
-                                  'Tags',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  StudentStrings.tags,
+                                  style: AppTextStyles.label,
                                 ),
-                                const SizedBox(width: 8),
+                                AppSpacing.gapHXs,
                                 Expanded(
                                   child: Align(
                                     alignment: Alignment.centerRight,
                                     child: Wrap(
-                                      spacing: 4,
-                                      runSpacing: 4,
+                                      spacing: AppSpacing.xxs,
+                                      runSpacing: AppSpacing.xxs,
                                       children: [
                                         if (tags.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
+                                              horizontal: AppSpacing.s10,
+                                              vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x4DB1AFE9),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              color:
+                                                  AppColors.staffBadgeActiveBg,
+                                              borderRadius: AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[0],
                                               style: const TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF4B5B7A),
+                                                color: AppColors
+                                                    .staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
                                         if (tags.length > 1)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 4,
+                                              horizontal: AppSpacing.s10,
+                                              vertical: AppSpacing.xxs,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x66CBF6FF),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              color: AppColors
+                                                  .classroomStaffTabColor,
+                                              borderRadius: AppRadius.allSm,
                                             ),
                                             child: Text(
                                               tags[1],
                                               style: const TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: Fonts.manrope,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF4B5B7A),
+                                                color: AppColors
+                                                    .staffBadgeActiveText,
                                               ),
                                             ),
                                           ),
@@ -381,70 +393,47 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 4,
+                                                    horizontal: AppSpacing.s10,
+                                                    vertical: AppSpacing.xxs,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color: const Color(0x66D9FFCB),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                                color: AppColors
+                                                    .classroomNotesTabColor,
+                                                borderRadius: AppRadius.allSm,
                                               ),
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: Fonts.inter,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
-                                                  color: Color(0xFF1B237E),
+                                                  color:
+                                                      AppColors.secondaryColor,
                                                   height: 15 / 12,
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        // Tooltip(
-                                        //   message: 'Edit tags',
-                                        //   child: Container(
-                                        //     padding: const EdgeInsets.symmetric(
-                                        //       horizontal: 10,
-                                        //       vertical: 4,
-                                        //     ),
-                                        //     decoration: BoxDecoration(
-                                        //       color: Colors.transparent,
-                                        //       borderRadius:
-                                        //           BorderRadius.circular(8),
-                                        //     ),
-                                        //     child: Icon(
-                                        //       Icons.mode_edit_outline_outlined,
-                                        //       color: const Color(0xFFCECECE),
-                                        //     ),
-                                        //   ),
-                                        // ),
                                       ],
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Schedule',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xff573353),
-                                      height: 16 / 13,
-                                    ),
+                                    StudentStrings.schedule,
+                                    style: AppTextStyles.label,
                                   ),
-                                  const SizedBox(height: 4),
+                                  AppSpacing.gapVXxs,
                                   Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
+                                    spacing: AppSpacing.xxs,
+                                    runSpacing: AppSpacing.xxs,
                                     alignment: WrapAlignment.start,
                                     children: [
                                       ...(() {
@@ -467,37 +456,40 @@ class _StudentCardState extends State<StudentCard> {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.schedule.any(
-                                          (d) =>
-                                              d.trim().toLowerCase() ==
-                                              day.toLowerCase(),
-                                        );
+                                        final hasDayInList = widget.schedule
+                                            .any(
+                                              (d) =>
+                                                  d.trim().toLowerCase() ==
+                                                  day.toLowerCase(),
+                                            );
                                         final hasDayInMap =
                                             scheduleText != null &&
                                             scheduleText.trim().isNotEmpty;
-                                        final isActive = hasDayInList || hasDayInMap;
+                                        final isActive =
+                                            hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
+                                            horizontal: AppSpacing.s10,
+                                            vertical: AppSpacing.xxs,
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0x4DB1AFE9)
-                                                : const Color(0xFFF3F4FB),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                                ? AppColors.staffBadgeActiveBg
+                                                : AppColors
+                                                      .staffBadgeInactiveBg,
+                                            borderRadius: AppRadius.allSm,
                                           ),
                                           child: Text(
                                             day,
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: Fonts.manrope,
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF4B5B7A)
-                                                  : const Color(0xFFB1AFC9),
+                                                  ? AppColors
+                                                        .staffBadgeActiveText
+                                                  : AppColors
+                                                        .staffBadgeInactiveText,
                                             ),
                                           ),
                                         );
@@ -516,8 +508,9 @@ class _StudentCardState extends State<StudentCard> {
                                           message: tooltipText,
                                           triggerMode:
                                               TooltipTriggerMode.longPress,
-                                          showDuration:
-                                              const Duration(seconds: 3),
+                                          showDuration: const Duration(
+                                            seconds: 3,
+                                          ),
                                           preferBelow: true,
                                           child: dayChip,
                                         );
@@ -527,133 +520,59 @@ class _StudentCardState extends State<StudentCard> {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Text(
-                                  'Birth Date',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  StudentStrings.birthDate,
+                                  style: AppTextStyles.label,
                                 ),
                                 Text(
                                   _formatDate(widget.birthDate),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
+                                  style: AppTextStyles.value,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.s10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Text(
-                                  'Movement Date',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
-                                    height: 16 / 13,
-                                  ),
+                                  StudentStrings.movementDate,
+                                  style: AppTextStyles.label,
                                 ),
                                 Text(
                                   _formatDate(widget.movementDate),
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
-                                    height: 19 / 14,
-                                  ),
+                                  style: AppTextStyles.value,
                                 ),
                               ],
                             ),
                             if (canStudentWrite) ...[
-                              const SizedBox(height: 20),
+                              AppSpacing.gapVLg,
                               Row(
                                 children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 40,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (ctx) {
-                                            return DeleteConfirmationBottomSheet(
-                                              name: widget.name,
-                                              type: showActiveActions
-                                                  ? 'student_deactivate'
-                                                  : 'student_reactivate',
-                                              onDelete: () {
-                                                widget.onPrimaryAction?.call();
-                                                return Future.value();
-                                              },
-                                              onCancel: () {
-                                                Navigator.of(ctx).pop();
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                      child: Text(
-                                        showActiveActions
-                                            ? 'Deactivate'
-                                            : 'Reactivate',
-                                        style: const TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (!showActiveActions) ...[
-                                  const SizedBox(width: 16),
                                   Expanded(
                                     child: SizedBox(
-                                      height: 40,
+                                      height: AppSpacing.xxxl,
                                       child: OutlinedButton(
                                         onPressed: () {
                                           showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
+                                            backgroundColor:
+                                                AppColors.transparentColor,
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
-                                                type: 'student_delete',
+                                                type: showActiveActions
+                                                    ? 'student_deactivate'
+                                                    : 'student_reactivate',
                                                 onDelete: () {
-                                                  widget.onDeleteAction?.call();
+                                                  widget.onPrimaryAction
+                                                      ?.call();
                                                   return Future.value();
                                                 },
                                                 onCancel: () {
@@ -665,54 +584,110 @@ class _StudentCardState extends State<StudentCard> {
                                         },
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
-                                            color: Color(0xFF6C7FD8),
+                                            color: AppColors
+                                                .attendanceActionAccentColor,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: AppRadius.allSm,
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
-                                        child: const Text(
-                                          'Delete',
-                                          style: TextStyle(
-                                            fontFamily: 'Manrope',
+                                        child: Text(
+                                          showActiveActions
+                                              ? StudentStrings.deactivate
+                                              : StudentStrings.reactivate,
+                                          style: const TextStyle(
+                                            fontFamily: Fonts.manrope,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C7FD8),
+                                            color: AppColors
+                                                .attendanceActionAccentColor,
                                             height: 16 / 16,
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ],
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      onPressed: widget.onEdit,
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
+                                  if (!showActiveActions) ...[
+                                    AppSpacing.gapHMd,
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: AppSpacing.xxxl,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  AppColors.transparentColor,
+                                              builder: (ctx) {
+                                                return DeleteConfirmationBottomSheet(
+                                                  name: widget.name,
+                                                  type: 'student_delete',
+                                                  onDelete: () {
+                                                    widget.onDeleteAction
+                                                        ?.call();
+                                                    return Future.value();
+                                                  },
+                                                  onCancel: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                );
+                                              },
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: AppColors
+                                                  .attendanceActionAccentColor,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: AppRadius.allSm,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            StudentStrings.delete,
+                                            style: TextStyle(
+                                              fontFamily: Fonts.manrope,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors
+                                                  .attendanceActionAccentColor,
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      child: const Text(
-                                        'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
+                                    ),
+                                  ],
+                                  AppSpacing.gapHMd,
+                                  Expanded(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: AppRadius.allSm,
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: widget.onEdit,
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          StudentStrings.edit,
+                                          style: TextStyle(
+                                            fontFamily: Fonts.manrope,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.whiteColor,
+                                            height: 16 / 16,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
                                 ],
                               ),
                             ],
@@ -729,5 +704,4 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
-
 }

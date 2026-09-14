@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 
 class CustomButtonLayout extends StatelessWidget {
   const CustomButtonLayout({

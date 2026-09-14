@@ -1,12 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 
 class TimeWidget extends StatefulWidget {
@@ -62,7 +61,8 @@ class _TimeWidgetState extends State<TimeWidget> {
   @override
   void initState() {
     super.initState();
-    final hasPreset = _parseTimeOfDay(widget.prefilledTime) != null ||
+    final hasPreset =
+        _parseTimeOfDay(widget.prefilledTime) != null ||
         widget.initialTime != null;
     if (hasPreset) {
       _selectedTime =
@@ -73,9 +73,9 @@ class _TimeWidgetState extends State<TimeWidget> {
     } else {
       final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
       if (tz.isNotEmpty &&
-          tz.toUpperCase() != SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
-        _selectedTime =
-            SchoolZoneDateTime.schoolCalendarDateAndTimeNow(tz).$2;
+          tz.toUpperCase() !=
+              SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
+        _selectedTime = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(tz).$2;
       } else {
         _selectedTime = ServerTimeService.instance.timeOfDayNow();
       }
@@ -122,13 +122,15 @@ class _TimeWidgetState extends State<TimeWidget> {
   }
 
   Future<void> _setSchoolDefaultTimeIfNeeded() async {
-    if (widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty) return;
+    if (widget.prefilledTime != null && widget.prefilledTime!.trim().isNotEmpty)
+      return;
     if (widget.initialTime != null) return;
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$2;
+    final schoolTimeZone = await context
+        .read<ActivityEditorCubit>()
+        .resolveSchoolTimezone();
+    final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+      schoolTimeZone,
+    ).$2;
     if (!mounted || _userPickedManually) return;
     setState(() {
       _selectedTime = schoolNow;
@@ -143,7 +145,10 @@ class _TimeWidgetState extends State<TimeWidget> {
   TimeOfDay? _parseTimeOfDay(String? timeStr) {
     if (timeStr == null || timeStr.trim().isEmpty) return null;
     final cleaned = timeStr.trim().replaceAll(' ', '').toUpperCase();
-    final regex = RegExp(r'^(\d{1,2}):?(\d{2})\s*(AM|PM)?$', caseSensitive: false);
+    final regex = RegExp(
+      r'^(\d{1,2}):?(\d{2})\s*(AM|PM)?$',
+      caseSensitive: false,
+    );
     final match = regex.firstMatch(cleaned);
     if (match != null) {
       int hour = int.parse(match.group(1)!);
@@ -151,8 +156,10 @@ class _TimeWidgetState extends State<TimeWidget> {
       final period = match.group(3);
 
       if (period != null) {
-        if (hour == 12) hour = period == 'AM' ? 0 : 12;
-        else if (period == 'PM') hour += 12;
+        if (hour == 12)
+          hour = period == 'AM' ? 0 : 12;
+        else if (period == 'PM')
+          hour += 12;
       }
       return TimeOfDay(hour: hour, minute: minute);
     }

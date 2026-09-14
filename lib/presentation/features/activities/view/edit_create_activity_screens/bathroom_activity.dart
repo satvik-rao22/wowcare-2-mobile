@@ -9,29 +9,29 @@ import 'package:wowcare/presentation/features/activities/widgets/time_widget.dar
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-import '../../../../../app/di/di.dart';
-import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/api_error_handler.dart';
-import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../shared/common/widgets/custom_button_layout.dart';
-import '../../../../../shared/common/widgets/custom_checkbox.dart';
-import '../../widgets/activity_edit_student_scope_checkboxes.dart';
-import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/activity_description_limits.dart';
-import '../../utils/activity_selected_date_prefill.dart';
-import '../utils/activity_attendance_window_validator.dart';
-import '../../utils/activity_school_time.dart';
-import '../../utils/activity_staff_display.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
-import '../activity_daily_tab.dart';
-import '../widgets/activity_admin_approve_reject_bar.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_parameter_value.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
+import 'package:wowcare/domain/features/activity/entities/activity_type_details.dart';
+import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_edit_student_scope_checkboxes.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_student_display_tile.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_description_limits.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_attendance_window_validator.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_school_time.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_staff_display.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
+import 'package:wowcare/presentation/features/activities/widgets/activity_admin_approve_reject_bar.dart';
 
 class BathroomActivityScreen extends StatelessWidget {
+  static const String routeName = '/activity/bathroom';
+
   const BathroomActivityScreen({
     super.key,
     this.selectedStudents,
@@ -48,14 +48,11 @@ class BathroomActivityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ActivityEditorCubit>(
-      create: (_) => serviceLocator<ActivityEditorCubit>(),
-      child: _BathroomActivityView(
-        selectedStudents: selectedStudents,
-        isEdit: isEdit,
-        activityData: activityData,
-        readOnly: readOnly,
-      ),
+    return _BathroomActivityView(
+      selectedStudents: selectedStudents,
+      isEdit: isEdit,
+      activityData: activityData,
+      readOnly: readOnly,
     );
   }
 }
@@ -147,7 +144,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
   @override
   void initState() {
     super.initState();
-    bootstrapActivitySchoolTimezone();
+    _editor.bootstrapSchoolTimezone();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -173,7 +170,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
           final dt = activityDateTimeForDisplayFromIso(iso.trim());
           _activityDate = DateTime(dt.year, dt.month, dt.day);
           _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('unparsable activityDateIso: $e');
+        }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _prefetchActivityForEdit();
@@ -192,7 +191,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
     if (!_isAdminDesignation) return false;
     return canAdminApproveOrRejectActivityItem(
       _effectiveActivity,
-      isAdminPersona: true,
+      isAdminPersona: activeAdminPersona(context),
     );
   }
 
@@ -289,7 +288,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
             final dt = activityDateTimeForDisplayFromIso(nextIso.trim());
             _activityDate = DateTime(dt.year, dt.month, dt.day);
             _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
+          } catch (e) {
+            AppLogger.d('unparsable activityDateIso: $e');
+          }
         }
       });
     } catch (e) {
@@ -546,8 +547,8 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
     return null;
   }
 
-  List<Map<String, dynamic>> _buildExtraParameterValueEntries() {
-    final out = <Map<String, dynamic>>[];
+  List<ActivityParameterValue> _buildExtraParameterValueEntries() {
+    final out = <ActivityParameterValue>[];
     final bathroomOc = _optionCodeForBathroomTypeLabel(
       _selectedBathroomType ?? '',
     );
@@ -556,7 +557,12 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       final dt = (p.dataType ?? '').toUpperCase();
       if (dt == 'BOOLEAN') {
         final b = _boolValueForParameter(p);
-        out.add({'parameterCode': p.code, 'value': b ? 'true' : 'false'});
+        out.add(
+          ActivityParameterValue(
+            parameterCode: p.code,
+            value: b ? 'true' : 'false',
+          ),
+        );
         continue;
       }
       if (dt == 'DROPDOWN' || dt == 'SELECT' || dt == 'MULTISELECT') {
@@ -744,6 +750,10 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
+      // Must stay in step with `_selectedStudents`: `_selectedStudentsData` is
+      // what the save path builds `studentCodes` from, and the student tiles
+      // pair `_selectedStudents[i]` with `_selectedStudentsData[i]`.
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -752,28 +762,15 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
-    final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
-      staffCode: staffCode,
-    );
-
+    final ctx = await context.read<ActivityEditorCubit>().loadStaffContext();
     if (!mounted) return;
     setState(() {
-      _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
-      _staffType = staffType.toUpperCase();
-      _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty
-          ? null
-          : staffCode!.trim();
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _staffName = ctx.staffName;
+      _staffType = ctx.staffType;
+      _staffCode = ctx.staffCode;
+      _staffPresentCode = ctx.staffPresentCode;
+      _schoolCode = ctx.schoolCode;
+      _organizationCode = ctx.organizationCode;
     });
   }
 
@@ -828,7 +825,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
     }
   }
 
-  Map<String, dynamic>? _paramForOptionOrValue(
+  ActivityParameterValue? _paramForOptionOrValue(
     ActivityTypeParameter? param,
     String uiLabel, {
     String? restrictParentOptionCode,
@@ -853,14 +850,14 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       if (matchesLabel || matchesOptionCode || matchesRawCode) {
         final selectedOptionCode = oc.isNotEmpty ? oc : rc;
         if (selectedOptionCode.isNotEmpty) {
-          return {
-            'parameterCode': param.code,
-            'selectedOptionCode': selectedOptionCode,
-          };
+          return ActivityParameterValue(
+            parameterCode: param.code,
+            selectedOptionCode: selectedOptionCode,
+          );
         }
       }
     }
-    return {'parameterCode': param.code, 'value': v};
+    return ActivityParameterValue(parameterCode: param.code, value: v);
   }
 
   Future<void> _submitCreateActivity() async {
@@ -884,6 +881,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -975,7 +973,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       final schoolCode = _schoolCode;
       final organizationCode = _organizationCode;
 
@@ -1012,7 +1010,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1072,9 +1070,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
-          !typeEntry.containsKey('selectedOptionCode') ||
+          (typeEntry.selectedOptionCode ?? '').isEmpty ||
           subEntry == null ||
-          !subEntry.containsKey('selectedOptionCode')) {
+          (subEntry.selectedOptionCode ?? '').isEmpty) {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
@@ -1086,17 +1084,29 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       }
 
       // Build parameterValues in backend-required shape (supports multi-student fan-out via studentCodes).
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),
@@ -1161,6 +1171,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       final isWithinAttendanceWindow =
           await validateStudentsWithinAttendanceWindow(
             context: context,
+            editor: _editor,
             students: _selectedStudentsData,
             selectedDate: _activityDate,
             selectedTime: _activityTime,
@@ -1219,7 +1230,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         return;
       }
 
-      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      var staffCode = _staffCode ?? await _editor.resolveStaffCode();
       if (staffCode == null || staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -1240,7 +1251,7 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         return;
       }
 
-      final resolvedActivityTime = await resolveActivityDateTime(
+      final resolvedActivityTime = await _editor.resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
@@ -1299,9 +1310,9 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
       );
       final subEntry = _paramForOptionOrValue(subParam, _selectedSubType!);
       if (typeEntry == null ||
-          !typeEntry.containsKey('selectedOptionCode') ||
+          (typeEntry.selectedOptionCode ?? '').isEmpty ||
           subEntry == null ||
-          !subEntry.containsKey('selectedOptionCode')) {
+          (subEntry.selectedOptionCode ?? '').isEmpty) {
         if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
@@ -1312,17 +1323,29 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         return;
       }
 
-      final parameterValues = <Map<String, dynamic>>[
+      final parameterValues = <ActivityParameterValue>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
+          ActivityParameterValue(
+            parameterCode: dateParamCode,
+            value: localDate,
+          ),
         if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
+          ActivityParameterValue(
+            parameterCode: timeParamCode,
+            value: localTime,
+          ),
         if (staffParamCode != null &&
             staffParamCode.trim().isNotEmpty &&
             staffPresentCode.isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffPresentCode},
+          ActivityParameterValue(
+            parameterCode: staffParamCode,
+            value: staffPresentCode,
+          ),
         if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
+          ActivityParameterValue(
+            parameterCode: descParamCode,
+            value: description,
+          ),
         typeEntry,
         subEntry,
         ..._buildExtraParameterValueEntries(),

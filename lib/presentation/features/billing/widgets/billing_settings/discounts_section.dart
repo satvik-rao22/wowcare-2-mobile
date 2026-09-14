@@ -1,15 +1,20 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/billing/cubit/discount_cubit.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/add_discount_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_account_model.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/view_model/discount_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_settings/add_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/model/discount_account_model.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/billing_settings/edit_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_settings/edit_discount_screen.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -40,8 +45,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
   void initState() {
     super.initState();
     unawaited(_cubit.loadInitial());
-    widget.onRegisterLoadNextPage
-        ?.call(() => unawaited(_cubit.loadNextPage()));
+    widget.onRegisterLoadNextPage?.call(() => unawaited(_cubit.loadNextPage()));
   }
 
   @override
@@ -57,19 +61,18 @@ class _DiscountsSectionState extends State<DiscountsSection> {
   }
 
   Future<void> _onAdd() async {
-    final DiscountAccountModel? created = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddDiscountScreen()),
-    );
+    final DiscountAccountModel? created = await context
+        .push<DiscountAccountModel>(AddDiscountScreen.routeName);
     if (created == null) return;
     _cubit.addDiscount(created);
   }
 
   Future<void> _onEdit(DiscountAccountModel discount) async {
-    final DiscountAccountModel? updated =
-        await Navigator.of(context).push(
-      MaterialPageRoute(
-          builder: (_) => EditDiscountScreen(discount: discount)),
-    );
+    final DiscountAccountModel? updated = await context
+        .push<DiscountAccountModel>(
+          EditDiscountScreen.routeName,
+          extra: EditDiscountArgs(discount: discount),
+        );
     if (updated == null) return;
     _cubit.updateDiscount(updated);
   }
@@ -78,7 +81,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -90,9 +93,11 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           final ok = await _cubit.deactivateDiscount(discount.code);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Discount deactivated.',
-              fail: 'Failed to deactivate.');
+          _showResult(
+            ok,
+            success: BillingStrings.discountDeactivated,
+            fail: BillingStrings.failedToDeactivate,
+          );
         },
       ),
     );
@@ -102,7 +107,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -114,9 +119,11 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           final ok = await _cubit.reactivateDiscount(discount.code);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Discount reactivated.',
-              fail: 'Failed to reactivate.');
+          _showResult(
+            ok,
+            success: BillingStrings.discountReactivated,
+            fail: BillingStrings.failedToReactivate,
+          );
         },
       ),
     );
@@ -126,7 +133,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.billingCardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -138,22 +145,25 @@ class _DiscountsSectionState extends State<DiscountsSection> {
           final ok = await _cubit.deleteDiscount(discount.code);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Discount deleted.',
-              fail: 'Failed to delete.');
+          _showResult(
+            ok,
+            success: BillingStrings.discountDeleted,
+            fail: BillingStrings.failedToDelete,
+          );
         },
       ),
     );
   }
 
-  void _showResult(bool ok,
-      {required String success, required String fail}) {
+  void _showResult(bool ok, {required String success, required String fail}) {
     if (ok) {
       CoreUtils.showTopSnackBar(
-          context: context, message: success, isSuccess: true);
+        context: context,
+        message: success,
+        isSuccess: true,
+      );
     } else {
-      CoreUtils.showTopSnackBar(
-          context: context, message: fail, isError: true);
+      CoreUtils.showTopSnackBar(context: context, message: fail, isError: true);
     }
   }
 
@@ -163,8 +173,11 @@ class _DiscountsSectionState extends State<DiscountsSection> {
       value: _cubit,
       child: BlocBuilder<DiscountCubit, DiscountState>(
         builder: (context, state) {
-          final bool showInactive = state.statusFilter == 'INACTIVE';
-          final bool isTablet = MediaQuery.of(context).size.width > 600;
+          // "Show inactive" is additive (both active and inactive show), not
+          // a swap to inactive-only — see the onToggle comment below for why
+          // a null filter, not 'INACTIVE', is what the toggle actually sets.
+          final bool showInactive = state.statusFilter != 'ACTIVE';
+          final bool isTablet = ResponsiveHelper(context).isTabletCompact;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,12 +187,12 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Discounts Configuration',
+                      BillingStrings.discountsConfiguration,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: Fonts.manrope,
                         fontSize: isTablet ? 20.0 : 16.0,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xff573353),
+                        color: AppColors.billingTextColor,
                       ),
                     ),
                   ),
@@ -195,7 +208,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                   children: [
                     CustomSearchBar(
                       controller: _searchController,
-                      hintText: 'Search discounts...',
+                      hintText: BillingStrings.searchDiscounts,
                       onChanged: _cubit.setSearchQuery,
                     ),
                     const SizedBox(height: 10),
@@ -204,18 +217,23 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                         CustomClearAllChip(onTap: _clearFilters),
                         const Spacer(),
                         CustomToggle(
-                          label: 'Show inactive',
+                          label: BillingStrings.showInactive,
                           isToggled: showInactive,
                           labelOnLeftSide: true,
                           labelStyle: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: Fonts.manrope,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
+                            color: AppColors.billingTextColor,
                           ),
                           onToggle: (v) {
-                            _cubit.setStatusFilter(
-                                v ? 'INACTIVE' : 'ACTIVE');
+                            // "Show inactive" is meant additively — both
+                            // active and inactive should show, not swap to
+                            // inactive-only — so a null filter (no `status`
+                            // query param) fetches every discount instead of
+                            // replacing the active list with just inactive
+                            // ones and losing the real active totals.
+                            _cubit.setStatusFilter(v ? null : 'ACTIVE');
                           },
                         ),
                       ],
@@ -230,80 +248,81 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                   padding: EdgeInsets.symmetric(vertical: 48),
                   child: Center(child: PrimaryCircularLoader()),
                 )
-
               // ── Error ─────────────────────────────────────────────
               else if (state.hasError && state.filteredDiscounts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
                     children: [
-                      Icon(Icons.error_outline,
-                          size: 56,
-                          color: AppColors.errorColor.withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.error_outline,
+                        size: 56,
+                        color: AppColors.errorColor.withValues(alpha: 0.5),
+                      ),
                       const SizedBox(height: 12),
                       Text(
-                        'Failed to load discounts.',
+                        BillingStrings.failedToLoadDiscounts,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
-                            fontSize: 15,
-                            color: AppColors.billingTextColor),
+                          fontSize: 15,
+                          color: AppColors.billingTextColor,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                          onPressed: _cubit.loadInitial,
-                          child: const Text('Retry')),
+                        onPressed: _cubit.loadInitial,
+                        child: const Text(BillingStrings.retry),
+                      ),
                     ],
                   ),
                 )
-
               // ── Empty ─────────────────────────────────────────────
               else if (state.filteredDiscounts.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
                     children: [
-                      Icon(Icons.discount_outlined,
-                          size: 56,
-                          color: AppColors.primaryColor
-                              .withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.discount_outlined,
+                        size: 56,
+                        color: AppColors.primaryColor.withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: 12),
                       Text(
-                        'No discounts found.',
+                        BillingStrings.noDiscountsFound,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
-                            fontSize: 15,
-                            color: AppColors.billingTextColor),
+                          fontSize: 15,
+                          color: AppColors.billingTextColor,
+                        ),
                       ),
                     ],
                   ),
                 )
-
               // ── List ──────────────────────────────────────────────
               else ...[
                 if (widget.onLoadMoreNeeded != null)
-                  Builder(builder: (_) {
-                    WidgetsBinding.instance.addPostFrameCallback((__) {
-                      if (mounted) widget.onLoadMoreNeeded!();
-                    });
-                    return const SizedBox.shrink();
-                  }),
+                  Builder(
+                    builder: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((__) {
+                        if (mounted) widget.onLoadMoreNeeded!();
+                      });
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ...state.filteredDiscounts.map(
                   (d) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: DiscountCard(
                       name: d.name,
                       percentage: d.percentage,
-                      totalAmountDiscounted:
-                          d.deductionAmount ?? 0,
+                      totalAmountDiscounted: d.totalAmountDiscounted,
                       isActive: d.isActive,
                       onView: () {},
                       onEdit: d.isActive ? () => _onEdit(d) : null,
-                      onDeactivate:
-                          d.isActive ? () => _onDeactivate(d) : null,
-                      onReactivate:
-                          !d.isActive ? () => _onReactivate(d) : null,
-                      onDelete:
-                          !d.isActive ? () => _onDelete(d) : null,
+                      onDeactivate: d.isActive ? () => _onDeactivate(d) : null,
+                      onReactivate: !d.isActive ? () => _onReactivate(d) : null,
+                      onDelete: !d.isActive ? () => _onDelete(d) : null,
                     ),
                   ),
                 ),
@@ -343,15 +362,15 @@ class _AddDiscountButton extends StatelessWidget {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, color: Colors.white, size: 18),
+            Icon(Icons.add, color: AppColors.billingCardOnColorText, size: 18),
             SizedBox(width: 4),
             Text(
-              'Add Discount',
+              BillingStrings.addDiscount,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: Fonts.manrope,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.billingCardOnColorText,
               ),
             ),
           ],

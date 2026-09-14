@@ -3,40 +3,41 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
-import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
-import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
+import 'package:wowcare/presentation/features/user_profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
+import 'package:wowcare/presentation/features/user_profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
+import '../../../presentation/features/user_profile/view/notification_settings_screen.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/src/app_router.dart'
     show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
-import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view_model/notification_badge_cubit.dart';
 
-import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
-import 'package:wowcare/core/util/string_utils.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
+import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/core/utils/string_utils.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -111,7 +112,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
               builder: (context, state) {
                 final cubit = context.read<ParentChildCubit>();
-                final names = cubit.childNames;
+                // Labels, not bare names: `CustomDropdown` is a label-keyed
+                // widget, so two siblings whose names render identically used
+                // to collapse into one entry that always resolved to the first
+                // of them — leaving a multi-child parent unable to switch to
+                // the second. `displayLabels`/`selectByLabel` keep the switcher
+                // one-to-one with `children` (see ParentChildCubit).
+                final names = cubit.displayLabels;
                 final canPickChild = !state.isLoading && names.isNotEmpty;
                 // Only offer the switcher when there's actually something to
                 // switch to. A single-child (or still-loading, where the
@@ -152,8 +159,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ? 'Loading children...'
                           : 'No children linked',
                       items: names,
-                      selectedItem: state.selectedChild?.name,
-                      onSelect: cubit.selectByName,
+                      selectedItem: cubit.labelForCode(
+                        state.selectedChild?.code,
+                      ),
+                      onSelect: cubit.selectByLabel,
                       isEnabled: canPickChild,
                     ),
                   ),
@@ -169,7 +178,11 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // In StatefulShellRoute, context.canPop() may not work as expected because
                 // the route hierarchy differs from traditional Navigator stacks.
                 // Always try to pop from the shell context first, preserving route history.
-                debugPrint(
+                // AppLogger, not debugPrint: `debugPrint` is NOT stripped from
+                // release builds, so this printed the user's current route on
+                // every back press in production. Same rule the router states
+                // at its own top-level redirect.
+                AppLogger.d(
                   '[CustomAppBar] Back button pressed. '
                   'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
                 );

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'attendance_summary_card_shimmer.dart';
 
 class StudentAttendanceSummary extends StatelessWidget {
   final int enrolled;
@@ -33,13 +33,13 @@ class StudentAttendanceSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    
+
     if (isLoading) {
       return Column(
         children: [
-          _buildSummaryCardShimmer(context, responsive),
+          AttendanceSummaryCardShimmer(responsive: responsive),
           SizedBox(height: responsive.verticalSpacing / 2),
-          _buildSummaryCardShimmer(context, responsive),
+          AttendanceSummaryCardShimmer(responsive: responsive),
         ],
       );
     }
@@ -120,78 +120,6 @@ class StudentAttendanceSummary extends StatelessWidget {
               : null,
         ),
       ],
-    );
-  }
-
-  Widget _buildSummaryCardShimmer(BuildContext context, ResponsiveHelper responsive) {
-    return CustomSectionCard(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.horizontalSpacing,
-        vertical: responsive.verticalSpacing / 2,
-      ),
-      child: Row(
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 40,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: 80,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(width: responsive.horizontalSpacing / 2),
-          Expanded(
-            child: Column(
-              children: [
-                Container(
-                  height: responsive.isTablet ? 24 : 20,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-                SizedBox(height: responsive.verticalSpacing / 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: responsive.isTablet ? 18 : 16,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: responsive.horizontalSpacing / 4),
-                    Expanded(
-                      child: Container(
-                        height: responsive.isTablet ? 18 : 16,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

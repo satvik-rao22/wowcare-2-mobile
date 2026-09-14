@@ -1,5 +1,5 @@
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/cache_manager.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_type_summary.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
@@ -108,8 +108,11 @@ class ActivityFilterMetadataCache {
         final list = (cached['settings'] as List)
             .whereType<Map>()
             .map((e) => _settingFromMap(e))
-            .where((e) =>
-                e.activityTypeCode.isNotEmpty && e.activityTypeName.isNotEmpty)
+            .where(
+              (e) =>
+                  e.activityTypeCode.isNotEmpty &&
+                  e.activityTypeName.isNotEmpty,
+            )
             .toList();
         if (list.isNotEmpty) return list;
       }
@@ -159,7 +162,9 @@ class ActivityFilterMetadataCache {
     return items;
   }
 
-  static ActivitySetting _activitySettingFromTypeSummary(ActivityTypeSummary t) {
+  static ActivitySetting _activitySettingFromTypeSummary(
+    ActivityTypeSummary t,
+  ) {
     return ActivitySetting(
       activityTypeCode: t.code,
       activityTypeName: t.name,
@@ -182,7 +187,8 @@ class ActivityFilterMetadataCache {
 
   /// Activity type labels/codes for staff feed filters — school catalogue
   /// (`GET /api/v1/activity-types?schoolCode=...`), not per-classroom overrides.
-  static Future<List<ActivitySetting>> loadSchoolActivityTypeSettingsForFilters({
+  static Future<List<ActivitySetting>>
+  loadSchoolActivityTypeSettingsForFilters({
     required CacheManager cacheManager,
     required GetActiveActivityTypesForSchoolUseCase useCase,
     required String schoolCode,

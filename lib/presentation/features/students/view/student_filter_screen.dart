@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:convert';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 enum StudentFilterSection { classroom, status, tags, parents, attendance }
 
@@ -258,7 +261,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
       result['Attendance'] = List<String>.from(_selectedAttendanceList);
     }
 
-    Navigator.pop<Map<String, List<String>>>(context, {...result});
+    context.pop<Map<String, List<String>>>(<String, List<String>>{...result});
   }
 
   @override
@@ -266,7 +269,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     final responsive = ResponsiveHelper(context);
 
     return StaffFormLayout(
-      title: 'Filter Students',
+      title: StudentStrings.filterStudents,
       child: _buildFilterContent(),
       bottomBar: _buildBottomBar(context, responsive),
     );
@@ -277,13 +280,13 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
+        left: AppSpacing.md,
+        right: AppSpacing.md,
+        top: AppSpacing.xs,
         bottom: safeAreaBottom,
       ),
       child: CustomButtonLayout(
-        confirmButtonLabel: 'Apply Filters',
+        confirmButtonLabel: StudentStrings.applyFilters,
         onPressedConfirm: _applyFilters,
         showCancelButton: false,
         isForm: false,
@@ -378,8 +381,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
             itemCount: widget.sections.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              crossAxisSpacing: AppSpacing.md,
+              mainAxisSpacing: AppSpacing.md,
               childAspectRatio: 1.6,
             ),
             itemBuilder: (context, index) {
@@ -395,7 +398,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
               return CustomMultiSelectDropdown(
                 label: label,
-                hintText: 'Select',
+                hintText: StudentStrings.select,
                 showSelectAll: showSelectAll,
                 items: items,
                 selectedItems: selected,
@@ -432,8 +435,8 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           itemCount: _labelList.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
             childAspectRatio: 1.6,
           ),
           itemBuilder: (context, index) {
@@ -448,7 +451,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                const SizedBox(height: 8),
+                AppSpacing.gapVXs,
                 const ShimmerLoader(height: 40),
               ],
             );

@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../util/api_error_handler.dart';
+import '../utils/api_error_handler.dart';
 
 abstract class Failure extends Equatable {
   const Failure([this.rawMessage]);

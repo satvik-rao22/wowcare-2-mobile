@@ -1,6 +1,6 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 import '../../core/config/av2_config.dart';

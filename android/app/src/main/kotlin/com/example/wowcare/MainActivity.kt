@@ -135,6 +135,7 @@ class MainActivity : FlutterFragmentActivity() {
             listOf(
                 "uz.shs.better_player_plus.BetterPlayerPlugin",
                 "net.cubiclab.clipboard.ClipboardPlugin",
+                "com.llfbandit.app_links.AppLinksPlugin",
                 "io.flutter.plugins.firebase.analytics.FlutterFirebaseAnalyticsPlugin",
                 "io.flutter.plugins.firebase.auth.FlutterFirebaseAuthPlugin",
                 "io.flutter.plugins.firebase.firestore.FlutterFirebaseFirestorePlugin",

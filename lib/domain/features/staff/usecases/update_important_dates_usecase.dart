@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/utils/api_error_handler.dart';
+import '../entities/staff_important_date.dart';
 import '../repositories/staff_repository.dart';
 
 class UpdateImportantDatesUseCase {
@@ -10,7 +11,7 @@ class UpdateImportantDatesUseCase {
 
   Future<Either<Failure, String>> call({
     required String staffCode,
-    required List<Map<String, String>> dates,
+    required List<StaffImportantDate> dates,
   }) async {
     try {
       final message = await _repository.updateImportantDates(

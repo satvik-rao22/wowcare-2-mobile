@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
+import 'package:wowcare/core/utils/school_zone_datetime.dart';
 
 /// Today's calendar date in the school zone as `yyyy-MM-dd`.
 /// Matches [ActivityStudentSelection] when the user taps Next with the date chip
@@ -25,7 +26,9 @@ DateTime? resolveSelectedAttendanceDate(List<Map<String, dynamic>> students) {
       try {
         final parsed = DateFormat('yyyy-MM-dd').parseStrict(raw);
         return DateTime(parsed.year, parsed.month, parsed.day);
-      } catch (_) {}
+      } catch (e) {
+        AppLogger.d('resolveSelectedAttendanceDate: unparsable date "$raw": $e');
+      }
     }
   }
   return null;

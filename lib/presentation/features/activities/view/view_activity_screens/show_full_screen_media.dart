@@ -7,11 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
+  static const String routeName = '/activity-fullscreen-media';
+
   /// Source activity. Optional so the same viewer can be opened with a raw
   /// [photoUrl] / [videoUrl] (e.g. from the activity-detail screen) and still
   /// get the identical zoom viewport + download button as the feed list.
@@ -37,7 +41,10 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     return lower.contains('.m3u8');
   }
 
-  Future<String> _materializeVideoToTempFile(String url, String fileName) async {
+  Future<String> _materializeVideoToTempFile(
+    String url,
+    String fileName,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final outPath = path.join(tempDir.path, fileName);
 
@@ -74,7 +81,10 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     return outPath;
   }
 
-  Future<String> _materializePhotoToTempFile(String url, String fileName) async {
+  Future<String> _materializePhotoToTempFile(
+    String url,
+    String fileName,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final outPath = path.join(tempDir.path, fileName);
     await Dio().download(url, outPath);
@@ -90,7 +100,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     if (raw.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Media is still processing. Please try again.')),
+        const SnackBar(
+          content: Text('Media is still processing. Please try again.'),
+        ),
       );
       return;
     }
@@ -106,7 +118,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Photos permission is required to save media to your gallery.'),
+            content: Text(
+              'Photos permission is required to save media to your gallery.',
+            ),
           ),
         );
         return;
@@ -117,21 +131,26 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       final safeExt = ext.isNotEmpty ? ext : (isVideo ? '.mp4' : '.jpg');
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       final baseName = 'wowcare_${isVideo ? 'video' : 'photo'}_$stamp$safeExt';
-      final tempVideoName =
-          isVideo && _isHlsUrl(raw) ? 'wowcare_video_$stamp.mp4' : baseName;
+      final tempVideoName = isVideo && _isHlsUrl(raw)
+          ? 'wowcare_video_$stamp.mp4'
+          : baseName;
 
       if (isVideo) {
         final filePath = await _materializeVideoToTempFile(raw, tempVideoName);
         await Gal.putVideo(filePath);
         try {
           await File(filePath).delete();
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('temp video file cleanup failed: $e');
+        }
       } else {
         final filePath = await _materializePhotoToTempFile(raw, baseName);
         await Gal.putImage(filePath);
         try {
           await File(filePath).delete();
-        } catch (_) {}
+        } catch (e) {
+          AppLogger.d('temp photo file cleanup failed: $e');
+        }
       }
 
       if (!mounted) return;
@@ -140,11 +159,13 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       );
     } on GalException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.type.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.type.message)));
     } catch (e) {
-      debugPrint('Failed to download media: $e');
+      // Do not log the raw exception: a Dio/HTTP error stringifies the request
+      // URI, which here is a pre-signed media URL. Log only the error type.
+      AppLogger.e('Failed to download media', e);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -163,71 +184,116 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black.withValues(alpha: 0.85),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: IconButton(
-            icon: const Icon(
-              Icons.arrow_back,
-              color: Colors.white,
-              size: 28,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Download',
-            icon: _isDownloading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+      backgroundColor: AppColors.blackColor,
+      body: Stack(
+        children: [
+          // No AppBar here on purpose — a fixed app bar permanently steals
+          // vertical space from the body, so a portrait video can never
+          // reach the screen's true full height. The back/download controls
+          // float over the content instead (see below), same as
+          // Instagram/TikTok-style full-screen viewers.
+          Positioned.fill(
+            child: hasVideo
+                ? HlsWebPlayer(videoUrl: videoUrl!)
+                : hasPhoto
+                // Let the InteractiveViewer fill the whole screen (image
+                // centered inside) so the pan/zoom area is the full
+                // viewport — not a small box the size of the image.
+                ? InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Center(
+                      child: Image.network(
+                        photoUrl!,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (c, child, progress) => progress == null
+                            ? child
+                            : const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.cardColor,
+                                ),
+                              ),
+                        errorBuilder: (c, e, s) => const Center(
+                          child: Icon(
+                            Icons.error,
+                            color: AppColors.cardColor,
+                            size: 60,
+                          ),
+                        ),
+                      ),
                     ),
                   )
-                : const Icon(Icons.download_rounded, color: Colors.white, size: 24),
-            onPressed: () => _downloadCurrentMedia(
-              videoUrl: videoUrl,
-              photoUrl: photoUrl,
+                : const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: AppColors.cardColor,
+                      size: 100,
+                    ),
+                  ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.blackColor.withValues(alpha: 0.75),
+                      AppColors.transparentColor,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppColors.cardColor,
+                          size: 28,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: IconButton(
+                        tooltip: 'Download',
+                        icon: _isDownloading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.cardColor,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.download_rounded,
+                                color: AppColors.cardColor,
+                                size: 24,
+                              ),
+                        onPressed: () => _downloadCurrentMedia(
+                          videoUrl: videoUrl,
+                          photoUrl: photoUrl,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
       ),
-      body: hasVideo
-          ? HlsWebPlayer(videoUrl: videoUrl!)
-          : hasPhoto
-              // Let the InteractiveViewer fill the whole screen (image centered
-              // inside) so the pan/zoom area is the full viewport — not a small
-              // box the size of the image.
-              ? InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4.0,
-                  child: Center(
-                    child: Image.network(
-                      photoUrl!,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (c, child, progress) => progress == null
-                          ? child
-                          : const Center(
-                              child:
-                                  CircularProgressIndicator(color: Colors.white),
-                            ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(Icons.error, color: Colors.white, size: 60),
-                      ),
-                    ),
-                  ),
-                )
-              : const Center(
-                  child:
-                      Icon(Icons.broken_image, color: Colors.white, size: 100),
-                ),
     );
   }
 }

@@ -5,7 +5,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 import '../../regularization.dart';
 import '../cubit/reg_dashboard_cubit.dart';

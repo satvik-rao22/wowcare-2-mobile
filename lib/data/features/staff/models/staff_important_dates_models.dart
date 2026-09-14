@@ -26,6 +26,15 @@ class ImportantDateRequestModel extends Equatable {
   /// Optional status (e.g. "Scheduled", "Completed" for physical checkup).
   final String? status;
 
+  factory ImportantDateRequestModel.fromJson(Map<String, dynamic> json) {
+    return ImportantDateRequestModel(
+      importantDateType: (json['importantDateType'] ?? '').toString(),
+      dueDate: (json['dueDate'] ?? '').toString(),
+      completedDate: json['completedDate']?.toString(),
+      status: json['status']?.toString(),
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'importantDateType': importantDateType,
@@ -36,7 +45,12 @@ class ImportantDateRequestModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [importantDateType, dueDate, completedDate, status];
+  List<Object?> get props => [
+    importantDateType,
+    dueDate,
+    completedDate,
+    status,
+  ];
 }
 
 class ImportantDatesResponseModel extends Equatable {
@@ -81,7 +95,7 @@ class PhysicalCheckupSummaryModel {
           (data['overduePhysicalCheckupCount'] as num?)?.toInt() ?? 0,
       staffWithoutActivePhysicalCheckupCount:
           (data['staffWithoutActivePhysicalCheckupCount'] as num?)?.toInt() ??
-              0,
+          0,
     );
   }
 }

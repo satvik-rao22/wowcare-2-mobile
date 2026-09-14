@@ -4,70 +4,16 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/view/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_filter_data.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 
-enum StaffFilterSection {
-  /// Uses the "Allowed Classroom" list as the classroom multi-select.
-  classroom,
-  designation,
-  status,
-  sortBy,
-  attendanceStatus,
-
-  /// Legacy: show the old Primary Classroom dropdown.
-  primaryClassroom,
-
-  /// Legacy: show the old Allowed Classroom dropdown.
-  allowedClassroom,
-}
-
-// Mock classes for now - replace with actual implementations
-class FilterData {
-  final List<int> classroomIds;
-  final List<String> classrooms;
-
-  /// Selected primary classroom names (for Primary Classroom dropdown).
-  final List<String>? primaryClassrooms;
-
-  /// Selected allowed classroom names (for Allowed Classroom dropdown).
-  final List<String>? allowedClassrooms;
-  final List<String> statuses;
-  final List<String> tags;
-  final List<String> attendanceStatuses;
-
-  /// Sort direction: 'asc' or 'desc'.
-  final String? sortBy;
-
-  FilterData({
-    required this.classroomIds,
-    required this.classrooms,
-    this.primaryClassrooms,
-    this.allowedClassrooms,
-    required this.statuses,
-    required this.tags,
-    this.attendanceStatuses = const [],
-    this.sortBy,
-  });
-
-  static FilterData createWithTagMapping({
-    required List<int> classroomIds,
-    required List<String> classrooms,
-    required List<String> statuses,
-    required List<String> tags,
-    List<String> attendanceStatuses = const [],
-  }) {
-    return FilterData(
-      classroomIds: classroomIds,
-      classrooms: classrooms,
-      statuses: statuses,
-      tags: tags,
-      attendanceStatuses: attendanceStatuses,
-    );
-  }
-}
+export 'package:wowcare/presentation/features/staff/model/staff_filter_data.dart';
+export 'package:wowcare/presentation/features/staff/model/staff_route_results.dart'
+    show StaffFilterResult;
 
 class StaffFilterScreen extends StatefulWidget {
   final FilterData? initialFilters;
@@ -262,7 +208,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Signed-In', 'Signed-Out', 'Not-Marked', 'Absent'];
+      _attendanceStatusList = [
+        'Signed-In',
+        'Signed-Out',
+        'Not-Marked',
+        'Absent',
+      ];
     });
   }
 
@@ -309,29 +260,37 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         .whereType<String>()
         .toList();
 
-    Navigator.pop(context, {
-      'status': status,
-      'designation': designation,
-
-      /// All selected designations (backend codes), for screens that support multi-select.
-      'designations': widget.sections.contains(StaffFilterSection.designation)
-          ? List<String>.from(_selectedDesignationList)
-          : const <String>[],
-      'primaryClassroomCodes':
-          widget.sections.contains(StaffFilterSection.primaryClassroom)
-          ? primaryCodes
-          : const <String>[],
-      'classCodes':
-          (widget.sections.contains(StaffFilterSection.classroom) ||
-              widget.sections.contains(StaffFilterSection.allowedClassroom))
-          ? allowedCodes
-          : const <String>[],
-      'sortBy': sortBy,
-      'attendanceStatuses':
-          widget.sections.contains(StaffFilterSection.attendanceStatus)
-          ? attendanceStatuses
-          : const <String>[],
-    });
+    // `Navigator.pop`, deliberately, and the one place in this module that is
+    // not `context.pop`: this screen is reachable BOTH as a GoRouter page (the
+    // staff list) and as an imperatively-pushed route that carries a live
+    // ClassroomCubit (staff attendance daily — see its own note). `context.pop`
+    // pops go_router's match list, which knows nothing about the imperative
+    // route, so it would dismiss the page underneath instead. `Navigator.pop`
+    // returns the result correctly for both.
+    Navigator.pop(
+      context,
+      StaffFilterResult(
+        status: status,
+        designation: designation,
+        designations: widget.sections.contains(StaffFilterSection.designation)
+            ? List<String>.from(_selectedDesignationList)
+            : const <String>[],
+        primaryClassroomCodes:
+            widget.sections.contains(StaffFilterSection.primaryClassroom)
+            ? primaryCodes
+            : const <String>[],
+        classCodes:
+            (widget.sections.contains(StaffFilterSection.classroom) ||
+                widget.sections.contains(StaffFilterSection.allowedClassroom))
+            ? allowedCodes
+            : const <String>[],
+        sortBy: sortBy,
+        attendanceStatuses:
+            widget.sections.contains(StaffFilterSection.attendanceStatus)
+            ? attendanceStatuses
+            : const <String>[],
+      ),
+    );
   }
 
   @override
@@ -507,9 +466,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             // toggle) and Sort by is single, so they don't get Select All.
             final showSelectAll =
                 section == StaffFilterSection.primaryClassroom ||
-                    section == StaffFilterSection.allowedClassroom ||
-                    section == StaffFilterSection.classroom ||
-                    section == StaffFilterSection.attendanceStatus;
+                section == StaffFilterSection.allowedClassroom ||
+                section == StaffFilterSection.classroom ||
+                section == StaffFilterSection.attendanceStatus;
 
             return CustomMultiSelectDropdown(
               label: label,

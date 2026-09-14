@@ -1,21 +1,25 @@
+import 'dart:async';
+import 'package:wowcare/core/responsive/app_breakpoints.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/student_newsletters_card.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_coordinator_state.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/my_childs_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/parent_dashboard_coordinator_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/parent_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_attendance_profile_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/model/parent_dashboard_viewmodel.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/my_childs_day_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/student_attendance_summary_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/student_billing_card.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/student_newsletters_card.dart';
+import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -28,13 +32,34 @@ class ParentDashboard extends StatefulWidget {
   State<ParentDashboard> createState() => _ParentDashboardState();
 }
 
-class _ParentDashboardState extends State<ParentDashboard> {
+class _ParentDashboardState extends State<ParentDashboard>
+    with TabBecameVisibleMixin {
   late final ParentDashboardCoordinatorCubit _coordinator;
 
   @override
   void initState() {
     super.initState();
     _coordinator = serviceLocator<ParentDashboardCoordinatorCubit>();
+  }
+
+  // Dashboard is branch index 0 in app_router.dart's shell.
+  @override
+  int get tabBranchIndex => 0;
+
+  @override
+  void onTabBecameVisible() {
+    if (!mounted) return;
+    // Returning to the Dashboard tab (or re-tapping it while already there)
+    // refreshes the coordinator that is ALREADY alive. This used to live in
+    // DashboardScreen, where it bumped a KeyedSubtree epoch and destroyed the
+    // whole subtree — which re-resolved this coordinator from GetIt (a
+    // `registerFactory`, so a brand-new instance) and re-ran its constructor's
+    // `initialize()`, i.e. the entire cold-open fan-out, every single time.
+    //
+    // `refresh()` is the same call pull-to-refresh already makes, and every
+    // child cubit behind it has an in-flight guard plus a silent-refresh mode,
+    // so this is idempotent and cheap. Same visible outcome: fresh data.
+    unawaited(_coordinator.refresh());
   }
 
   @override
@@ -49,7 +74,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
       case ParentDashboardCard.myChildsDay:
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
-        return const StudentAttendanceCard();
+        return const StudentAttendanceSummaryCard();
       case ParentDashboardCard.studentBilling:
         return const StudentBillingCard();
       case ParentDashboardCard.studentNewsletters:
@@ -113,15 +138,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        }
-        // else if (state.isPartialError) {
-        //   CoreUtils.showTopSnackBar(
-        //     context: context,
-        //     message: 'Some sections could not be loaded. Pull down to retry.',
-        //     isWarning: true,
-        //   );
-        // }
-        else if (state.isReady) {
+        } else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',
@@ -137,7 +154,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
           type: MaterialType.transparency,
           child: CustomRefreshIndicator(
             onRefresh: () => coordinator.refresh(),
-            child: _DashboardCardList(cardFor: _cardFor),
+            child: _ParentDashboardCardList(cardFor: _cardFor),
           ),
         ),
       ),
@@ -153,8 +170,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
 /// parent `BlocBuilder` could rebuild the list while a drag overlay entry is
 /// still alive, producing duplicate `_OverlayEntryWidgetState` GlobalKeys and
 /// the `_elements.contains(element)` framework assertion.
-class _DashboardCardList extends StatelessWidget {
-  const _DashboardCardList({required this.cardFor});
+class _ParentDashboardCardList extends StatelessWidget {
+  const _ParentDashboardCardList({required this.cardFor});
 
   final Widget Function(ParentDashboardCard) cardFor;
 
@@ -167,7 +184,22 @@ class _DashboardCardList extends StatelessWidget {
       builder: (context, dashState) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+            // §7.2 KEEPS this LayoutBuilder — it is one of the "dashboard
+            // gutter checks" the mandate names, and it decides only this
+            // subtree's own horizontal padding.
+            //
+            // Precise about what it measures: this sits OUTSIDE the 640 cap
+            // below, so `constraints.maxWidth` is the width the shell hands
+            // the list, not the capped content box. That distinction cannot
+            // change the outcome, because the threshold (360) is below the cap
+            // (640): at every width where this ternary flips, the cap is not
+            // binding and the two are the same number. Above 640 both sides
+            // yield 16.
+            //
+            // The 360 literal is gone — the boundary is AppBreakpoints', so
+            // nothing here defines a breakpoint locally.
+            final double gutter =
+                constraints.maxWidth < AppBreakpoints.narrowMaxWidth ? 12 : 16;
             return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(

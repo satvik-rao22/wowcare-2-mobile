@@ -431,9 +431,9 @@ class StudentAttendanceCustomItemModel extends Equatable {
       classroomName: json['classroomName'] as String? ?? '',
       classroomCode: json['classroomCode'] as String? ?? '',
       attendedDays: json['attendedDays'] as int? ?? 0,
-      signedInBy: json['signedInBy'] as String?,
+      signedInBy: (json['signedInBy'] ?? json['signedInByName']) as String?,
       signedInTime: _parseTime(json['signedInTime']),
-      signedOutBy: json['signedOutBy'] as String?,
+      signedOutBy: (json['signedOutBy'] ?? json['signedOutByName']) as String?,
       signedOutTime: _parseTime(json['signedOutTime']),
       tagCodes:
           (json['tagCodes'] as List<dynamic>?)

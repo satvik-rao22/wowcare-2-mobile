@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Wowcare</string>
+	<string>WowCare 2</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconName</key>
@@ -17,7 +17,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>wowcare</string>
+	<string>WowCare 2</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -32,6 +32,14 @@
 	<string>This app needs access to the camera to capture photos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
+	<!-- Recording a video with UIImagePickerController (image_picker's
+	     pickVideo(source: camera), reached from the activity "Record Video"
+	     option) captures audio, so iOS performs a microphone TCC check when the
+	     capture UI is presented. Without this key the system TERMINATES the
+	     process instead of prompting - the app appeared to "crash while
+	     uploading a video" on iPhone. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to the microphone to record audio with videos you capture.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -57,21 +65,69 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- The DEV backend (http://5.78.83.44:<port>) is plain HTTP, which App
+	     Transport Security blocks by default. Scoped to that one host —
+	     NSAllowsArbitraryLoads would permit HTTP to ANY host in every build,
+	     including App Store releases, and App Review flags it. Remove this
+	     block once DEV serves TLS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>5.78.83.44</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<!-- Foreground location ONLY. The background/"Always" usage descriptions
+	     (NSLocationAlwaysAndWhenInUseUsageDescription and the legacy
+	     NSLocationAlwaysUsageDescription) were removed after App Review
+	     rejected background location under guideline 2.5.4: tracking staff
+	     attendance is not an accepted justification for persistent location.
+	     Without these keys iOS never offers "Always Allow" in the prompt, so
+	     the app can only ever hold When-In-Use — geofencing runs foreground
+	     only. Do NOT re-add them without a user-facing feature Apple accepts
+	     as needing background location; they must be restored together with
+	     the `location` UIBackgroundMode below to have any effect. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>WowCare uses your location to enable attendance within the school premises.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>WowCare uses your location in the background to enable attendance within the school premises.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
 	<string>WowCare uses your location to enable attendance within the school premises.</string>
 	<key>UIBackgroundModes</key>
 	<array>
-		<!-- Required for AVPictureInPictureController / media PiP playback. -->
-		<string>audio</string>
-		<string>location</string>
+		<!-- `audio` is Xcode's "Audio, AirPlay, and Picture in Picture"
+		     capability - PiP has no separate key. Without this string
+		     AVPictureInPictureController refuses to start at all
+		     (isPictureInPictureSupported() still reports true, so the failure
+		     is silent), which is why video PiP worked on Android and not on
+		     iPhone. Declared here for the activity/chat video viewer
+		     (HlsWebPlayer): the PiP control in that viewer, and shrinking a
+		     playing video into the floating window when the user leaves the
+		     app, are the only things it backs.
+		     It was previously removed under App Review guideline 2.5.4, in the
+		     same submission that carried background `location`. When
+		     resubmitting: send this change on its own, with review notes and a
+		     screen recording showing PiP driven from the video viewer, so the
+		     declared mode is tied to a visible feature. If Apple rejects it
+		     again, deleting this one line restores the previous behaviour -
+		     hls_web_player.dart then falls back to pausing on backgrounding
+		     and hides the PiP control (its support check returns false). Do
+		     NOT add any other background mode alongside it. -->
+		<!-- <string>audio</string> -->
+		<!-- NO `location` mode, and no "Always" location usage descriptions
+		     above. App Review rejected background location under guideline
+		     2.5.4: continuous location is not justified by staff attendance
+		     tracking. iOS geofencing is therefore FOREGROUND ONLY — the
+		     GeofenceCubit position stream and distance checks run while the
+		     app is open, and CLLocationManager region monitoring
+		     (GeofencePlugin.swift) stays dormant because region monitoring
+		     requires "Always", which this app can no longer be granted.
+		     Do NOT re-add either without a user-facing feature that Apple
+		     accepts as needing background location. -->
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>

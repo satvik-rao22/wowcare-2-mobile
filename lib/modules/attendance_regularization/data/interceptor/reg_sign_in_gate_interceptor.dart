@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../../core/config/reg_config.dart';
 import '../../presentation/gate/reg_sign_in_gate.dart';

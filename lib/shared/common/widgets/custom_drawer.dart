@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/utils/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
@@ -11,11 +11,13 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -29,21 +31,21 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/context_switch_cache_cleaner.dart';
+import 'package:wowcare/core/utils/staff_code_resolver.dart';
+import 'package:wowcare/core/utils/user_details_school_roles.dart';
+import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -105,7 +107,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void _navigate(String location, {Object? extra}) {
     Navigator.pop(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      appRouter.go(location, extra: extra);
+      // appRouterGo (not a bare appRouter.go) — the drawer bypasses
+      // CustomNavigationBar's tap handler entirely, so this is what tells a
+      // kept-alive branch screen (e.g. Activities, Classroom) it just became
+      // visible again when reached via a drawer link. See appRouterGo's doc
+      // comment / TabVisibilityEvents for why that's needed at all.
+      appRouterGo(location, extra: extra);
     });
   }
 
@@ -200,7 +207,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             const CircleAvatar(
               backgroundColor: Colors.white,
               radius: 28,
-              backgroundImage: AssetImage(MediaRes.logo_wow),
+              backgroundImage: AssetImage(MediaRes.appLogo),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -574,11 +581,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           'classroom': selectedChild.classroom,
           'tags': selectedChild.tags,
           'schedule': selectedChild.schedule,
-          'sibling': const <String, dynamic>{
-            'name': <dynamic>[],
-            'relation': <dynamic>[],
-            'status': <dynamic>[],
-          },
+          'sibling': const StudentSiblingInfo(),
           'studentCode': selectedChild.code,
           'syncWithParentChildSelection': true,
         },
@@ -619,16 +622,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
       if (!navigator.context.mounted) return;
       navigator.context.go(
         StaffProfileScreen.routeName,
-        extra: <String, dynamic>{
-          'staffCode': profile.staffCode,
-          'name': profile.fullName.trim().isNotEmpty
+        extra: StaffProfileArgs(
+          staffCode: profile.staffCode,
+          name: profile.fullName.trim().isNotEmpty
               ? profile.fullName.trim()
               : '-',
-          'classroom': classroom,
-          'designation': profile.designation,
-          'phoneNumber': profile.phoneNumber,
-          'employmentStatus': profile.status,
-        },
+          classroom: classroom,
+          designation: profile.designation,
+          phoneNumber: profile.phoneNumber,
+          employmentStatus: profile.status,
+        ),
       );
     } catch (_) {
       ScaffoldMessenger.of(navigator.context).showSnackBar(
@@ -943,9 +946,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(
-                                      AdminChatHostScreen.routeName,
-                                    );
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)

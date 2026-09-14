@@ -20,11 +20,7 @@ if [ -n "${DART_DEFINES:-}" ]; then
   done
 fi
 
-# Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
-# build environments. To restore per-environment Firebase projects, remove the
-# override below so SRC uses the detected ${ENVIRONMENT} again.
-echo "note: [Firebase] build env='${ENVIRONMENT}', using pinned 'uat' Firebase config (wowcare2-uat)"
-ENVIRONMENT="uat"
+echo "note: [Firebase] build env='${ENVIRONMENT}'"
 
 SRC="${SRCROOT}/firebase/${ENVIRONMENT}/GoogleService-Info.plist"
 DST="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/GoogleService-Info.plist"

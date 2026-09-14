@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/newsletter/entities/paginated_newsletters_entity.dart';
 
+import 'package:wowcare/data/features/newsletter/models/newsletter_api_envelope.dart';
+
 import 'newsletter_model.dart';
 
 class PaginatedNewslettersResponseModel extends Equatable {
@@ -20,8 +22,12 @@ class PaginatedNewslettersResponseModel extends Equatable {
   final int totalElements;
   final bool hasMore;
 
-  factory PaginatedNewslettersResponseModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+  /// The API envelope. Hand-written, not generated: `hasMore` is derived from
+  /// the page number and total, which json_serializable cannot express.
+  factory PaginatedNewslettersResponseModel.fromApiResponse(
+    NewsletterApiEnvelope envelope,
+  ) {
+    final data = envelope.dataAsMap ?? <String, dynamic>{};
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageNumber = data['number'] as int? ?? 0;
     final pageSize = data['size'] as int? ?? content.length;
