@@ -29,7 +29,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs access to the camera to capture photos.</string>
+	<string>WowCare uses your camera to take photos and record videos of classroom activities to share with parents in a child's daily activity feed, to attach photos to messages, and to scan the school's QR code when signing in or out. For example, a teacher can photograph a child's art project and post it to their parents.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
 	<!-- Recording a video with UIImagePickerController (image_picker's
@@ -39,11 +39,11 @@
 	     process instead of prompting - the app appeared to "crash while
 	     uploading a video" on iPhone. -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to the microphone to record audio with videos you capture.</string>
+	<string>WowCare uses your microphone to record sound with the activity videos you capture in the app. For example, a teacher recording a class singing a song can share the video, with audio, with parents.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs permission to save photos to your photo library.</string>
+	<string>WowCare saves photos and videos to your photo library when you choose to download them. For example, a parent can save a photo of their child's activity shared by the school.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to your photo library to upload images.</string>
+	<string>WowCare accesses your photo library so you can choose existing photos and videos to upload. For example, a teacher can pick photos from a field trip to share in a child's activity feed, or attach a picture to a message.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
