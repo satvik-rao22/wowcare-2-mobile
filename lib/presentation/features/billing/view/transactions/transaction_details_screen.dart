@@ -28,6 +28,7 @@ import 'package:wowcare/presentation/features/billing/view/transactions/view_rec
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -868,8 +869,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                             padding: const EdgeInsets.only(right: 6),
                             child: _FamilyChip(
                               name: (c.fullName ?? '').toString(),
-                              photoUuid: c.photoUuid,
-                              backgroundColor: AppColors.warningColor,
+                              studentCode: c.code,
                             ),
                           ))
                       .toList(),
@@ -919,38 +919,30 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
 class _FamilyChip extends StatelessWidget {
   final String name;
-  final dynamic photoUuid;
-  final Color backgroundColor;
+  final String? studentCode;
 
   const _FamilyChip({
     required this.name,
-    this.photoUuid,
-    required this.backgroundColor,
+    this.studentCode,
   });
-
-  String get initials {
-    final parts = name.trim().split(RegExp(r"\s+"));
-    final first = parts.isNotEmpty ? parts.first : '';
-    final last = parts.length > 1 ? parts.last : '';
-    return ((first.isNotEmpty ? first[0] : '') + (last.isNotEmpty ? last[0] : '')).toUpperCase();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: backgroundColor,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: AppColors.billingCardColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
+        // The family-ledger API carries no photo field — [studentCode] lets
+        // DocumentImageWidget self-resolve the real photo the same way
+        // select_students_screen.dart does, instead of always showing
+        // initials on a flat CircleAvatar.
+        DocumentImageWidget(
+          fileUuid: '',
+          studentCode: (studentCode ?? '').trim().isNotEmpty
+              ? studentCode
+              : null,
+          name: name,
+          size: 32,
+          fontSize: 12,
         ),
         const SizedBox(width: 8),
         ConstrainedBox(

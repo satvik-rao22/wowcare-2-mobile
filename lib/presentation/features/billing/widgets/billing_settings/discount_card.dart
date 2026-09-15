@@ -11,7 +11,6 @@ class DiscountCard extends StatelessWidget {
     required this.percentage,
     required this.totalAmountDiscounted,
     required this.isActive,
-    this.onView,
     this.onEdit,
     this.onDeactivate,
     this.onReactivate,
@@ -22,7 +21,6 @@ class DiscountCard extends StatelessWidget {
   final double percentage;
   final double totalAmountDiscounted;
   final bool isActive;
-  final VoidCallback? onView;
   final VoidCallback? onEdit;
   final VoidCallback? onDeactivate;
   final VoidCallback? onReactivate;
@@ -59,22 +57,17 @@ class DiscountCard extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlineActionButton(label: BillingStrings.view, onTap: onView),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
               child: isActive
                   ? FilledActionButton(label: BillingStrings.edit, onTap: onEdit)
                   : OutlineActionButton(label: BillingStrings.reactivate, onTap: onReactivate),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: isActive
+                  ? OutlineActionButton(label: BillingStrings.deactivate, onTap: onDeactivate)
+                  : OutlineActionButton(label: BillingStrings.delete, onTap: onDelete),
+            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: isActive
-              ? OutlineActionButton(label: BillingStrings.deactivate, onTap: onDeactivate)
-              : OutlineActionButton(label: BillingStrings.delete, onTap: onDelete),
         ),
       ],
     );

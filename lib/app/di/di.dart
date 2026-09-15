@@ -1045,6 +1045,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
       getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getAutoPayStatus: serviceLocator<GetAutoPayStatusUseCase>(),
+      getPaymentMethods: serviceLocator<GetPaymentMethodsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

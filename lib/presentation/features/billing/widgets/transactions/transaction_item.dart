@@ -27,6 +27,7 @@ class TransactionItem {
     this.endDate,
     this.paymentMode,
     this.studentOpenBalance,
+    this.gatewayPayment = false,
   });
 
   final int id;
@@ -82,6 +83,11 @@ class TransactionItem {
   final String? endDate;
   final String? paymentMode;
   final double? studentOpenBalance;
+
+  /// Whether this transaction was processed through the payment gateway
+  /// (an "Online" card/ACH charge) rather than manually recorded (Cash,
+  /// Cheque, Other) — drives whether "Online" is offered when refunding it.
+  final bool gatewayPayment;
 
   /// Maps an invoice row from the list API onto the card model. [id] is the
   /// invoice's absolute position in the loaded list (a stable display key);

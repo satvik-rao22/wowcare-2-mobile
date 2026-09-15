@@ -14,6 +14,7 @@ import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 
 import '../widgets/transactions/transaction_item.dart';
 
@@ -113,13 +114,33 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     return picked.isNotEmpty ? picked : state.activeFilter?.typeParam;
   }
 
-  /// The `status` query param, same precedence as [_typeParam]. Status values
-  /// go up in upper case (`status=OVERDUE`) to match the backend.
+  /// The `status` query param — legend-only now (see [TransactionsState.
+  /// selectedStatus]'s doc). Status values go up in upper case
+  /// (`status=OVERDUE`) to match the backend.
   String? get _statusParam {
     final picked = state.selectedStatus?.trim() ?? '';
     return picked.isNotEmpty
         ? picked.toUpperCase()
         : state.activeFilter?.statusParam;
+  }
+
+  /// The `mode` (payment method) query param. Sent verbatim in its display
+  /// casing (`mode=Check`), matching the web client — unlike [_statusParam]
+  /// this isn't upper-cased.
+  String? get _modeParam {
+    final picked = state.selectedMode?.trim() ?? '';
+    return picked.isEmpty ? null : picked;
+  }
+
+  /// The `paymentStatus` query param — a distinct facet from [_statusParam]
+  /// (see [TransactionsState.selectedPaymentStatus]'s doc). The backend
+  /// value for "In Progress" is `In_Process` (confirmed from a live web
+  /// request); Paid/Failed are sent as-is.
+  String? get _paymentStatusParam {
+    final picked = state.selectedPaymentStatus?.trim() ?? '';
+    if (picked.isEmpty) return null;
+    if (picked == BillingStrings.inProgress) return 'In_Process';
+    return picked;
   }
 
   /// Monotonic load generation. Bumped whenever the logical list query changes
@@ -262,47 +283,60 @@ class TransactionsCubit extends Cubit<TransactionsState> {
 
   /// Applies every funnel selection at once.
   ///
-  /// [type] and [status] are sent to the transactions endpoint, so they
-  /// refetch from page 0. [classroomNames] and [tagNames] are not supported by
-  /// that endpoint — they're resolved through the student list API and
-  /// intersected with each row's `studentCode` (see
-  /// [TransactionsState.visibleTransactions]).
+  /// [type], [mode] and [paymentStatus] are sent to the transactions
+  /// endpoint, so they refetch from page 0. [classroomNames], [tagNames] and
+  /// [studentStatus] are not supported by that endpoint — they're resolved
+  /// through the student list API and intersected with each row's
+  /// `studentCode` (see [TransactionsState.visibleTransactions]).
   Future<void> applyTransactionFilters({
-    required String? type,
-    required String? status,
     required List<String> classroomNames,
     required List<String> tagNames,
+    String? type,
+    String? mode,
+    String? paymentStatus,
+    String? studentStatus,
   }) async {
-    final hasStudentFacet =
-        classroomNames.isNotEmpty || tagNames.isNotEmpty;
+    final pickedStudentStatus = (studentStatus ?? '').trim();
+    final hasStudentFacet = classroomNames.isNotEmpty ||
+        tagNames.isNotEmpty ||
+        pickedStudentStatus.isNotEmpty;
     final pickedType = (type ?? '').trim();
-    final pickedStatus = (status ?? '').trim();
+    final pickedMode = (mode ?? '').trim();
+    final pickedPaymentStatus = (paymentStatus ?? '').trim();
 
     emit(state.copyWith(
       selectedType: () => pickedType.isEmpty ? null : pickedType,
-      selectedStatus: () => pickedStatus.isEmpty ? null : pickedStatus,
+      selectedMode: () => pickedMode.isEmpty ? null : pickedMode,
+      selectedPaymentStatus: () =>
+          pickedPaymentStatus.isEmpty ? null : pickedPaymentStatus,
+      selectedStudentStatus: () =>
+          pickedStudentStatus.isEmpty ? null : pickedStudentStatus,
       selectedClassroomNames: classroomNames,
       selectedTagNames: tagNames,
-      // An explicit Type/Status pick supersedes the legend filter.
-      activeFilter: () => pickedType.isEmpty && pickedStatus.isEmpty
-          ? state.activeFilter
-          : null,
+      // An explicit Type pick supersedes the legend filter (they share the
+      // `type` query param — see [TransactionsState.activeFilter]'s doc).
+      activeFilter: () => pickedType.isEmpty ? state.activeFilter : null,
       matchingStudentCodes: () => null,
       isApplyingFilters: hasStudentFacet,
     ));
 
-    // Type/Status changed the server query, so the list reloads from page 0.
+    // Type/Mode/Payment Status changed the server query, so the list
+    // reloads from page 0.
     final reload = loadTransactions();
     if (!hasStudentFacet) {
       await reload;
       return;
     }
-    await Future.wait<void>([reload, _resolveStudentCodes(classroomNames, tagNames)]);
+    await Future.wait<void>([
+      reload,
+      _resolveStudentCodes(classroomNames, tagNames, pickedStudentStatus),
+    ]);
   }
 
   Future<void> _resolveStudentCodes(
     List<String> classroomNames,
     List<String> tagNames,
+    String studentStatus,
   ) async {
     // Reuses the list generation: a newer list query (filter, date change or
     // refresh) invalidates this lookup too.
@@ -325,6 +359,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         schoolCode: school,
         classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
         tagCodes: tagCodes.isEmpty ? null : tagCodes,
+        status: studentStatus.isEmpty ? null : studentStatus.toUpperCase(),
         page: 0,
         size: _studentLookupSize,
       );
@@ -352,6 +387,9 @@ class TransactionsCubit extends Cubit<TransactionsState> {
       activeFilter: () => null,
       selectedType: () => null,
       selectedStatus: () => null,
+      selectedMode: () => null,
+      selectedPaymentStatus: () => null,
+      selectedStudentStatus: () => null,
       selectedClassroomNames: const <String>[],
       selectedTagNames: const <String>[],
       matchingStudentCodes: () => null,
@@ -384,6 +422,8 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         dateTo: dateTo ?? state.dateTo,
         type: _typeParam,
         status: _statusParam,
+        mode: _modeParam,
+        paymentStatus: _paymentStatusParam,
         page: 0,
         size: _pageSize,
       );
@@ -426,6 +466,8 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         dateTo: state.dateTo,
         type: _typeParam,
         status: _statusParam,
+        mode: _modeParam,
+        paymentStatus: _paymentStatusParam,
         page: nextPage,
         size: _pageSize,
       );
@@ -489,6 +531,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           studentCode: t.studentCode.isNotEmpty ? t.studentCode : null,
           refTable: t.type,
           paymentMode: (t.method ?? '').isNotEmpty ? t.method : null,
+          gatewayPayment: t.gatewayPayment,
         ),
       );
     });

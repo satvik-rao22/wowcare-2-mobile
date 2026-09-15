@@ -80,6 +80,12 @@ class AutoPayMethodsState extends Equatable {
     return null;
   }
 
+  /// AutoPay is on but the school no longer accepts the method it's set up
+  /// to use (`acceptedByPolicy: false`) — automatic payments have silently
+  /// stopped until the guardian picks a different, currently-accepted method.
+  bool get autoPayBlocked =>
+      initialAutopayEnabled && autopayMethod?.acceptedByPolicy == false;
+
   /// Whether the auto-pay toggle differs from the saved server value.
   bool get autopayChanged => autopayEnabled != initialAutopayEnabled;
 
