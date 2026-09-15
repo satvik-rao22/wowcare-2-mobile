@@ -6,6 +6,7 @@ import 'package:wowcare/app/app_bloc_providers.dart';
 import 'package:wowcare/app/app_providers.dart';
 import 'package:wowcare/app/app_sizer_init.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
+import 'package:wowcare/core/utils/app_themes.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/shared/common/app/cubits/theme_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
@@ -17,8 +18,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: rootAppProviders(),
-      child: BlocBuilder<ThemeCubit, ThemeData>(
-        builder: (context, currentTheme) {
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
           final systemTextScaleFactor = MediaQuery.of(
             context,
           ).textScaler.scale(1);
@@ -55,7 +56,9 @@ class MyApp extends StatelessWidget {
                   child: MaterialApp.router(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
-                    theme: currentTheme,
+                    theme: AppTheme.light,
+                    darkTheme: AppTheme.dark,
+                    themeMode: themeMode,
                     routerConfig: appRouter,
                     // A single OrientationBuilder here keeps Device updated on
                     // rotation. child (Router) has a stable GlobalObjectKey so

@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_themes.dart';
+import 'package:wowcare/shared/common/app/cubits/theme_cubit.dart';
 
 /// Guards the invariant that makes `lib/core/theme/app_theme_config.dart` the
 /// single control point for the app's colours and fonts: no other file in
@@ -407,6 +408,33 @@ void main() {
     test('pure white is retired: ink on a dark face is warm white', () {
       expect(AppPalette.textOnDark, BrandRamps.warmWhite);
       expect(AppPalette.onBrand, BrandRamps.warmWhite);
+    });
+  });
+
+  group('MaterialApp is handed both themes and picks one', () {
+    test('AppTheme is the entry point, and both themes are the built ones', () {
+      expect(AppTheme.light, same(lightTheme));
+      expect(AppTheme.dark, same(darkTheme));
+    });
+
+    test('the two themes differ only in brightness for now', () {
+      expect(AppTheme.light.brightness, Brightness.light);
+      expect(AppTheme.dark.brightness, Brightness.dark);
+      expect(AppTheme.dark.primaryColor, AppTheme.light.primaryColor);
+    });
+
+    test('the default mode is light, never system', () {
+      // Dark mode still renders the light palette, so following the OS would
+      // hand a dark-mode phone a half-built theme.
+      expect(ThemeCubit().state, ThemeMode.light);
+    });
+
+    test('the mode is switchable, so dark mode needs no rewiring', () {
+      final ThemeCubit cubit = ThemeCubit();
+      cubit.toggleTheme();
+      expect(cubit.state, ThemeMode.dark);
+      cubit.setMode(ThemeMode.system);
+      expect(cubit.state, ThemeMode.system);
     });
   });
 }

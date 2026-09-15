@@ -410,10 +410,33 @@ ThemeData _build(Brightness brightness) {
 /// The app's light theme.
 final ThemeData lightTheme = _build(Brightness.light);
 
-/// The app's dark theme. Reachable only through `ThemeCubit.toggleTheme`.
-///
-/// It reads the same [AppPalette] as [lightTheme], because the palette is
-/// chosen at compile time by `AppThemeConfig.skin` and there is only one
-/// skin's worth of values in the file today. A real dark mode is a dark set
-/// of values for those roles; when it lands, this getter needs no change.
+// ═══════════════════════════════════════════════════════════════════════════
+// DARK THEME: PLANNED, DO NOT DELETE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Wired end to end but not switched on: it renders the light palette, because
+// AppPalette holds one skin's worth of values today. A real dark mode is a
+// dark set of values for those 75 roles, and nothing in this file changes
+// when they land.
+//
+// Keep it. `AppTheme.dark` and `ThemeCubit` are the seam it plugs into, so
+// removing either one makes dark mode a rewrite instead of a palette.
+
+/// The app's dark theme. Light colours for now, see the header above.
 final ThemeData darkTheme = _build(Brightness.dark);
+
+/// The themes handed to `MaterialApp`, and the only place that picks one.
+///
+/// Both read every colour from [AppPalette], so adding a skin means giving
+/// those roles new values, not editing this class or any screen.
+///
+/// Not on `AppThemeConfig`: that file is the leaf token file the whole app
+/// imports, and pointing it at the builders here would make the import cycle.
+class AppTheme {
+  AppTheme._();
+
+  static ThemeData get light => lightTheme;
+
+  /// Light colours today. See the DARK THEME header above.
+  static ThemeData get dark => darkTheme;
+}
