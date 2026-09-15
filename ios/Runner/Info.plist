@@ -29,7 +29,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>WowCare uses the camera to scan the QR code posted at your school when signing a child or staff member in or out, and to let teachers photograph or record classroom activities. Photos and videos you capture are shared only with that child's parents.</string>
+	<string>WowCare uses the camera to scan the QR code posted at your school when signing a child or staff member in or out, to let teachers photograph or record classroom activities for that child's parents, and to take a photo to attach to a message. Photos and videos you capture are uploaded only to your school's WowCare account.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>WowCare uses Face ID to unlock the password you saved on this device so you can sign in without typing it.</string>
 	<!-- Recording a video with UIImagePickerController (image_picker's
@@ -41,9 +41,9 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WowCare uses the microphone to record sound when a teacher films a classroom activity, so parents hear the moment as well as see it.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>WowCare saves a photo or video to your library when you tap download on an activity or a message.</string>
+	<string>WowCare saves a photo or video to your library when you tap download on an activity, a message, or a document.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>WowCare uses your photo library so you can choose a photo or video you already took to share in a child's activity feed or attach to a message.</string>
+	<string>WowCare uses your photo library so you can choose a photo or video you already took to share in a child's activity feed, attach to a message, or set as your profile picture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
