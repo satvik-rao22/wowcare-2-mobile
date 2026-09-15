@@ -31,6 +31,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/shared/common/view/web_view_screen.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
@@ -1294,43 +1295,66 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 _expandedDrawerSection != null,
                             onTap: () => _navigate(ReportsScreen.routeName),
                           ),
-                        if (showSettingsMenu)
-                          _CustomExpansionTile(
-                            title: 'Settings',
-                            icon: MediaRes.settings_drawer_Blue,
-                            isExpansionEnabled: true,
-                            expandedOverride:
-                                _expandedDrawerSection == 'Settings',
-                            onExpansionChanged: (expanded) =>
-                                _onDrawerSectionExpansionChanged(
-                                  'Settings',
-                                  expanded,
-                                ),
-                            children: [
-                              DrawerListTile(
-                                title: 'Privacy Policy',
-                                leading: SvgPicture.asset(
-                                  MediaRes.settings_drawer_Blue,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                onTap: () {},
-                              ),
-                              DrawerListTile(
-                                title: 'Terms & Conditions',
-                                leading: SvgPicture.asset(
-                                  MediaRes.settings_drawer_Blue,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.themeColor,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                onTap: () {},
-                              ),
-                            ],
+                        // if (showSettingsMenu)
+                        //   _CustomExpansionTile(
+                        //     title: 'Settings',
+                        //     icon: MediaRes.settings_drawer_Blue,
+                        //     isExpansionEnabled: true,
+                        //     expandedOverride:
+                        //         _expandedDrawerSection == 'Settings',
+                        //     onExpansionChanged: (expanded) =>
+                        //         _onDrawerSectionExpansionChanged(
+                        //           'Settings',
+                        //           expanded,
+                        //         ),
+                        //     children: [
+                        //       DrawerListTile(
+                        //         title: 'Privacy Policy',
+                        //         leading: SvgPicture.asset(
+                        //           MediaRes.settings_drawer_Blue,
+                        //           colorFilter: const ColorFilter.mode(
+                        //             AppColors.themeColor,
+                        //             BlendMode.srcIn,
+                        //           ),
+                        //         ),
+                        //         onTap: () {},
+                        //       ),
+                        //       DrawerListTile(
+                        //         title: 'Terms & Conditions',
+                        //         leading: SvgPicture.asset(
+                        //           MediaRes.settings_drawer_Blue,
+                        //           colorFilter: const ColorFilter.mode(
+                        //             AppColors.themeColor,
+                        //             BlendMode.srcIn,
+                        //           ),
+                        //         ),
+                        //         onTap: () {},
+                        //       ),
+                        //     ],
+                        //   ),
+
+                        _CustomExpansionTile(
+                          title: 'Privacy Policy',
+                          icon: MediaRes.settings_drawer_Blue,
+                          suppressRouteHighlight:
+                              _expandedDrawerSection != null,
+                          onTap: () => openWebViewScreen(
+                            context,
+                            url: 'https://childcarewow.com/privacy/',
+                            title: 'Privacy Policy',
                           ),
+                        ),
+                        _CustomExpansionTile(
+                          title: 'Terms & Conditions',
+                          icon: MediaRes.dailyActivityDrawer,
+                          suppressRouteHighlight:
+                              _expandedDrawerSection != null,
+                          onTap: () => openWebViewScreen(
+                            context,
+                            url: 'https://childcarewow.com/terms/',
+                            title: 'Terms & Conditions',
+                          ),
+                        ),
                       ],
                       _CustomExpansionTile(
                         title: 'Logout',

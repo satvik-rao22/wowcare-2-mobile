@@ -162,6 +162,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.da
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
+import 'package:wowcare/shared/common/view/web_view_screen.dart';
 import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
@@ -2939,6 +2940,21 @@ final GoRouter appRouter = GoRouter(
             allowActivityWrite: args['allowActivityWrite'] as bool? ?? true,
             studentName: args['studentName'] as Map<String, dynamic>?,
           ),
+        );
+      },
+    ),
+    // Generic in-app browser (privacy policy, terms, any external link).
+    // Root-level so it covers the bottom nav shell, and on a path of its own
+    // so it can take a typed `WebViewArgs` extra without colliding with the
+    // Map-`extra` routes above (see `StaffRoutes.documentViewer`'s note on
+    // declaration-order matching).
+    GoRoute(
+      path: WebViewScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as WebViewArgs?;
+        return _fastPage(
+          state,
+          WebViewScreen(url: args?.url ?? '', title: args?.title ?? ''),
         );
       },
     ),
