@@ -1,6 +1,9 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
+import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
+import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_absent_toggle_response.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 import '../../core/config/av2_config.dart';
@@ -90,32 +93,29 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     DateTime to,
   ) async {
     final body = await _attendanceSource.fetchStaffAttendanceProfileAbsentToggle(
-      queryParameters: <String, dynamic>{
-        'staffCode': staffCode,
-        'fromAbsenceDate': _fmt(from),
-        'toAbsenceDate': _fmt(to),
-        'page': 0,
-        'size': Av2Config.profilePageSize,
-        'pageable.page': 0,
-        'pageable.size': Av2Config.profilePageSize,
-        'sort': <String>['absenceDate,desc'],
-      },
+      query: AttendanceProfileAbsentToggleQuery(
+        staffCode: staffCode,
+        fromAbsenceDate: _fmt(from),
+        toAbsenceDate: _fmt(to),
+        page: 0,
+        size: Av2Config.profilePageSize,
+        sort: const <String>['absenceDate,desc'],
+        includePageableAliasParams: true,
+      ),
     );
-    final map = body ?? const <String, dynamic>{};
-    final data = map['data'] as Map?;
-    final records = data?['records'] as Map?;
-    final content = (records?['content'] as List?) ?? const [];
-    return content.whereType<Map>().map((e) {
-      final m = e.cast<String, dynamic>();
+    final records =
+        body?.records ??
+        const <StaffAttendanceProfileAbsentToggleRecord>[];
+    return records.map((r) {
       return <String, dynamic>{
-        'code': (m['code'] ?? m['absenceCode'])?.toString(),
-        'date': DateTime.tryParse((m['absenceDate'] ?? '').toString()),
-        'from': DateTime.tryParse((m['absenceFromDate'] ?? '').toString()),
-        'to': DateTime.tryParse((m['absenceToDate'] ?? '').toString()),
-        'reason': m['absenceReason']?.toString(),
-        'type': m['absenceType']?.toString(),
-        'note': m['absenceNote']?.toString(),
-        'markedBy': (m['markedAbsentByName'] ?? m['markedAbsentBy'])?.toString(),
+        'code': r.code,
+        'date': DateTime.tryParse(r.absenceDate),
+        'from': DateTime.tryParse(r.absenceFromDate ?? ''),
+        'to': DateTime.tryParse(r.absenceToDate ?? ''),
+        'reason': r.absenceReason,
+        'type': r.absenceType,
+        'note': r.absenceNote,
+        'markedBy': (r.markedAbsentByName ?? r.markedAbsentBy)?.toString(),
       };
     }).where((m) => (m['code'] as String?)?.isNotEmpty ?? false).toList();
   }
@@ -155,13 +155,13 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
   }) async {
     final day = _fmt(date);
     final body = await _attendanceSource.fetchStaffAttendanceProfile(
-      queryParameters: <String, dynamic>{
-        'staffCode': staffCode,
-        'fromAttendanceDate': day,
-        'toAttendanceDate': day,
-        'page': 0,
-        'size': Av2Config.profilePageSize,
-      },
+      query: AttendanceProfileQuery(
+        staffCode: staffCode,
+        fromAttendanceDate: day,
+        toAttendanceDate: day,
+        page: 0,
+        size: Av2Config.profilePageSize,
+      ),
     );
     return DayDetailMapper.fromResponse(body, date);
   }

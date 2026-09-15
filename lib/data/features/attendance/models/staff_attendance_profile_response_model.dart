@@ -20,6 +20,7 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_pro
 ///    model as [dailyPage].
 class StaffAttendanceProfileRecordModel extends Equatable {
   const StaffAttendanceProfileRecordModel({
+    this.code,
     required this.attendanceDate,
     required this.sequenceNumber,
     required this.totalSequenceCount,
@@ -39,6 +40,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
     required this.notExpectedComment,
   });
 
+  final String? code;
   final String attendanceDate;
   final int sequenceNumber;
   final int totalSequenceCount;
@@ -59,6 +61,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
 
   factory StaffAttendanceProfileRecordModel.fromJson(Map<String, dynamic> m) {
     return StaffAttendanceProfileRecordModel(
+      code: m['code'] as String?,
       attendanceDate: m['attendanceDate'] as String? ?? '',
       sequenceNumber: m['sequenceNumber'] as int? ?? 1,
       totalSequenceCount: m['totalSequenceCount'] as int? ?? 1,
@@ -81,6 +84,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
 
   @override
   List<Object?> get props => [
+    code,
     attendanceDate,
     sequenceNumber,
     totalSequenceCount,
@@ -102,6 +106,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
 
   StaffAttendanceProfileRecord toEntity() {
     return StaffAttendanceProfileRecord(
+      code: code,
       attendanceDate: attendanceDate,
       sequenceNumber: sequenceNumber,
       totalSequenceCount: totalSequenceCount,

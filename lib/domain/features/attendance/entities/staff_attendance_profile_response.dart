@@ -23,6 +23,7 @@ import 'package:wowcare/data/features/attendance/models/student_attendance_model
 ///    verbatim by exposing the composed model as [dailyPage].
 class StaffAttendanceProfileRecord extends Equatable {
   const StaffAttendanceProfileRecord({
+    this.code,
     required this.attendanceDate,
     required this.sequenceNumber,
     required this.totalSequenceCount,
@@ -41,6 +42,10 @@ class StaffAttendanceProfileRecord extends Equatable {
     required this.signedInMethod,
     required this.notExpectedComment,
   });
+
+  /// `m['code'] as String?` — the attendance record code, needed to
+  /// edit/delete a single session.
+  final String? code;
 
   /// `m['attendanceDate'] as String? ?? ''`
   final String attendanceDate;
@@ -101,6 +106,7 @@ class StaffAttendanceProfileRecord extends Equatable {
 
   @override
   List<Object?> get props => [
+    code,
     attendanceDate,
     sequenceNumber,
     totalSequenceCount,

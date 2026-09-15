@@ -21,6 +21,11 @@ import 'package:wowcare/data/features/attendance/models/student_attendance_model
 ///    verbatim by exposing the composed model as [absentPage].
 class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
   const StaffAttendanceProfileAbsentToggleRecord({
+    this.code,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceReason,
+    this.absenceType,
     required this.absenceDate,
     required this.markedAbsentTime,
     required this.markedAbsentByName,
@@ -30,6 +35,22 @@ class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
     required this.classroomName,
     required this.classroomCode,
   });
+
+  /// `(m['code'] ?? m['absenceCode']) as String?` — the absence record code,
+  /// needed to edit/delete an absence.
+  final String? code;
+
+  /// `m['absenceFromDate'] as String?`
+  final String? absenceFromDate;
+
+  /// `m['absenceToDate'] as String?`
+  final String? absenceToDate;
+
+  /// `m['absenceReason'] as String?`
+  final String? absenceReason;
+
+  /// `m['absenceType'] as String?`
+  final String? absenceType;
 
   /// `m['absenceDate'] as String? ?? ''`
   final String absenceDate;
@@ -67,6 +88,11 @@ class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
 
   @override
   List<Object?> get props => [
+    code,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
     absenceDate,
     markedAbsentTime,
     markedAbsentByName,

@@ -20,6 +20,11 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_pro
 ///    model as [absentPage].
 class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
   const StaffAttendanceProfileAbsentToggleRecordModel({
+    this.code,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceReason,
+    this.absenceType,
     required this.absenceDate,
     required this.markedAbsentTime,
     required this.markedAbsentByName,
@@ -30,6 +35,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     required this.classroomCode,
   });
 
+  final String? code;
+  final String? absenceFromDate;
+  final String? absenceToDate;
+  final String? absenceReason;
+  final String? absenceType;
   final String absenceDate;
   final dynamic markedAbsentTime;
   final dynamic markedAbsentByName;
@@ -43,6 +53,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     Map<String, dynamic> m,
   ) {
     return StaffAttendanceProfileAbsentToggleRecordModel(
+      code: (m['code'] ?? m['absenceCode']) as String?,
+      absenceFromDate: m['absenceFromDate'] as String?,
+      absenceToDate: m['absenceToDate'] as String?,
+      absenceReason: m['absenceReason'] as String?,
+      absenceType: m['absenceType'] as String?,
       absenceDate: m['absenceDate'] as String? ?? '',
       markedAbsentTime: m['markedAbsentTime'],
       markedAbsentByName: m['markedAbsentByName'],
@@ -56,6 +71,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
 
   @override
   List<Object?> get props => [
+    code,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
     absenceDate,
     markedAbsentTime,
     markedAbsentByName,
@@ -68,6 +88,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
 
   StaffAttendanceProfileAbsentToggleRecord toEntity() {
     return StaffAttendanceProfileAbsentToggleRecord(
+      code: code,
+      absenceFromDate: absenceFromDate,
+      absenceToDate: absenceToDate,
+      absenceReason: absenceReason,
+      absenceType: absenceType,
       absenceDate: absenceDate,
       markedAbsentTime: markedAbsentTime,
       markedAbsentByName: markedAbsentByName,
