@@ -11,7 +11,7 @@
 		     tunnel, change this line locally and do NOT commit it — a
 		     tunnel host committed here previously shipped in debug and its
 		     Android counterpart shipped in release. -->
-		<string>applinks:uat-wowcare.childcarewow.app</string>
+		<string>applinks:wowcare-uat.childcarewow.app</string>
 	</array>
 </dict>
 </plist>
