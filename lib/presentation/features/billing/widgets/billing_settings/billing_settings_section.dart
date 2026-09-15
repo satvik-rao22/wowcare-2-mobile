@@ -19,7 +19,7 @@ class BillingSettingsSection extends StatefulWidget {
 }
 
 class _BillingSettingsSectionState extends State<BillingSettingsSection> {
-  static const List<String> _subTabs = ['Billing'];
+  static const List<String> _subTabs = ['Discounts'];
   final ValueNotifier<int> _selectedIndex = ValueNotifier<int>(0);
 
   @override

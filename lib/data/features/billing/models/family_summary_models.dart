@@ -14,6 +14,9 @@ class FamilySummaryModel {
     required this.lastPaymentDate,
     required this.lastPaymentMethod,
     required this.openBalance,
+    this.studentCount = 0,
+    this.studentName,
+    this.studentPhotoAssetCode,
   });
 
   final String ownerType;
@@ -29,6 +32,9 @@ class FamilySummaryModel {
   final DateTime? lastPaymentDate;
   final String lastPaymentMethod;
   final double openBalance;
+  final int studentCount;
+  final String? studentName;
+  final String? studentPhotoAssetCode;
 
   factory FamilySummaryModel.fromJson(Map<String, dynamic> json) {
     // Tolerate a field arriving as a numeric-looking string (seen for
@@ -63,6 +69,9 @@ class FamilySummaryModel {
       lastPaymentDate: dt('lastPaymentDate'),
       lastPaymentMethod: (json['lastPaymentMethod'] as String?) ?? '',
       openBalance: d('openBalance'),
+      studentCount: (json['studentCount'] as num?)?.toInt() ?? 0,
+      studentName: json['studentName'] as String?,
+      studentPhotoAssetCode: json['studentPhotoAssetCode'] as String?,
     );
   }
 

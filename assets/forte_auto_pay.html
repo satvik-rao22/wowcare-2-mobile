@@ -905,9 +905,16 @@
           });
       }
 
-      // Hides any cardType option whose value isn't in [allowed]. The empty
-      // placeholder is always kept. If every card brand is hidden but ACH
+      // Removes any cardType option whose value isn't in [allowed]. The empty
+      // placeholder is always kept. If every card brand is removed but ACH
       // remains (or vice-versa), the single remaining type is auto-selected.
+      //
+      // Options are REMOVED from the DOM rather than hidden/disabled — the
+      // native <select> picker on mobile WebViews commonly ignores both the
+      // `hidden` attribute and `disabled` styling and renders every option
+      // anyway, only greyed out, which read as broken rather than
+      // unavailable. Removing them is the only way that's actually respected
+      // by the native picker.
       function applyAllowedMethods(allowed) {
         const sel = document.getElementById('cardType');
         if (!sel) return;
@@ -915,10 +922,11 @@
         const remaining = [];
         Array.from(sel.options).forEach((opt) => {
           if (opt.value === '') return; // keep placeholder
-          const ok = set.has(opt.value);
-          opt.hidden = !ok;
-          opt.disabled = !ok;
-          if (ok) remaining.push(opt.value);
+          if (set.has(opt.value)) {
+            remaining.push(opt.value);
+          } else {
+            opt.remove();
+          }
         });
         // If the current selection is no longer allowed, reset it.
         if (sel.value && !set.has(sel.value)) {

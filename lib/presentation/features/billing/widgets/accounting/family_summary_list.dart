@@ -57,11 +57,18 @@ class FamilySummaryList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: BillingStudentCard(
-              name: family.familyName.trim().isNotEmpty
-                  ? family.familyName
-                  : family.guardianName,
+              name: family.displayName,
               classroom: family.guardianName,
               fileUuid: '',
+              studentCode: family.studentCount == 1 &&
+                      family.studentCodes.isNotEmpty
+                  ? family.studentCodes.first
+                  : null,
+              mediaAssetCode: (family.studentPhotoAssetCode ?? '')
+                      .trim()
+                      .isNotEmpty
+                  ? family.studentPhotoAssetCode
+                  : null,
               amount: family.lastPaymentAmount,
               paidOn: _formatDate(family.lastPaymentDate),
               paymentMethod: family.lastPaymentMethod,

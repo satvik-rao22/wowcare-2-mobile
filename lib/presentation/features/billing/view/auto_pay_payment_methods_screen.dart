@@ -97,6 +97,10 @@ class _AutoPayPaymentMethodsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (!widget.isPicker) ...[
+                    if (state.autoPayBlocked) ...[
+                      _buildAutoPayBlockedBanner(),
+                      const SizedBox(height: 16),
+                    ],
                     _buildAutoPayHeader(state),
                     const Divider(height: 32),
                   ],
@@ -235,6 +239,51 @@ class _AutoPayPaymentMethodsScreenState
             label: '',
             isToggled: enabled,
             onToggle: _onToggleAutoPay,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAutoPayBlockedBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.billingInfoBannerBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.billingInfoBannerBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 20, color: AppColors.billingWarningIconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  BillingStrings.autoPayNotAbleToRun,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.billingInfoBannerTextColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  BillingStrings.autoPayNotAbleToRunBody,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.billingInfoBannerTextColor.withValues(
+                      alpha: 0.9,
+                    ),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -443,7 +492,14 @@ class _AutoPayPaymentMethodsScreenState
 
   Widget _buildMethodCard(AutoPayMethodsState state, PaymentMethodEntity m) {
     final selected = state.selectedMethodCode == m.code;
-    return Container(
+    // The school can stop accepting a method type after it was saved — such
+    // a method can't be picked (for AutoPay or Pay Now) until removed or the
+    // school re-enables the type, so it's greyed out and non-selectable
+    // rather than silently letting the user choose something that won't work.
+    final disabled = !m.acceptedByPolicy;
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -474,7 +530,7 @@ class _AutoPayPaymentMethodsScreenState
               Radio<String>(
                 value: m.code,
                 groupValue: state.selectedMethodCode,
-                onChanged: (_) => _cubit.selectMethod(m.code),
+                onChanged: disabled ? null : (_) => _cubit.selectMethod(m.code),
                 activeColor: _accent,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -486,6 +542,12 @@ class _AutoPayPaymentMethodsScreenState
                 _tag(BillingStrings.primary, AppColors.billingSuccessBackground,
                     AppColors.successColor),
               ],
+              if (disabled) ...[
+                if (m.autopay || m.primary) const SizedBox(width: 6),
+                _tag(BillingStrings.notAccepted,
+                    AppColors.billingBadgeInactiveBackground,
+                    AppColors.billingMutedIconColor),
+              ],
               const Spacer(),
               _cardActions(state, m),
             ],
@@ -493,11 +555,12 @@ class _AutoPayPaymentMethodsScreenState
           const SizedBox(height: 6),
           Expanded(
             child: GestureDetector(
-              onTap: () => _cubit.selectMethod(m.code),
+              onTap: disabled ? null : () => _cubit.selectMethod(m.code),
               child: m.isEcheck ? _buildEcheckCard(m) : _buildCreditCard(m),
             ),
           ),
         ],
+      ),
       ),
     );
   }

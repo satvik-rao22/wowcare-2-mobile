@@ -44,6 +44,8 @@ abstract class InvoiceRemoteDataSource {
     DateTime? dateTo,
     String? type,
     String? status,
+    String? mode,
+    String? paymentStatus,
     int page,
     int size,
   });
@@ -152,6 +154,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     DateTime? dateTo,
     String? type,
     String? status,
+    String? mode,
+    String? paymentStatus,
     int page = 0,
     int size = 10,
   }) async {
@@ -162,6 +166,9 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         'school': school,
         if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
         if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+        if (mode != null && mode.trim().isNotEmpty) 'mode': mode.trim(),
+        if (paymentStatus != null && paymentStatus.trim().isNotEmpty)
+          'paymentStatus': paymentStatus.trim(),
         if (dateFrom != null) 'dateFrom': _schoolRangeIso(dateFrom),
         if (dateTo != null) 'dateTo': _schoolRangeIso(dateTo),
         'page': page,

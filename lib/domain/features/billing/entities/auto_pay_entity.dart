@@ -134,6 +134,7 @@ class PaymentMethodEntity extends Equatable {
     this.status,
     this.card,
     this.echeck,
+    this.acceptedByPolicy = true,
   });
 
   final String code;
@@ -146,6 +147,15 @@ class PaymentMethodEntity extends Equatable {
   final String? status;
   final PaymentMethodCardEntity? card;
   final PaymentMethodEcheckEntity? echeck;
+
+  /// Whether the school currently accepts this method's type (from
+  /// `GET /payment-gateway/payment-methods`'s `acceptedByPolicy`). A school
+  /// can stop accepting a method type (e.g. turn off credit cards) after a
+  /// guardian already saved one — this stays `false` for that saved method
+  /// until they either remove it or the school re-enables the type, and it's
+  /// what drives greying the method out / the "AutoPay isn't able to run"
+  /// banner when it's the active auto-pay method.
+  final bool acceptedByPolicy;
 
   bool get isEcheck => methodType == PaymentMethodType.echeck;
 
@@ -161,6 +171,7 @@ class PaymentMethodEntity extends Equatable {
         status,
         card,
         echeck,
+        acceptedByPolicy,
       ];
 }
 
