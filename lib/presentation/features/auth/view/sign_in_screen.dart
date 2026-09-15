@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +16,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
+import 'package:wowcare/shared/common/view/web_view_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -327,6 +329,8 @@ class _SignInScreenState extends State<SignInScreen>
                       style: TextStyle(color: AppColors.themeColor),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const _LegalConsentText(),
                 ],
               ),
             ),
@@ -356,6 +360,88 @@ class _LottieAnimation extends StatelessWidget {
         ),
         height: MediaQuery.of(context).size.height * 0.4,
         child: Lottie.asset(MediaRes.signInLottie),
+      ),
+    );
+  }
+}
+
+
+/// "By continuing, you agree to our Terms & Conditions and Privacy Policy",
+/// with both documents opening in the in-app browser.
+///
+/// Stateful purely to own the two [TapGestureRecognizer]s — those hold native
+/// gesture-arena resources and must be disposed, which a `StatelessWidget`
+/// building them inline could never do.
+class _LegalConsentText extends StatefulWidget {
+  const _LegalConsentText();
+
+  @override
+  State<_LegalConsentText> createState() => _LegalConsentTextState();
+}
+
+class _LegalConsentTextState extends State<_LegalConsentText> {
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  static const String _termsUrl = 'https://childcarewow.com/terms/';
+  static const String _privacyUrl = 'https://childcarewow.com/privacy/';
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => openWebViewScreen(
+        context,
+        url: _termsUrl,
+        title: 'Terms & Conditions',
+      );
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => openWebViewScreen(
+        context,
+        url: _privacyUrl,
+        title: 'Privacy Policy',
+      );
+  }
+
+  @override
+  void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const baseStyle = TextStyle(fontSize: 12, color: Colors.black54, height: 1.4);
+    const linkStyle = TextStyle(
+      fontSize: 12,
+      height: 1.4,
+      color: AppColors.themeColor,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Text.rich(
+        TextSpan(
+          style: baseStyle,
+          children: [
+            const TextSpan(text: 'By continuing, you agree to our '),
+            TextSpan(
+              text: 'Terms & Conditions',
+              style: linkStyle,
+              recognizer: _termsRecognizer,
+            ),
+            const TextSpan(text: ' and '),
+            TextSpan(
+              text: 'Privacy Policy',
+              style: linkStyle,
+              recognizer: _privacyRecognizer,
+            ),
+            const TextSpan(text: '.'),
+          ],
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }
