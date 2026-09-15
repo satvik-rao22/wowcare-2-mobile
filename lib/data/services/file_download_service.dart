@@ -5,7 +5,23 @@ import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
+/// Hands [filePath] to the OS. Defaults to open_filex; a seam so the
+/// hand-off's outcome can be exercised in a test, where the plugin would
+/// otherwise shell out to the host desktop and always succeed.
+typedef FileOpener =
+    Future<open_filex.OpenResult> Function(String filePath, {String? type});
+
+Future<open_filex.OpenResult> _openWithOpenFilex(
+  String filePath, {
+  String? type,
+}) => open_filex.OpenFilex.open(filePath, type: type);
+
 class FileDownloadService {
+  const FileDownloadService({FileOpener opener = _openWithOpenFilex})
+    : _opener = opener;
+
+  final FileOpener _opener;
+
   /// Returns the deterministic local cache location for [fileName] without
   /// touching the filesystem — callers check `await file.exists()` to decide
   /// whether a download is still needed. Uses the exact same path/sanitizing
@@ -166,10 +182,27 @@ class FileDownloadService {
           '  mimeType: $mimeType',
         );
 
-        await open_filex.OpenFilex.open(
-          filePath,
-          type: mimeType,
-        );
+        // OpenFilex reports a failed hand-off through the returned
+        // OpenResult, not by throwing: on Android an ActivityNotFoundException
+        // (no installed app declares the mime type — routine for XLSX) is
+        // caught inside the plugin and comes back as
+        // ResultType.noAppToOpen. Discarding the result reported every one of
+        // those as a success, so the caller's "couldn't open" fallback never
+        // ran and the file silently went nowhere.
+        final openResult = await _opener(filePath, type: mimeType);
+
+        if (openResult.type != open_filex.ResultType.done) {
+          AppLogger.w(
+            '[FILE-OPEN] Handler declined:\n'
+            '  assetCode: $assetCode\n'
+            '  fileName: $fileName\n'
+            '  filePath: $filePath\n'
+            '  mimeType: $mimeType\n'
+            '  resultType: ${openResult.type}\n'
+            '  resultMessage: ${openResult.message}',
+          );
+          return false;
+        }
 
         AppLogger.i(
           '[FILE-OPEN] Success:\n'

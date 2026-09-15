@@ -80,16 +80,21 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
   /// the saved file with the OS's default handler — unlike
   /// [_downloadAndViewReport], which only renders bytes in-memory and never
   /// persists anything, this is what makes "Download" actually download.
-  /// [previewPdfInApp]: after saving, show a PDF in the app's own
+  /// [previewInApp]: after saving, show the report in the app's own
   /// [ReportFileViewerScreen] instead of handing it to the OS — used for a
-  /// report the user just generated, so the result is always visible even on
-  /// devices with no PDF handler installed. Non-PDF files (XLSX) are still
-  /// opened with the OS handler.
+  /// report the user just generated, so the result is always visible.
+  ///
+  /// This covers XLSX as well as PDF. iOS gets an in-app preview from the OS
+  /// for free (open_filex hands the file to QuickLook, which renders both),
+  /// but the Android equivalent is an `ACTION_VIEW` intent that does nothing
+  /// at all when no app declares the mime type — routine for XLSX, which is
+  /// the billing forms' default format. Previewing in-app is what makes a
+  /// generated report appear on Android the way it does on iPhone.
   Future<void> downloadAndSaveReport(
     BuildContext context,
     String assetCode,
     String fileName, {
-    bool previewPdfInApp = false,
+    bool previewInApp = false,
   }) async {
     final cubit = context.read<ReportsCubit>();
 
@@ -171,14 +176,21 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
         );
       }
 
-      if (previewPdfInApp && fileName.toLowerCase().endsWith('.pdf')) {
+      final lowerName = fileName.toLowerCase();
+      final previewType = lowerName.endsWith('.pdf')
+          ? 'pdf'
+          : lowerName.endsWith('.xlsx')
+          ? 'xlsx'
+          : null;
+
+      if (previewInApp && previewType != null) {
         if (!mounted) return;
         await context.push<void>(
           ReportRoutes.fileViewer,
           extra: ReportFileViewerArgs(
             fileData: Uint8List.fromList(fileData),
             fileName: fileName,
-            fileType: 'pdf',
+            fileType: previewType,
           ),
         );
         return;

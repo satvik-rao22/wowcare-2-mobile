@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -375,7 +376,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                     _buildDetailRow(
                                       label: BillingStrings.lastInvoice,
                                       value: hasInvoice
-                                          ? '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}'
+                                          ? billingAmount(widget.lastInvoiceAmount)
                                           : BillingStrings.noInvoice,
                                       note: hasInvoice
                                           ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
@@ -384,8 +385,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                     const SizedBox(height: 10),
                                     _buildDetailRow(
                                       label: BillingStrings.openBalance,
-                                      value:
-                                          '\$${widget.openBalance.toStringAsFixed(0)}',
+                                      value: billingAmount(widget.openBalance),
                                     ),
                                     if (widget.onBillingProfile != null) ...[
                                       const SizedBox(height: 16),

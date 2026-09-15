@@ -14,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
+import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
@@ -530,6 +531,51 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
+  /// Whether the acting user may delete THIS staff member's photo.
+  ///
+  /// Stricter than [_canEditStaffRecords], which lets an admin change anyone's
+  /// photo. The delete endpoint is `my-profile`-scoped, so we fail closed and
+  /// only offer delete on your own profile.
+  ///
+  /// TODO(profile-photo-delete): flip this back to [canChangePhoto] once the
+  /// backend confirms whether the my-profile delete endpoint accepts an
+  /// arbitrary staffCode from an admin, or ships an admin-scoped one.
+  bool _canDeleteOwnPhoto() {
+    final own = (_ownStaffCode ?? '').trim();
+    return own.isNotEmpty && own == widget.staffCode.trim();
+  }
+
+  Future<void> _deleteProfilePhoto() async {
+    final staffCode = widget.staffCode.trim();
+    if (staffCode.isEmpty) return;
+    try {
+      await context.read<StaffProfilePhotoUploadCubit>().deletePhoto(
+        staffCode: staffCode,
+      );
+
+      // Post-success reset, in the order the plan fixes: clear the field the
+      // avatar reads FIRST (that is what visually removes the image), then
+      // forget the cached URL so every other mounted avatar re-resolves.
+      if (!mounted) return;
+      setState(() => _profilePhotoUrl = null);
+      DocumentImageWidget.forgetProfilePhoto(staffCode: staffCode);
+      await _staffProfileCubit.fetchProfile(staffCode: staffCode);
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Profile photo deleted successfully',
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to delete profile photo: $e',
+        isError: true,
+      );
+    }
+  }
+
   Widget _buildStaffProfileCard(
     BuildContext context, {
     required bool canChangePhoto,
@@ -544,7 +590,25 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: canChangePhoto ? _pickProfileImage : null,
+                  onTap: canChangePhoto
+                      ? () => ProfilePhotoActionSheet.show(
+                          context,
+                          // No delete while an upload is still in flight, and
+                          // none for an admin on someone else's profile.
+                          hasPhoto:
+                              (_profilePhotoUrl ?? '').trim().isNotEmpty &&
+                              !context
+                                  .read<StaffProfilePhotoUploadCubit>()
+                                  .state
+                                  .isUploading &&
+                              _canDeleteOwnPhoto(),
+                          subjectName: _displayName.trim().isNotEmpty
+                              ? _displayName
+                              : widget.name,
+                          onChangePhoto: _pickProfileImage,
+                          onDelete: _deleteProfilePhoto,
+                        )
+                      : null,
                   child: BlocBuilder<StaffProfilePhotoUploadCubit, StaffProfilePhotoUploadState>(
                     builder: (context, uploadState) {
                       return Stack(

@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
@@ -22,6 +24,7 @@ import 'package:wowcare/presentation/features/billing/view/transactions/transact
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/view/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -63,6 +66,26 @@ class TransactionsSection extends StatefulWidget {
 
 class _TransactionsSectionState extends State<TransactionsSection> {
   late final TransactionsCubit _cubit = serviceLocator<TransactionsCubit>();
+
+  /// Invoice-lifecycle statuses offered by the funnel sheet. Sent upper-cased
+  /// as the `status` query param (`status=OVERDUE`).
+  static const List<String> _statusOptions = <String>[
+    BillingStrings.paid,
+    BillingStrings.unpaid,
+    BillingStrings.overdue,
+    BillingStrings.sent,
+    BillingStrings.draft,
+    BillingStrings.cancelled,
+  ];
+
+  /// Row kinds offered by the funnel sheet. Sent verbatim as the `type` query
+  /// param (`type=Payment`), matching what the web client sends.
+  static const List<String> _typeOptions = <String>[
+    BillingStrings.invoice,
+    BillingStrings.payment,
+    BillingStrings.refund,
+    BillingStrings.credit,
+  ];
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -76,6 +99,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     } else {
       _cubit.loadTransactions();
     }
+    unawaited(_cubit.loadFilterOptions());
     widget.onRegisterRefresh?.call(_refresh);
     widget.onRegisterLoadNextPage?.call(_cubit.loadNextPage);
   }
@@ -147,7 +171,11 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 const SizedBox(height: 12),
                 _buildSearchBar(context),
                 const SizedBox(height: 16),
-                if (state.isLoading)
+                // isApplyingFilters covers the student-code lookup behind a
+                // classroom/tag pick, which runs alongside the list reload —
+                // without it, rows would briefly show unfiltered if that
+                // lookup finishes second.
+                if (state.isLoading || state.isApplyingFilters)
                   ...List.generate(
                     5,
                     (_) => const Padding(
@@ -242,13 +270,44 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () {},
+                        onTap: _openFilter,
                         child: Center(
-                          child: AppIcon(
-                            MediaRes.filterIcon,
-                            width: 20,
-                            height: 20,
-                            tone: IconTone.action,
+                          // Dot marks an applied filter, which is otherwise
+                          // invisible once the sheet closes.
+                          child: BlocSelector<
+                            TransactionsCubit,
+                            TransactionsState,
+                            bool
+                          >(
+                            selector: (s) => s.hasActiveFilters,
+                            builder: (context, hasActiveFilters) => Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                AppIcon(
+                                  MediaRes.filterIcon,
+                                  width: 20,
+                                  height: 20,
+                                  tone: IconTone.action,
+                                ),
+                                if (hasActiveFilters)
+                                  Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.errorColor,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: AppColors.billingCardColor,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -283,7 +342,75 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _clearSearch() {
     _searchController.clear();
     _cubit.clearSearch();
-    _cubit.applyFilter(null);
+    unawaited(_cubit.clearFilters());
+  }
+
+  /// Transactions-tab filter sheet. Separate from the Student(s) tab's sheet —
+  /// different list, different API, different facets — and backed by this
+  /// tab's own [TransactionsCubit].
+  ///
+  /// Type and Status go to the transactions endpoint as query params. Classroom
+  /// and Tags aren't supported by it, so they're resolved through the student
+  /// list API and matched against each row's studentCode.
+  Future<void> _openFilter() async {
+    final state = _cubit.state;
+    final classrooms = state.classroomNames;
+    final tags = state.tagNames;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => FilterScreen(
+          sections: [
+            if (classrooms.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.classroom,
+                items: classrooms,
+                initialSelected: state.selectedClassroomNames,
+              ),
+            if (tags.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.tags,
+                items: tags,
+                initialSelected: state.selectedTagNames,
+              ),
+            // Status and Type are single-select: the endpoint takes one of
+            // each, and the values are mutually exclusive. Note the
+            // single-select dropdown has no "clear" entry — Clear All resets
+            // them.
+            FilerSection(
+              label: BillingStrings.status,
+              items: _statusOptions,
+              initialSelected: [
+                if ((state.selectedStatus ?? '').isNotEmpty)
+                  state.selectedStatus!,
+              ],
+              isSingleSelect: true,
+            ),
+            FilerSection(
+              label: BillingStrings.type,
+              items: _typeOptions,
+              initialSelected: [
+                if ((state.selectedType ?? '').isNotEmpty) state.selectedType!,
+              ],
+              isSingleSelect: true,
+            ),
+          ],
+          onApply: (applied) {
+            final pickedType =
+                applied[BillingStrings.type] ?? const <String>[];
+            final pickedStatus =
+                applied[BillingStrings.status] ?? const <String>[];
+            unawaited(_cubit.applyTransactionFilters(
+              type: pickedType.isEmpty ? null : pickedType.first,
+              status: pickedStatus.isEmpty ? null : pickedStatus.first,
+              classroomNames:
+                  applied[BillingStrings.classroom] ?? const <String>[],
+              tagNames: applied[BillingStrings.tags] ?? const <String>[],
+            ));
+          },
+        ),
+      ),
+    );
   }
 
   void _showMessageUnavailable() {

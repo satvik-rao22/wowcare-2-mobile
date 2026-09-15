@@ -910,14 +910,11 @@ class AuthCubit extends Cubit<AuthState> {
                   );
                 } catch (_) {}
 
-                try {
-                  final pin = await staffRepository.getStaffSignInPin(
-                    staffCode: trimmed,
-                  );
-                  if (pin.trim().isNotEmpty) {
-                    await storage.saveString(StorageKeys.staffPin, pin.trim());
-                  }
-                } catch (_) {}
+                // The sign-in PIN is deliberately NOT prefetched here any
+                // more. Storing it made login's value the only one the app
+                // ever showed, so a PIN changed on the web stayed wrong until
+                // the next logout. The My Day card and the app bar menu now
+                // fetch it themselves, so there is nothing to cache.
               }
             }
           } catch (_) {
@@ -1476,15 +1473,8 @@ class AuthCubit extends Cubit<AuthState> {
           StorageKeys.staffAllowedClassroomCodes,
           jsonEncode(profile.allowedClassroomCodes),
         );
-        // Also prefetch PIN whenever we prefetch profile for a new org/school.
-        try {
-          final pin = await staffRepository.getStaffSignInPin(
-            staffCode: trimmed,
-          );
-          if (pin.trim().isNotEmpty) {
-            await storage.saveString(StorageKeys.staffPin, pin.trim());
-          }
-        } catch (_) {}
+        // No PIN prefetch: it is fetched live wherever it is shown, so there
+        // is no stored copy to keep in step with an org/school switch.
       } catch (_) {
         // Non-blocking
       }

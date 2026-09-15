@@ -422,11 +422,14 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         isEditing: true,
         editingMovementId: resolvedMovement.id,
         disablePastDates: true,
+        // A Start School / Leave School movement is defined by the single
+        // classroom a student enters or exits from — changing it would make it
+        // a different movement, so only the date and comment stay editable.
+        // (This supersedes the old rule, which locked the classroom only once
+        // such a movement was confirmed.)
         lockClassroomSelection:
-            resolvedMovement.status ==
-                IndividualMovementWorkflowStatus.confirmed &&
             resolvedMovement.movementType !=
-                IndividualMovementType.moveToNextClassroom,
+            IndividualMovementType.moveToNextClassroom,
         movementType: editMovementType,
         studentNamesByCode: studentNamesByCode,
         classroomNamesByCode: classroomNamesByCode,

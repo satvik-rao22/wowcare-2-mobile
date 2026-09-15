@@ -1073,6 +1073,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ReportsRepositoryImpl(
       serviceLocator<ReportsRemoteDataSource>(),
       serviceLocator<StorageService>(),
+      serviceLocator<ApiClient>(),
     ),
   );
 
@@ -3384,12 +3385,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTransactions: serviceLocator<GetInvoiceTransactionsUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<FamilySummaryCubit>(
     () => FamilySummaryCubit(
       getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

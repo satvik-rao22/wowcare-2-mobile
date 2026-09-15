@@ -13,6 +13,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
 import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
@@ -698,6 +699,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
           role: normalised,
           avatarUrl: p.avatarUrl,
+          staffCode: p.staffCode,
         );
       }).toList();
 
@@ -1208,6 +1210,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           ? p.userName
                           : _roleFallbackName(roleStr);
                       final color = _roleColor(roleStr);
+                      final avatar = ParticipantAvatarSource.of(
+                        avatarUrl: p.avatarUrl,
+                        staffCode: p.staffCode,
+                        userCode: p.userCode,
+                        role: roleStr,
+                      );
 
                       return Container(
                         padding: const EdgeInsets.symmetric(
@@ -1227,17 +1235,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                             DocumentImageWidget(
                               disableAttendanceStatusLookup: true,
                               fileUuid: '',
-                              imageUrl: (p.avatarUrl ?? '').startsWith('http')
-                                  ? p.avatarUrl
-                                  : null,
-                              mediaAssetCode:
-                                  (p.avatarUrl ?? '').isNotEmpty &&
-                                      !(p.avatarUrl ?? '').startsWith('http')
-                                  ? p.avatarUrl
-                                  : null,
-                              staffCode: (p.staffCode ?? '').trim().isNotEmpty
-                                  ? p.staffCode
-                                  : null,
+                              imageUrl: avatar.imageUrl,
+                              mediaAssetCode: avatar.mediaAssetCode,
+                              staffCode: avatar.staffCode,
+                              userCode: avatar.userCode,
                               name: name,
                               size: 16,
                               fontSize: 9,

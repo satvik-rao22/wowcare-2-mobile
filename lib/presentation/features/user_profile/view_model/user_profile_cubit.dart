@@ -543,6 +543,92 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     return _uploadStaffProfilePhoto(imagePath);
   }
 
+  /// Deletes the current persona's profile photo. Branches staff vs guardian
+  /// the same way [uploadProfilePhoto] does, and returns the same result type
+  /// so the View surfaces it through its existing snackbar.
+  Future<UserProfilePhotoResult> deleteProfilePhoto({
+    required bool isParent,
+  }) async {
+    if (isParent) {
+      return _deleteGuardianProfilePhoto();
+    }
+    return _deleteStaffProfilePhoto();
+  }
+
+  Future<UserProfilePhotoResult> _deleteStaffProfilePhoto() async {
+    try {
+      var staffCode = effectiveStaffCode();
+      if (staffCode.isEmpty) {
+        staffCode = (await resolveLoggedInStaffCode()).trim();
+      }
+      if (staffCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Staff code is required to delete profile photo.',
+        );
+      }
+
+      await _imageUploadService.deleteProfilePhoto(
+        owner: ProfilePhotoOwner.staff,
+        code: staffCode,
+      );
+
+      DocumentImageWidget.forgetProfilePhoto(staffCode: staffCode);
+      await loadStaffProfile(staffCode);
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo deleted successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to delete profile photo: $e',
+      );
+    }
+  }
+
+  Future<UserProfilePhotoResult> _deleteGuardianProfilePhoto() async {
+    try {
+      final guardianCode = state.guardianCode.trim();
+      if (guardianCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Guardian code is required to delete profile photo.',
+        );
+      }
+
+      await _imageUploadService.deleteProfilePhoto(
+        owner: ProfilePhotoOwner.guardian,
+        code: guardianCode,
+      );
+
+      // Clear state FIRST — this is what empties DocumentImageWidget.imageUrl
+      // and so what visually removes the photo.
+      if (!isClosed) emit(state.copyWith(clearGuardianPhoto: true));
+      DocumentImageWidget.clearProfilePhotoCache();
+
+      // The guardian photo is mirrored into storage and is deliberately never
+      // overwritten with an empty value on reload (see
+      // [loadGuardianProfileForParent]) — and the kebab-menu header reads
+      // those keys directly. Without REMOVING them the deleted photo comes
+      // straight back on the next launch.
+      try {
+        await _storage.remove(StorageKeys.guardianProfilePhotoUrl);
+        await _storage.remove(StorageKeys.guardianProfileAssetCode);
+      } catch (_) {}
+
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo deleted successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to delete profile photo: $e',
+      );
+    }
+  }
+
   Future<UserProfilePhotoResult> _uploadStaffProfilePhoto(
     String imagePath,
   ) async {

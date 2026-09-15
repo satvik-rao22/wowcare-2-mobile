@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
@@ -626,6 +628,11 @@ class _SubsidiesOverviewCard extends StatelessWidget {
 
 // ─── Chart widgets ────────────────────────────────────────────────────────────
 
+/// Narrowest a month column may get on a phone before the plot starts
+/// scrolling instead of shrinking further. Twelve of these (264dp) fit inside
+/// the plot area of a 360dp-wide phone, so the whole year stays on screen.
+const double _minPhoneColumnWidth = 22;
+
 class _SimpleBarChart extends StatelessWidget {
   const _SimpleBarChart({
     required this.data,
@@ -644,7 +651,7 @@ class _SimpleBarChart extends StatelessWidget {
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double chartHeight = isTablet ? 220 : 170;
     final double rowLabelWidth = isTablet ? 56 : 46;
-    final double minPlotWidth = isTablet ? 720 : 560;
+    final double minColumnWidth = isTablet ? 48 : _minPhoneColumnWidth;
 
     return SizedBox(
       height: chartHeight + 26,
@@ -658,34 +665,46 @@ class _SimpleBarChart extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: minPlotWidth,
-                child: _PlotArea(
-                  months: months,
-                  maxY: maxY,
-                  chartHeight: chartHeight,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: List<Widget>.generate(data.length, (int index) {
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isTablet ? 6 : 4,
-                          ),
-                          child: _SingleBar(
-                            month: months[index],
-                            value: data[index],
-                            maxY: maxY,
-                            color: color,
-                          ),
-                        ),
-                      );
-                    }),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Fit the whole year to the viewport. A fixed plot wider than
+                // the card silently clipped the last months off the right.
+                final double plotWidth = math.max(
+                  constraints.maxWidth,
+                  months.length * minColumnWidth,
+                );
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: plotWidth,
+                    child: _PlotArea(
+                      months: months,
+                      maxY: maxY,
+                      chartHeight: chartHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: List<Widget>.generate(data.length, (
+                          int index,
+                        ) {
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 6 : 3,
+                              ),
+                              child: _SingleBar(
+                                month: months[index],
+                                value: data[index],
+                                maxY: maxY,
+                                color: color,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -710,7 +729,7 @@ class _GroupedBarChart extends StatelessWidget {
     final bool isTablet = ResponsiveHelper(context).isTabletCompact;
     final double chartHeight = isTablet ? 230 : 180;
     final double rowLabelWidth = isTablet ? 56 : 46;
-    final double minPlotWidth = isTablet ? 760 : 580;
+    final double minColumnWidth = isTablet ? 56 : _minPhoneColumnWidth;
 
     return Column(
       children: [
@@ -731,54 +750,65 @@ class _GroupedBarChart extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: minPlotWidth,
-                    child: _PlotArea(
-                      months: months,
-                      maxY: maxAbsY,
-                      chartHeight: chartHeight,
-                      negativeMin: -maxAbsY * 0.4,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: List<Widget>.generate(months.length, (
-                          int mi,
-                        ) {
-                          return Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isTablet ? 4 : 2,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: List<Widget>.generate(series.length, (
-                                  int si,
-                                ) {
-                                  final s = series[si];
-                                  return Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 1.8,
-                                      ),
-                                      child: _SignedBar(
-                                        month: months[mi],
-                                        seriesName: s.label,
-                                        value: s.data[mi],
-                                        maxY: maxAbsY,
-                                        negativeMin: -maxAbsY * 0.4,
-                                        color: s.color,
-                                      ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Same fit as _SimpleBarChart above.
+                    final double plotWidth = math.max(
+                      constraints.maxWidth,
+                      months.length * minColumnWidth,
+                    );
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: plotWidth,
+                        child: _PlotArea(
+                          months: months,
+                          maxY: maxAbsY,
+                          chartHeight: chartHeight,
+                          negativeMin: -maxAbsY * 0.4,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: List<Widget>.generate(months.length, (
+                              int mi,
+                            ) {
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isTablet ? 4 : 1.5,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: List<Widget>.generate(
+                                      series.length,
+                                      (int si) {
+                                        final s = series[si];
+                                        return Expanded(
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: isTablet ? 1.8 : 0.8,
+                                            ),
+                                            child: _SignedBar(
+                                              month: months[mi],
+                                              seriesName: s.label,
+                                              value: s.data[mi],
+                                              maxY: maxAbsY,
+                                              negativeMin: -maxAbsY * 0.4,
+                                              color: s.color,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                }),
-                              ),
-                            ),
-                          );
-                        }),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],

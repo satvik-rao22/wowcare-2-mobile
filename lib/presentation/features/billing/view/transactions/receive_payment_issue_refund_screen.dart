@@ -377,14 +377,18 @@ class _ReceivePaymentIssueRefundScreenState
                       : _paymentNoteMaxLength,
                 ),
                 SizedBox(height: verticalSpacing),
-                CustomCheckbox(
-                  value: _sendEmailNotification,
-                  onChanged: (bool? value) =>
-                      _cubit.setSendEmailNotification(value ?? true),
-                  label: BillingStrings.sendEmailNotificationToParents,
-                  labelStyle: _labelStyle(responsive),
-                ),
-                SizedBox(height: verticalSpacing),
+                // Payment-only: "…on payment" doesn't apply to a refund, so
+                // the Issue Refund variant hides the toggle for now.
+                if (!widget.isRefund) ...<Widget>[
+                  CustomCheckbox(
+                    value: _sendEmailNotification,
+                    onChanged: (bool? value) =>
+                        _cubit.setSendEmailNotification(value ?? true),
+                    label: BillingStrings.sendEmailNotificationToParents,
+                    labelStyle: _labelStyle(responsive),
+                  ),
+                  SizedBox(height: verticalSpacing),
+                ],
                 _fieldLabel(responsive, BillingStrings.adminOnlyNote),
                 SizedBox(height: labelGap),
                 _outlinedTextField(

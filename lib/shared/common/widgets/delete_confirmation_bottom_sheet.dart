@@ -154,6 +154,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to delete this Invoice -\n"${widget.name}" ?'
         : widget.type == 'payment_method'
         ? 'Do you want to remove this payment method -\n"${widget.name}" ?'
+        : widget.type == 'profile_photo'
+        ? 'Do you want to delete the profile photo of -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
