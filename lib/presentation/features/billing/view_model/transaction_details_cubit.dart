@@ -132,6 +132,10 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
               .map((s) => s.fullName.trim())
               .where((n) => n.isNotEmpty)
               .join(', '),
+          familyGuardianNames: ledger.guardians
+              .map((g) => g.fullName.trim())
+              .where((n) => n.isNotEmpty)
+              .join(', '),
         ),
         familyChildren: _mapPeople(ledger.students),
         familyParents: _mapPeople(ledger.guardians),
@@ -219,7 +223,20 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
 
   List<TransactionItem> _mapTransactions(
       List<FamilyLedgerTransactionEntity> txns,
-      {String familyName = '', String familyStudentNames = ''}) {
+      {String familyName = '',
+      String familyStudentNames = '',
+      String familyGuardianNames = ''}) {
+    // `familyName` comes straight from the ledger API and is sometimes blank
+    // for a family with no name configured server-side (seen on a QA/test
+    // school) — without a fallback, every family-level row (a payment with no
+    // studentName/studentCode of its own) rendered a completely blank
+    // "Payment For" name and avatar instead of anything identifying. Falls
+    // back to the guardians, then the children, before giving up.
+    final effectiveFamilyName = familyName.isNotEmpty
+        ? familyName
+        : (familyGuardianNames.isNotEmpty
+            ? familyGuardianNames
+            : (familyStudentNames.isNotEmpty ? familyStudentNames : 'Family'));
     return List<TransactionItem>.generate(txns.length, (i) {
       final t = txns[i];
       // Family-level transactions (Payment / Credit / Refund) carry no student.
@@ -227,12 +244,14 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       // Header label: the specific student, else the family name. For nameless
       // family-level rows (e.g. a guardian card payment), append the payment
       // status in brackets — e.g. "Fisher Family (In Process)".
-      final familyLabel = (isFamilyLevel && familyName.isNotEmpty)
+      final familyLabel = isFamilyLevel
           ? () {
               final status = _formatTxnStatus(t.status);
-              return status.isEmpty ? familyName : '$familyName ($status)';
+              return status.isEmpty
+                  ? effectiveFamilyName
+                  : '$effectiveFamilyName ($status)';
             }()
-          : familyName;
+          : effectiveFamilyName;
       final resolvedName = t.studentName.isNotEmpty
           ? t.studentName
           : (t.studentCode.isNotEmpty ? t.studentCode : familyLabel);

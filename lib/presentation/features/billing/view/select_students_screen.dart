@@ -361,12 +361,43 @@ class _StudentRow extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool?> onChanged;
 
+  /// Schedule days-per-week isn't its own field on [Student] — schools tag
+  /// students with it directly (e.g. "2 Days/Week"), so it's read off
+  /// [Student.tags] rather than derived from a regular-schedule fetch.
+  static String? _daysPerWeekTag(List<Tag> tags) {
+    for (final t in tags) {
+      final name = t.name.trim();
+      if (RegExp(r'\d+\s*days?\s*/?\s*week', caseSensitive: false)
+          .hasMatch(name)) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  /// Same as [_daysPerWeekTag]: Full Day / Half Day is a tag, not a
+  /// schedule-derived value.
+  static String? _dayTypeTag(List<Tag> tags) {
+    for (final t in tags) {
+      final normalized = t.name.trim().toLowerCase();
+      if (normalized == 'full day' || normalized == 'half day') {
+        return t.name.trim();
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Compose the subtitle: classroom + age (e.g. "Room 101 · 2 yrs 3 mos").
+    // Compose the subtitle: classroom + age + schedule tags
+    // (e.g. "Room 101 · 2 yrs 3 mos · 2 Days/Week · Full Day").
+    final daysPerWeek = _daysPerWeekTag(student.tags);
+    final dayType = _dayTypeTag(student.tags);
     final parts = <String>[
       if ((student.roomName ?? '').trim().isNotEmpty) student.roomName!.trim(),
       if (student.ageLabel.trim().isNotEmpty) student.ageLabel.trim(),
+      if (daysPerWeek != null) daysPerWeek,
+      if (dayType != null) dayType,
     ];
     final subtitle = parts.join('  ·  ');
 

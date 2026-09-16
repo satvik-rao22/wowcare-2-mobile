@@ -102,7 +102,13 @@ class ParentTransactionCard extends StatelessWidget {
       amount: transaction.amount,
       status: transaction.status,
       description: transaction.description,
-      studentName: transaction.studentName,
+      // _displayName (not the raw transaction.studentName) — a family-level
+      // row (a guardian card payment) carries no student, and this card's own
+      // on-screen label already falls back to familyName for that case. Using
+      // the raw field here instead left View Receipt/View Invoice with a
+      // blank "Payment For" name for exactly the rows this card displayed
+      // correctly moments earlier.
+      studentName: _displayName,
       classroom: '',
       studentCode:
           transaction.studentCode.isNotEmpty ? transaction.studentCode : null,

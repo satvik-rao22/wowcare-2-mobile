@@ -28,8 +28,10 @@ PushNotification _newsletter({required String action}) => PushNotification(
 void main() {
   group('NotificationRouteResolver: CLASSROOM_CHAT new-message routing', () {
     test(
-      'a CLASSROOM_CHAT message with a classroomCode opens the Classroom '
-      "screen's Notes tab (tab=2), not the standalone conversation thread",
+      'a CLASSROOM_CHAT message with a classroomCode opens the Dashboard, '
+      "focused on the Ratio Monitoring section, not the standalone "
+      'conversation thread and not dropped directly into that one '
+      "classroom's Notes tab",
       () {
         final destination = NotificationRouteResolver.resolve(
           _newMessage(const {
@@ -40,9 +42,9 @@ void main() {
         );
 
         expect(destination, isNotNull);
-        expect(destination!.path, '/classroom-screen');
-        expect(destination.queryParameters['tab'], '2');
-        expect(destination.queryParameters['classroomCode'], 'CLS_1');
+        expect(destination!.path, '/dashboard');
+        expect(destination.queryParameters['focus'], 'ratioMonitoring');
+        expect(destination.queryParameters['highlightCode'], 'CLS_1');
       },
     );
 
@@ -78,6 +80,29 @@ void main() {
       expect(destination.queryParameters['conversationCode'], 'CONV_1');
       expect(destination.queryParameters['conversationType'], 'ROOM_CHAT');
     });
+  });
+
+  group('NotificationRouteResolver: ADD_CLASSROOM_NOTE routing', () {
+    test(
+      'an ADD_CLASSROOM_NOTE push opens the Dashboard, focused on the Ratio '
+      'Monitoring section',
+      () {
+        final destination = NotificationRouteResolver.resolve(
+          PushNotification(
+            title: 'title',
+            body: 'body',
+            action: 'ADD_CLASSROOM_NOTE',
+            type: null,
+            data: const {'classroomCode': 'CLS_1'},
+          ),
+        );
+
+        expect(destination, isNotNull);
+        expect(destination!.path, '/dashboard');
+        expect(destination.queryParameters['focus'], 'ratioMonitoring');
+        expect(destination.queryParameters['highlightCode'], 'CLS_1');
+      },
+    );
   });
 
   group('NotificationRouteResolver: newsletter routing', () {

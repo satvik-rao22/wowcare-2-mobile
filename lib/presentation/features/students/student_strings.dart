@@ -173,6 +173,7 @@ class StudentStrings {
   static const String noActivitiesForThisClass = 'No activities for this class';
   static const String noAllergies = 'No Allergies';
   static const String noBillingProfileFoundForThisStudent = 'No billing profile found for this student.';
+  static const String noGuardiansAvailable = 'No guardians available';
   static const String noCda = 'no cda';
   static const String noDietRestriction = 'No Diet Restriction';
   static const String noDocumentsFound = 'No documents found';

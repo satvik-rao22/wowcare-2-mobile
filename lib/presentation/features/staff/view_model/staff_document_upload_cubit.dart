@@ -45,8 +45,14 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       String schoolCode = '';
       String organizationCode = '';
       try {
+        // forEditStaff:true — this must read the document OWNER's own
+        // record (`staffCode`), not fall back to the cubit's default
+        // my-profile endpoint, which resolves to the CALLER's own profile
+        // and would silently defeat the whole point of this lookup whenever
+        // an admin uploads on behalf of a staff member from another school.
         final profile = await _staffProfileCubit.fetchProfile(
           staffCode: staffCode,
+          forEditStaff: true,
         );
         schoolCode = profile.schoolCode.trim();
         organizationCode = profile.organizationCode.trim();

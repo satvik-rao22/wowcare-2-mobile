@@ -601,6 +601,7 @@ import '../../presentation/features/billing/view_model/transaction_details_cubit
 import '../../presentation/features/billing/view_model/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/view_model/add_credit_cubit.dart';
 import '../../presentation/features/billing/view_model/view_invoice_cubit.dart';
+import '../../presentation/features/billing/view_model/view_receipt_cubit.dart';
 import '../../presentation/features/billing/view_model/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
@@ -2463,6 +2464,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
       loadCachedStaffProfileUseCase: serviceLocator(),
+      getStudentSettingsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
@@ -3360,6 +3362,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
+    ),
+  );
+  serviceLocator.registerFactory<ViewReceiptCubit>(
+    () => ViewReceiptCubit(
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<SendInvoiceCubit>(
