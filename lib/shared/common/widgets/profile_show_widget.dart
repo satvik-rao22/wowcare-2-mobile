@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -1179,9 +1178,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
                 height: widget.size,
                 fit: widget.fit,
               )
+            // `MediaRes.userImageMale` was, despite its name, the retired
+            // owl/graduation-cap WowCare logo — so any avatar without a
+            // resolved photo or name (the async gap while a signed image URL
+            // is being fetched) briefly flashed old branding instead of a
+            // neutral no-photo placeholder. A plain person icon reads as
+            // "no photo yet" instead of as content.
             : CircleAvatar(
                 radius: widget.size / 2,
-                backgroundImage: const AssetImage(MediaRes.userImageMale),
+                backgroundColor: AppColors.shimmerBase,
+                child: Icon(
+                  Icons.person,
+                  size: widget.size * 0.6,
+                  color: AppColors.userProfileMutedIconColor,
+                ),
               ));
 
     // Fixed: Improved null safety checks

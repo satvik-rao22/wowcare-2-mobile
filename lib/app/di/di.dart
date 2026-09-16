@@ -3352,6 +3352,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

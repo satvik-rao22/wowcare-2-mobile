@@ -159,5 +159,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Android testing confirmed Flutter's own engine forwards an incoming
+	     Universal Link's raw URI straight into GoRouter's navigation channel,
+	     racing against and corrupting the correct destination our own
+	     AppLinks().uriLinkStream / getInitialLink() pipeline
+	     (notification_launch_handler.dart / push_notification_cubit.dart)
+	     already resolves via NotificationRouteResolver. Disabling this stops
+	     the same conflict on iOS. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>
