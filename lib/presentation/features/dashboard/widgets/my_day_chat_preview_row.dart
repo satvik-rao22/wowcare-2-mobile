@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/chat_preview_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/src/app_router.dart' show AppRoutes;
@@ -99,10 +100,10 @@ class _ChatPreviewRowView extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     final msgDay = DateTime(local.year, local.month, local.day);
     final diff = today.difference(msgDay).inDays;
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    final time = '$hh:$mm';
-    if (diff == 0) return time;
+    // 12-hour "h:mm AM/PM" — matches the messaging thread/inbox rows via the
+    // shared formatter instead of rolling a bare 24-hour "HH:mm" here, which
+    // read inconsistently next to every other messaging surface.
+    if (diff == 0) return MessagingTimeFormatter.bubbleTime(dt);
     if (diff == 1) return AppStrings.chatPreviewYesterday;
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     if (diff < 7) return days[local.weekday - 1];
