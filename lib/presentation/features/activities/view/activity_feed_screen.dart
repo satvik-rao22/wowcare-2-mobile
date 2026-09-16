@@ -35,6 +35,8 @@ class ActivityFeedScreen extends StatefulWidget {
     this.initialTab,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -68,6 +70,16 @@ class ActivityFeedScreen extends StatefulWidget {
 
   /// Pre-selected classrooms to pass to the Custom tab (e.g., ['all']).
   final List<String>? initialClassrooms;
+
+  /// Pre-selected approval statuses to pass to the Custom tab (e.g., the
+  /// Incidents attention card's ['PENDING_ADMIN_APPROVAL']).
+  final List<String>? initialApprovalStatuses;
+
+  /// When true, the Custom tab widens its date filter to cover all time
+  /// instead of its current-month default — the Incidents attention card's
+  /// count has no date bound, so scoping its destination list to a month
+  /// would hide older pending incidents the count still includes.
+  final bool initialAllTime;
 
   /// Used to force state reset in didUpdateWidget when navigating repeatedly.
   final String? resetKey;
@@ -373,6 +385,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           allowActivityWrite: allowWrite,
                           initialActivityTypes: widget.initialActivityTypes,
                           initialClassrooms: widget.initialClassrooms,
+                          initialApprovalStatuses:
+                              widget.initialApprovalStatuses,
+                          initialAllTime: widget.initialAllTime,
                           resetKey: widget.resetKey,
                           onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
@@ -416,6 +431,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           allowActivityWrite: allowWrite,
                           initialActivityTypes: widget.initialActivityTypes,
                           initialClassrooms: widget.initialClassrooms,
+                          initialApprovalStatuses:
+                              widget.initialApprovalStatuses,
+                          initialAllTime: widget.initialAllTime,
                           resetKey: widget.resetKey,
                         ),
                       ],

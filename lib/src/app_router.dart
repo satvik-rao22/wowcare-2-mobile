@@ -1043,7 +1043,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
-              builder: (context, state) => const DashboardScreen(),
+              builder: (context, state) =>
+                  DashboardScreen(focus: state.uri.queryParameters['focus']),
               routes: [
                 GoRoute(
                   path: 'staff',
@@ -2260,6 +2261,10 @@ final GoRouter appRouter = GoRouter(
                     initialClassrooms: q['classroom'] != null
                         ? [q['classroom']!]
                         : null,
+                    initialApprovalStatuses: q['approvalStatus'] != null
+                        ? [q['approvalStatus']!]
+                        : null,
+                    initialAllTime: q['dateRange'] == 'all',
                     resetKey: nonce?.value.toString(),
                   ),
                 );

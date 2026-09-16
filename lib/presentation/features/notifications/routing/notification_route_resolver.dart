@@ -59,6 +59,14 @@ class NotificationRouteResolver {
       '/dashboard/student-attendance-profile-by-code';
   static const String _staffAttendanceProfileByCode =
       '/dashboard/staff-attendance-profile-by-code';
+  static const String _dashboardRoot = '/dashboard';
+
+  /// Query param [AdminDashboard]/[StaffDashboard] read (via [DashboardScreen])
+  /// to scroll to a specific card once the dashboard has landed. Only
+  /// [_kFocusRatioMonitoring] exists today — see the Classroom Notes routing
+  /// below.
+  static const String _kFocusParam = 'focus';
+  static const String _kFocusRatioMonitoring = 'ratioMonitoring';
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
@@ -219,19 +227,21 @@ class NotificationRouteResolver {
         final convType =
             _firstCode(n, const ['conversationType', 'conversation_type']) ??
             '';
-        // A CLASSROOM_CHAT message belongs on the Classroom screen's Notes
-        // tab (mirrors [NotificationAction.addClassroomNote] below) - not
-        // the standalone conversation-thread screen every other chat type
-        // uses. Falls through to the generic thread only when the payload
-        // doesn't carry a classroomCode (can't build that destination).
+        // A CLASSROOM_CHAT message lands on the Dashboard's Ratio Monitoring
+        // section (mirrors [NotificationAction.addClassroomNote] above) -
+        // not the standalone conversation-thread screen every other chat
+        // type uses, and not dropped directly into one classroom's Notes
+        // tab either. Falls through to the generic thread only when the
+        // payload doesn't carry a classroomCode (can't build that
+        // destination).
         if (convType.toUpperCase() == 'CLASSROOM_CHAT') {
           final classroomCode = _firstCode(n, _kClassroom);
           if (classroomCode != null) {
             return _dest(
-              AppRoutes.classroom,
+              _dashboardRoot,
               n,
               highlight: _kClassroom,
-              params: {..._classroomParam(n), 'tab': '2'},
+              params: const {_kFocusParam: _kFocusRatioMonitoring},
             );
           }
         }
@@ -621,11 +631,15 @@ class NotificationRouteResolver {
       highlight: _kStaff,
       params: {..._classroomParam(n), 'tab': '1'},
     ),
+    // Classroom Notes lands on the Dashboard's Ratio Monitoring section
+    // (every classroom's notes badge at a glance), not directly inside one
+    // classroom's Notes tab — mirrors the CLASSROOM_CHAT case in
+    // [_moduleFallback] below.
     NotificationAction.addClassroomNote: (n) => _dest(
-      AppRoutes.classroom,
+      _dashboardRoot,
       n,
       highlight: _kClassroom,
-      params: {..._classroomParam(n), 'tab': '2'},
+      params: const {_kFocusParam: _kFocusRatioMonitoring},
     ),
 
     // ── Students (land on the student list, highlighting the student) ────────
