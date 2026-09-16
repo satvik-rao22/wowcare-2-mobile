@@ -71,6 +71,23 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Flutter's own Android embedding forwards an incoming App Link's
+                 raw URI straight into GoRouter's navigation channel at ANY
+                 time the intent is delivered (not just at initial-route
+                 resolution — confirmed by testing: it fired ~2s after our own
+                 DeepLinkService already resolved and stashed the correct
+                 destination, and GoRouter then threw "no routes for
+                 location" trying to navigate to the literal
+                 https://host/path?query string). AppLinks().uriLinkStream /
+                 getInitialLink() in notification_launch_handler.dart and
+                 push_notification_cubit.dart already handle every App Link
+                 case (cold start, warm, background) through
+                 NotificationRouteResolver — this flag stops Flutter's
+                 competing, unresolved copy from ever reaching GoRouter. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

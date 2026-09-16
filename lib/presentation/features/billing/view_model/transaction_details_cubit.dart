@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
@@ -9,6 +11,7 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/domain/features/billing/usecases/cancel_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/delete_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_ledger_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
 
 import '../widgets/transactions/transaction_item.dart';
@@ -25,16 +28,19 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     required GetFamilyLedgerUseCase getFamilyLedger,
     required CancelInvoiceUseCase cancelInvoice,
     required DeleteInvoiceUseCase deleteInvoice,
+    required GetStudentPageUseCase getStudentPage,
     required StorageService storage,
   })  : _getFamilyLedger = getFamilyLedger,
         _cancelInvoice = cancelInvoice,
         _deleteInvoice = deleteInvoice,
+        _getStudentPage = getStudentPage,
         _storage = storage,
         super(const TransactionDetailsState.initial());
 
   final GetFamilyLedgerUseCase _getFamilyLedger;
   final CancelInvoiceUseCase _cancelInvoice;
   final DeleteInvoiceUseCase _deleteInvoice;
+  final GetStudentPageUseCase _getStudentPage;
   final StorageService _storage;
 
   String _ownerType = 'FAMILY';
@@ -135,6 +141,17 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         hasError: false,
         hasMoreData: false,
       ));
+
+      // Non-fatal: a failure here just leaves the family chips ungreyed and
+      // Create Invoice pre-selecting every child, rather than failing the
+      // whole ledger load — that already succeeded above.
+      unawaited(_resolveInactiveStudentCodes(
+        school: school,
+        studentCodes: ledger.students
+            .map((s) => s.code.trim())
+            .where((c) => c.isNotEmpty)
+            .toSet(),
+      ));
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(
@@ -145,6 +162,55 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         familyError: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
+  }
+
+  /// Looks up each family child's enrollment status individually (the
+  /// family-ledger API's own `students` list carries no status field) and
+  /// records which ones are INACTIVE.
+  Future<void> _resolveInactiveStudentCodes({
+    required String school,
+    required Set<String> studentCodes,
+  }) async {
+    if (studentCodes.isEmpty) return;
+    final inactive = <String>{};
+    await Future.wait(studentCodes.map((code) async {
+      try {
+        final page = await _getStudentPage(
+          schoolCode: school,
+          code: code,
+          page: 0,
+          size: 1,
+        );
+        var student = page.items.isNotEmpty ? page.items.first : null;
+        // Several student-list surfaces in this app (see AdminChatHostScreen)
+        // default to ACTIVE-only when no status is specified — if that's
+        // also true here, an unfiltered lookup for an inactive student's
+        // exact code comes back empty rather than returning them with
+        // status=INACTIVE. Retry once, explicitly asking for INACTIVE, so
+        // this lookup doesn't silently miss them either way.
+        if (student == null) {
+          final inactivePage = await _getStudentPage(
+            schoolCode: school,
+            code: code,
+            status: 'INACTIVE',
+            page: 0,
+            size: 1,
+          );
+          student =
+              inactivePage.items.isNotEmpty ? inactivePage.items.first : null;
+        }
+        if (student != null && student.status.trim().toUpperCase() == 'INACTIVE') {
+          inactive.add(code);
+        }
+      } catch (_) {
+        // Leave this student's status unresolved (not marked inactive)
+        // rather than failing the whole lookup for one bad code.
+      }
+    }));
+    if (isClosed) return;
+    // Always replaces (never merges) so a refresh correctly clears a code
+    // that's no longer inactive, not just adds newly-inactive ones.
+    emit(state.copyWith(inactiveStudentCodes: inactive));
   }
 
   List<BillingFamilyMember> _mapPeople(List<FamilyLedgerPersonEntity> people) {
