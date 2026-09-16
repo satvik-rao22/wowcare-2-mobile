@@ -18,12 +18,11 @@ class StaffAttendanceGate {
   final bool hasSignedOutToday;
 
   /// When true, Sign-In stays available even after the staff member has
-  /// been marked absent for the day — this is the ADMIN-only "override
-  /// sign-in" path: performing it deletes that day's absence record (see
+  /// been marked absent for the day — the "override sign-in" path: performing
+  /// it deletes that day's absence record (see
   /// `AttendanceRepository.deleteStaffAbsenceRecord`) before creating the
-  /// sign-in. Self-service staff attendance must never set this — an
-  /// absent staff member cannot recover their own day this way, only an
-  /// admin persona managing their record can.
+  /// sign-in. Set by admin surfaces and by the dashboard's My Day card, so a
+  /// staff member who marked themselves absent can still sign in.
   final bool allowAbsentSignInOverride;
 
   /// Enablement rules driven by today's attendance status:
@@ -39,9 +38,8 @@ class StaffAttendanceGate {
   bool get canSignIn {
     if (!isActiveProfile) return false;
     if (isSignedInToday) return false;
-    // Once marked absent for the day, self-attendance actions are locked
-    // out for that date — no recovery sign-in — unless an admin is
-    // overriding the absence.
+    // Once marked absent for the day, Sign-In is locked out for that date
+    // unless the caller allows overriding the absence.
     if (isAbsentToday && !allowAbsentSignInOverride) return false;
     // hasSignedOutToday intentionally does NOT block Sign-In — staff can
     // sign in and out any number of times per day.

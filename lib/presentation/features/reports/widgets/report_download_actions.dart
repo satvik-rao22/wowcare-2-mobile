@@ -31,6 +31,19 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// On-disk name for a downloaded report, made unique per [assetCode].
+  ///
+  /// Reports generated with different filters (e.g. Active vs Inactive staff)
+  /// can come back with the same file name. Saving both to one path overwrote
+  /// the first, and the OS viewer (iOS QuickLook in particular) kept showing
+  /// its cached preview of the earlier file — the second report displayed the
+  /// first one's data.
+  String _uniqueStorageName(String fileName, String assetCode) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot <= 0) return '${fileName}_$assetCode';
+    return '${fileName.substring(0, dot)}_$assetCode${fileName.substring(dot)}';
+  }
+
   Future<void> downloadAndViewReport(
     BuildContext context,
     String assetCode,
@@ -150,7 +163,7 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
 
       final filePath = await cubit.saveReportFile(
         fileData: Uint8List.fromList(fileData),
-        fileName: fileName,
+        fileName: _uniqueStorageName(fileName, assetCode),
         assetCode: assetCode,
       );
 
