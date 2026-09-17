@@ -45,9 +45,47 @@ class NotificationAction {
   static const String birthday = 'BIRTHDAY';
   static const String upcomingClassroomEvent = 'UPCOMING_CLASSROOM_EVENT';
   static const String upcomingEvent = 'UPCOMING_EVENT';
-  static const String assignTask = 'ASSIGN_TASK';
-  static const String taskDue = 'TASK_DUE';
+
+  // The six `eventTypeCode`s from "Push Notification Payload Contract —
+  // Events": `EVENT_INVITED` on create, `EVENT_UPDATED` on update,
+  // `EVENT_DELETED` on delete, `EVENT_RSVP_SUBMITTED` on an RSVP, and
+  // `EVENT_REMINDER_TOMORROW` / `EVENT_RSVP_REMINDER` fired daily by
+  // `EventReminderScheduler`. `EVENT_DELETED` and `EVENT_RSVP_SUBMITTED` are
+  // in-app only — no push — per `EVENT_*_DEF.allowedChannels`, but still route
+  // a tap on the equivalent inbox item.
+  static const String eventInvited = 'EVENT_INVITED';
+  static const String eventUpdated = 'EVENT_UPDATED';
+  static const String eventDeleted = 'EVENT_DELETED';
+  static const String eventReminderTomorrow = 'EVENT_REMINDER_TOMORROW';
+  static const String eventRsvpReminder = 'EVENT_RSVP_REMINDER';
+  static const String eventRsvpSubmitted = 'EVENT_RSVP_SUBMITTED';
+
+  // ── Tasks ───────────────────────────────────────────────────────────────
+  // The six actions the Tasks backend fires, per the push payload contract.
+  // Every one carries `taskCode` (the series) + `organizationCode`/
+  // `schoolCode`; every action except TASK_DELETED also carries the real
+  // `assignmentCode` (added to TASK_ASSIGNED/TASK_UPDATED 2026-08-07 — they
+  // used to send only the series). See NotificationRouteResolver —
+  // `_taskDetail` reads whichever code is present, falling back to
+  // `TasksState.myAssignmentInSeries` (pairing the series with the signed-in
+  // user's own identity) when only the series arrives.
+  static const String taskAssigned = 'TASK_ASSIGNED';
+  static const String taskUpdated = 'TASK_UPDATED';
+  static const String taskDeleted = 'TASK_DELETED';
+  static const String taskStatusUpdated = 'TASK_STATUS_UPDATED';
   static const String taskOverdue = 'TASK_OVERDUE';
+  static const String taskDueSoon = 'TASK_DUE_SOON';
+
+  // ── Holidays ────────────────────────────────────────────────────────────
+  // The four actions the Holidays backend fires, per "Push Notification
+  // Payload Contract — Holidays". They carry `module: HOLIDAY` (there is no
+  // `type: HOLIDAY` key — branch on `action`) plus `holidayName` and, for
+  // three of them, a date; `FEDERAL_HOLIDAYS_REVIEW` carries a `year` instead.
+  // None carries a holiday entity code, so all four open the Holiday List.
+  static const String schoolHolidayCreated = 'SCHOOL_HOLIDAY_CREATED';
+  static const String schoolHolidayDeleted = 'SCHOOL_HOLIDAY_DELETED';
+  static const String federalHolidayApproved = 'FEDERAL_HOLIDAY_APPROVED';
+  static const String federalHolidaysReview = 'FEDERAL_HOLIDAYS_REVIEW';
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   static const String publishShift = 'PUBLISH_SHIFT';
@@ -152,6 +190,10 @@ class NotificationAction {
     // did nothing.
     'NAP_REMINDER': napAlert,
     'INCIDENT_ACK_PENDING': incidentAcknowledgementPending,
+    // Task action names this app shipped with, superseded by the contract's
+    // TASK_* set above. Kept so an older backend build still routes.
+    'ASSIGN_TASK': taskAssigned,
+    'TASK_DUE': taskDueSoon,
   };
 
   /// Normalises a raw backend action to its canonical constant.

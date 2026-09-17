@@ -48,15 +48,28 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   StreamSubscription<int>? _firestoreSub;
   String _watchedUserCode = '';
+  Timer? _debounce;
+  Timer? _retry;
 
   /// Re-fetches the authoritative REST count. Safe to call as often as
   /// needed (e.g. after marking read, or when a push notification arrives).
   Future<void> refresh() => _refreshFromRest();
 
-  /// Same as [refresh] — kept as a distinct name for existing call sites
-  /// (FCM push handlers) that want the semantic of "a push just arrived,
-  /// re-check now".
-  Future<void> refreshWithRetry() => _refreshFromRest();
+  /// Like [refresh], but for triggers that mean "a notification just
+  /// arrived/changed on the server" (FCM push, background-tap). The backend's
+  /// own read-model can lag a beat behind the push/Firestore write it's
+  /// reacting to, so a single REST read right now can come back stale with no
+  /// second chance to correct itself. Do the immediate read for the common
+  /// case where it's already caught up, then re-read once more shortly after
+  /// so a stale first read self-corrects instead of sticking until some
+  /// unrelated screen happens to refresh the badge.
+  Future<void> refreshWithRetry() async {
+    await _refreshFromRest();
+    _retry?.cancel();
+    _retry = Timer(const Duration(seconds: 2), () {
+      if (!isClosed) _refreshFromRest();
+    });
+  }
 
   Future<void> _refreshFromRest() async {
     try {
@@ -101,23 +114,36 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     _firestoreSub = _realtime.watchUnreadCount(userCode: userCode).listen((
       count,
     ) {
-      if (isClosed) return;
       AppLogger.d(
         '[NotifBadge] Firestore change signal (docCount=$count) — '
         're-checking REST',
       );
-      unawaited(_refreshFromRest());
+      _scheduleRefresh();
     }, onError: (_) {});
+  }
+
+  /// Coalesces bursts of Firestore changes into a single REST refresh.
+  void _scheduleRefresh() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      if (!isClosed) _refreshFromRest();
+    });
   }
 
   /// Applies a read-state change the caller already knows is correct (the
   /// mark-read/mark-all-read request just succeeded), so the bell updates in
-  /// the same frame instead of waiting on the Firestore round-trip. The next
-  /// live snapshot (once the backend's write lands) reconciles on top of
-  /// this automatically.
+  /// the same frame instead of waiting on a REST round-trip. A REST refresh
+  /// right now would risk reading the backend's read-model before it has
+  /// caught up with the write it's reacting to, stomping this correct value
+  /// with a stale one — so push out any pending Firestore-triggered
+  /// reconciliation rather than doing one immediately.
   void _applyLocalReadDelta(int newUnreadCount) {
     if (isClosed) return;
     emit(state.copyWith(unreadCount: newUnreadCount));
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), () {
+      if (!isClosed) _refreshFromRest();
+    });
   }
 
   /// Call right after a single notification is successfully marked read.
@@ -131,6 +157,8 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   /// Optimistically clears the badge and tears down the live listener (logout).
   void clear() {
+    _debounce?.cancel();
+    _retry?.cancel();
     _firestoreSub?.cancel();
     _firestoreSub = null;
     _watchedUserCode = '';
@@ -140,6 +168,8 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   @override
   Future<void> close() {
+    _debounce?.cancel();
+    _retry?.cancel();
     _firestoreSub?.cancel();
     return super.close();
   }

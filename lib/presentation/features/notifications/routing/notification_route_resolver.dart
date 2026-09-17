@@ -25,6 +25,10 @@ class NotificationDestination {
 
   static const String highlightParam = 'highlightCode';
 
+  /// Holidays are the one module whose payload carries no entity code, so its
+  /// deep-link target is named instead of coded — see `HolidayHighlight`.
+  static const String highlightHolidayParam = 'highlightHoliday';
+
   /// The go_router location string, e.g. `/classroom-screen?classroomCode=CLS_1`.
   String get location => Uri(
     path: path,
@@ -59,6 +63,12 @@ class NotificationRouteResolver {
       '/dashboard/student-attendance-profile-by-code';
   static const String _staffAttendanceProfileByCode =
       '/dashboard/staff-attendance-profile-by-code';
+  static const String _eventsList = '/dashboard/events';
+  static const String _eventsDetail = '/dashboard/events/detail';
+  static const String _tasksList = '/dashboard/tasks';
+  static const String _tasksDetail = '/dashboard/tasks/detail';
+  static const String _notificationCenter = '/notifications';
+  static const String _holidaysTabValue = 'holidays';
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
@@ -140,6 +150,15 @@ class NotificationRouteResolver {
         return _dest(_students, n, highlight: _kStudent);
       case 'STAFF':
         return _dest(_staff, n, highlight: _kStaff);
+      case 'EVENTS':
+      case 'EVENT':
+        return _eventDetail(n);
+      case 'TASKS':
+      case 'TASK':
+        return _taskDetail(n);
+      case 'HOLIDAY':
+      case 'HOLIDAYS':
+        return _holidayList(n);
       case 'ATTENDANCE':
       case 'STUDENT_ATTENDANCE':
       case 'STAFF_ATTENDANCE':
@@ -586,6 +605,133 @@ class NotificationRouteResolver {
         queryParameters: {'code': _firstCode(n, _kStaff) ?? ''},
       );
 
+  // `taskCode` is the SERIES (`TSK_…`, one row per task definition);
+  // `assignmentCode` is one assignee on one occurrence (`TSA_…`) — the actual
+  // identity `TaskDetailScreen`/`TasksState.taskByCode` matches a card by. A
+  // series with three assignees has three cards, so the series code alone
+  // does not name one.
+  static const _kTask = ['taskCode', 'task_code'];
+  static const _kTaskAssignment = [
+    'assignmentCode',
+    'assignment_code',
+    'taskAssignmentCode',
+    'task_assignment_code',
+  ];
+
+  /// Task notifications open the task's own detail screen.
+  ///
+  /// `TaskDetailScreen` already matches a card by (`TasksState.taskByCode`
+  /// keys on `Task.code`, the assignment). Deliberately action-agnostic: this
+  /// method just reads whichever code is present, so the backend adding
+  /// `assignmentCode` to `TASK_ASSIGNED`/`TASK_UPDATED` needed no change here.
+  ///
+  /// A degraded/legacy payload that still omits `assignmentCode` (only
+  /// `taskCode`, the series) falls back to `seriesCode`, which the screen
+  /// pairs with the signed-in user's own identity to find their one
+  /// assignment within that series (see `TasksState.myAssignmentInSeries` /
+  /// `TaskDetailScreen`).
+  ///
+  /// Both params ride as QUERY parameters rather than go_router's `extra`,
+  /// because notification routing goes through `appRouter.go(location)` and a
+  /// location string is all it can carry. The route reads either (see
+  /// `tasks/detail` in app_router), so the calendar's existing `push(extra:)`
+  /// call keeps working unchanged.
+  static NotificationDestination _taskDetail(PushNotification n) {
+    final assignment = _firstCode(n, _kTaskAssignment);
+    final series = _firstCode(n, _kTask);
+    // No code at all (shouldn't happen — the contract makes taskCode
+    // required): fall back to the inbox instead of an empty detail screen.
+    if (assignment == null && series == null) {
+      return const NotificationDestination(path: _notificationCenter);
+    }
+    final query = <String, String>{};
+    if (assignment != null) query['taskCode'] = assignment;
+    if (series != null) query['seriesCode'] = series;
+    return NotificationDestination(path: _tasksDetail, queryParameters: query);
+  }
+
+  static const _kEvent = ['eventCode', 'event_code'];
+
+  /// Event notifications open the event's own detail screen by `eventCode` —
+  /// unlike Tasks, every Events action sends the real code directly, no
+  /// series/assignment split to resolve client-side.
+  static NotificationDestination _eventDetail(PushNotification n) {
+    final code = _firstCode(n, _kEvent);
+    // No code at all: land on the list rather than a permanently empty card.
+    if (code == null) {
+      return const NotificationDestination(path: _eventsList);
+    }
+    return NotificationDestination(
+      path: _eventsDetail,
+      queryParameters: {'eventCode': code},
+    );
+  }
+
+  static const _kHolidayName = ['holidayName', 'holiday_name'];
+
+  /// Payload keys carrying the holiday's START date. `fromDate` is a single
+  /// date (school-created); `holidayDate` (federal approved) is a RANGE string
+  /// — `"2026-12-25 to 2026-12-25"` — hence [_holidayYear]'s scan for the first
+  /// date inside it rather than a plain parse. `toDate` is deliberately absent:
+  /// the list groups holidays by start year, so a holiday spanning the new year
+  /// (Winter Break, Dec 21 → Jan 2) lives under the earlier one.
+  static const _kHolidayStartDate = [
+    'fromDate',
+    'from_date',
+    'holidayDate',
+    'holiday_date',
+  ];
+
+  /// `FEDERAL_HOLIDAYS_REVIEW` names no date at all — only the year whose
+  /// federal holidays need approving.
+  static const _kHolidayYear = ['year'];
+
+  /// The year the Holiday List should open on, or null when the payload gives
+  /// nothing usable (the list then stays on its current year).
+  static String? _holidayYear(PushNotification n) {
+    final raw = _firstCode(n, _kHolidayStartDate);
+    if (raw != null) {
+      final firstDate = RegExp(
+        r'\d{4}-\d{2}-\d{2}',
+      ).firstMatch(raw)?.group(0);
+      final parsed = DateTime.tryParse(firstDate ?? raw);
+      if (parsed != null) return parsed.year.toString();
+    }
+    final year = _firstCode(n, _kHolidayYear);
+    if (year != null && int.tryParse(year) != null) return year;
+    return null;
+  }
+
+  /// Holiday notifications open the **Holiday List** (Events screen → Holidays
+  /// tab), scoped to the holiday's year and flashing the named card.
+  ///
+  /// Unlike Events (`eventCode`) and Tasks (`taskCode`/`assignmentCode`), the
+  /// holiday payload carries **no entity code** — and the app has no
+  /// individual-holiday detail screen — so there is nothing to deep-link to a
+  /// single record. `holidayName` rides along as `highlightHoliday` so the
+  /// matching row still flashes in the list (see `HolidayHighlight`); if the
+  /// backend later adds a `holidayCode` (and a detail screen exists), this is
+  /// the one method to change.
+  ///
+  /// [identifyHoliday] is false for `SCHOOL_HOLIDAY_DELETED`: the holiday is
+  /// gone, so there is no card left to flash — mirrors `EVENT_DELETED` /
+  /// `TASK_DELETED` landing on their lists.
+  static NotificationDestination _holidayList(
+    PushNotification n, {
+    bool identifyHoliday = true,
+  }) {
+    final query = <String, String>{'tab': _holidaysTabValue};
+    if (identifyHoliday) {
+      final name = _firstCode(n, _kHolidayName);
+      if (name != null) {
+        query[NotificationDestination.highlightHolidayParam] = name;
+      }
+    }
+    final year = _holidayYear(n);
+    if (year != null) query['year'] = year;
+    return NotificationDestination(path: _eventsList, queryParameters: query);
+  }
+
   static final Map<String, NotificationDestination Function(PushNotification)>
   _table = <String, NotificationDestination Function(PushNotification)>{
     // ── Classrooms ──────────────────────────────────────────────────────────
@@ -671,12 +817,38 @@ class NotificationRouteResolver {
         const NotificationDestination(path: AppRoutes.dashboard),
     NotificationAction.upcomingEvent: (n) =>
         const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.assignTask: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.taskDue: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
-    NotificationAction.taskOverdue: (n) =>
-        const NotificationDestination(path: AppRoutes.dashboard),
+
+    // Push Notification Payload Contract — Events: all 6 open the event's
+    // detail card (RSVP lives there too). EVENT_DELETED is the exception —
+    // the event is gone, so land on the list instead (see [_eventDetail]).
+    NotificationAction.eventInvited: _eventDetail,
+    NotificationAction.eventUpdated: _eventDetail,
+    NotificationAction.eventReminderTomorrow: _eventDetail,
+    NotificationAction.eventRsvpReminder: _eventDetail,
+    NotificationAction.eventRsvpSubmitted: _eventDetail,
+    NotificationAction.eventDeleted: (n) =>
+        const NotificationDestination(path: _eventsList),
+
+    // ── Tasks (all open the task's detail screen) ────────────────────────────
+    NotificationAction.taskAssigned: _taskDetail,
+    NotificationAction.taskUpdated: _taskDetail,
+    NotificationAction.taskStatusUpdated: _taskDetail,
+    NotificationAction.taskOverdue: _taskDetail,
+    NotificationAction.taskDueSoon: _taskDetail,
+    // Deleted: the task no longer exists, so there is no card to open — land
+    // on the Task list instead (mirrors EVENT_DELETED → the Events list).
+    NotificationAction.taskDeleted: (n) =>
+        const NotificationDestination(path: _tasksList),
+
+    // ── Holidays ─────────────────────────────────────────────────────────────
+    // Push Notification Payload Contract — Holidays: no payload carries a
+    // holiday code, so all four open the Holiday List (see [_holidayList]).
+    NotificationAction.schoolHolidayCreated: _holidayList,
+    NotificationAction.federalHolidayApproved: _holidayList,
+    NotificationAction.federalHolidaysReview: _holidayList,
+    // Deleted: nothing left to flash, just the list.
+    NotificationAction.schoolHolidayDeleted: (n) =>
+        _holidayList(n, identifyHoliday: false),
 
     // ── Scheduling ───────────────────────────────────────────────────────────
     // Shift mutations open the per-staff Staff Scheduling day view (jump to the
