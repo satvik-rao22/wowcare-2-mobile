@@ -3,6 +3,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -666,10 +667,7 @@ class _DialogField extends StatelessWidget {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(AppRadius.r10),
-            ),
+            decoration: AppSurfaces.well(radius: AppRadius.r10),
             child: Row(
               children: [
                 Expanded(
@@ -734,10 +732,7 @@ class _DialogDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(AppRadius.r10),
-          ),
+          decoration: AppSurfaces.well(radius: AppRadius.r10),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,

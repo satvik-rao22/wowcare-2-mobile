@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// A label/value row used on [StaffDatesTab] for a single important-date
@@ -226,10 +227,7 @@ class DialogField extends StatelessWidget {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: AppSurfaces.well(radius: 10),
             child: Row(
               children: [
                 Expanded(
@@ -287,10 +285,7 @@ class DialogDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(10),
-          ),
+          decoration: AppSurfaces.well(radius: 10),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,

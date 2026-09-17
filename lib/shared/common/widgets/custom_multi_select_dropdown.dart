@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
@@ -432,10 +433,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               height: 40,
               width: widget.width,
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: AppPalette.brandSoft.withValues(alpha: 0.102),
-                borderRadius: BorderRadius.circular(8),
-              ),
+              // A dropdown is not typed into, so it takes the full well.
+              decoration: AppSurfaces.well(radius: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

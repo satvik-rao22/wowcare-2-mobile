@@ -769,10 +769,7 @@ class _DialogField extends StatelessWidget {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(AppRadius.r10),
-            ),
+            decoration: AppSurfaces.well(radius: AppRadius.r10),
             child: Row(
               children: [
                 Expanded(
@@ -833,10 +830,7 @@ class _DialogDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(AppRadius.r10),
-          ),
+          decoration: AppSurfaces.well(radius: AppRadius.r10),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
