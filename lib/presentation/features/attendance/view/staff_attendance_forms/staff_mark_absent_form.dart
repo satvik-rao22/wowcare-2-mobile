@@ -208,7 +208,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                           ),
                           border: AppSurfaces.fieldBorder(radius: AppRadius.r10),
                           enabledBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
-                          focusedBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.focusRing),
+                          focusedBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
                           errorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
                           focusedErrorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
                           filled: true,

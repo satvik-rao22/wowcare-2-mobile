@@ -19,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -230,44 +231,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         children: [
           Text('Select Students', style: AppTextStyles.activityFieldValueBold),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.activitySearchFieldBg,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: AppColors.activityMutedGreyColor),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Students',
-                hintStyle: AppTextStyles.activitySearchHintText,
-                border: InputBorder.none,
-                icon: const Icon(
-                  Icons.search,
-                  color: AppColors.activityMutedGreyColor,
-                ),
-                suffixIcon: _searchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _updateSelectAllState(_filteredStudents(students));
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.close,
-                          color: AppColors.activityMutedGreyColor,
-                        ),
-                      ),
-              ),
-              onChanged: (_) {
-                setState(() {
-                  _updateSelectAllState(_filteredStudents(students));
-                });
-              },
-            ),
+          CustomSearchBar(
+            controller: _searchController,
+            hintText: 'Search Students',
+            showClearButton: true,
+            onChanged: (_) {
+              setState(() {
+                _updateSelectAllState(_filteredStudents(students));
+              });
+            },
           ),
           const SizedBox(height: 12),
           CustomDateTimeField(

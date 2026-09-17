@@ -400,7 +400,6 @@ class _PasswordField extends StatelessWidget {
             ),
             focusedBorder: AppSurfaces.fieldBorder(
               radius: 12,
-              colour: AppPalette.focusRing,
             ),
             contentPadding: EdgeInsets.symmetric(
               vertical: screenHeight * 0.018,

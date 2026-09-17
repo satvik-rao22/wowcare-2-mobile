@@ -440,7 +440,7 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                   ),
                   border: AppSurfaces.fieldBorder(radius: 8),
                   enabledBorder: AppSurfaces.fieldBorder(radius: 8),
-                  focusedBorder: AppSurfaces.fieldBorder(radius: 8, colour: AppPalette.focusRing),
+                  focusedBorder: AppSurfaces.fieldBorder(radius: 8),
                 ),
               ),
             ),

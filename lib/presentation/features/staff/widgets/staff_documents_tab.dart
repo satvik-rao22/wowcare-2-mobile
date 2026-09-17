@@ -27,6 +27,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffDocumentsTab extends StatelessWidget {
@@ -455,27 +456,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                           ),
                           child: Column(
                             children: [
-                              TextField(
+                              CustomSearchBar(
                                 controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText: 'Search documents...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  suffixIcon:
-                                      _searchController.text.trim().isEmpty
-                                      ? null
-                                      : IconButton(
-                                          onPressed: () => setState(() {
-                                            _searchController.clear();
-                                          }),
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                  filled: true,
-                                  fillColor: AppSurfaces.fieldFill,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
+                                hintText: 'Search documents...',
+                                showClearButton: true,
                                 onChanged: (_) => setState(() {}),
                               ),
                               const SizedBox(height: 12),

@@ -38,6 +38,7 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/utils
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
@@ -1305,25 +1306,20 @@ class _DesignationMultiSelectDropdownState
         ? widget.hintText
         : '${_localSelectedItems.length} selected';
 
-    return SizedBox(
+    // A dropdown is not typed into, so it keeps the well's inset.
+    return SkeuFieldWell(
+      radius: 8,
+      child: SizedBox(
       height: 32,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.cardColor,
+          fillColor: AppSurfaces.fieldFill,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
+            borderSide: BorderSide.none,
           ),
         ),
         icon: const Icon(Icons.keyboard_arrow_down),
@@ -1401,6 +1397,7 @@ class _DesignationMultiSelectDropdownState
           ),
           overflow: TextOverflow.ellipsis,
         ),
+      ),
       ),
     );
   }

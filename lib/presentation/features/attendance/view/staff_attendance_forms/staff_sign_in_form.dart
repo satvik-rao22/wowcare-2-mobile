@@ -5,7 +5,6 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
@@ -658,8 +657,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                               // force "now" for them. Admin personas can edit the
                               // time even for their own record.
                               ignoring: gate.isStaffAdminPersona != true,
-                              child: GradientTimePickerField(
-                                time: gate.selectedTime,
+                              child: CustomDateTimeField(
+                                isTime: true,
+                                initialTime: gate.selectedTime,
                                 onTimeSelected: (t) {
                                   _gateCubit.setSelectedTime(t);
                                 },

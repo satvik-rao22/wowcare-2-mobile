@@ -18,7 +18,6 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 
@@ -290,20 +289,22 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Shift Start',
                               isRequired: true,
-                              time: state.shiftStart,
+                              initialTime: state.shiftStart,
                               errorText: state.shiftStartError,
                               onTimeSelected: cubit.setShiftStart,
                             ),
                           ),
                           SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Shift End',
                               isRequired: true,
-                              time: state.shiftEnd,
+                              initialTime: state.shiftEnd,
                               errorText: state.shiftEndError,
                               onTimeSelected: cubit.setShiftEnd,
                             ),
@@ -315,9 +316,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Break Start',
-                              time: state.breakStart,
+                              initialTime: state.breakStart,
                               errorText: state.breakStartError,
                               onTimeSelected: cubit.setBreakStart,
                               onClear: () => cubit.setBreakStart(null),
@@ -325,9 +327,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                           ),
                           SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Break End',
-                              time: state.breakEnd,
+                              initialTime: state.breakEnd,
                               errorText: state.breakEndError,
                               onTimeSelected: cubit.setBreakEnd,
                               onClear: () => cubit.setBreakEnd(null),

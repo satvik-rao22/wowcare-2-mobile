@@ -4,7 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
@@ -773,10 +773,11 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Row(
               children: [
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: 'Start',
                     minuteInterval: 15,
-                    time: startTime,
+                    initialTime: startTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,
                       title == 'Work Time'
@@ -788,10 +789,11 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: 'End',
                     minuteInterval: 15,
-                    time: endTime,
+                    initialTime: endTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,
                       title == 'Work Time'

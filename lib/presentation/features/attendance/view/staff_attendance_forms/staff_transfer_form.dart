@@ -18,7 +18,6 @@ import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_persona_resolver.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import '../../model/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_redirect.dart';
@@ -606,8 +605,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             IgnorePointer(
                               ignoring:
                                   _isStaffAdminPersona != true || _isSelfTarget,
-                              child: GradientTimePickerField(
-                                time: _selectedTransferTime,
+                              child: CustomDateTimeField(
+                                isTime: true,
+                                initialTime: _selectedTransferTime,
                                 onTimeSelected: (t) {
                                   setState(() {
                                     _selectedTransferTime = t;

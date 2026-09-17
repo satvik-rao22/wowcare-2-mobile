@@ -10,7 +10,7 @@ import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -349,10 +349,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             Row(
               children: [
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: StudentStrings.startTime,
                     minuteInterval: 15,
-                    time:
+                    initialTime:
                         schedule!['start'] ??
                         _scheduleCubit.defaultStartForDay(day),
                     onTimeSelected: (picked) {
@@ -367,10 +368,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 ),
                 AppSpacing.gapHSm,
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: StudentStrings.endTime,
                     minuteInterval: 15,
-                    time:
+                    initialTime:
                         schedule['end'] ?? _scheduleCubit.defaultEndForDay(day),
                     onTimeSelected: (picked) {
                       final err = _scheduleCubit.applyPickedTime(

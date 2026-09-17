@@ -6,7 +6,6 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/attendance_events.dart';
@@ -622,8 +621,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                             const SizedBox(height: AppSpacing.xs),
                             IgnorePointer(
                               ignoring: !isStaffPersona,
-                              child: GradientTimePickerField(
-                                time: gate.selectedTime,
+                              child: CustomDateTimeField(
+                                isTime: true,
+                                initialTime: gate.selectedTime,
                                 onTimeSelected: (t) {
                                   _gateCubit.setSelectedTime(t);
                                 },

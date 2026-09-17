@@ -565,7 +565,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               hintText: 'Edit your message...',
               border: AppSurfaces.fieldBorder(radius: 12),
               enabledBorder: AppSurfaces.fieldBorder(radius: 12),
-              focusedBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.focusRing),
+              focusedBorder: AppSurfaces.fieldBorder(radius: 12),
               errorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
               focusedErrorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
               //border: AppSurfaces.fieldBorder(radius: 12),

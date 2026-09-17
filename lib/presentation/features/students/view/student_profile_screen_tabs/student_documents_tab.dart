@@ -33,6 +33,7 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
@@ -512,27 +513,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             ),
                             child: Column(
                               children: [
-                                TextField(
+                                CustomSearchBar(
                                   controller: _searchController,
-                                  decoration: InputDecoration(
-                                    hintText: StudentStrings.searchDocuments,
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon:
-                                        _searchController.text.trim().isEmpty
-                                        ? null
-                                        : IconButton(
-                                            onPressed: () => setState(() {
-                                              _searchController.clear();
-                                            }),
-                                            icon: const Icon(Icons.close),
-                                          ),
-                                    filled: true,
-                                    fillColor: AppSurfaces.fieldFill,
-                                    border: OutlineInputBorder(
-                                      borderRadius: AppRadius.allMd,
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
+                                  hintText: StudentStrings.searchDocuments,
+                                  showClearButton: true,
                                   onChanged: (_) => setState(() {}),
                                 ),
                                 AppSpacing.gapVSm,

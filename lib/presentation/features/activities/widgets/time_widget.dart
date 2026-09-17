@@ -6,7 +6,7 @@ import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_editor_cubit.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class TimeWidget extends StatefulWidget {
   const TimeWidget({
@@ -169,14 +169,15 @@ class _TimeWidgetState extends State<TimeWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Visuals now come from the shared GradientTimePickerField; this widget
+    // Visuals now come from the shared CustomDateTimeField; this widget
     // keeps owning the state/behavior (school-timezone default, prefill
     // parsing, onTimeChanged emission, editable/disabled gating).
-    return GradientTimePickerField(
+    return CustomDateTimeField(
+      isTime: true,
       label: widget.label,
       isRequired: widget.isRequired,
-      enabled: widget.isEditable,
-      time: widget.doNotShowTime ? null : _selectedTime,
+      isDisabled: !widget.isEditable,
+      initialTime: widget.doNotShowTime ? null : _selectedTime,
       onTimeSelected: (picked) {
         if (picked == _selectedTime) return;
         _liveNowTimer?.cancel();

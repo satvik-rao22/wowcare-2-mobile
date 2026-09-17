@@ -186,7 +186,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 ),
                                 focusedBorder: AppSurfaces.fieldBorder(
                                   radius: 12,
-                                  colour: AppPalette.focusRing,
                                 ),
                                 contentPadding: EdgeInsets.symmetric(
                                   vertical: screenHeight * 0.018,

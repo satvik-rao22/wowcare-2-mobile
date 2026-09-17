@@ -281,7 +281,8 @@ class AppSurfaces {
   );
 
   /// The full set of `InputDecoration` borders for a field: edgeless at
-  /// rest, the focus ring when focused, danger when invalid.
+  /// rest and on focus, like the search bar. Only a real validation error
+  /// gets an edge.
   ///
   /// ```dart
   /// decoration: InputDecoration(
@@ -290,22 +291,24 @@ class AppSurfaces {
   ///   fillColor: AppSurfaces.fieldFill,
   /// ).copyWith(…AppSurfaces.fieldBorders()),
   /// ```
-  static InputDecoration fieldDecoration({
-    double radius = AppRadius.lg,
-  }) => InputDecoration(
-    filled: true,
-    fillColor: fieldFill,
-    border: fieldBorder(radius: radius),
-    enabledBorder: fieldBorder(radius: radius),
-    disabledBorder: fieldBorder(radius: radius),
-    focusedBorder: fieldBorder(radius: radius, colour: AppPalette.focusRing),
-    errorBorder: fieldBorder(radius: radius, colour: AppPalette.statusError),
-    focusedErrorBorder: fieldBorder(
-      radius: radius,
-      colour: AppPalette.statusError,
-    ),
-    hintStyle: TextStyle(color: AppPalette.textMuted),
-  );
+  static InputDecoration fieldDecoration({double radius = AppRadius.lg}) =>
+      InputDecoration(
+        filled: true,
+        fillColor: fieldFill,
+        border: fieldBorder(radius: radius),
+        enabledBorder: fieldBorder(radius: radius),
+        disabledBorder: fieldBorder(radius: radius),
+        focusedBorder: fieldBorder(radius: radius),
+        errorBorder: fieldBorder(
+          radius: radius,
+          colour: AppPalette.statusError,
+        ),
+        focusedErrorBorder: fieldBorder(
+          radius: radius,
+          colour: AppPalette.statusError,
+        ),
+        hintStyle: TextStyle(color: AppPalette.textMuted),
+      );
 
   /// A progress trough, a toggle track, a ring track. Recessed, so the fill
   /// reads as being *inside* it.

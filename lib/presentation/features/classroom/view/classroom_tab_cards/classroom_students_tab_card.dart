@@ -44,6 +44,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
@@ -1708,26 +1709,21 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         ? widget.hintText
         : '${_localSelectedItems.length} selected';
 
-    return Container(
+    // A dropdown is not typed into, so it keeps the well's inset.
+    return SkeuFieldWell(
+      radius: 8,
+      child: Container(
       height: 32,
       width: widget.width,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.cardColor,
+          fillColor: AppSurfaces.fieldFill,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
+            borderSide: BorderSide.none,
           ),
         ),
         icon: const Icon(Icons.keyboard_arrow_down),
@@ -1810,6 +1806,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           ),
           overflow: TextOverflow.ellipsis,
         ),
+      ),
       ),
     );
   }

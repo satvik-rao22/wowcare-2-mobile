@@ -452,9 +452,12 @@ void main() {
       return null;
     }
 
-    /// Every `TextField(...)` / `TextFormField(...)` in `lib/`.
+    /// Every `TextField(...)` / `TextFormField(...)` / `DropdownButtonFormField(...)`
+    /// in `lib/`.
     List<({String path, String code})> inputs() {
-      final RegExp open = RegExp(r'\bTextF(?:ield|ormField)\(');
+      final RegExp open = RegExp(
+        r'\b(?:TextF(?:ield|ormField)|DropdownButtonFormField(?:<[^>]*>)?)\(',
+      );
       return <({String path, String code})>[
         for (final ({String path, String source}) f in sources)
           for (final RegExpMatch m in open.allMatches(stripComments(f.source)))
@@ -490,8 +493,8 @@ void main() {
     });
 
     test('no input draws its own edge at rest', () {
-      // A well is told by its fill, not by a line round it. The focus ring
-      // and the error edge come from AppSurfaces.fieldBorder.
+      // A well is told by its fill, not by a line round it. Only the error
+      // edge comes from AppSurfaces.fieldBorder(colour:).
       final RegExp rest = RegExp(
         r'(?:^|\s)(?:border|enabledBorder):\s*(?:const\s+)?'
         r'(?:Outline|Underline)InputBorder\(',
@@ -508,7 +511,28 @@ void main() {
         isEmpty,
         reason:
             'Use AppSurfaces.fieldBorder(radius:) for the rest state, which '
-            'is edgeless, and pass a colour only for focus or error, at:\n'
+            'is edgeless, and pass a colour only for a real error, at:\n'
+            '${found.toSet().join('\n')}',
+      );
+    });
+
+    test('no input shows a border on focus', () {
+      // Focus reads exactly like the search bar: no ring, in any state.
+      // Only errorBorder/focusedErrorBorder may still carry a colour.
+      final RegExp focused = RegExp(r'focusedBorder:\s*(?:const\s+)?\w[\w.]*\(');
+      final List<String> found = <String>[
+        for (final ({String path, String code}) i in inputs())
+          for (final RegExpMatch m in focused.allMatches(i.code))
+            if (callAt(i.code, m.start, i.code.indexOf('(', m.end - 1))
+                case final String b)
+              if (b.contains('colour:') || b.contains('color:')) i.path,
+      ];
+      expect(
+        found.toSet().toList(),
+        isEmpty,
+        reason:
+            'AppSurfaces.fieldBorder(radius:) with no colour keeps focus '
+            'edgeless, matching CustomSearchBar, at:\n'
             '${found.toSet().join('\n')}',
       );
     });

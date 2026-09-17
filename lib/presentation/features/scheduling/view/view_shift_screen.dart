@@ -9,7 +9,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_bottom_sheet_scaffold.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -266,10 +265,11 @@ class ViewShiftScreen extends StatelessWidget {
     bool isRequired = false,
   }) {
     return IgnorePointer(
-      child: GradientTimePickerField(
+      child: CustomDateTimeField(
+        isTime: true,
         label: label,
         isRequired: isRequired,
-        time: time,
+        initialTime: time,
         onTimeSelected: (_) {},
       ),
     );
