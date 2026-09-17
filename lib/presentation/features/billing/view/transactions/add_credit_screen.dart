@@ -284,11 +284,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
     final double radius = responsive.isTablet ? 12.0 : 8.0;
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: AppColors.billingBorderDefault),
-        borderRadius: BorderRadius.circular(radius),
-      ),
+      decoration: AppSurfaces.field(radius: radius),
       child: Row(
         children: <Widget>[
           Container(

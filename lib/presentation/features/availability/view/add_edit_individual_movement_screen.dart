@@ -134,15 +134,7 @@ class _AddEditIndividualMovementScreenState
         Text('Comment', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(
-              color: AppColors.primaryColor.withValues(alpha: 0.4),
-            ),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _commentController,
             keyboardType: TextInputType.multiline,

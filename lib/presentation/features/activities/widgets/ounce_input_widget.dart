@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -125,12 +126,8 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
           constraints: BoxConstraints(
             minHeight: widget.height ?? responsive.inputFieldHeight,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
           ),
           child: TextField(
             controller: _controller,

@@ -367,14 +367,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(
-          color: hasError
-              ? AppColors.errorColor
-              : AppColors.billingBorderDefault,
-        ),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+      decoration: AppSurfaces.field(
+        radius: responsive.isTablet ? 12.0 : 8.0,
+        error: hasError,
       ),
       child: TextField(
         controller: controller,

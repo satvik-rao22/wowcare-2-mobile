@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -396,11 +397,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
     final responsive = ResponsiveHelper(context);
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: AppColors.billingBorderDefault),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-      ),
+      decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,

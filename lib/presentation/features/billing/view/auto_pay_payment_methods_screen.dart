@@ -1447,11 +1447,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     bool capsAll = false,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: AppColors.billingBorderDefault),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: AppSurfaces.field(radius: 8),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,

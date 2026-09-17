@@ -657,12 +657,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         Text(BillingStrings.internalNote, style: _formLabelStyle(responsive)),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          decoration: BoxDecoration(
-            color: AppColors.billingCardColor,
-            border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
           ),
           child: TextField(
             controller: _internalNoteController,
