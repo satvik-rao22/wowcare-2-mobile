@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 
 /// Visual mapping for event types and RSVP statuses, taken from the Figma
@@ -10,18 +11,24 @@ class EventUiUtils {
 
   static Color typeColor(EventType type) {
     switch (type) {
+      // The brand palette has no blue/indigo swatch, so classroom (was
+      // indigo) takes the nearest remaining categorical role.
       case EventType.classroom:
-        return const Color(0xFF5978F7); // indigo
+        return AppPalette.dataPurple;
+      // Domain-coded per the design language's rule 4 (teal = anything
+      // about a child) rather than the old decorative purple.
       case EventType.student:
-        return const Color(0xFF9C6BF7); // purple
+        return AppPalette.domainStudent;
+      // Domain-coded (sun = anything about a member of staff) rather than
+      // the old decorative blue.
       case EventType.staff:
-        return const Color(0xFF4A90D9); // blue
+        return AppPalette.domainStaff;
       case EventType.school:
-        return const Color(0xFF4CAF50); // green
+        return AppPalette.dataGreen;
       case EventType.custom:
-        return const Color(0xFF26A69A); // teal
+        return AppPalette.dataTeal;
       case EventType.individual:
-        return const Color(0xFFF57C00); // orange
+        return AppPalette.dataOrange;
     }
   }
 
@@ -48,11 +55,11 @@ class EventUiUtils {
   static Color rsvpColor(EventRsvpStatus status) {
     switch (status) {
       case EventRsvpStatus.attending:
-        return const Color(0xFF388E3C);
+        return AppPalette.statusSuccess;
       case EventRsvpStatus.maybe:
-        return const Color(0xFFF9A825);
+        return AppPalette.statusWarning;
       case EventRsvpStatus.notAttending:
-        return const Color(0xFFD32F2F);
+        return AppPalette.statusError;
     }
   }
 

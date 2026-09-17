@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
@@ -57,7 +58,7 @@ class EventDetailScreen extends StatelessWidget {
             return const Center(
               child: Text(
                 'Event not found',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: AppPalette.textSecondary),
               ),
             );
           }
@@ -98,7 +99,7 @@ class EventDetailScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 13,
                         height: 1.4,
-                        color: Colors.black87,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                   ),
@@ -330,14 +331,18 @@ class EventDetailScreen extends StatelessWidget {
                 ),
                 Text(
                   countLabel ?? '${attendees.length}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
+                    color: AppPalette.textSecondary,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 18, color: Colors.grey[500]),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppPalette.textMuted,
+                ),
               ],
             ),
           ),
@@ -441,7 +446,7 @@ class EventDetailScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.black54,
+                color: AppPalette.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -459,19 +464,19 @@ class EventDetailScreen extends StatelessWidget {
     return Text(
       '$created on ${DateFormat('MMM d, yyyy').format(event.createdAt)}',
       textAlign: TextAlign.center,
-      style: const TextStyle(fontSize: 11, color: Colors.black38),
+      style: const TextStyle(fontSize: 11, color: AppPalette.textMuted),
     );
   }
 
   Widget _infoRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
+        Icon(icon, size: 16, color: AppPalette.textMuted),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
+            style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           ),
         ),
       ],
@@ -486,14 +491,14 @@ class EventDetailScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.primaryColor.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),

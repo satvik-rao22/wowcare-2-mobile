@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Shared bottom-sheet picker for a task's status / priority, used by both the
 /// list/board cards and the detail screen so inline editing behaves
@@ -15,7 +16,7 @@ Future<T?> showTaskOptionPicker<T>({
 }) {
   return showModalBottomSheet<T>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceCard,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -28,7 +29,7 @@ Future<T?> showTaskOptionPicker<T>({
             width: 38,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: AppPalette.borderStrong,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

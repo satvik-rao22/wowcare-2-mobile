@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_asset_builder.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_viewer.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
@@ -126,9 +127,9 @@ class _Shell extends StatelessWidget {
     final decorated = Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor ?? Colors.grey.shade300),
+        border: Border.all(color: borderColor ?? AppPalette.border),
       ),
       child: child,
     );
@@ -240,7 +241,7 @@ class _Row extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 13.5,
-                      color: Colors.black87,
+                      color: AppPalette.textPrimary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -248,7 +249,10 @@ class _Row extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       asset.displaySubtitle,
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppPalette.textSecondary,
+                      ),
                     ),
                   ],
                 ],
@@ -258,16 +262,20 @@ class _Row extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onRemove,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(
                     Icons.close_rounded,
                     size: 18,
-                    color: Colors.grey[600],
+                    color: AppPalette.iconMuted,
                   ),
                 ),
               ),
-            Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey[500]),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: AppPalette.iconMuted,
+            ),
           ],
         ),
       ),
@@ -297,7 +305,7 @@ class _Caption extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Colors.black87,
+                    color: AppPalette.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -305,13 +313,20 @@ class _Caption extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     asset.displaySubtitle,
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppPalette.textSecondary,
+                    ),
                   ),
                 ],
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey[500]),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: AppPalette.iconMuted,
+          ),
         ],
       ),
     );
@@ -356,7 +371,10 @@ class _FailedRow extends StatelessWidget {
                     asset.fileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppPalette.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -389,18 +407,18 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
+        color: AppPalette.mediaScrim,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 13, color: Colors.white),
+          Icon(icon, size: 13, color: AppPalette.textOnDark),
           const SizedBox(width: 5),
           Text(
             label,
             style: const TextStyle(
               fontSize: 11,
-              color: Colors.white,
+              color: AppPalette.textOnDark,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -426,11 +444,15 @@ class _RemoveButton extends StatelessWidget {
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.58),
+            color: AppPalette.mediaScrim,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.4),
+            border: Border.all(color: AppPalette.textOnDark, width: 1.4),
           ),
-          child: const Icon(Icons.close_rounded, size: 15, color: Colors.white),
+          child: const Icon(
+            Icons.close_rounded,
+            size: 15,
+            color: AppPalette.textOnDark,
+          ),
         ),
       ),
     );

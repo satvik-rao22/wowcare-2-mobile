@@ -1313,23 +1313,4 @@ class AppColors {
 
   /// Messaging tab bar selected-label colour (near-black plum).
   static const Color messagingTabLabel = AppPalette.textPrimary;
-
-  // ── Events/Tasks port compatibility shim ───────────────────────────────────
-  // Rule 3 is "no gradients" (see app_elevation.dart) — every other surface on
-  // this branch already fills flat. These two exist ONLY so the ported
-  // Events/Tasks screens compile with their original (pre-port) look pending
-  // the Phase 7 re-theming pass, which replaces every call site with the flat
-  // `themeColor`/`pageBackgroundColor` tokens below and deletes both methods.
-  // Do not add new call sites.
-  static LinearGradient buildPrimaryGradient({
-    List<Color> colors = const [LegacyHues.indigoLight, LegacyHues.violet],
-    Alignment begin = Alignment.centerLeft,
-    Alignment end = Alignment.centerRight,
-  }) => LinearGradient(colors: colors, begin: begin, end: end);
-
-  static LinearGradient buildScaffoldGradient() => const LinearGradient(
-    colors: [Colors.white, LegacyHues.blush],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
 }

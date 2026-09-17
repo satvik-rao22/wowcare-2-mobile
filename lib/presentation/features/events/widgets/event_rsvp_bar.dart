@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 
@@ -49,7 +50,7 @@ class EventRsvpBar extends StatelessWidget {
                 Icon(
                   EventUiUtils.rsvpIcon(status),
                   size: dense ? 14 : 15,
-                  color: isSelected ? Colors.white : color,
+                  color: isSelected ? AppPalette.textOnDark : color,
                 ),
                 if (!dense) ...[
                   const SizedBox(width: 4),
@@ -61,7 +62,7 @@ class EventRsvpBar extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.white : color,
+                        color: isSelected ? AppPalette.textOnDark : color,
                       ),
                     ),
                   ),
@@ -102,7 +103,7 @@ class EventRsvpCounts extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Colors.black54,
+              color: AppPalette.textSecondary,
             ),
           ),
           if (status != EventRsvpStatus.values.last)

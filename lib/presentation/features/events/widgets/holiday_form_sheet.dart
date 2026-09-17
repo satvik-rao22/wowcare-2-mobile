@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
@@ -16,10 +18,7 @@ Future<void> showHolidayFormSheet(BuildContext context, {Holiday? holiday}) {
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (_) => Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.buildScaffoldGradient(),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      decoration: AppSurfaces.sheet(topRadius: 16),
       child: BlocProvider.value(
         value: cubit,
         child: _HolidayFormSheet(holiday: holiday),
@@ -158,7 +157,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppPalette.borderStrong,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -230,17 +229,15 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
             BlocBuilder<EventsCubit, EventsState>(
               builder: (context, state) {
                 final canSave = _isFormValid && !state.isSaving;
+                final variant = canSave
+                    ? KeyVariant.primary
+                    : KeyVariant.disabled;
+                final ink = AppSurfaces.keyInk(variant);
                 return SizedBox(
                   width: double.infinity,
                   height: 44,
                   child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: canSave
-                          ? AppColors.buildPrimaryGradient()
-                          : null,
-                      color: canSave ? null : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    decoration: AppSurfaces.key(variant, radius: 10),
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
@@ -251,18 +248,18 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                       ),
                       onPressed: canSave ? _save : null,
                       child: state.isSaving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: ink,
                               ),
                             )
                           : Text(
                               _isEditing ? 'Save Changes' : 'Add Holiday',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: ink,
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -319,6 +316,9 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   Widget _dateTypeSelector() {
     Widget option(String label, bool rangeValue) {
       final selected = _isRange == rangeValue;
+      final ink = selected
+          ? AppSurfaces.keyInk(KeyVariant.primary)
+          : AppPalette.textSecondary;
       return Expanded(
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -328,14 +328,9 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              gradient: selected ? AppColors.buildPrimaryGradient() : null,
-              color: selected ? null : Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: selected ? Colors.transparent : Colors.grey.shade300,
-              ),
-            ),
+            decoration: selected
+                ? AppSurfaces.key(KeyVariant.primary, radius: 8)
+                : AppSurfaces.card(radius: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -344,7 +339,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_unchecked,
                   size: 15,
-                  color: selected ? Colors.white : Colors.grey,
+                  color: ink,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -352,7 +347,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : Colors.grey[700],
+                    color: ink,
                   ),
                 ),
               ],
@@ -399,23 +394,14 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   InputDecoration _decoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+      hintStyle: TextStyle(fontSize: 13, color: AppPalette.textMuted),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppSurfaces.fieldFill,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.themeColor),
-      ),
+      border: AppSurfaces.fieldBorder(radius: 10),
+      enabledBorder: AppSurfaces.fieldBorder(radius: 10),
+      focusedBorder: AppSurfaces.fieldBorder(radius: 10),
     );
   }
 
@@ -435,20 +421,20 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
           controller: controller,
           keyboardType: TextInputType.number,
           inputFormatters: [_DateTextInputFormatter()],
-          style: const TextStyle(fontSize: 12.5, color: Colors.black87),
+          style: const TextStyle(fontSize: 12.5, color: AppPalette.textPrimary),
           decoration: _decoration('DD-MM-YYYY').copyWith(
             errorText: errorText,
             errorStyle: const TextStyle(
               fontSize: 10.5,
               color: AppColors.errorColor,
             ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.errorColor),
+            errorBorder: AppSurfaces.fieldBorder(
+              radius: 10,
+              colour: AppPalette.statusError,
             ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.errorColor),
+            focusedErrorBorder: AppSurfaces.fieldBorder(
+              radius: 10,
+              colour: AppPalette.statusError,
             ),
             suffixIconConstraints: const BoxConstraints(
               minWidth: 36,

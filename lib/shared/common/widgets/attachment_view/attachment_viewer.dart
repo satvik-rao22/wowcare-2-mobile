@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_asset_builder.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
@@ -99,10 +100,10 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   Widget build(BuildContext context) {
     final total = widget.assetCodes.length;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppPalette.mediaScrim,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: AppPalette.mediaScrim,
+        foregroundColor: AppPalette.textOnDark,
         elevation: 0,
         title: Text(
           total == 1 ? 'Attachment' : '${_index + 1} of $total',
@@ -212,13 +213,16 @@ class _Caption extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: const TextStyle(color: AppPalette.textOnDark, fontSize: 13),
           ),
           if (asset.displaySubtitle.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(
               asset.displaySubtitle,
-              style: TextStyle(color: Colors.grey[400], fontSize: 11.5),
+              style: TextStyle(
+                color: AppPalette.textOnDark.withValues(alpha: 0.7),
+                fontSize: 11.5,
+              ),
             ),
           ],
         ],
@@ -257,7 +261,7 @@ class _NonPreviewable extends StatelessWidget {
               asset.displayName,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.textOnDark,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -266,7 +270,10 @@ class _NonPreviewable extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 asset.displaySubtitle,
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                style: TextStyle(
+                  color: AppPalette.textOnDark.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
               ),
             ],
             const SizedBox(height: 22),
@@ -297,16 +304,16 @@ class _Failure extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               size: 44,
-              color: Colors.white70,
+              color: AppPalette.textOnDark.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 14),
             Text(
               asset?.failureLabel ?? "Couldn't load this file",
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(color: AppPalette.textOnDark, fontSize: 14),
             ),
             if (retryable) ...[
               const SizedBox(height: 18),
@@ -315,8 +322,10 @@ class _Failure extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Try again'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
+                  foregroundColor: AppPalette.textOnDark,
+                  side: BorderSide(
+                    color: AppPalette.textOnDark.withValues(alpha: 0.38),
+                  ),
                 ),
               ),
             ],

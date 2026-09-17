@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/debouncer.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
@@ -19,7 +21,7 @@ Future<void> showTaskFilterSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceSunken,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -287,7 +289,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
           width: 38,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
+            color: AppPalette.border,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -301,7 +303,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
         style: const TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: Colors.black54,
+          color: AppPalette.textSecondary,
         ),
       ),
     );
@@ -318,15 +320,15 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.08),
+          color: AppPalette.textMuted.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade400,
+            color: AppPalette.textMuted,
           ),
         ),
       );
@@ -344,7 +346,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : color,
+              color: selected ? AppPalette.onBrand : color,
             ),
           ),
         ),
@@ -362,7 +364,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -385,12 +387,13 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color:
-                        selectedCount == 0 ? Colors.grey[600] : Colors.black87,
+                    color: selectedCount == 0
+                        ? AppPalette.textSecondary
+                        : AppPalette.textPrimary,
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey[500]),
+              const Icon(Icons.chevron_right, color: AppPalette.textMuted),
             ],
           ),
         ),
@@ -407,7 +410,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
     required VoidCallback onCleared,
   }) {
     return Material(
-      color: Colors.grey[100],
+      color: AppPalette.surfaceMuted,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -427,8 +430,8 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.calendar_today_outlined,
-                  size: 15, color: Colors.grey[600]),
+              const Icon(Icons.calendar_today_outlined,
+                  size: 15, color: AppPalette.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -439,15 +442,17 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: value == null ? Colors.grey[600] : Colors.black87,
+                    color: value == null
+                        ? AppPalette.textMuted
+                        : AppPalette.textPrimary,
                   ),
                 ),
               ),
               if (value != null)
                 GestureDetector(
                   onTap: onCleared,
-                  child:
-                      Icon(Icons.close, size: 15, color: Colors.grey[600]),
+                  child: const Icon(Icons.close,
+                      size: 15, color: AppPalette.textSecondary),
                 ),
             ],
           ),
@@ -464,10 +469,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
       width: double.infinity,
       height: 44,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(10),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
@@ -479,8 +481,8 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
           onPressed: onTap,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppSurfaces.keyInk(KeyVariant.primary),
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
@@ -548,7 +550,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppPalette.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -574,7 +576,8 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               if (widget.selected.isNotEmpty)
                 Text(
                   '${widget.selected.length} selected',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppPalette.textSecondary),
                 ),
               const SizedBox(width: 8),
             ],
@@ -589,26 +592,24 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               ),
               decoration: InputDecoration(
                 hintText: 'Search ${widget.title.toLowerCase()}…',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                hintStyle: const TextStyle(
+                    fontSize: 13, color: AppPalette.textMuted),
                 prefixIcon: const Icon(Icons.search, size: 19),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
+                fillColor: AppSurfaces.fieldFill,
+                border: AppSurfaces.fieldBorder(radius: 10),
               ),
             ),
           ),
           const SizedBox(height: 6),
           Flexible(
             child: filtered.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(24),
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
                     child: Text(
                       'No matches',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: AppPalette.textSecondary),
                     ),
                   )
                 : ListView.builder(
@@ -638,10 +639,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               width: double.infinity,
               height: 44,
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -651,10 +649,10 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
                     ),
                   ),
                   onPressed: widget.onBack,
-                  child: const Text(
+                  child: Text(
                     'Done',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppSurfaces.keyInk(KeyVariant.primary),
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),

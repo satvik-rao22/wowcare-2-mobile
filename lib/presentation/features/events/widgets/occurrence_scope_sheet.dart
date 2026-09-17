@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Which part of a recurring series an edit/delete applies to.
 enum OccurrenceScope { thisOnly, thisAndFuture, wholeSeries }
@@ -15,7 +16,7 @@ Future<OccurrenceScope?> showOccurrenceScopeSheet(
 }) {
   return showModalBottomSheet<OccurrenceScope>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceSunken,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -34,7 +35,7 @@ Future<OccurrenceScope?> showOccurrenceScopeSheet(
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppPalette.textPrimary,
                   ),
                 ),
               ],

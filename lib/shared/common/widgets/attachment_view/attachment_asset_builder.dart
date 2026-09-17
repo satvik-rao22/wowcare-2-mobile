@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset_service.dart';
 
@@ -116,18 +117,18 @@ class _AttachmentAssetBuilderState extends State<AttachmentAssetBuilder> {
 /// Icon + tint for a file type, so a document reads as its kind at a glance.
 ({IconData icon, Color color}) attachmentGlyph(AttachmentAsset asset) {
   if (asset.isVideo) {
-    return (icon: Icons.videocam_rounded, color: const Color(0xFF7B5AC8));
+    return (icon: Icons.videocam_rounded, color: AppPalette.dataPurple);
   }
   if (asset.isPdf) {
-    return (icon: Icons.picture_as_pdf_rounded, color: const Color(0xFFD3453F));
+    return (icon: Icons.picture_as_pdf_rounded, color: AppPalette.statusError);
   }
   switch (asset.extension) {
     case 'doc':
     case 'docx':
-      return (icon: Icons.article_rounded, color: const Color(0xFF2B6CB0));
+      return (icon: Icons.article_rounded, color: AppPalette.statusInfo);
     case 'xls':
     case 'xlsx':
-      return (icon: Icons.table_chart_rounded, color: const Color(0xFF2F855A));
+      return (icon: Icons.table_chart_rounded, color: AppPalette.statusSuccess);
     default:
       if (asset.isImage) {
         return (icon: Icons.image_outlined, color: AppColors.themeColor);
@@ -231,7 +232,7 @@ class AttachmentLoadingTile extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: Colors.grey.shade100,
+      color: AppPalette.surfaceMuted,
       alignment: Alignment.center,
       child: const SizedBox(
         width: 18,
@@ -299,9 +300,9 @@ class AttachmentErrorTile extends StatelessWidget {
                 ),
                 if (asset.isRetryable) ...[
                   const SizedBox(height: 4),
-                  Text(
+                  const Text(
                     'Tap to retry',
-                    style: TextStyle(fontSize: 10.5, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
                   ),
                 ],
               ],

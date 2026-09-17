@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 
@@ -35,9 +36,9 @@ class TaskPriorityMeter extends StatelessWidget {
           children: [
             Icon(TaskUiUtils.priorityIcon(priority), size: 16, color: color),
             const SizedBox(width: 8),
-            Text(
+            const Text(
               'Priority',
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: AppPalette.textSecondary),
             ),
             const Spacer(),
             _bars(color),

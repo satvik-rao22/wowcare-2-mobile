@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 
 /// List card for the Holidays tab. Federal holidays expose the school's
@@ -23,24 +24,24 @@ class HolidayCard extends StatelessWidget {
   final VoidCallback? onDelete;
 
   /// Reserved strictly for the destructive delete action.
-  static const Color _deleteRed = Color(0xFFD32F2F);
+  static const Color _deleteRed = AppPalette.statusError;
 
   @override
   Widget build(BuildContext context) {
     final isFederal = holiday.type == HolidayType.federal;
-    // Plain white card with a neutral outline; observance state is conveyed by
+    // Plain card with a neutral outline; observance state is conveyed by
     // the status chip rather than tinting the whole card.
     final badgeColor =
-        holiday.isObserved ? AppColors.themeColor : Colors.grey.shade500;
+        holiday.isObserved ? AppColors.themeColor : AppPalette.textMuted;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppPalette.borderHairline),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -65,14 +66,14 @@ class HolidayCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       _dateRangeLabel(),
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppPalette.textSecondary),
                     ),
                     if (holiday.description.trim().isNotEmpty) ...[
                       const SizedBox(height: 3),
@@ -80,8 +81,8 @@ class HolidayCard extends StatelessWidget {
                         holiday.description,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 11.5, color: Colors.grey[600]),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: AppPalette.textMuted),
                       ),
                     ],
                   ],
@@ -186,7 +187,7 @@ class HolidayCard extends StatelessWidget {
   }
 
   Widget _typeChip(bool isFederal) {
-    final color = isFederal ? const Color(0xFF4A90D9) : AppColors.primaryColor;
+    final color = isFederal ? AppPalette.dataTeal : AppColors.primaryColor;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -207,9 +208,9 @@ class HolidayCard extends StatelessWidget {
 
   Widget _statusChip(HolidayStatus status) {
     final color = switch (status) {
-      HolidayStatus.pending => const Color(0xFFF9A825),
-      HolidayStatus.considered => const Color(0xFF388E3C),
-      HolidayStatus.rejected => Colors.grey,
+      HolidayStatus.pending => AppPalette.statusWarning,
+      HolidayStatus.considered => AppPalette.statusSuccess,
+      HolidayStatus.rejected => AppPalette.textMuted,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -258,8 +259,8 @@ class HolidayCard extends StatelessWidget {
       );
     }
 
-    const approveColor = Color(0xFF388E3C);
-    const rejectColor = Color(0xFFD32F2F);
+    const approveColor = AppPalette.statusSuccess;
+    const rejectColor = AppPalette.statusError;
 
     switch (holiday.status) {
       case HolidayStatus.pending:

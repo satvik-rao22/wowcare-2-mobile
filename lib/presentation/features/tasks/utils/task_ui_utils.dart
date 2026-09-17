@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
@@ -10,17 +11,17 @@ class TaskUiUtils {
   TaskUiUtils._();
 
   /// Purple accent shared with the calendar's task chips (PRD FR-SC-11).
-  static const Color accent = Color(0xFF9C6BF7);
-  static const Color overdueColor = Color(0xFFD32F2F);
+  static const Color accent = AppPalette.dataPurple;
+  static const Color overdueColor = AppPalette.statusError;
 
   static Color statusColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.toDo:
-        return const Color(0xFFF9A825); // amber
+        return AppPalette.statusWarning; // amber
       case TaskStatus.inProgress:
-        return const Color(0xFF4A90D9); // blue
+        return AppPalette.statusInfo; // blue
       case TaskStatus.completed:
-        return const Color(0xFF4CAF50); // green
+        return AppPalette.statusSuccess; // green
     }
   }
 
@@ -41,11 +42,11 @@ class TaskUiUtils {
   static Color priorityColor(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.low:
-        return const Color(0xFF388E3C); // green
+        return AppPalette.statusSuccess; // green
       case TaskPriority.medium:
-        return const Color(0xFFF9A825); // amber
+        return AppPalette.statusWarning; // amber
       case TaskPriority.high:
-        return const Color(0xFFEF6C00); // orange (distinct from overdue red)
+        return AppPalette.dataOrange; // orange (distinct from overdue red)
     }
   }
 

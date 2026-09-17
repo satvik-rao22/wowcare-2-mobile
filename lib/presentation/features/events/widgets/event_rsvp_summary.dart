@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 
@@ -32,7 +34,7 @@ class EventRsvpSummary extends StatelessWidget {
           child: Text(
             '${event.rsvps.length} '
             'response${event.rsvps.length == 1 ? '' : 's'} in total',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11.5, color: AppPalette.textSecondary),
           ),
         ),
       ],
@@ -88,7 +90,7 @@ class EventRsvpSummary extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surfaceSunken,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -147,7 +149,7 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppPalette.borderStrong,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -179,15 +181,12 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                   decoration: InputDecoration(
                     hintText: 'Search participants…',
                     hintStyle:
-                        TextStyle(fontSize: 13, color: Colors.grey[500]),
+                        TextStyle(fontSize: 13, color: AppPalette.textMuted),
                     prefixIcon: const Icon(Icons.search, size: 19),
                     isDense: true,
                     filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                    fillColor: AppSurfaces.fieldFill,
+                    border: AppSurfaces.fieldBorder(radius: 10),
                   ),
                 ),
               ),
@@ -198,7 +197,7 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                       child: Text(
                         'No participants match your search',
                         style: TextStyle(
-                            fontSize: 13, color: Colors.grey[600]),
+                            fontSize: 13, color: AppPalette.textSecondary),
                       ),
                     )
                   : ListView(
@@ -226,7 +225,7 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: Colors.black54,
+          color: AppPalette.textSecondary,
         ),
       ),
     );
@@ -260,19 +259,19 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 13, color: Colors.black87),
+                      fontSize: 13, color: AppPalette.textPrimary),
                 ),
                 Text(
                   _typeLabel(rsvp.userType),
                   style: const TextStyle(
-                      fontSize: 11, color: Colors.black45),
+                      fontSize: 11, color: AppPalette.textMuted),
                 ),
               ],
             ),
           ),
           Text(
             DateFormat('MMM d').format(rsvp.respondedAt),
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11, color: AppPalette.textMuted),
           ),
         ],
       ),

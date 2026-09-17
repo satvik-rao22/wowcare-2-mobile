@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
@@ -143,7 +144,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             return const Center(
               child: Text(
                 'Task not found',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: AppPalette.textSecondary),
               ),
             );
           }
@@ -194,7 +195,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         height: 1.4,
-                        color: Colors.black87,
+                        color: AppPalette.textPrimary,
                       ),
                     ),
                   ),
@@ -233,13 +234,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       title: 'Attachments',
       child: Row(
         children: [
-          Icon(Icons.info_outline, size: 18, color: Colors.grey[600]),
+          const Icon(Icons.info_outline, size: 18, color: AppPalette.iconMuted),
           const SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Text(
               "This task's attachments couldn't be loaded. Pull to refresh or "
               'try again in a moment.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: AppPalette.textSecondary),
             ),
           ),
         ],
@@ -256,12 +257,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_outline, size: 44, color: Colors.grey[400]),
+            const Icon(Icons.lock_outline, size: 44, color: AppPalette.iconMuted),
             const SizedBox(height: 10),
-            Text(
+            const Text(
               'You do not have access to this task.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 13.5, color: AppPalette.textSecondary),
             ),
           ],
         ),
@@ -357,7 +358,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: AppPalette.textPrimary,
               ),
             ),
           ),
@@ -441,7 +442,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: Colors.grey[600]),
+        Icon(icon, size: 16, color: AppPalette.iconMuted),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -449,7 +450,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: AppPalette.textSecondary,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -457,7 +461,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: valueColor ?? Colors.black87,
+                  color: valueColor ?? AppPalette.textPrimary,
                 ),
               ),
             ],
@@ -600,7 +604,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.primaryColor.withValues(alpha: 0.08),

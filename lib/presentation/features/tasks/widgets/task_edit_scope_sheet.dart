@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
@@ -71,7 +73,7 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppPalette.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -85,7 +87,7 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.4,
-                  color: Colors.black87,
+                  color: AppPalette.textPrimary,
                 ),
               ),
             ),
@@ -119,7 +121,7 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
           ),
           IconButton(
             tooltip: 'Close',
-            icon: const Icon(Icons.close, size: 20, color: Colors.black54),
+            icon: const Icon(Icons.close, size: 20, color: AppPalette.iconMuted),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -141,10 +143,10 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.themeColor.withValues(alpha: 0.06)
-                : Colors.grey.shade100,
+                : AppPalette.surfaceMuted,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? AppColors.themeColor : Colors.grey.shade300,
+              color: selected ? AppColors.themeColor : AppPalette.border,
             ),
           ),
           child: Row(
@@ -156,10 +158,10 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                     : Icons.radio_button_unchecked,
                 size: 20,
                 color: !enabled
-                    ? Colors.grey[400]
+                    ? AppPalette.textMuted
                     : selected
                         ? AppColors.themeColor
-                        : Colors.grey[500],
+                        : AppPalette.textMuted,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -171,7 +173,9 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
-                        color: enabled ? Colors.black87 : Colors.grey[500],
+                        color: enabled
+                            ? AppPalette.textPrimary
+                            : AppPalette.textMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -179,7 +183,9 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                       scope.description,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: enabled ? Colors.grey[600] : Colors.grey[400],
+                        color: enabled
+                            ? AppPalette.textSecondary
+                            : AppPalette.textMuted,
                       ),
                     ),
                     if (reason != null && reason.trim().isNotEmpty) ...[
@@ -217,10 +223,7 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
           SizedBox(
             height: 42,
             child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context, _selected),
                 style: ElevatedButton.styleFrom(
@@ -230,10 +233,10 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Proceed',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppSurfaces.keyInk(KeyVariant.primary),
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),
@@ -317,7 +320,7 @@ Future<TaskEditScope?> showTaskEditScopeSheet({
 }) {
   return showModalBottomSheet<TaskEditScope>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceSunken,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

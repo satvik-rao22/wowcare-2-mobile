@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
@@ -215,15 +217,14 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8EAF6),
+                    color: AppPalette.statusInfoSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
                     'Editing this event only — name, description, date and '
                     'time apply to this date. Attendees and repeat settings '
                     'belong to the whole series.',
-                    style:
-                        TextStyle(fontSize: 11.5, color: Color(0xFF303F9F)),
+                    style: TextStyle(fontSize: 11.5, color: AppPalette.statusInfo),
                   ),
                 ),
               ],
@@ -232,7 +233,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8EAF6),
+                    color: AppPalette.statusInfoSoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -241,7 +242,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                     'onward — earlier events keep their current details.',
                     style: const TextStyle(
                       fontSize: 11.5,
-                      color: Color(0xFF303F9F),
+                      color: AppPalette.statusInfo,
                     ),
                   ),
                 ),
@@ -356,21 +357,21 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: AppColors.warningColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFFE082)),
+        border: Border.all(color: AppColors.warningColor.withValues(alpha: 0.35)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 15, color: Colors.orange[800]),
+          const Icon(Icons.info_outline, size: 15, color: AppColors.warningColor),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'The event type can\'t be changed — delete this event and '
               'create a new one to switch types. Everything else is '
               'editable.',
-              style: TextStyle(fontSize: 11.5, color: Colors.orange[900]),
+              style: TextStyle(fontSize: 11.5, color: AppColors.warningColor),
             ),
           ),
         ],
@@ -396,14 +397,14 @@ class _EventFormScreenState extends State<EventFormScreen> {
               EventUiUtils.typeIcon(type),
               size: 15,
               color: _type == type
-                  ? Colors.white
+                  ? AppPalette.textOnDark
                   : EventUiUtils.typeColor(type),
             ),
             labelStyle: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: _type == type
-                  ? Colors.white
+                  ? AppPalette.textOnDark
                   : EventUiUtils.typeColor(type),
             ),
             selected: _type == type,
@@ -444,7 +445,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           Text(
             'Picking a classroom pre-selects its students and staff — '
             'fine-tune them below.',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11.5, color: AppPalette.textSecondary),
           ),
           const SizedBox(height: 8),
           _studentPicker(),
@@ -485,13 +486,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppPalette.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 const Text(
                   'All classrooms, staff and students will be invited.',
-                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                  style: TextStyle(fontSize: 12, color: AppPalette.textSecondary),
                 ),
               ],
             ),
@@ -628,7 +629,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ? 'None selected'
         : selected.map((a) => a.name).join(', ');
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -668,12 +669,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppPalette.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey[500]),
+              const Icon(Icons.chevron_right, color: AppPalette.iconMuted),
             ],
           ),
         ),
@@ -696,7 +700,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return showModalBottomSheet<List<EventAttendee>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -914,7 +918,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         child: DropdownButton<int>(
           value: _recurInterval,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           items: [
             for (var n = 1; n <= 99; n++)
               DropdownMenuItem(value: n, child: Text('$n')),
@@ -935,7 +939,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
         child: DropdownButton<RecurrenceFrequency>(
           value: _recurFrequency,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           items: [
             for (final frequency in RecurrenceFrequency.values)
               DropdownMenuItem(
@@ -989,13 +993,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: _recurDays.contains(day)
-                  ? Colors.white
+                  ? AppPalette.textOnDark
                   : AppColors.primaryColor,
             ),
             selected: _recurDays.contains(day),
             selectedColor: AppColors.primaryColor,
-            backgroundColor: Colors.white,
-            checkmarkColor: Colors.white,
+            backgroundColor: AppPalette.surfaceCard,
+            checkmarkColor: AppPalette.textOnDark,
             showCheckmark: false,
             side: BorderSide(
               color: AppColors.primaryColor.withValues(alpha: 0.3),
@@ -1039,7 +1043,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
             ),
           ),
         ],
@@ -1059,10 +1063,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: AppPalette.statusSuccessSoft,
         borderRadius: BorderRadius.circular(8),
         border: const Border(
-          left: BorderSide(color: Color(0xFF16A34A), width: 3),
+          left: BorderSide(color: AppPalette.statusSuccess, width: 3),
         ),
       ),
       child: Row(
@@ -1071,7 +1075,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           const Icon(
             Icons.info_outline,
             size: 15,
-            color: Color(0xFF166534),
+            color: AppPalette.statusSuccessStrong,
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -1080,7 +1084,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF166534),
+                color: AppPalette.statusSuccessStrong,
               ),
             ),
           ),
@@ -1125,19 +1129,17 @@ class _EventFormScreenState extends State<EventFormScreen> {
       builder: (context, state) {
         final busy = state.isSaving || _isUploading;
         final canSave = _isFormValid && !busy;
+        final keyVariant = canSave ? KeyVariant.primary : KeyVariant.disabled;
+        final keyInk = AppSurfaces.keyInk(keyVariant);
         return SizedBox(
           height: 46,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: canSave ? AppColors.buildPrimaryGradient() : null,
-              color: canSave ? null : Colors.grey[300],
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: AppSurfaces.key(keyVariant, radius: 10),
             child: ElevatedButton(
               onPressed: canSave ? _save : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
+                backgroundColor: AppColors.transparentColor,
+                shadowColor: AppColors.transparentColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1148,20 +1150,20 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: keyInk,
                           ),
                         ),
                         if (_isUploading) ...[
                           const SizedBox(width: 10),
                           Text(
                             _uploadState!.summary,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: keyInk,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1171,8 +1173,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
                     )
                   : Text(
                       _isEditing ? 'Save Changes' : 'Create Event',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: keyInk,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1443,7 +1445,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               child: Text(
                 'Saving replaces any files already attached to this event. '
                 'Existing attachments cannot be shown yet.',
-                style: TextStyle(fontSize: 11.5, color: Colors.grey[800]),
+                style: TextStyle(fontSize: 11.5, color: AppPalette.textPrimary),
               ),
             ),
           ],
@@ -1479,33 +1481,19 @@ class _EventFormScreenState extends State<EventFormScreen> {
   }
 
   InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
+    return AppSurfaces.fieldDecoration(radius: 10).copyWith(
       hintText: hint,
-      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
-      filled: true,
-      fillColor: Colors.white,
+      hintStyle: const TextStyle(fontSize: 13, color: AppPalette.textMuted),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.themeColor),
-      ),
     );
   }
 
   BoxDecoration _tileDecoration() {
     return BoxDecoration(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.grey.shade300),
+      border: Border.all(color: AppPalette.border),
     );
   }
 
@@ -1515,7 +1503,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -1524,7 +1512,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: AppPalette.border),
           ),
           child: Row(
             children: [
@@ -1535,7 +1523,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
                 ),
               ),
             ],
@@ -1561,7 +1549,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               title,
               style: TextStyle(
                 fontSize: 13,
-                color: enabled ? Colors.black87 : Colors.grey[500],
+                color: enabled ? AppPalette.textPrimary : AppPalette.textMuted,
               ),
             ),
           ),
@@ -1643,7 +1631,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: MaterialHues.grey300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1687,17 +1675,14 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   onChanged: (value) => setState(() => _query = value),
-                  decoration: InputDecoration(
+                  decoration: AppSurfaces.fieldDecoration(radius: 10).copyWith(
                     hintText: 'Search…',
-                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppPalette.textMuted,
+                    ),
                     prefixIcon: const Icon(Icons.search, size: 19),
                     isDense: true,
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
                   ),
                 ),
               ),
@@ -1709,7 +1694,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                     ? Center(
                         child: Text(
                           'No matches',
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: AppPalette.textSecondary),
                         ),
                       )
                     : ListView.builder(
@@ -1747,14 +1732,11 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                   width: double.infinity,
                   height: 44,
                   child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
+                        backgroundColor: AppColors.transparentColor,
+                        shadowColor: AppColors.transparentColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -1771,8 +1753,8 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                       },
                       child: Text(
                         'Done (${_selection.length})',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppSurfaces.keyInk(KeyVariant.primary),
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
                         ),

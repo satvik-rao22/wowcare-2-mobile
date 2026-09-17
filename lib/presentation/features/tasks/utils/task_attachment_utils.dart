@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
@@ -53,25 +54,25 @@ class TaskAttachmentUtils {
     final type = contentType.toLowerCase();
 
     if (ext == 'pdf' || type.contains('pdf')) {
-      return (icon: Icons.picture_as_pdf_rounded, color: const Color(0xFFD64545));
+      return (icon: Icons.picture_as_pdf_rounded, color: AppPalette.dataPink);
     }
     if (ext == 'xls' ||
         ext == 'xlsx' ||
         ext == 'csv' ||
         type.contains('excel') ||
         type.contains('spreadsheet')) {
-      return (icon: Icons.table_chart_rounded, color: const Color(0xFF1D7044));
+      return (icon: Icons.table_chart_rounded, color: AppPalette.dataGreen);
     }
     if (ext == 'doc' ||
         ext == 'docx' ||
         type.contains('word') ||
         type.contains('wordprocessing')) {
-      return (icon: Icons.article_rounded, color: const Color(0xFF2B5797));
+      return (icon: Icons.article_rounded, color: AppPalette.dataTeal);
     }
     if (ext == 'ppt' || ext == 'pptx' || type.contains('presentation')) {
-      return (icon: Icons.slideshow_rounded, color: const Color(0xFFC7501B));
+      return (icon: Icons.slideshow_rounded, color: AppPalette.dataOrange);
     }
-    return (icon: Icons.insert_drive_file_rounded, color: const Color(0xFF6B7280));
+    return (icon: Icons.insert_drive_file_rounded, color: AppPalette.textMuted);
   }
 
   /// Whether an upload round that was responsible for [attempted] (file paths)

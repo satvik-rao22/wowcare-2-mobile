@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Searchable, multi-select assignee picker used by the task form. Add mode
 /// creates one task per assignee (PRD FR-TK-03). Edit mode pre-checks the
@@ -77,7 +79,7 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppPalette.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -101,15 +103,13 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
                     hintText: 'Search staff…',
-                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    hintStyle: const TextStyle(
+                        fontSize: 13, color: AppPalette.textMuted),
                     prefixIcon: const Icon(Icons.search, size: 19),
                     isDense: true,
                     filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
+                    fillColor: AppSurfaces.fieldFill,
+                    border: AppSurfaces.fieldBorder(radius: 10),
                   ),
                 ),
               ),
@@ -118,10 +118,10 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                 child: widget.isLoading && widget.options.isEmpty
                     ? const Center(child: CircularProgressIndicator())
                     : filtered.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Text(
                               'No active staff found',
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: AppPalette.textSecondary),
                             ),
                           )
                         : ListView.builder(
@@ -160,11 +160,11 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                                 // Existing assignees can be added to but never
                                 // removed here, so their tile is locked on.
                                 subtitle: locked
-                                    ? Text(
+                                    ? const Text(
                                         'Already assigned',
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey[600],
+                                          color: AppPalette.textSecondary,
                                         ),
                                       )
                                     : null,
@@ -189,10 +189,7 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                   width: double.infinity,
                   height: 44,
                   child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
@@ -204,8 +201,8 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                       onPressed: () => Navigator.pop(context, _selection),
                       child: Text(
                         'Done (${_selection.length})',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppSurfaces.keyInk(KeyVariant.primary),
                           fontSize: 13.5,
                           fontWeight: FontWeight.w600,
                         ),

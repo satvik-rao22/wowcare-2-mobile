@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
@@ -130,7 +131,10 @@ class AttachmentPickerField extends StatelessWidget {
         Expanded(
           child: Text(
             '${files.length} of $maxFiles attached',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppPalette.textSecondary,
+            ),
           ),
         ),
         if (enabled && files.isNotEmpty)
@@ -183,7 +187,7 @@ class AttachmentPickerField extends StatelessWidget {
     if (file.isImage) {
       await showDialog<void>(
         context: context,
-        barrierColor: Colors.black87,
+        barrierColor: AppPalette.mediaScrim,
         builder: (_) => _ImagePreviewDialog(file: file),
       );
       return;
@@ -211,9 +215,9 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!enabled) {
-      return Text(
+      return const Text(
         'No attachments',
-        style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+        style: TextStyle(fontSize: 13, color: AppPalette.textMuted),
       );
     }
     return GestureDetector(
@@ -261,7 +265,10 @@ class _EmptyState extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       helperText,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppPalette.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -294,7 +301,7 @@ class _AddTile extends StatelessWidget {
   Widget build(BuildContext context) {
     // Still tappable when full: the picker owns the "up to N files" message, so
     // a tap explains the limit instead of doing nothing.
-    final color = isFull ? Colors.grey.shade400 : AppColors.themeColor;
+    final color = isFull ? AppPalette.textMuted : AppColors.themeColor;
     return Semantics(
       button: true,
       // Its own node, with the inner "Add"/"Max N" text excluded: the label
@@ -391,12 +398,10 @@ class _AttachmentCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: borderRadius,
                     border: Border.all(
-                      color: failed
-                          ? AppColors.errorColor
-                          : Colors.grey.shade300,
+                      color: failed ? AppColors.errorColor : AppPalette.border,
                       width: failed ? 1.4 : 1,
                     ),
-                    color: Colors.white,
+                    color: AppPalette.surfaceCard,
                   ),
                   child: Stack(
                     fit: StackFit.expand,
@@ -410,11 +415,7 @@ class _AttachmentCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.fromLTRB(5, 10, 5, 4),
                           decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Colors.black54],
-                            ),
+                            color: AppPalette.mediaScrim,
                           ),
                           child: Text(
                             file.name,
@@ -423,7 +424,7 @@ class _AttachmentCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: AppPalette.textOnDark,
                             ),
                           ),
                         ),
@@ -463,7 +464,7 @@ class _AttachmentCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 10.5,
-              color: failed ? AppColors.errorColor : Colors.grey[600],
+              color: failed ? AppColors.errorColor : AppPalette.textSecondary,
               fontWeight: failed ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -505,8 +506,12 @@ class _UploadOverlay extends StatelessWidget {
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
                   value: item.progress,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation(Colors.white),
+                  backgroundColor: AppPalette.textOnDark.withValues(
+                    alpha: 0.22,
+                  ),
+                  valueColor: const AlwaysStoppedAnimation(
+                    AppPalette.textOnDark,
+                  ),
                 ),
               ),
               const SizedBox(height: 5),
@@ -515,7 +520,7 @@ class _UploadOverlay extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppPalette.textOnDark,
                 ),
               ),
             ],
@@ -531,13 +536,13 @@ class _UploadOverlay extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.4,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                  valueColor: AlwaysStoppedAnimation(AppPalette.textOnDark),
                 ),
               ),
               SizedBox(height: 5),
               Text(
                 'Processing',
-                style: TextStyle(fontSize: 9.5, color: Colors.white),
+                style: TextStyle(fontSize: 9.5, color: AppPalette.textOnDark),
               ),
             ],
           ),
@@ -552,7 +557,7 @@ class _UploadOverlay extends StatelessWidget {
               color: AppColors.successColor,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, size: 11, color: Colors.white),
+            child: const Icon(Icons.check, size: 11, color: AppPalette.onBrand),
           ),
         );
       case AttachmentUploadStatus.failed:
@@ -560,7 +565,7 @@ class _UploadOverlay extends StatelessWidget {
           const Icon(
             Icons.error_outline_rounded,
             size: 26,
-            color: Colors.white,
+            color: AppPalette.onBrand,
           ),
           color: AppColors.errorColor.withValues(alpha: 0.55),
         );
@@ -569,7 +574,7 @@ class _UploadOverlay extends StatelessWidget {
 
   Widget _scrim(Widget child, {Color? color}) {
     return Container(
-      color: color ?? Colors.black.withValues(alpha: 0.5),
+      color: color ?? AppPalette.mediaScrim,
       alignment: Alignment.center,
       child: child,
     );
@@ -585,11 +590,15 @@ class _RemoveChip extends StatelessWidget {
       width: 24,
       height: 24,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.58),
+        color: AppPalette.mediaScrim,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.4),
+        border: Border.all(color: AppPalette.textOnDark, width: 1.4),
       ),
-      child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+      child: const Icon(
+        Icons.close_rounded,
+        size: 14,
+        color: AppPalette.textOnDark,
+      ),
     );
   }
 }
@@ -651,15 +660,15 @@ class _Thumbnail extends StatelessWidget {
   }
 
   static Color _accentFor(PickedFile file) {
-    if (file.isVideo) return const Color(0xFF7B5AC8);
-    if (file.isPdf) return const Color(0xFFD3453F);
+    if (file.isVideo) return AppPalette.dataPurple;
+    if (file.isPdf) return AppPalette.statusError;
     switch (file.extension) {
       case 'doc':
       case 'docx':
-        return const Color(0xFF2B6CB0);
+        return AppPalette.statusInfo;
       case 'xls':
       case 'xlsx':
-        return const Color(0xFF2F855A);
+        return AppPalette.statusSuccess;
       default:
         return AppColors.themeColor;
     }
@@ -690,7 +699,7 @@ class _ImagePreviewDialog extends StatelessWidget {
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Container(
                     padding: const EdgeInsets.all(24),
-                    color: Colors.white,
+                    color: AppPalette.surfaceCard,
                     child: const Text('Preview not available'),
                   ),
                 ),
@@ -703,14 +712,14 @@ class _ImagePreviewDialog extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: Colors.white),
+            style: const TextStyle(fontSize: 12, color: AppPalette.textOnDark),
           ),
           const SizedBox(height: 10),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            icon: const Icon(Icons.close_rounded, color: AppPalette.textOnDark),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.15),
+              backgroundColor: AppPalette.textOnDark.withValues(alpha: 0.15),
             ),
           ),
         ],

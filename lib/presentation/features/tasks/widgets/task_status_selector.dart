@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 
@@ -42,10 +43,10 @@ class TaskStatusSelector extends StatelessWidget {
       curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
-        color: selected ? color : Colors.white,
+        color: selected ? color : AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: selected ? color : Colors.grey.shade300,
+          color: selected ? color : AppPalette.border,
           width: selected ? 1.5 : 1,
         ),
         boxShadow: selected
@@ -64,7 +65,7 @@ class TaskStatusSelector extends StatelessWidget {
           Icon(
             selected ? Icons.check : TaskUiUtils.statusIcon(option),
             size: 17,
-            color: selected ? Colors.white : color,
+            color: selected ? AppPalette.onBrand : color,
           ),
           const SizedBox(height: 4),
           Text(
@@ -75,7 +76,7 @@ class TaskStatusSelector extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Colors.black87,
+              color: selected ? AppPalette.onBrand : AppPalette.textPrimary,
             ),
           ),
         ],

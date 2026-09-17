@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 
 /// Shown in place of content the user has no read permission for, so a
@@ -22,13 +23,17 @@ class AccessRestrictedView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_outline, size: 44, color: Colors.grey[400]),
+            const Icon(
+              Icons.lock_outline,
+              size: 44,
+              color: AppPalette.iconMuted,
+            ),
             const SizedBox(height: 10),
-            Text(
+            const Text(
               'Access restricted',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.grey[700],
+                color: AppPalette.textSecondary,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -37,7 +42,7 @@ class AccessRestrictedView extends StatelessWidget {
             Text(
               message ?? ModuleAccess.featureRestrictedMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              style: const TextStyle(color: AppPalette.textMuted, fontSize: 13),
             ),
           ],
         ),

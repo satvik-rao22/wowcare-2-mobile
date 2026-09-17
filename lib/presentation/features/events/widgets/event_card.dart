@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/utils/recurrence_summary.dart';
@@ -34,9 +35,9 @@ class EventCard extends StatelessWidget {
     // Completed events read as a muted "archive" entry: grey accent, faded
     // content and a "Completed" chip so they stand out from upcoming items.
     final color =
-        completed ? Colors.grey : EventUiUtils.typeColor(event.type);
+        completed ? AppPalette.textMuted : EventUiUtils.typeColor(event.type);
     final card = Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -50,7 +51,7 @@ class EventCard extends StatelessWidget {
                 ? null
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -75,8 +76,9 @@ class EventCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color:
-                                  completed ? Colors.grey[700] : Colors.black87,
+                              color: completed
+                                  ? AppPalette.textSecondary
+                                  : AppPalette.textPrimary,
                             ),
                           ),
                         ),
@@ -90,20 +92,29 @@ class EventCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 13, color: Colors.grey[600]),
+                        const Icon(
+                          Icons.access_time,
+                          size: 13,
+                          color: AppPalette.textMuted,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           EventUiUtils.timeLabel(event),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppPalette.textSecondary),
                         ),
                         if (event.recurring) ...[
                           const SizedBox(width: 8),
-                          Icon(Icons.repeat, size: 13, color: Colors.grey[600]),
+                          const Icon(
+                            Icons.repeat,
+                            size: 13,
+                            color: AppPalette.textMuted,
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             RecurrenceSummary.compact(event.recurrence),
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppPalette.textMuted),
                           ),
                         ],
                       ],
@@ -113,7 +124,8 @@ class EventCard extends StatelessWidget {
                       EventUiUtils.audienceSummary(event),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                      style: const TextStyle(
+                          fontSize: 11.5, color: AppPalette.textMuted),
                     ),
                     if (onRsvp != null) ...[
                       const SizedBox(height: 8),
@@ -132,7 +144,7 @@ class EventCard extends StatelessWidget {
                           const Text(
                             'responses',
                             style: TextStyle(
-                                fontSize: 11, color: Colors.black45),
+                                fontSize: 11, color: AppPalette.textMuted),
                           ),
                         ],
                       ),
@@ -190,19 +202,23 @@ class _CompletedChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey.withValues(alpha: 0.15),
+        color: AppPalette.textMuted.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
+        border: Border.all(color: AppPalette.textMuted.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_outline, size: 11, color: Colors.grey[600]),
+          const Icon(
+            Icons.check_circle_outline,
+            size: 11,
+            color: AppPalette.textMuted,
+          ),
           const SizedBox(width: 3),
           Text(
             'Completed',
-            style: TextStyle(
-              color: Colors.grey[700],
+            style: const TextStyle(
+              color: AppPalette.textSecondary,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),

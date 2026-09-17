@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
@@ -37,10 +38,10 @@ class TaskCard extends StatelessWidget {
     // already labels them "Completed"); overdue tasks get the red accent.
     final completed = task.status == TaskStatus.completed;
     final accent = completed
-        ? Colors.grey
+        ? AppPalette.textMuted
         : (overdue ? TaskUiUtils.overdueColor : TaskUiUtils.accent);
     final card = Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -54,7 +55,7 @@ class TaskCard extends StatelessWidget {
                 ? null
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -82,7 +83,7 @@ class TaskCard extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                            color: AppPalette.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -92,8 +93,8 @@ class TaskCard extends StatelessWidget {
                               : task.assigneeName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppPalette.textSecondary),
                         ),
                       ],
                     ),
@@ -101,28 +102,31 @@ class TaskCard extends StatelessWidget {
                   if (onMore != null)
                     GestureDetector(
                       onTap: onMore,
-                      child: Icon(Icons.more_vert,
-                          size: 18, color: Colors.grey[500]),
+                      child: const Icon(Icons.more_vert,
+                          size: 18, color: AppPalette.textMuted),
                     ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 13, color: Colors.grey[600]),
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 13, color: AppPalette.textSecondary),
                   const SizedBox(width: 4),
                   Text(
                     TaskUiUtils.dueLabelInZone(task, schoolTimeZone),
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: overdue ? TaskUiUtils.overdueColor : Colors.grey[700],
+                      color: overdue
+                          ? TaskUiUtils.overdueColor
+                          : AppPalette.textSecondary,
                       fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                   if (task.recurring) ...[
                     const SizedBox(width: 8),
-                    Icon(Icons.repeat, size: 13, color: Colors.grey[600]),
+                    const Icon(Icons.repeat,
+                        size: 13, color: AppPalette.textSecondary),
                   ],
                 ],
               ),

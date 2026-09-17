@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
@@ -20,7 +22,7 @@ Future<void> showEventFilterSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceSunken,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -255,7 +257,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
           width: 38,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
+            color: AppPalette.borderStrong,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -269,7 +271,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
         style: const TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: Colors.black54,
+          color: AppPalette.textSecondary,
         ),
       ),
     );
@@ -293,7 +295,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
       case CalendarFeedKind.task:
         return TaskUiUtils.accent;
       case CalendarFeedKind.holiday:
-        return const Color(0xFFD32F2F);
+        return AppPalette.statusError;
       case CalendarFeedKind.event:
       case CalendarFeedKind.unknown:
         return AppColors.themeColor;
@@ -319,7 +321,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : color,
+              color: selected ? AppPalette.textOnDark : color,
             ),
           ),
         ),
@@ -337,7 +339,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -360,12 +362,13 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color:
-                        selectedCount == 0 ? Colors.grey[600] : Colors.black87,
+                    color: selectedCount == 0
+                        ? AppPalette.textSecondary
+                        : AppPalette.textPrimary,
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey[500]),
+              Icon(Icons.chevron_right, color: AppPalette.textMuted),
             ],
           ),
         ),
@@ -381,7 +384,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
     required VoidCallback onCleared,
   }) {
     return Material(
-      color: Colors.grey[100],
+      color: AppSurfaces.fieldFill,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -410,7 +413,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
           child: Row(
             children: [
               Icon(Icons.calendar_today_outlined,
-                  size: 15, color: Colors.grey[600]),
+                  size: 15, color: AppPalette.textMuted),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -421,15 +424,17 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: value == null ? Colors.grey[600] : Colors.black87,
+                    color: value == null
+                        ? AppPalette.textMuted
+                        : AppPalette.textPrimary,
                   ),
                 ),
               ),
               if (value != null)
                 GestureDetector(
                   onTap: onCleared,
-                  child:
-                      Icon(Icons.close, size: 15, color: Colors.grey[600]),
+                  child: Icon(Icons.close,
+                      size: 15, color: AppPalette.textMuted),
                 ),
             ],
           ),
@@ -446,10 +451,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
       width: double.infinity,
       height: 44,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(10),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
@@ -461,8 +463,8 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
           onPressed: onTap,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppSurfaces.keyInk(KeyVariant.primary),
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
@@ -528,7 +530,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppPalette.borderStrong,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -554,7 +556,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               if (widget.selected.isNotEmpty)
                 Text(
                   '${widget.selected.length} selected',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: AppPalette.textSecondary),
                 ),
               const SizedBox(width: 8),
             ],
@@ -567,15 +569,12 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               onChanged: (value) => setState(() => _query = value),
               decoration: InputDecoration(
                 hintText: 'Search ${widget.title.toLowerCase()}…',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                hintStyle: TextStyle(fontSize: 13, color: AppPalette.textMuted),
                 prefixIcon: const Icon(Icons.search, size: 19),
                 isDense: true,
                 filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
+                fillColor: AppSurfaces.fieldFill,
+                border: AppSurfaces.fieldBorder(radius: 10),
               ),
             ),
           ),
@@ -586,7 +585,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       'No matches',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: AppPalette.textSecondary),
                     ),
                   )
                 : ListView.builder(
@@ -616,10 +615,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               width: double.infinity,
               height: 44,
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
@@ -629,10 +625,10 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
                     ),
                   ),
                   onPressed: widget.onBack,
-                  child: const Text(
+                  child: Text(
                     'Done',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppSurfaces.keyInk(KeyVariant.primary),
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),

@@ -6,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
@@ -521,7 +523,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Material(
-              color: Colors.white,
+              color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(10),
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
@@ -558,13 +560,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                               subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600]),
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppPalette.textSecondary),
                             ),
                           ],
                         ),
                       ),
-                      Icon(Icons.chevron_right, color: Colors.grey[500]),
+                      const Icon(Icons.chevron_right, color: AppPalette.textMuted),
                     ],
                   ),
                 ),
@@ -614,7 +616,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     final result = await showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surfaceCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -663,12 +665,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   color: _priority == priority
                       ? TaskUiUtils.priorityColor(priority)
                           .withValues(alpha: 0.14)
-                      : Colors.white,
+                      : AppPalette.surfaceCard,
                   borderRadius: BorderRadius.circular(9),
                   border: Border.all(
                     color: _priority == priority
                         ? TaskUiUtils.priorityColor(priority)
-                        : Colors.grey.shade300,
+                        : AppPalette.border,
                   ),
                 ),
                 child: Text(
@@ -678,7 +680,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     fontWeight: FontWeight.w600,
                     color: _priority == priority
                         ? TaskUiUtils.priorityColor(priority)
-                        : Colors.grey[700],
+                        : AppPalette.textSecondary,
                   ),
                 ),
               ),
@@ -704,12 +706,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               decoration: BoxDecoration(
                 color: _status == status
                     ? TaskUiUtils.statusBackground(status)
-                    : Colors.white,
+                    : AppPalette.surfaceCard,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: _status == status
                       ? TaskUiUtils.statusColor(status)
-                      : Colors.grey.shade300,
+                      : AppPalette.border,
                 ),
               ),
               child: Row(
@@ -721,7 +723,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     size: 18,
                     color: _status == status
                         ? TaskUiUtils.statusColor(status)
-                        : Colors.grey[500],
+                        : AppPalette.textMuted,
                   ),
                   const SizedBox(width: 10),
                   Text(
@@ -731,7 +733,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       fontWeight: FontWeight.w600,
                       color: _status == status
                           ? TaskUiUtils.statusColor(status)
-                          : Colors.black87,
+                          : AppPalette.textPrimary,
                     ),
                   ),
                 ],
@@ -802,7 +804,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             child: const Text(
               'Daily tasks start today and recur every day until the end '
               'date.',
-              style: TextStyle(fontSize: 12.5, color: Colors.black87),
+              style: TextStyle(fontSize: 12.5, color: AppPalette.textPrimary),
             ),
           ),
         ],
@@ -862,7 +864,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         child: DropdownButton<TaskRecurrence>(
           value: _recurringPattern,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           items: [
             for (final pattern in TaskRecurrence.values)
               DropdownMenuItem(value: pattern, child: Text(pattern.label)),
@@ -910,7 +912,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           items: [
             for (final day in _weekdays)
               DropdownMenuItem(value: day, child: Text(_titleCase(day))),
@@ -934,7 +936,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         child: DropdownButton<int>(
           value: value,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
           items: [
             for (var day = 1; day <= 30; day++)
               DropdownMenuItem(value: day, child: Text(_ordinal(day))),
@@ -975,13 +977,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         decoration: _tileDecoration(),
         child: Row(
           children: [
-            Icon(Icons.info_outline, size: 18, color: Colors.grey[600]),
+            const Icon(Icons.info_outline, size: 18, color: AppPalette.textSecondary),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 "This task's attachments can't be loaded right now, so they "
                 'can\u2019t be changed here. Everything else still saves normally.',
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: const TextStyle(fontSize: 12, color: AppPalette.textSecondary),
               ),
             ),
           ],
@@ -1099,16 +1101,15 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             return SizedBox(
           height: 46,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: enabled
+                ? AppSurfaces.key(KeyVariant.primary, radius: 10)
+                : AppSurfaces.key(KeyVariant.disabled, radius: 10),
             child: ElevatedButton(
               onPressed: enabled ? _save : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                disabledBackgroundColor: Colors.grey.shade300,
-                shadowColor: Colors.transparent,
+                backgroundColor: AppColors.transparentColor,
+                disabledBackgroundColor: AppColors.transparentColor,
+                shadowColor: AppColors.transparentColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1119,13 +1120,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppPalette.onBrand,
                       ),
                     )
                   : Text(
                       _isEditing ? 'Save Changes' : 'Create Task',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppPalette.onBrand,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1431,13 +1432,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.event_available_outlined, size: 14, color: Colors.grey[600]),
+          const Icon(Icons.event_available_outlined, size: 14, color: AppPalette.textSecondary),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Next occurrence: $startLabel, ${_startTime.format(context)} → '
               '$dueLabel, ${_dueTime.format(context)}',
-              style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+              style: const TextStyle(fontSize: 11.5, color: AppPalette.textSecondary),
             ),
           ),
         ],
@@ -1580,31 +1581,22 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   InputDecoration _inputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+      hintStyle: const TextStyle(fontSize: 13, color: AppPalette.textMuted),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppSurfaces.fieldFill,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: AppColors.themeColor),
-      ),
+      border: AppSurfaces.fieldBorder(radius: 10),
+      enabledBorder: AppSurfaces.fieldBorder(radius: 10),
+      focusedBorder: AppSurfaces.fieldBorder(radius: 10),
     );
   }
 
   BoxDecoration _tileDecoration() {
     return BoxDecoration(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: Colors.grey.shade300),
+      border: Border.all(color: AppPalette.border),
     );
   }
 
@@ -1614,7 +1606,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -1631,7 +1623,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
                 ),
               ),
             ],
@@ -1654,7 +1646,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
             ),
           ),
           Switch(
@@ -1723,12 +1715,12 @@ class _TaskFormNoAccess extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_outline, size: 44, color: Colors.grey[400]),
+            const Icon(Icons.lock_outline, size: 44, color: AppPalette.textMuted),
             const SizedBox(height: 10),
-            Text(
+            const Text(
               'You do not have permission to edit this task.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 13.5, color: AppPalette.textSecondary),
             ),
           ],
         ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 
@@ -29,7 +31,7 @@ Future<void> showEntityListSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppPalette.surfaceSunken,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -65,7 +67,7 @@ Future<void> showEntityListSheet(
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: AppPalette.textPrimary,
                             ),
                           ),
                         ),
@@ -87,9 +89,7 @@ Future<void> showEntityListSheet(
                           hintText: 'Search',
                           prefixIcon: const Icon(Icons.search, size: 18),
                           isDense: true,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          border: AppSurfaces.fieldBorder(radius: 10),
                         ),
                       ),
                     ),
@@ -101,8 +101,8 @@ Future<void> showEntityListSheet(
                         items.isEmpty
                             ? (emptyHint ?? 'Nobody in this group yet.')
                             : 'No matches.',
-                        style:
-                            TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        style: TextStyle(
+                            fontSize: 13, color: AppPalette.textSecondary),
                       ),
                     )
                   else

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
@@ -102,7 +105,7 @@ class EventsScreen extends StatefulWidget {
 }
 
 class _EventsScreenState extends State<EventsScreen> {
-  static const Color _holidayRed = Color(0xFFD32F2F);
+  static const Color _holidayRed = AppPalette.statusError;
 
   /// Per-tab / per-view read permission. The screen opens when *any* of the
   /// three modules is readable (see `EventAccess.canOpenModule`), so each
@@ -269,25 +272,15 @@ class _EventsScreenState extends State<EventsScreen> {
       width: 64,
       height: 64,
       margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: AppColors.buildPrimaryGradient(),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryColor.withValues(alpha: 0.30),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.fab(),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.r14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: const Center(
-            child: Icon(Icons.add, color: Colors.white, size: 32),
+            child: Icon(Icons.add, color: AppPalette.onBrand, size: 32),
           ),
         ),
       ),
@@ -310,17 +303,16 @@ class _EventsScreenState extends State<EventsScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              gradient: selected ? AppColors.buildPrimaryGradient() : null,
-              borderRadius: BorderRadius.circular(9),
-            ),
+            decoration: selected
+                ? AppSurfaces.key(KeyVariant.primary, radius: 9)
+                : null,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   icon,
                   size: 15,
-                  color: selected ? Colors.white : AppColors.primaryColor,
+                  color: selected ? AppPalette.onBrand : AppColors.primaryColor,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -328,7 +320,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : AppColors.primaryColor,
+                    color: selected ? AppPalette.onBrand : AppColors.primaryColor,
                   ),
                 ),
               ],
@@ -341,7 +333,7 @@ class _EventsScreenState extends State<EventsScreen> {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(11),
         border: Border.all(
           color: AppColors.primaryColor.withValues(alpha: 0.08),
@@ -446,7 +438,7 @@ class _EventsScreenState extends State<EventsScreen> {
       child: Material(
         color: _showCompleted
             ? AppColors.themeColor.withValues(alpha: 0.12)
-            : Colors.white,
+            : AppColors.cardColor,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -463,7 +455,7 @@ class _EventsScreenState extends State<EventsScreen> {
               border: Border.all(
                 color: _showCompleted
                     ? AppColors.themeColor
-                    : Colors.grey.shade300,
+                    : AppPalette.borderStrong,
               ),
             ),
             child: Row(
@@ -474,7 +466,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   size: 16,
                   color: _showCompleted
                       ? AppColors.themeColor
-                      : Colors.grey[600],
+                      : AppPalette.textSecondary,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -484,7 +476,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     fontWeight: FontWeight.w600,
                     color: _showCompleted
                         ? AppColors.themeColor
-                        : Colors.grey[700],
+                        : AppPalette.textMuted,
                   ),
                 ),
               ],
@@ -508,18 +500,18 @@ class _EventsScreenState extends State<EventsScreen> {
               onChanged: cubit.setSearchQuery,
               decoration: InputDecoration(
                 hintText: 'Search events…',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                hintStyle: TextStyle(fontSize: 13, color: AppPalette.textMuted),
                 prefixIcon: const Icon(
                   Icons.search,
                   size: 18,
-                  color: Colors.grey,
+                  color: AppPalette.iconMuted,
                 ),
                 suffixIcon: state.searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(
                           Icons.close,
                           size: 16,
-                          color: Colors.grey,
+                          color: AppPalette.iconMuted,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -529,20 +521,11 @@ class _EventsScreenState extends State<EventsScreen> {
                     : null,
                 isDense: true,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppSurfaces.fieldFill,
                 contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.themeColor),
-                ),
+                border: AppSurfaces.fieldBorder(radius: 10),
+                enabledBorder: AppSurfaces.fieldBorder(radius: 10),
+                focusedBorder: AppSurfaces.fieldBorder(radius: 10),
               ),
             ),
           ),
@@ -563,7 +546,7 @@ class _EventsScreenState extends State<EventsScreen> {
         Material(
           color: hasFilters
               ? AppColors.themeColor.withValues(alpha: 0.12)
-              : Colors.white,
+              : AppColors.cardColor,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -576,7 +559,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 border: Border.all(
                   color: hasFilters
                       ? AppColors.themeColor
-                      : Colors.grey.shade300,
+                      : AppPalette.borderStrong,
                 ),
               ),
               child: const Icon(
@@ -602,7 +585,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppPalette.onBrand,
                 ),
               ),
             ),
@@ -628,14 +611,13 @@ class _EventsScreenState extends State<EventsScreen> {
           child: Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(
-              gradient: selected ? AppColors.buildPrimaryGradient() : null,
-              borderRadius: BorderRadius.circular(7),
-            ),
+            decoration: selected
+                ? AppSurfaces.key(KeyVariant.primary, radius: 7)
+                : null,
             child: Icon(
               icon,
               size: 16,
-              color: selected ? Colors.white : Colors.grey[600],
+              color: selected ? AppPalette.onBrand : AppPalette.textSecondary,
             ),
           ),
         ),
@@ -645,9 +627,9 @@ class _EventsScreenState extends State<EventsScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppPalette.borderStrong),
       ),
       child: Row(
         // A view the user cannot read is not offered — switching to it would
@@ -682,7 +664,7 @@ class _EventsScreenState extends State<EventsScreen> {
       if (v != null) return Color(v);
     }
     return item.isTask
-        ? const Color(0xFFFBBF24)
+        ? AppPalette.dataSun
         : item.isHoliday
             ? _holidayRed
             : AppColors.themeColor;
@@ -833,14 +815,14 @@ class _EventsScreenState extends State<EventsScreen> {
     final allowedKinds = EventAccess.readableCalendarKinds(roles);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.primaryColor.withValues(alpha: 0.08),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1122,7 +1104,7 @@ class _EventsScreenState extends State<EventsScreen> {
                               ? Icons.keyboard_arrow_down
                               : Icons.keyboard_arrow_up,
                           size: 20,
-                          color: Colors.grey[700],
+                          color: AppPalette.iconMuted,
                         ),
                       ],
                     ),
@@ -1178,7 +1160,7 @@ class _EventsScreenState extends State<EventsScreen> {
                               "You're all caught up",
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: AppPalette.textSecondary,
                               ),
                             ),
                 ),
@@ -1201,7 +1183,7 @@ class _EventsScreenState extends State<EventsScreen> {
         Text(
           '${results.length} result${results.length == 1 ? '' : 's'} for '
           '"${state.searchQuery}"',
-          style: TextStyle(fontSize: 12.5, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12.5, color: AppPalette.textSecondary),
         ),
         const SizedBox(height: 8),
         Expanded(
@@ -1276,7 +1258,7 @@ class _EventsScreenState extends State<EventsScreen> {
               title: 'Pending Federal Holidays',
               count: pending.length,
               icon: Icons.hourglass_bottom,
-              accentColor: const Color(0xFFF9A825),
+              accentColor: AppPalette.statusWarning,
               initiallyExpanded: true,
               child: Column(
                 children: [
@@ -1354,7 +1336,7 @@ class _EventsScreenState extends State<EventsScreen> {
               title: 'Rejected Federal Holidays',
               count: rejected.length,
               icon: Icons.cancel_outlined,
-              accentColor: Colors.grey,
+              accentColor: AppPalette.textMuted,
               child: Column(
                 children: [
                   for (final holiday in rejected)
@@ -1399,21 +1381,18 @@ class _EventsScreenState extends State<EventsScreen> {
       alignment: Alignment.centerRight,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(10),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<int>(
             value: years.contains(state.selectedYear)
                 ? state.selectedYear
                 : currentYear,
             isDense: true,
-            dropdownColor: Colors.white,
+            dropdownColor: AppColors.cardColor,
             icon: const Icon(
               Icons.arrow_drop_down,
               size: 20,
-              color: Colors.white,
+              color: AppPalette.onBrand,
             ),
             style: const TextStyle(
               fontSize: 13,
@@ -1430,7 +1409,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppPalette.onBrand,
                     ),
                   ),
                 ),
@@ -1494,12 +1473,12 @@ class _EventsScreenState extends State<EventsScreen> {
           Icon(
             Icons.event_available_outlined,
             size: 44,
-            color: Colors.grey[400],
+            color: AppPalette.iconMuted,
           ),
           const SizedBox(height: 8),
           Text(
             message,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: AppPalette.textSecondary, fontSize: 13),
           ),
         ],
       ),

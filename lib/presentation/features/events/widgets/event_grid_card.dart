@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_bar.dart';
@@ -30,7 +31,7 @@ class EventGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = EventUiUtils.typeColor(event.type);
     return Material(
-      color: Colors.white,
+      color: AppPalette.surfaceCard,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -42,7 +43,7 @@ class EventGridCard extends StatelessWidget {
             border: Border.all(color: color.withValues(alpha: 0.18)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -61,23 +62,23 @@ class EventGridCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppPalette.textPrimary,
                   ),
                 ),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 11, color: Colors.grey[600]),
+                  const Icon(Icons.calendar_today_outlined,
+                      size: 11, color: AppPalette.textMuted),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       DateFormat('EEE, MMM d').format(event.date),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey[700]),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppPalette.textSecondary),
                     ),
                   ),
                 ],
@@ -85,15 +86,16 @@ class EventGridCard extends StatelessWidget {
               const SizedBox(height: 2),
               Row(
                 children: [
-                  Icon(Icons.access_time, size: 11, color: Colors.grey[600]),
+                  const Icon(Icons.access_time,
+                      size: 11, color: AppPalette.textMuted),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       EventUiUtils.timeLabel(event),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 11, color: Colors.grey[700]),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppPalette.textSecondary),
                     ),
                   ),
                 ],

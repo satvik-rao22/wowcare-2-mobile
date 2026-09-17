@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/debouncer.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
@@ -17,6 +20,7 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_filter_sheet.da
 import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// How the Tasks module lays out its content. Mobile Kanban uses status tabs
@@ -132,25 +136,16 @@ class _TasksScreenState extends State<TasksScreen> {
       width: 64,
       height: 64,
       margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: AppColors.buildPrimaryGradient(),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryColor.withValues(alpha: 0.30),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+      // Square pink key with a shallow rim — the app's one FAB decoration.
+      decoration: AppSurfaces.fab(),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: AppRadius.allR14,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _openCreateForm(context),
           child: const Center(
-            child: Icon(Icons.add, color: Colors.white, size: 32),
+            child: Icon(Icons.add, color: AppPalette.onBrand, size: 32),
           ),
         ),
       ),
@@ -174,7 +169,7 @@ class _TasksScreenState extends State<TasksScreen> {
           child: Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: AppColors.primaryColor.withValues(alpha: 0.08),
@@ -214,16 +209,15 @@ class _TasksScreenState extends State<TasksScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 7),
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: selected ? AppColors.buildPrimaryGradient() : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: selected
+              ? AppSurfaces.key(KeyVariant.primary, radius: 8)
+              : null,
           child: Text(
             label,
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : AppColors.primaryColor,
+              color: selected ? AppPalette.onBrand : AppColors.primaryColor,
             ),
           ),
         ),
@@ -241,14 +235,13 @@ class _TasksScreenState extends State<TasksScreen> {
           child: Container(
             width: 30,
             height: 30,
-            decoration: BoxDecoration(
-              gradient: selected ? AppColors.buildPrimaryGradient() : null,
-              borderRadius: BorderRadius.circular(7),
-            ),
+            decoration: selected
+                ? AppSurfaces.key(KeyVariant.primary, radius: 7)
+                : null,
             child: Icon(
               icon,
               size: 16,
-              color: selected ? Colors.white : Colors.grey[600],
+              color: selected ? AppPalette.iconOnBrand : AppPalette.iconMuted,
             ),
           ),
         ),
@@ -258,9 +251,9 @@ class _TasksScreenState extends State<TasksScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppPalette.surfaceCard,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppPalette.border),
       ),
       child: Row(
         children: [
@@ -277,48 +270,19 @@ class _TasksScreenState extends State<TasksScreen> {
     return Row(
       children: [
         Expanded(
-          child: SizedBox(
-            height: 38,
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) =>
-                  _searchDebouncer.run(() => cubit.setSearchQuery(value)),
-              decoration: InputDecoration(
-                hintText: 'Search tasks…',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                prefixIcon:
-                    const Icon(Icons.search, size: 18, color: Colors.grey),
-                suffixIcon: state.searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 16, color: Colors.grey),
-                        onPressed: () {
-                          // Clear immediately and drop any pending debounce so
-                          // a late keystroke can't re-populate the query.
-                          _searchDebouncer.cancel();
-                          _searchController.clear();
-                          cubit.setSearchQuery('');
-                        },
-                      )
-                    : null,
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.zero,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.themeColor),
-                ),
-              ),
-            ),
+          child: CustomSearchBar(
+            controller: _searchController,
+            hintText: 'Search tasks…',
+            density: SearchFieldDensity.compact,
+            showClearButton: true,
+            onChanged: (value) =>
+                _searchDebouncer.run(() => cubit.setSearchQuery(value)),
+            onCleared: () {
+              // Clear immediately and drop any pending debounce so a late
+              // keystroke can't re-populate the query.
+              _searchDebouncer.cancel();
+              cubit.setSearchQuery('');
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -336,7 +300,7 @@ class _TasksScreenState extends State<TasksScreen> {
         Material(
           color: hasFilters
               ? AppColors.themeColor.withValues(alpha: 0.12)
-              : Colors.white,
+              : AppPalette.surfaceCard,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -347,8 +311,7 @@ class _TasksScreenState extends State<TasksScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color:
-                      hasFilters ? AppColors.themeColor : Colors.grey.shade300,
+                  color: hasFilters ? AppColors.themeColor : AppPalette.border,
                 ),
               ),
               child:
@@ -371,7 +334,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppPalette.onBrand,
                 ),
               ),
             ),
@@ -418,12 +381,12 @@ class _TasksScreenState extends State<TasksScreen> {
             decoration: BoxDecoration(
               color: selected
                   ? color.withValues(alpha: 0.16)
-                  : Colors.white,
+                  : AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(9),
               border: Border.all(
                 color: selected
                     ? color.withValues(alpha: 0.5)
-                    : Colors.grey.shade300,
+                    : AppPalette.border,
               ),
             ),
             child: Column(
@@ -436,7 +399,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: selected ? color : Colors.grey[700],
+                    color: selected ? color : AppPalette.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -445,7 +408,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: selected ? color : Colors.grey[500],
+                    color: selected ? color : AppPalette.textMuted,
                   ),
                 ),
               ],
@@ -556,7 +519,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final cubit = context.read<TasksCubit>();
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.surfaceCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -637,12 +600,15 @@ class _TasksScreenState extends State<TasksScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.checklist_rtl_outlined,
-                    size: 44, color: Colors.grey[400]),
+                const Icon(Icons.checklist_rtl_outlined,
+                    size: 44, color: AppPalette.iconMuted),
                 const SizedBox(height: 8),
                 Text(
                   message,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: const TextStyle(
+                    color: AppPalette.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
