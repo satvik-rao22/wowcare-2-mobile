@@ -407,3 +407,92 @@ abstract final class CommunicationRoutes {
   /// The shared full-screen filter UI as opened from messaging.
   static const String filter = '/messaging/filter';
 }
+
+/// Route paths for the events feature (calendar, holidays, RSVP).
+///
+/// Registered as children of [DashboardRoutes.root]. Unlike [NewsletterRoutes],
+/// the identifying values (`eventCode`, …) are query parameters rather than
+/// path parameters: a notification tap deep-links here with a bare URL and no
+/// `extra`, while in-app navigation (calendar / events list) prefers `extra`
+/// for already-hydrated rows and only falls back to the query param — see
+/// the `events/detail` route builder in `app_router.dart`.
+abstract final class EventRoutes {
+  const EventRoutes._();
+
+  // ── Query parameter names ────────────────────────────────────────────────
+
+  static const String eventCodeParam = 'eventCode';
+  static const String tabParam = 'tab';
+  static const String highlightHolidayParam = 'highlightHoliday';
+  static const String yearParam = 'year';
+
+  /// Value of [tabParam] that selects the Holiday List tab.
+  static const String holidaysTabValue = 'holidays';
+
+  // ── Relative segments, as registered with `GoRoute(path:)` ───────────────
+
+  static const String listSegment = 'events';
+  static const String detailSegment = 'events/detail';
+  static const String formSegment = 'events/form';
+
+  // ── Absolute locations ───────────────────────────────────────────────────
+
+  static const String list = '${DashboardRoutes.root}/$listSegment';
+  static const String detailPattern = '${DashboardRoutes.root}/$detailSegment';
+  static const String formPattern = '${DashboardRoutes.root}/$formSegment';
+
+  /// Event detail, deep-linkable by [eventCodeParam].
+  static String detail(String eventCode) =>
+      '$detailPattern?$eventCodeParam=${Uri.encodeComponent(eventCode)}';
+
+  /// The Holiday List tab of the events screen (it is a tab, not its own
+  /// route), with the row a notification tap should flash named and scoped
+  /// to its year.
+  static String holidaysHighlight({required String name, required int year}) {
+    return '$list?$tabParam=$holidaysTabValue'
+        '&$highlightHolidayParam=${Uri.encodeComponent(name)}'
+        '&$yearParam=$year';
+  }
+}
+
+/// Route paths for the tasks feature.
+///
+/// Same query-parameter shape as [EventRoutes], for the same reason.
+abstract final class TaskRoutes {
+  const TaskRoutes._();
+
+  // ── Query parameter names ────────────────────────────────────────────────
+
+  /// The task assignment code.
+  static const String taskCodeParam = 'taskCode';
+
+  /// The task series code — carried alone on a `TASK_ASSIGNED`/`TASK_UPDATED`
+  /// notification when no single assignment has been resolved yet.
+  static const String seriesCodeParam = 'seriesCode';
+
+  // ── Relative segments, as registered with `GoRoute(path:)` ───────────────
+
+  static const String listSegment = 'tasks';
+  static const String detailSegment = 'tasks/detail';
+  static const String formSegment = 'tasks/form';
+
+  // ── Absolute locations ───────────────────────────────────────────────────
+
+  static const String list = '${DashboardRoutes.root}/$listSegment';
+  static const String detailPattern = '${DashboardRoutes.root}/$detailSegment';
+  static const String formPattern = '${DashboardRoutes.root}/$formSegment';
+
+  /// Task detail, deep-linkable by [taskCodeParam] or, absent that, by
+  /// [seriesCodeParam] alone.
+  static String detail({String? taskCode, String? seriesCode}) {
+    final query = <String, String>{
+      if (taskCode != null && taskCode.isNotEmpty) taskCodeParam: taskCode,
+      if (seriesCode != null && seriesCode.isNotEmpty)
+        seriesCodeParam: seriesCode,
+    };
+    return Uri(
+      path: detailPattern,
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+  }
+}

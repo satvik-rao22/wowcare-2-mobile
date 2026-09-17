@@ -32,6 +32,14 @@ abstract final class AppAccessModules {
   static const String classroomSchedule = 'CLASSROOM_SCHEDULE';
   /// Backend spelling per API contract (not "INDIVIDUAL").
   static const String individualMovements = 'INDIVISUAL_MOVEMENTS';
+
+  // Events & Holidays + Tasks. The backend sends these singular — a plural
+  // key here silently denies the module under granular access.
+  static const String calendar = 'CALENDAR';
+  static const String event = 'EVENT';
+  static const String eventRsvp = 'EVENT_RSVP';
+  static const String holiday = 'HOLIDAY';
+  static const String task = 'TASK';
 }
 
 /// Read/write UI gates backed by [RoleCubit] for **every** persona.

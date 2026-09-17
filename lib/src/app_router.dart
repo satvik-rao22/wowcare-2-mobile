@@ -3586,6 +3586,12 @@ const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
     AppAccessModules.studentAttendance,
   ],
   'staff-attendance-tabbed-view': <String>[AppAccessModules.staffAttendance],
+  EventRoutes.listSegment: <String>[
+    AppAccessModules.event,
+    AppAccessModules.eventRsvp,
+    AppAccessModules.holiday,
+  ],
+  TaskRoutes.listSegment: <String>[AppAccessModules.task],
 };
 
 /// Segments under `/dashboard` that a guardian persona must never open,
