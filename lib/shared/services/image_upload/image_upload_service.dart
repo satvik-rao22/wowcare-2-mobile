@@ -578,6 +578,59 @@ class ImageUploadService {
     }
   }
 
+  /// Blocks only until every one of [expectedAssetCodes] is at least
+  /// `UPLOADED` (or `READY`) — the bar for **attaching** a code to an
+  /// Event/Task, as opposed to [waitUntilAssetsReady]'s stricter `READY`
+  /// (a renderable delivery URL). Some domains (Tasks, Events) never promote
+  /// an asset past `UPLOADED`, so insisting on `READY` here hung forever.
+  ///
+  /// Returns `false` only when the backend reports a terminal `FAILED` for
+  /// one of the expected codes. Every other case — a still-processing asset
+  /// past [timeout], an asset missing from the session response, an
+  /// unrecognized payload shape, or the status endpoint erroring outright —
+  /// resolves `true`: the status check is a courtesy, not a requirement, and
+  /// the asset code itself (not this check) is what makes an attachment
+  /// usable.
+  Future<bool> awaitAssetsAttachable({
+    required String sessionCode,
+    required List<String> expectedAssetCodes,
+    Duration pollEvery = const Duration(seconds: 2),
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final expectedSet = expectedAssetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (expectedSet.isEmpty) return true;
+
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      final Map<String, String> statuses;
+      try {
+        final endpoint =
+            '${ApiConstants.documentMsBaseUrl}${ApiPaths.documentUploadSessionPath(sessionCode)}';
+        final response = await _apiClient.client.get<dynamic>(endpoint);
+        statuses = _extractUploadAssetStatuses(
+          body: response.data,
+          expectedAssetCodes: expectedSet,
+        );
+      } catch (_) {
+        // The status endpoint is a courtesy here, not a requirement.
+        return true;
+      }
+      // Nothing recognizable for the expected codes: polling again will not
+      // change that, so stop rather than repeating the request until the
+      // deadline.
+      if (statuses.isEmpty) return true;
+      if (statuses.values.any((s) => s == 'FAILED')) return false;
+      if (statuses.values.every((s) => s == 'UPLOADED' || s == 'READY')) {
+        return true;
+      }
+      if (DateTime.now().isAfter(deadline)) return true;
+      await Future.delayed(pollEvery);
+    }
+  }
+
   Future<void> waitUntilAssetsReady({
     required String sessionCode,
     required List<String> expectedAssetCodes,

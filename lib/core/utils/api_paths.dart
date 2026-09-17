@@ -255,6 +255,19 @@ class ApiPaths {
         return nextSeg == 'billing'
             ? ApiMicroservices.billing
             : ApiMicroservices.user;
+      // Scheduler/Events-Todo MS — Events, Tasks & School Calendar.
+      // event_remote_datasource.dart et al. call [urlWithBase] with
+      // ApiConstants.eventsTodoBaseUrl as the (LOCAL/gateway-env-only)
+      // `baseUrl` argument, but [urlWithBase] ignores it outside gateway envs
+      // and defers to [url], which resolves the host from this map — so
+      // these paths need an entry here too, or they silently fall through to
+      // the `user` MS default.
+      case 'events':
+      case 'holidays':
+      case 'occurrences':
+      case 'calendar':
+      case 'tasks':
+        return ApiMicroservices.eventsTodo;
       default:
         return ApiMicroservices.user;
     }

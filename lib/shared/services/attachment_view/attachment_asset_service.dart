@@ -76,15 +76,13 @@ class AttachmentAssetService {
   Future<AttachmentAsset> resolve(
     String assetCode, {
     bool forceRefresh = false,
-  }) {
+  }) async {
     final code = assetCode.trim();
     if (code.isEmpty) {
-      return Future.value(
-        AttachmentAsset.failed(
-          assetCode: code,
-          failure: AttachmentAssetFailure.notFound,
-          message: 'Empty asset code',
-        ),
+      return AttachmentAsset.failed(
+        assetCode: code,
+        failure: AttachmentAssetFailure.notFound,
+        message: 'Empty asset code',
       );
     }
 
@@ -92,17 +90,23 @@ class AttachmentAssetService {
       _cache.remove(code);
     } else {
       final hit = cached(code);
-      if (hit != null) return Future.value(hit);
+      if (hit != null) return hit;
     }
 
     final existing = _inFlight[code];
     if (existing != null) return existing;
 
-    final future = _resolveFromNetwork(code).then((asset) {
-      _cache[code] = asset;
-      return asset;
-    }).whenComplete(() => _inFlight.remove(code));
+    Future<AttachmentAsset> run() async {
+      try {
+        final asset = await _resolveFromNetwork(code);
+        _cache[code] = asset;
+        return asset;
+      } finally {
+        _inFlight.remove(code);
+      }
+    }
 
+    final future = run();
     _inFlight[code] = future;
     return future;
   }
