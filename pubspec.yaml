@@ -17,6 +17,7 @@ dependencies:
   archive: ^4.0.9
   bloc: ^8.0.3
   calendar_date_picker2: ^3.0.0
+  cached_network_image: ^3.4.1
   chewie: ^1.11.1
   cloud_firestore: ^6.0.1
   connectivity_plus: ^7.0.0

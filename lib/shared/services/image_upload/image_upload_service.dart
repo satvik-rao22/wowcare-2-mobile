@@ -353,7 +353,7 @@ class ImageUploadService {
     return compute(_hashFileSha256Base64, file.path);
   }
 
-  Future<void> completeAssetUpload({
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
@@ -367,11 +367,20 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(
+    final response = await _apiClient.client.post<dynamic>(
       endpoint,
       options: _noReplayOptions,
       cancelToken: cancelToken,
     );
+
+    final body = response.data;
+    final data = body is Map<String, dynamic> ? body['data'] : null;
+    if (data is Map<String, dynamic>) {
+      return AssetCompleteResult.fromJson(data);
+    }
+    // Envelope missing or shaped unexpectedly: the POST succeeded, so treat the
+    // asset as complete with an unknown status rather than failing the upload.
+    return AssetCompleteResult(assetCode: assetCode, status: '');
   }
 
   // ── Upload timeout policy ─────────────────────────────────────────────────
