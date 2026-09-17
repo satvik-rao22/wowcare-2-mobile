@@ -1,7 +1,3 @@
-import 'dart:io';
-
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
@@ -12,22 +8,13 @@ import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Remote-only implementation backed by the events-todo Tasks API. No Isar
-/// persistence or mock seeding — mirrors the Events/Holidays modules. Attachment
-/// uploads (§8/§9) reuse the shared [ImageUploadService] for the document-
-/// microservice half of the round trip.
+/// persistence or mock seeding — mirrors the Events/Holidays modules.
 class TaskRepositoryImpl implements TaskRepository {
-  TaskRepositoryImpl(
-    this._remoteDataSource,
-    this._imageUploadService,
-    this._storage,
-  );
+  TaskRepositoryImpl(this._remoteDataSource);
 
   final TaskRemoteDataSource _remoteDataSource;
-  final ImageUploadService _imageUploadService;
-  final StorageService _storage;
 
   /// Page size used when exhausting the flat assignments endpoint. Kept modest
   /// so a small school pays for one round trip while a large one still loads
@@ -276,120 +263,12 @@ class TaskRepositoryImpl implements TaskRepository {
     return _remoteDataSource.createUploadSession();
   }
 
-  /// Runs the whole batch through **one** upload session, exactly as the
-  /// activities module does: presign → PUT → complete per file, then a single
-  /// readiness poll covering every asset. Files already present in
-  /// [alreadyUploaded] are skipped, which is what makes a retry after a partial
-  /// failure cheap and idempotent.
-  // SUPERSEDED by the shared `AttachmentUploadManager`.
-  //
-  // This drove the upload one file at a time: `createAssetPresign` per file
-  // (N round trips against an endpoint that is already a batch),
-  // `uploadFileToPresignedUrl` (whole file read into RAM), and a
-  // `waitUntilAssetsReady` that only accepted `READY` — the last of which hung
-  // event saves outright, since the EVENT domain parks assets at `UPLOADED`.
-  //
-  // The manager keeps the useful parts (resume via already-uploaded codes,
-  // per-file progress) and adds one batched presign, streamed transfers,
-  // bounded concurrency and per-file results. `TasksCubit.uploadAttachments`
-  // preserves the callback shape this exposed.
-  //
-  // @override
-  // Future<List<String>> uploadAttachments({
-  //   required List<PendingTaskAttachment> files,
-  //   Map<String, String> alreadyUploaded = const {},
-  //   void Function(String filePath, String assetCode)? onAssetUploaded,
-  //   void Function(int index, int percent)? onProgress,
-  // }) async {
-  //   if (files.isEmpty) return const <String>[];
-  //
-  //   final resolved = <String, String>{...alreadyUploaded};
-  //   final pending = files
-  //       .where((f) => !resolved.containsKey(f.filePath))
-  //       .toList(growable: false);
-  //
-  //   if (pending.isNotEmpty) {
-  //     // 1. Open the school-wide task upload session on events-todo-service (§8).
-  //     final session = await _remoteDataSource.createUploadSession();
-  //     final ownerCode =
-  //         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-  //     final uploadedThisSession = <String>[];
-  //
-  //     for (final attachment in pending) {
-  //       final index = files.indexOf(attachment);
-  //       final file = File(attachment.filePath);
-  //       onProgress?.call(index, 0);
-  //
-  //       // 2. Presign against document-microservice (§9.2).
-  //       final presign = await _imageUploadService.createAssetPresign(
-  //         sessionCode: session.sessionCode,
-  //         documentApiBasePath: session.documentApiBasePath,
-  //         fileName: attachment.fileName,
-  //         contentType: attachment.contentType,
-  //         contentLengthBytes: attachment.sizeBytes,
-  //         mediaType: _mediaTypeFor(attachment.contentType),
-  //         ownerType: 'SCHOOL',
-  //         ownerCode: ownerCode,
-  //       );
-  //
-  //       // 3. Upload the raw bytes straight to storage (§9.3).
-  //       await _imageUploadService.uploadFileToPresignedUrl(
-  //         file: file,
-  //         presignedPutUrl: presign.presignedPutUrl,
-  //         requiredHeaders: presign.requiredHeaders,
-  //         fallbackContentType: attachment.contentType,
-  //         onProgress: (_, __, percent) {
-  //           // Hold at 99 until `complete` lands so a file never reads as done
-  //           // while the server still has work to do.
-  //           onProgress?.call(index, percent >= 100 ? 99 : percent);
-  //         },
-  //       );
-  //
-  //       // 4. Mark the asset complete (§9.4).
-  //       await _imageUploadService.completeAssetUpload(
-  //         sessionCode: session.sessionCode,
-  //         assetCode: presign.assetCode,
-  //         documentApiBasePath: session.documentApiBasePath,
-  //       );
-  //
-  //       resolved[attachment.filePath] = presign.assetCode;
-  //       uploadedThisSession.add(presign.assetCode);
-  //       onAssetUploaded?.call(attachment.filePath, presign.assetCode);
-  //       onProgress?.call(index, 100);
-  //     }
-  //
-  //     // 5. One short, best-effort check for the whole batch (§9.5). A task
-  //     // stores asset *codes* and resolves delivery URLs lazily when rendering,
-  //     // so processing does not have to be finished for the save to be correct —
-  //     // and blocking on it meant an `UPLOADED`-but-not-yet-`READY` asset failed
-  //     // the whole attachment after two minutes of polling. Only a definitive
-  //     // FAILED stops us here.
-  //     final ok = await _imageUploadService.awaitAssetsAttachable(
-  //       sessionCode: session.sessionCode,
-  //       expectedAssetCodes: uploadedThisSession,
-  //     );
-  //     if (!ok) {
-  //       throw Exception(
-  //         'The server could not process the attachment. Please try again.',
-  //       );
-  //     }
-  //   }
-  //
-  //   // Preserve the caller's ordering, including files carried over from a
-  //   // previous attempt.
-  //   return files
-  //       .map((f) => resolved[f.filePath] ?? '')
-  //       .where((code) => code.isNotEmpty)
-  //       .toList(growable: false);
-  // }
-
-
-  static String _mediaTypeFor(String contentType) {
-    final normalized = contentType.toLowerCase();
-    if (normalized.startsWith('image/')) return 'IMAGE';
-    if (normalized.startsWith('video/')) return 'VIDEO';
-    return 'DOCUMENT';
-  }
+  // Attachment upload (presign → PUT → complete, batched) now runs entirely
+  // through the shared `AttachmentUploadManager` rather than through this
+  // repository: it batches the presign call, streams file transfers instead
+  // of buffering them, and polls for "attachable" rather than the stricter
+  // "ready" state that used to hang event saves. `TasksCubit.uploadAttachments`
+  // calls the manager directly.
 
   @override
   Future<List<TaskAttachment>> getAttachments(String taskCode) {

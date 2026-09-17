@@ -667,7 +667,6 @@ import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
-import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import '../../presentation/features/events/view_model/events_cubit.dart';
 import '../../presentation/features/tasks/view_model/tasks_cubit.dart';
@@ -3671,11 +3670,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<TaskRepository>(
-    () => TaskRepositoryImpl(
-      serviceLocator<TaskRemoteDataSource>(),
-      serviceLocator<ImageUploadService>(),
-      serviceLocator<StorageService>(),
-    ),
+    () => TaskRepositoryImpl(serviceLocator<TaskRemoteDataSource>()),
   );
   serviceLocator.registerFactory<GetTasksUseCase>(
     () => GetTasksUseCase(serviceLocator()),

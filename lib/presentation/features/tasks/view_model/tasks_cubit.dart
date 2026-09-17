@@ -28,7 +28,6 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_st
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
-import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';

@@ -855,12 +855,6 @@ class EventsCubit extends Cubit<EventsState> {
 
   // -------------------------------------------------------------- helpers
 
-  List<Event> _replace(Event updated) {
-    return state.events
-        .map((e) => e.code == updated.code ? updated : e)
-        .toList();
-  }
-
   static List<Event> _sorted(List<Event> events) {
     return events..sort((a, b) {
       final byDate = a.date.compareTo(b.date);

@@ -11,7 +11,6 @@ import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
-import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
@@ -24,7 +23,6 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_shee
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).

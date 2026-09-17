@@ -10,7 +10,6 @@ import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
-import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/utils/holiday_year_window.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
@@ -252,43 +251,6 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  // ------------------------------------------------------------ header
-
-  Widget _header(BuildContext context, RoleCubit roles) {
-    // Both add actions now live in the bottom-right floating action button
-    // (see [_addFab]), so the header only carries the title and the "Today"
-    // shortcut for the calendar view.
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'Events',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        if (_tabIndex == _eventsTabIndex &&
-            _viewMode == _EventsViewMode.calendar)
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _focusedDay = DateTime.now();
-                _selectedDay = DateTime.now();
-              });
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.themeColor,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              visualDensity: VisualDensity.compact,
-            ),
-            child: const Text('Today'),
-          ),
-      ],
     );
   }
 
@@ -1049,48 +1011,6 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  /// Red banner in the calendar's day list — matches the red holiday date
-  /// styling on the calendar itself. The Holidays tab uses plain white
-  /// [HolidayCard]s instead.
-  Widget _holidayBanner(Holiday holiday) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: _holidayRed.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _holidayRed.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.beach_access_outlined, size: 18, color: _holidayRed),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  holiday.name,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: _holidayRed,
-                  ),
-                ),
-                Text(
-                  '${holiday.type.label} holiday • All day',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: _holidayRed.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // --------------------------------------------------- grid & list view
 
   Widget _gridView(
@@ -1636,17 +1556,6 @@ class _EventsScreenState extends State<EventsScreen> {
     upcoming.sort((a, b) => a.date.compareTo(b.date));
     past.sort((a, b) => b.date.compareTo(a.date));
     return [...upcoming, ...past];
-  }
-
-
-  /// Events occurring on [day] for the calendar — limited to completed
-  /// events while the "View Completed" toggle is on so only past completed
-  /// occurrences are marked/listed.
-  List<Event> _calendarEventsOn(EventsState state, DateTime day) {
-    final events = state.eventsOn(day);
-    if (!_showCompleted) return events;
-    final now = DateTime.now();
-    return events.where((e) => e.isCompletedAsOf(now)).toList();
   }
 
   /// Moves the calendar's focus/selection to the most recently completed
