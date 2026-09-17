@@ -205,6 +205,16 @@ import 'package:wowcare/presentation/features/user_profile/view/edit_user_profil
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
+import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/model/user_persona.dart';
@@ -2140,6 +2150,190 @@ final GoRouter appRouter = GoRouter(
                     fullscreenDialog: true,
                     child: const QrScanScreen(),
                   ),
+                ),
+
+                // Events: list/calendar plus detail and form drill-downs. All
+                // three share the singleton EventsCubit so RSVPs and edits
+                // made on the detail/form screens reflect on the calendar
+                // without a refetch. Read/write access is gated by the
+                // `EventRoutes.listSegment` entry in _dashboardModuleGuards
+                // above — list, detail and form all share it since they share
+                // that first path segment.
+                GoRoute(
+                  path: EventRoutes.listSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<EventsCubit>.value(
+                          value: serviceLocator<EventsCubit>()
+                            ..load(silent: true),
+                        ),
+                        BlocProvider<TasksCubit>.value(
+                          value: serviceLocator<TasksCubit>()
+                            ..applyPersona(context.read<RoleCubit>().role),
+                        ),
+                      ],
+                      // Holiday notifications deep-link here rather than to a
+                      // detail route: their payload carries no holiday code
+                      // and the Holiday List is a tab of this screen.
+                      child: EventsScreen.fromQuery(state.uri.queryParameters),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: EventRoutes.detailSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<EventsCubit>.value(
+                        value: serviceLocator<EventsCubit>()
+                          ..load(silent: true),
+                        child: EventDetailScreen(
+                          eventCode:
+                              (args?['eventCode'] as String?) ??
+                              state.uri.queryParameters[EventRoutes
+                                  .eventCodeParam] ??
+                              '',
+                          occurrenceCode:
+                              args?['occurrenceCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: EventRoutes.formSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final initialDate = DateTime.tryParse(
+                      args?['initialDate'] as String? ?? '',
+                    );
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<EventsCubit>.value(
+                            value: serviceLocator<EventsCubit>(),
+                          ),
+                          BlocProvider<ClassroomCubit>(
+                            create: (_) => serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(
+                                onlyTypeClassroom: false,
+                                applyAttendanceStaffScope: true,
+                              ),
+                          ),
+                          BlocProvider<StaffCubit>(
+                            create: (_) =>
+                                serviceLocator<StaffCubit>()..loadInitial(),
+                          ),
+                          BlocProvider<StudentCubit>(
+                            create: (_) =>
+                                serviceLocator<StudentCubit>()..loadInitial(),
+                          ),
+                        ],
+                        child: EventFormScreen(
+                          eventCode: args?['eventCode'] as String?,
+                          initialDate: initialDate,
+                          splitFromOccurrenceCode:
+                              args?['splitFromOccurrence'] as String?,
+                          splitFromDate: DateTime.tryParse(
+                            args?['splitFromDate'] as String? ?? '',
+                          ),
+                          editOccurrenceCode:
+                              args?['editOccurrence'] as String?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Tasks: board/list plus detail and form drill-downs. All
+                // three share the singleton TasksCubit so status/priority
+                // edits reflect everywhere without a refetch. Guarded by the
+                // `TaskRoutes.listSegment` entry in _dashboardModuleGuards.
+                GoRoute(
+                  path: TaskRoutes.listSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<TasksCubit>.value(
+                      // Persona applied before the fetch so the read boundary
+                      // (staff see only their own tasks) is in place for the
+                      // very first frame, and the My/All default matches it.
+                      value: serviceLocator<TasksCubit>()
+                        ..applyPersona(context.read<RoleCubit>().role)
+                        ..load(silent: true),
+                      child: const TasksScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: TaskRoutes.detailSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<TasksCubit>.value(
+                        // Loaded silently too: opening this screen directly
+                        // from the calendar feed skips the Tasks tab, so the
+                        // list may still be empty and taskByCode would miss.
+                        value: serviceLocator<TasksCubit>()
+                          ..applyPersona(context.read<RoleCubit>().role)
+                          ..load(silent: true),
+                        child: TaskDetailScreen(
+                          // `extra` when pushed in-app (calendar / tasks
+                          // list); the query param when deep-linked from a
+                          // notification.
+                          taskCode:
+                              (args?['taskCode'] as String?) ??
+                              state.uri.queryParameters[TaskRoutes
+                                  .taskCodeParam] ??
+                              '',
+                          // Only ever arrives via the query param — a deep
+                          // link with just the series (TASK_ASSIGNED /
+                          // TASK_UPDATED); an in-app push always has the real
+                          // assignment code already.
+                          seriesCode: state
+                              .uri
+                              .queryParameters[TaskRoutes.seriesCodeParam],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: TaskRoutes.formSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<TasksCubit>.value(
+                            value: serviceLocator<TasksCubit>()
+                              ..applyPersona(context.read<RoleCubit>().role),
+                          ),
+                          // Assignee picker shows ACTIVE staff only and is
+                          // otherwise unrestricted for every persona that can
+                          // reach this form — a staff/teacher persona may
+                          // assign to any colleague, not just their own
+                          // classrooms. See loadAssignableStaff.
+                          BlocProvider<StaffCubit>(
+                            create: (_) {
+                              final cubit = serviceLocator<StaffCubit>();
+                              loadAssignableStaff(cubit);
+                              return cubit;
+                            },
+                          ),
+                        ],
+                        child: TaskFormScreen(
+                          taskCode: args?['taskCode'] as String?,
+                          editScope: args?['editScope'] as TaskEditScope?,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

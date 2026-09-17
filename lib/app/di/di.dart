@@ -669,6 +669,8 @@ import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart
 import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
+import '../../presentation/features/events/view_model/events_cubit.dart';
+import '../../presentation/features/tasks/view_model/tasks_cubit.dart';
 import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
 import '../../shared/services/attachment_view/attachment_asset_service.dart';
 
@@ -3638,6 +3640,28 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteHolidayUseCase>(
     () => DeleteHolidayUseCase(serviceLocator()),
   );
+  // Singleton so the events list, detail and form screens (separate routes)
+  // share one state and edits/RSVPs reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<EventsCubit>(
+    () => EventsCubit(
+      serviceLocator<GetEventsUseCase>(),
+      serviceLocator<GetEventByCodeUseCase>(),
+      serviceLocator<GetCalendarFeedUseCase>(),
+      serviceLocator<CreateEventUseCase>(),
+      serviceLocator<UpdateEventUseCase>(),
+      serviceLocator<DeleteEventUseCase>(),
+      serviceLocator<RespondToEventUseCase>(),
+      serviceLocator<UpdateOccurrenceUseCase>(),
+      serviceLocator<CancelOccurrenceUseCase>(),
+      serviceLocator<GetHolidaysUseCase>(),
+      serviceLocator<CreateHolidayUseCase>(),
+      serviceLocator<UpdateHolidayUseCase>(),
+      serviceLocator<SetHolidayStatusUseCase>(),
+      serviceLocator<DeleteHolidayUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UploadEventAttachmentsUseCase>(),
+    ),
+  );
 
   // ===== TASKS (remote-only, events-todo MS) =====
   serviceLocator.registerLazySingleton<TaskRemoteDataSource>(
@@ -3715,5 +3739,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CancelTaskOccurrenceUseCase>(
     () => CancelTaskOccurrenceUseCase(serviceLocator()),
+  );
+  // Singleton so the tasks board, detail and form screens (separate routes)
+  // share one state and edits reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<TasksCubit>(
+    () => TasksCubit(
+      serviceLocator<GetTasksUseCase>(),
+      serviceLocator<CreateTaskUseCase>(),
+      serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<RemoveTaskAssigneeUseCase>(),
+      serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<UploadTaskAttachmentsUseCase>(),
+      serviceLocator<GetTaskAttachmentsUseCase>(),
+      serviceLocator<DetachTaskAttachmentUseCase>(),
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<GetAllStaffUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UpdateTaskAssignmentUseCase>(),
+      serviceLocator<DeleteTaskAssignmentUseCase>(),
+      serviceLocator<GetTaskUseCase>(),
+      serviceLocator<GetTaskOccurrencesUseCase>(),
+      serviceLocator<UpdateTaskOccurrenceUseCase>(),
+      serviceLocator<CancelTaskOccurrenceUseCase>(),
+      serviceLocator<UpdateTaskUseCase>(),
+    ),
   );
 }

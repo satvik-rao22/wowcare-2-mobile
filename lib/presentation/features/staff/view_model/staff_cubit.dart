@@ -79,7 +79,15 @@ class StaffCubit extends Cubit<StaffState> {
   int _generation = 0;
 
   // How many staff records to load per page from the API
-  static const int _pageSize = 10;
+  static const int _defaultPageSize = 10;
+  int _pageSize = _defaultPageSize;
+
+  /// Overrides the page size ahead of [loadInitial] — e.g. the Tasks
+  /// assignee picker sets a large page so one round trip covers a whole
+  /// school. Ignored if not positive.
+  void setPageSize(int size) {
+    if (size > 0) _pageSize = size;
+  }
 
   /// Appends [incoming] onto [existing], skipping any staff whose code is
   /// already present (stable-identity dedup), so overlapping backend pages can't
