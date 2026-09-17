@@ -206,10 +206,6 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                 child: CustomSearchBar(
                                   controller: _searchController,
                                   hintText: AppStrings.searchConversations,
-                                  searchBarColor: const WidgetStatePropertyAll(
-                                    AppColors.transparentColor,
-                                  ),
-                                  borderColor: AppColors.transparentColor,
                                 ),
                               ),
                               const SizedBox(height: AppSizes.xs),

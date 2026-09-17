@@ -3,6 +3,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -841,45 +842,11 @@ class _ClassroomStaffTabCardViewState
                             Row(
                               children: [
                                 Expanded(
-                                  child: SearchBar(
+                                  child: CustomSearchBar(
                                     controller: _searchController,
-                                    constraints: const BoxConstraints(
-                                      minHeight: 36,
-                                    ),
-                                    backgroundColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                          AppColors.cardColor,
-                                        ),
-                                    surfaceTintColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                          AppColors.cardColor,
-                                        ),
                                     hintText: 'Search',
-                                    hintStyle: WidgetStatePropertyAll(
-                                      TextStyle(
-                                        fontFamily: AppFonts.body,
-                                        color: AppColors
-                                            .classroomSearchHintTextColor,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    leading: const Icon(
-                                      Icons.search,
-                                      color: AppColors.primaryColor,
-                                      size: 18,
-                                    ),
-                                    elevation: const WidgetStatePropertyAll(0),
-                                    side: const WidgetStatePropertyAll(
-                                      BorderSide(
-                                        width: 1,
-                                        color: AppColors.classroomBorderColor,
-                                      ),
-                                    ),
-                                    shape: WidgetStatePropertyAll(
-                                      RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
+                                    density: SearchFieldDensity.compact,
+                                    radius: 10,
                                   ),
                                 ),
                                 const SizedBox(width: 8),

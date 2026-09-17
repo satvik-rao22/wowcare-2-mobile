@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/core/theme/app_theme_config.dart';
@@ -124,7 +125,7 @@ class _AssignStaffSelectionViewState extends State<_AssignStaffSelectionView> {
             ),
           ),
           const SizedBox(height: 12),
-          AssignFormSearchBar(
+          CustomSearchBar(
             controller: _searchController,
             hintText: 'Search Staff',
           ),

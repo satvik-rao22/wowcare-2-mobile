@@ -769,10 +769,6 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               hintText: widget.isStaffMessaging
                                   ? AppStrings.searchStaff
                                   : AppStrings.searchStudent,
-                              searchBarColor: WidgetStatePropertyAll(
-                                AppColors.transparentColor,
-                              ),
-                              borderColor: AppColors.transparentColor,
                             ),
                           ),
                         ),

@@ -49,43 +49,6 @@ class AssignFormHeader extends StatelessWidget {
 }
 
 /// The search field styling shared by both roster-selection screens.
-class AssignFormSearchBar extends StatelessWidget {
-  const AssignFormSearchBar({
-    required this.controller,
-    required this.hintText,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final String hintText;
-
-  @override
-  Widget build(BuildContext context) {
-    return SearchBar(
-      controller: controller,
-      constraints: const BoxConstraints(minHeight: 44),
-      hintText: hintText,
-      hintStyle: const WidgetStatePropertyAll(
-        TextStyle(
-          fontFamily: AppFonts.body,
-          color: AppColors.classroomSearchFieldHintColor,
-        ),
-      ),
-      backgroundColor: const WidgetStatePropertyAll<Color>(
-        AppColors.cardColor,
-      ),
-      surfaceTintColor: const WidgetStatePropertyAll<Color>(
-        AppColors.cardColor,
-      ),
-      elevation: const WidgetStatePropertyAll<double>(0),
-      side: const WidgetStatePropertyAll(
-        BorderSide(width: 1, color: AppColors.classroomBorderColor),
-      ),
-      leading: const Icon(Icons.search, color: AppColors.classroomMutedIconColor),
-    );
-  }
-}
-
 /// The "Select All" checkbox + label row shared by both roster screens.
 class SelectAllCheckboxRow extends StatelessWidget {
   const SelectAllCheckboxRow({

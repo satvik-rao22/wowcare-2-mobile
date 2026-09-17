@@ -518,11 +518,6 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                     child: CustomSearchBar(
                                       controller: _searchController,
                                       hintText: AppStrings.searchConversationsEllipsis,
-                                      searchBarColor:
-                                          const WidgetStatePropertyAll(
-                                            AppColors.transparentColor,
-                                          ),
-                                      borderColor: AppColors.transparentColor,
                                     ),
                                   ),
                                 ),

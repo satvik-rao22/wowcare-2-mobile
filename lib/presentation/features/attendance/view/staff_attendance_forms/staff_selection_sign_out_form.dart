@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -205,7 +205,7 @@ class _StaffSelectionSignOutFormState extends State<StaffSelectionSignOutForm> {
                   children: [
                     const AppText.subtitle('Select Staff'),
                     const SizedBox(height: AppSpacing.sm),
-                    AttendanceSearchField(
+                    CustomSearchBar(
                       controller: _searchController,
                       hintText: 'Search Staff',
                       onChanged: (_) => _loadStaff(),
