@@ -296,15 +296,13 @@ class _StaffDirectoryReportScreenState
                                 hintText: ReportsStrings.allClassrooms,
                                 items: classroomItems,
                                 selectedItems: _selectedClassrooms.value,
-                                onChanged: (s) =>
-                                    _selectedClassrooms.value = s,
+                                onChanged: (s) => _selectedClassrooms.value = s,
                                 showSelectAll: true,
                               ),
                         ),
                   ),
                   const ReportDefaultNote(
-                    text:
-                        ReportsStrings.noteAllClassroomsIncludedByDefault,
+                    text: ReportsStrings.noteAllClassroomsIncludedByDefault,
                   ),
                   SizedBox(
                     height: context.responsive(compact: 16.0, medium: 24.0),

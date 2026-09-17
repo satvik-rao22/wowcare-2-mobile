@@ -232,8 +232,12 @@ class ReportFormatSelector extends StatelessWidget {
         ).copyWith(color: AppColors.primaryColor.withValues(alpha: 0.5)),
       ),
       items: const [
-        DropdownMenuItem(value: 'PDF', child: Text('PDF')),
-        DropdownMenuItem(value: 'XLSX', child: Text('XLSX')),
+        // Values are the API's format codes; only the labels are user-facing.
+        DropdownMenuItem(value: 'PDF', child: Text(ReportsStrings.formatPdf)),
+        DropdownMenuItem(
+          value: 'XLSX',
+          child: Text(ReportsStrings.formatExcel),
+        ),
       ],
       onChanged: (value) {
         if (value != null) {

@@ -179,6 +179,10 @@ class ReportsStrings {
   static const String enrollDate = 'Enroll Date';
   static const String excelFilePreview = 'Excel File Preview';
   static const String exportFormat = 'Export Format';
+  static const String formatPdf = 'PDF';
+
+  /// Label for the `XLSX` export value — matches the web app's wording.
+  static const String formatExcel = 'Excel (.xlsx)';
   static const String feb = 'Feb';
   static const String fields = 'FIELDS';
   static const String filePreview = 'File Preview';
