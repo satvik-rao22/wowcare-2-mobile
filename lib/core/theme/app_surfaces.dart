@@ -320,9 +320,14 @@ class AppSurfaces {
       );
 
   /// The rest state of a segmented control: a well the selected peer sits in.
-  static SkeuDecoration segmented() => SkeuDecoration(
+  ///
+  /// [radius] lets a shell keep the geometry it already had — a segmented
+  /// control is told by its inset, not by its corner.
+  static SkeuDecoration segmented({double? radius}) => SkeuDecoration(
     color: AppPalette.surfaceField,
-    borderRadius: AppRadius.allLg,
+    borderRadius: radius == null
+        ? AppRadius.allLg
+        : BorderRadius.circular(radius),
     insets: AppElevation.trough,
   );
 

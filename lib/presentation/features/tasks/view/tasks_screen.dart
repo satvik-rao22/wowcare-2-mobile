@@ -168,13 +168,7 @@ class _TasksScreenState extends State<TasksScreen> {
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: AppPalette.surfaceCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColors.primaryColor.withValues(alpha: 0.08),
-              ),
-            ),
+            decoration: AppSurfaces.segmented(radius: 10),
             child: Row(
               children: [
                 _scopeTab(
@@ -250,11 +244,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppPalette.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppPalette.border),
-      ),
+      decoration: AppSurfaces.segmented(radius: 10),
       child: Row(
         children: [
           option(_TasksViewMode.kanban, Icons.view_kanban_outlined, 'Kanban'),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 
@@ -42,23 +45,16 @@ class TaskStatusSelector extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      decoration: BoxDecoration(
-        color: selected ? color : AppPalette.surfaceCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: selected ? color : AppPalette.border,
-          width: selected ? 1.5 : 1,
-        ),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.28),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
+      // The chosen status is a key in its own status colour: a solid face
+      // over the key glow. The other two are quiet card-faced peers.
+      decoration: selected
+          ? SkeuDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color, width: 1.5),
+              boxShadow: AppElevation.keyGlow(color),
+            )
+          : AppSurfaces.card(radius: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

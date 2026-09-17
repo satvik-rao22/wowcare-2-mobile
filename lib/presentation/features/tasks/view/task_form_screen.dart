@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -1592,13 +1593,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
-  BoxDecoration _tileDecoration() {
-    return BoxDecoration(
-      color: AppPalette.surfaceCard,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppPalette.border),
-    );
-  }
+  /// Every tap-to-pick row and inline dropdown on this form. They hold a
+  /// value exactly as the text fields beside them do, so they take the same
+  /// well rather than a raised card face.
+  Decoration _tileDecoration() => AppSurfaces.well(radius: 10);
 
   Widget _fieldTile({
     required IconData icon,
@@ -1606,7 +1604,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: AppPalette.surfaceCard,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -1639,7 +1637,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      // The vertical padding keeps the row the height Material's Switch gave
+      // it, so swapping in the house toggle restyles without moving anything.
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: _tileDecoration(),
       child: Row(
         children: [
@@ -1649,11 +1649,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               style: const TextStyle(fontSize: 13, color: AppPalette.textPrimary),
             ),
           ),
-          Switch(
-            value: value,
-            activeThumbColor: AppColors.themeColor,
-            onChanged: onChanged,
-          ),
+          CustomToggle(label: '', isToggled: value, onToggle: onChanged),
         ],
       ),
     );

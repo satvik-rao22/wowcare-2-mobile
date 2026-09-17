@@ -73,7 +73,7 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppPalette.border,
+                  color: AppPalette.sheetGrabber,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

@@ -595,6 +595,13 @@ class AppPalette {
       ? BrandRamps.well
       : Color(0x1AB1AFE9);
 
+  /// The 38x4 grabber at the top of a bottom sheet, and any inset divider
+  /// that has to read as a notch rather than a border. `BrandRamps.wellDeep`
+  /// is the design's `rgba(10,28,93,.18)` grabber, opaque.
+  static const Color sheetGrabber = _brand
+      ? BrandRamps.wellDeep
+      : LegacyHues.grey300;
+
   /// The fill of a selected row, tile or chip in a list or picker.
   static const Color surfaceSelected = _brand
       ? BrandRamps.pinkTint

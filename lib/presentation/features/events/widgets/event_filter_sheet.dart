@@ -257,7 +257,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
           width: 38,
           height: 4,
           decoration: BoxDecoration(
-            color: AppPalette.borderStrong,
+            color: AppPalette.sheetGrabber,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -338,18 +338,17 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
     required int selectedCount,
     required VoidCallback onTap,
   }) {
+    // A row that holds a value and opens a picker is a well, exactly like the
+    // pick tiles on the form. A well is told by its fill, not by a line.
     return Material(
-      color: AppPalette.surfaceCard,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
-          ),
+          decoration: AppSurfaces.well(radius: 10),
           child: Row(
             children: [
               Icon(icon, size: 18, color: color),
@@ -530,7 +529,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppPalette.borderStrong,
+                color: AppPalette.sheetGrabber,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

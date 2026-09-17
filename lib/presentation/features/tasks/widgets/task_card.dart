@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
@@ -48,18 +50,12 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+          // A live item is a raised card. A completed one keeps the same
+          // face and loses its depth, which is what "archived" reads as.
+          decoration: AppSurfaces.card(radius: 12).copyWith(
             border: Border.all(color: accent.withValues(alpha: 0.18)),
-            boxShadow: completed
-                ? null
-                : [
-                    BoxShadow(
-                      color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            boxShadow: completed ? const <BoxShadow>[] : null,
+            insets: completed ? const <AppInset>[] : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

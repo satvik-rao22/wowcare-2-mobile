@@ -149,7 +149,7 @@ class _RsvpParticipantsSheetState extends State<_RsvpParticipantsSheet> {
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: AppPalette.borderStrong,
+                color: AppPalette.sheetGrabber,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),

@@ -332,13 +332,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(
-          color: AppColors.primaryColor.withValues(alpha: 0.08),
-        ),
-      ),
+      decoration: AppSurfaces.segmented(radius: 11),
       child: Row(
         children: [
           tab(0, 'Events', Icons.event_outlined),
@@ -626,11 +620,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppPalette.borderStrong),
-      ),
+      decoration: AppSurfaces.segmented(radius: 10),
       child: Row(
         // A view the user cannot read is not offered — switching to it would
         // only ever show the restricted placeholder.
@@ -814,20 +804,7 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget _calendarCard(BuildContext context, EventsState state, RoleCubit roles) {
     final allowedKinds = EventAccess.readableCalendarKinds(roles);
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.primaryColor.withValues(alpha: 0.08),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppPalette.shadowAmbient.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 12),
       child: TableCalendar<CalendarFeedItem>(
         firstDay: DateTime(DateTime.now().year - 2),
         lastDay: DateTime(DateTime.now().year + 3),
