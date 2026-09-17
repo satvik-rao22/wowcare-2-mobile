@@ -1,8 +1,10 @@
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/cache_manager.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_context_helper.dart';
+import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/entities/report_entity.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
@@ -16,13 +18,21 @@ import 'package:wowcare/data/features/reports/models/report_request_payload.dart
 import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 
 class ReportsRepositoryImpl implements ReportsRepository {
-  ReportsRepositoryImpl(this._remoteDataSource, StorageService storageService)
-    : _cacheManager = CacheManager(storageService),
+  ReportsRepositoryImpl(
+    this._remoteDataSource,
+    StorageService storageService,
+    this._apiClient,
+  ) : _cacheManager = CacheManager(storageService),
       _storageService = storageService;
 
   final ReportsRemoteDataSource _remoteDataSource;
   final CacheManager _cacheManager;
   final StorageService _storageService;
+
+  /// Only used to resolve the school's timezone for the request context.
+  /// [SchoolTimezoneResolver] serves a warm cache without touching the
+  /// network, and falls back to the last known zone if the fetch fails.
+  final ApiClient _apiClient;
 
   // Cache duration: 30 minutes for tags
   static const Duration _tagsCacheDuration = Duration(minutes: 30);
@@ -52,6 +62,10 @@ class ReportsRepositoryImpl implements ReportsRepository {
       // Pass the schoolName properly instead of the schoolCode in the
       // schoolName field.
       schoolName: await SchoolContextHelper.getSchoolName(),
+      // The scheduling report needs the school's IANA zone to place a shift
+      // on a calendar day; the web app sends it and mobile did not, which is
+      // why the same request generated there and failed here.
+      schoolTimeZone: await _resolveSchoolTimeZone(),
     );
 
     final payload = ReportRequestPayload.fromParams(params, context: context);
@@ -69,6 +83,58 @@ class ReportsRepositoryImpl implements ReportsRepository {
     );
 
     return _mapResponseModelToEntity(response);
+  }
+
+  /// The school's IANA timezone, or `null` when it cannot be resolved.
+  ///
+  /// Returning `null` rather than the resolver's `'UTC'` fallback is
+  /// deliberate: `includeIfNull: false` then omits the key entirely, which is
+  /// what the payload did before this existed. Asserting UTC for a school that
+  /// is actually in New York would shift shifts across day boundaries —
+  /// quietly wrong data is worse than the key being absent.
+  Future<String?> _resolveSchoolTimeZone() async {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return null;
+
+    // Warm path: the zone [SchoolTimezoneResolver] already cached for THIS
+    // school, read straight from storage. Going through the resolver instead
+    // would await a fresh server-time sync (up to 4s) before it so much as
+    // looks at its cache — a round trip that has nothing to do with
+    // generating a report, on every generate.
+    final cachedFor =
+        (await _storageService.getString(
+                  StorageKeys.schoolTimeZoneSchoolCode,
+                ) ??
+                '')
+            .trim();
+    final cached =
+        (await _storageService.getString(StorageKeys.schoolTimeZone) ?? '')
+            .trim();
+    if (cachedFor == schoolCode &&
+        cached.isNotEmpty &&
+        cached.toUpperCase() != SchoolTimezoneResolver.fallbackTimeZone) {
+      return cached;
+    }
+
+    // Cold path only: nothing has resolved this school's zone yet this
+    // session, so pay for the lookup once. The resolver caches the result for
+    // everyone else.
+    try {
+      final zone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: _apiClient,
+      );
+      if (zone.trim().isEmpty ||
+          zone.toUpperCase() == SchoolTimezoneResolver.fallbackTimeZone) {
+        AppLogger.w('[REPORTS-REPO] School timezone unresolved; omitting key');
+        return null;
+      }
+      return zone;
+    } catch (e) {
+      AppLogger.w('[REPORTS-REPO] School timezone lookup failed: $e');
+      return null;
+    }
   }
 
   /// Resolves the human-readable school name for [schoolCode]/[organizationCode]

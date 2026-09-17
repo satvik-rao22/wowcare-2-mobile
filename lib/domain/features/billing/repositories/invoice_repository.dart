@@ -19,8 +19,12 @@ abstract class InvoiceRepository {
   });
 
   /// Paginated Transactions list (`GET /api/v1/invoices/transactions`).
-  /// [type] (e.g. `PAYMENT`, `REFUND`, `PAYMENT,REFUND`) and [status]
-  /// (e.g. `SUCCESS`, `IN_PROCESS`) filter the rows server-side.
+  /// [type] (e.g. `PAYMENT`, `REFUND`, `PAYMENT,REFUND`), [status]
+  /// (e.g. `SUCCESS`, `IN_PROCESS` — driven by the stat-bar legend), [mode]
+  /// (e.g. `Cash`, `Check`, `Online`, `Other`) and [paymentStatus] (e.g.
+  /// `Paid`, `In_Process`, `Failed` — a distinct facet from [status], driven
+  /// by the funnel sheet's own Payment Status field) filter the rows
+  /// server-side.
   Future<InvoiceTransactionsPage> getTransactions({
     required String organizationCode,
     required String school,
@@ -28,6 +32,8 @@ abstract class InvoiceRepository {
     DateTime? dateTo,
     String? type,
     String? status,
+    String? mode,
+    String? paymentStatus,
     int page,
     int size,
   });

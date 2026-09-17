@@ -114,6 +114,15 @@ class ConversationParticipantCollection {
   bool? active;
   String? staffStatus;
 
+  /// Participant's profile photo (resolved URL or media-asset code) and
+  /// staff code (`STF_*`) — mirror the fields already carried by
+  /// [ConversationParticipantEntityCollection]. Without these, every
+  /// conversation round-tripped through this Isar cache (offline reload, or
+  /// the realtime merge path) lost the photo the REST fetch had already
+  /// resolved, leaving the staff-messaging list showing initials only.
+  String? avatarUrl;
+  String? staffCode;
+
   ConversationParticipantCollection();
 
   factory ConversationParticipantCollection.fromEntity(
@@ -133,7 +142,9 @@ class ConversationParticipantCollection {
       ..createdAt = entity.createdAt
       ..updatedAt = entity.updatedAt
       ..active = entity.active
-      ..staffStatus = entity.staffStatus;
+      ..staffStatus = entity.staffStatus
+      ..avatarUrl = entity.avatarUrl
+      ..staffCode = entity.staffCode;
   }
 
   ConversationParticipant toEntity() {
@@ -152,6 +163,8 @@ class ConversationParticipantCollection {
       updatedAt: updatedAt,
       active: active ?? true,
       staffStatus: staffStatus,
+      avatarUrl: avatarUrl,
+      staffCode: staffCode,
     );
   }
 }

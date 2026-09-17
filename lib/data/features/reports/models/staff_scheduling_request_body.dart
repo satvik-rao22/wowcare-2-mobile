@@ -9,6 +9,10 @@ part 'staff_scheduling_request_body.g.dart';
 ///
 /// Note the key is `classroomCodes`, not `roomCodes` — this endpoint differs
 /// from the staff *attendance* endpoints.
+///
+/// Mirrors the body the web app sends to the same endpoint, key for key. The
+/// one that used to be missing is `schoolTimeZone`, without which the backend
+/// cannot place a shift on a calendar day and the report fails to generate.
 @JsonSerializable(includeIfNull: false, createFactory: false)
 class StaffSchedulingRequestBody extends ReportRequestPayload {
   const StaffSchedulingRequestBody({
@@ -21,6 +25,7 @@ class StaffSchedulingRequestBody extends ReportRequestPayload {
     this.schoolCode,
     this.organizationCode,
     this.generatedBy,
+    this.schoolTimeZone,
   });
 
   factory StaffSchedulingRequestBody.fromParams(
@@ -40,6 +45,7 @@ class StaffSchedulingRequestBody extends ReportRequestPayload {
       schoolCode: context.schoolCode,
       organizationCode: context.organizationCode,
       generatedBy: context.generatedBy,
+      schoolTimeZone: ReportRequestPayload.blankToNull(context.schoolTimeZone),
     );
   }
 
@@ -52,6 +58,7 @@ class StaffSchedulingRequestBody extends ReportRequestPayload {
   final String? schoolCode;
   final String? organizationCode;
   final String? generatedBy;
+  final String? schoolTimeZone;
 
   @override
   Map<String, dynamic> toJson() => _$StaffSchedulingRequestBodyToJson(this);

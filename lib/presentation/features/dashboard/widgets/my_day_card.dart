@@ -165,6 +165,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
     isActiveProfile: true,
     todayStatusRaw: _myDay.todayStatusRaw,
+    // A staff member who marked themselves absent can still sign in from My
+    // Day; the sign-in form clears today's absence record first.
+    allowAbsentSignInOverride: true,
   );
 
   /// Geofencing is the first-class gate for every self-attendance action:
@@ -562,7 +565,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+      MaterialPageRoute(
+        builder: (_) => StaffMarkAbsentForm(staff: staff, popOnSuccess: true),
+      ),
     );
     if (mounted) {
       await _loadStaffIdentity();

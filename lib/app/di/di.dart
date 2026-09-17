@@ -601,6 +601,7 @@ import '../../presentation/features/billing/view_model/transaction_details_cubit
 import '../../presentation/features/billing/view_model/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/view_model/add_credit_cubit.dart';
 import '../../presentation/features/billing/view_model/view_invoice_cubit.dart';
+import '../../presentation/features/billing/view_model/view_receipt_cubit.dart';
 import '../../presentation/features/billing/view_model/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
@@ -1045,6 +1046,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
       getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getAutoPayStatus: serviceLocator<GetAutoPayStatusUseCase>(),
+      getPaymentMethods: serviceLocator<GetPaymentMethodsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -1090,6 +1093,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ReportsRepositoryImpl(
       serviceLocator<ReportsRemoteDataSource>(),
       serviceLocator<StorageService>(),
+      serviceLocator<ApiClient>(),
     ),
   );
 
@@ -2460,6 +2464,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
       loadCachedStaffProfileUseCase: serviceLocator(),
+      getStudentSettingsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
@@ -3349,6 +3354,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -3356,6 +3362,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
+    ),
+  );
+  serviceLocator.registerFactory<ViewReceiptCubit>(
+    () => ViewReceiptCubit(
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<SendInvoiceCubit>(
@@ -3401,12 +3415,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTransactions: serviceLocator<GetInvoiceTransactionsUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<FamilySummaryCubit>(
     () => FamilySummaryCubit(
       getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

@@ -130,6 +130,20 @@ class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
     }
   }
 
+  /// Deletes this staff member's profile photo. Throws on failure so the View
+  /// can surface the message through its existing error snackbar; the View
+  /// runs the post-success reset (clear the photo field, forget the cached
+  /// avatar, refetch) exactly as it does after an upload.
+  ///
+  /// No progress state is emitted: the request is a single small POST, and the
+  /// confirmation sheet already owns the in-flight spinner.
+  Future<void> deletePhoto({required String staffCode}) async {
+    await _imageUploadService.deleteProfilePhoto(
+      owner: ProfilePhotoOwner.staff,
+      code: staffCode,
+    );
+  }
+
   /// Resets to initial — called by the View once it has finished reacting to
   /// a `.done`/`.error` terminal state (e.g. after showing a snackbar), so a
   /// later re-render doesn't see a stale progress bar.

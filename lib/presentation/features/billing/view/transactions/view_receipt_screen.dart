@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/presentation/features/billing/view_model/view_receipt_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/date_utils.dart';
 
@@ -537,24 +542,54 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     );
   }
 
+  Future<void> _onDownload(BuildContext context) async {
+    final cubit = context.read<ViewReceiptCubit>();
+    final error = await cubit.downloadReceipt(widget.transaction);
+    if (!context.mounted) return;
+    if (error != null) {
+      CoreUtils.showTopSnackBar(context: context, message: error, isError: true);
+    } else {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: BillingStrings.downloaded,
+        isSuccess: true,
+      );
+    }
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    return CustomButtonLayout(
+      confirmButtonLabel: BillingStrings.download,
+      onPressedConfirm: () => _onDownload(context),
+      showCancelButton: false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StaffFormLayout(
-      title: widget.viewType == 'invoice'
-          ? BillingStrings.viewInvoice
-          : BillingStrings.viewReceipt,
-      bottomBar: const SizedBox.shrink(),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const BillingSchoolHeader(),
-            const SizedBox(height: 16),
-            _buildPaymentForRow(),
-            const SizedBox(height: 16),
-            _buildPaymentDetailContainer(),
-          ],
-        ),
+    return BlocProvider<ViewReceiptCubit>(
+      create: (_) => serviceLocator<ViewReceiptCubit>(),
+      child: Builder(
+        builder: (context) {
+          return StaffFormLayout(
+            title: widget.viewType == 'invoice'
+                ? BillingStrings.viewInvoice
+                : BillingStrings.viewReceipt,
+            bottomBar: _buildBottomBar(context),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const BillingSchoolHeader(),
+                  const SizedBox(height: 16),
+                  _buildPaymentForRow(),
+                  const SizedBox(height: 16),
+                  _buildPaymentDetailContainer(),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

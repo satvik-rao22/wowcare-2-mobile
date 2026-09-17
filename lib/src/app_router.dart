@@ -3,6 +3,7 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
@@ -161,6 +162,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.da
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
+import 'package:wowcare/shared/common/view/web_view_screen.dart';
 import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
@@ -184,6 +186,7 @@ import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/publish_shifts_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_route_args.dart';
+import 'package:wowcare/presentation/features/communication/view_model/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
@@ -233,7 +236,6 @@ class AppRoutes {
   static const String orgSelection = '/org-selection';
   static const String schoolSelection = '/school-selection';
   static const String editUserProfile = EditUserProfileScreen.routeName;
-
   static const String dashboard = DashboardScreen.routeName;
   static const String classroom = ClassroomScreen.routeName;
   static const String activityFeed = ActivityFeedScreen.routeName;
@@ -1041,7 +1043,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
-              builder: (context, state) => const DashboardScreen(),
+              builder: (context, state) =>
+                  DashboardScreen(focus: state.uri.queryParameters['focus']),
               routes: [
                 GoRoute(
                   path: 'staff',
@@ -2258,6 +2261,10 @@ final GoRouter appRouter = GoRouter(
                     initialClassrooms: q['classroom'] != null
                         ? [q['classroom']!]
                         : null,
+                    initialApprovalStatuses: q['approvalStatus'] != null
+                        ? [q['approvalStatus']!]
+                        : null,
+                    initialAllTime: q['dateRange'] == 'all',
                     resetKey: nonce?.value.toString(),
                   ),
                 );
@@ -2361,7 +2368,28 @@ final GoRouter appRouter = GoRouter(
     // from having multiple sibling roots inside the same ShellBranch.
     GoRoute(
       path: AppRoutes.adminChat,
-      builder: (context, state) => const AdminChatHostScreen(),
+      // AdminChatHostScreen.initState reads BOTH cubits from context (Mandate
+      // 5 — the view resolves no dependencies itself), so this route MUST
+      // provide them. Without this MultiBlocProvider the screen threw
+      // ProviderNotFoundException the moment it mounted: a red error box in
+      // debug, a grey screen in release. It is reachable for every non-staff
+      // persona — the messaging launcher sheet's "Admin" option and the
+      // drawer's "Admin Chat" tile both land here.
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<ConversationListCubit>(
+            create: (_) => buildConversationListCubit(
+              conversationType: ConversationType.adminChat,
+            ),
+          ),
+          // loadInitial() in the create closure, matching every other route
+          // that provides StudentCubit (see the reports/classroom routes).
+          BlocProvider<StudentCubit>(
+            create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+          ),
+        ],
+        child: const AdminChatHostScreen(),
+      ),
     ),
     // Deep-link target for a tapped chat push notification: fetches the
     // conversation by code and shows the correct thread.
@@ -2555,11 +2583,21 @@ final GoRouter appRouter = GoRouter(
               activityData: args.activityData,
               selectedStudents: args.selectedStudents,
             ),
-          child: BottleActivityScreen(
-            selectedStudents: args.selectedStudents,
-            isEdit: args.isEdit,
-            activityData: args.activityData,
-            readOnly: args.readOnly,
+          // The shared form widgets (staff-present dropdown, date and time
+          // pickers) resolve ActivityEditorCubit from the tree, which every
+          // other activity route above provides. Hand them the instance this
+          // form cubit was built with — `.value`, because the form cubit's
+          // own close() closes it — rather than resolving a second one.
+          child: Builder(
+            builder: (context) => BlocProvider<ActivityEditorCubit>.value(
+              value: context.read<BottleActivityCubit>().editor,
+              child: BottleActivityScreen(
+                selectedStudents: args.selectedStudents,
+                isEdit: args.isEdit,
+                activityData: args.activityData,
+                readOnly: args.readOnly,
+              ),
+            ),
           ),
         );
       },
@@ -2613,11 +2651,19 @@ final GoRouter appRouter = GoRouter(
               activityData: args.activityData,
               selectedStudents: args.selectedStudents,
             ),
-          child: MedicationActivityScreen(
-            selectedStudents: args.selectedStudents,
-            isEdit: args.isEdit,
-            activityData: args.activityData,
-            readOnly: args.readOnly,
+          // Same as the Bottle route: the staff-present dropdown and the
+          // date/time pickers read ActivityEditorCubit from the tree, so
+          // provide the one this form cubit already owns.
+          child: Builder(
+            builder: (context) => BlocProvider<ActivityEditorCubit>.value(
+              value: context.read<MedicationActivityCubit>().editor,
+              child: MedicationActivityScreen(
+                selectedStudents: args.selectedStudents,
+                isEdit: args.isEdit,
+                activityData: args.activityData,
+                readOnly: args.readOnly,
+              ),
+            ),
           ),
         );
       },
@@ -2899,6 +2945,21 @@ final GoRouter appRouter = GoRouter(
             allowActivityWrite: args['allowActivityWrite'] as bool? ?? true,
             studentName: args['studentName'] as Map<String, dynamic>?,
           ),
+        );
+      },
+    ),
+    // Generic in-app browser (privacy policy, terms, any external link).
+    // Root-level so it covers the bottom nav shell, and on a path of its own
+    // so it can take a typed `WebViewArgs` extra without colliding with the
+    // Map-`extra` routes above (see `StaffRoutes.documentViewer`'s note on
+    // declaration-order matching).
+    GoRoute(
+      path: WebViewScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as WebViewArgs?;
+        return _fastPage(
+          state,
+          WebViewScreen(url: args?.url ?? '', title: args?.title ?? ''),
         );
       },
     ),

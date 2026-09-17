@@ -206,10 +206,16 @@ android {
     // debug/release split, so a local ngrok tunnel used for testing shipped to
     // release and broke autoVerify for every real deep link.
     //
+    // Picked from the same `dartEnvironment` (decoded from
+    // --dart-define=ENVIRONMENT=…) that already drives the Firebase config
+    // selection above — PROD gets the production host, everything else
+    // (UAT/local) gets the UAT host, matching ApiConstantsProd/ApiConstantsUat.
+    //
     // Override locally WITHOUT editing a tracked file:
     //   flutter run --dart-define=… -PappLinkHost=your-tunnel.ngrok-free.dev
     // or add `appLinkHost=your-tunnel.ngrok-free.dev` to android/local.properties.
-    val defaultAppLinkHost = "uat-wowcare.childcarewow.app"
+    val defaultAppLinkHost =
+        if (dartEnvironment == "prod") "wowcare.childcarewow.app" else "wowcare-uat.childcarewow.app"
     val overriddenAppLinkHost =
         (project.findProperty("appLinkHost") as String?)?.takeIf { it.isNotBlank() }
 

@@ -29,13 +29,15 @@ class LedgerTransactionRemoteDataSourceImpl
     int size = 10,
   }) async {
     final params = <String, dynamic>{
-      if (from != null) 'from': from,
-      if (to != null) 'to': to,
+      'page': page,
+      'size': size,
+      if (from != null) 'dateFrom': from,
+      if (to != null) 'dateTo': to,
     };
 
     final response = await _client.get<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.ledgerEntries(ledgerCode)),
-      queryParameters: params.isEmpty ? null : params,
+      queryParameters: params,
     );
 
     return LedgerTransactionPageModel.fromJson(response.data ?? {});

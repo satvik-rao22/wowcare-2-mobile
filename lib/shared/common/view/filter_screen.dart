@@ -37,10 +37,32 @@ class _FilterScreenState extends State<FilterScreen> {
         .toList();
   }
 
+  /// Current picks keyed by section label, including unsaved in-dialog
+  /// changes — the input [FilerSection.visibleWhen] predicates react to.
+  Map<String, List<String>> _currentSelectionsByLabel() {
+    final map = <String, List<String>>{};
+    for (int i = 0; i < widget.sections.length; i++) {
+      map[widget.sections[i].label] = _selectedValues[i];
+    }
+    return map;
+  }
+
+  bool _isVisible(int index) {
+    final predicate = widget.sections[index].visibleWhen;
+    if (predicate == null) return true;
+    return predicate(_currentSelectionsByLabel());
+  }
+
   void _applyFilters() {
+    final selections = _currentSelectionsByLabel();
     final Map<String, List<String>> result = {};
     for (int i = 0; i < widget.sections.length; i++) {
-      result[widget.sections[i].label] = List.from(_selectedValues[i]);
+      final section = widget.sections[i];
+      // A section hidden by its own visibleWhen rule (e.g. Mode/Payment
+      // Status once Type is picked) never contributes to the applied
+      // filters, even if it holds a stale pick from before it was hidden.
+      final visible = section.visibleWhen?.call(selections) ?? true;
+      result[section.label] = visible ? List.from(_selectedValues[i]) : const [];
     }
     widget.onApply(result);
     Navigator.pop(context);
@@ -77,17 +99,22 @@ class _FilterScreenState extends State<FilterScreen> {
   }
 
   Widget _buildMasonryGrid() {
+    final visibleIndices = [
+      for (int i = 0; i < widget.sections.length; i++)
+        if (_isVisible(i)) i,
+    ];
     return GridView.builder(
       padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: widget.sections.length,
+      itemCount: visibleIndices.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         childAspectRatio: 1.6,
       ),
-      itemBuilder: (context, index) {
+      itemBuilder: (context, i) {
+        final index = visibleIndices[i];
         final section = widget.sections[index];
         final selected = _selectedValues[index];
 
@@ -95,9 +122,10 @@ class _FilterScreenState extends State<FilterScreen> {
           return CustomDropdown(
             label: section.label,
             hintText: section.hintText,
-            // No "All"/clear entry in the popup — the only single-select
-            // section today is Status (communication module), which should
-            // not offer an unselectable "All" choice.
+            // No "All" entry in the popup — the only single-select sections
+            // are things like Status, which shouldn't offer an
+            // unselectable "All" choice inside the list itself. Clearing a
+            // pick instead goes through the dedicated [onClear] "x" below.
             items: section.items,
             selectedItem: selected.isNotEmpty ? selected.first : null,
             isField: true,
@@ -107,6 +135,9 @@ class _FilterScreenState extends State<FilterScreen> {
                 _selectedValues[index] = value != null ? [value] : [];
               });
             },
+            onClear: selected.isEmpty
+                ? null
+                : () => setState(() => _selectedValues[index] = []),
           );
         }
 
@@ -179,6 +210,15 @@ class FilerSection {
   final bool isMultiSelectDropDown;
   final bool colorfulChips;
   final bool isSingleSelect;
+
+  /// Whether this section should currently be shown, given the sheet's
+  /// in-progress selections (label -> picked values, including unsaved
+  /// picks). Null means always visible. Re-evaluated on every selection
+  /// change, so a section can appear/disappear live as the user picks other
+  /// fields (e.g. hiding Mode/Payment Status once Type is picked).
+  final bool Function(Map<String, List<String>> currentSelections)?
+      visibleWhen;
+
   FilerSection({
     required this.label,
     required this.items,
@@ -187,5 +227,6 @@ class FilerSection {
     this.isMultiSelectDropDown = true,
     this.colorfulChips = false,
     this.isSingleSelect = false,
+    this.visibleWhen,
   });
 }

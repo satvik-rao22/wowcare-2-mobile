@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
@@ -646,10 +647,10 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     return formatter.format(tx.date);
   }
 
-  String _formatCurrency(double value) {
-    final NumberFormat formatter = NumberFormat.currency(symbol: '\$');
-    return formatter.format(value);
-  }
+  /// Delegates to the module-wide formatter so a row's amount matches the
+  /// stat-bar totals above it (this used to allocate a NumberFormat per call
+  /// and render negatives as `-$5.00` while the stat bar showed `$-5`).
+  String _formatCurrency(double value) => billingAmount(value);
 
   String _formatStatus(String status) {
     // Format status for display in badge

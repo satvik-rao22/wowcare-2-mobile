@@ -99,6 +99,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     DateTime? dateTo,
     String? type,
     String? status,
+    String? mode,
+    String? paymentStatus,
     int page = 0,
     int size = 10,
   }) async {
@@ -109,6 +111,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       dateTo: dateTo,
       type: type,
       status: status,
+      mode: mode,
+      paymentStatus: paymentStatus,
       page: page,
       size: size,
     );
@@ -167,6 +171,9 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
               lastPaymentDate: m.lastPaymentDate,
               lastPaymentMethod: m.lastPaymentMethod,
               openBalance: m.openBalance,
+              studentCount: m.studentCount,
+              studentName: m.studentName,
+              studentPhotoAssetCode: m.studentPhotoAssetCode,
             ))
         .toList();
   }

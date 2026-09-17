@@ -36,14 +36,22 @@ class _BillingTransactionReportScreenState
     'Refunded',
   ];
 
+  static const List<String> _paymentMethodOptions = <String>[
+    'Card',
+    'ACH',
+    'Cash',
+  ];
+
   // §2.2 bucket B — form inputs. Final notifier fields, all disposed below.
   late final ValueNotifier<DateTime> _startDate;
   late final ValueNotifier<DateTime> _endDate;
   final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
+  // Payment methods and transaction statuses open with their first option
+  // ticked.
   final ValueNotifier<List<String>> _selectedTransactionStatuses =
-      ValueNotifier<List<String>>(<String>[]);
+      ValueNotifier<List<String>>(<String>[_transactionOptions.first]);
   final ValueNotifier<List<String>> _selectedPaymentMethods =
-      ValueNotifier<List<String>>(<String>[]);
+      ValueNotifier<List<String>>(<String>[_paymentMethodOptions.first]);
   final ValueNotifier<List<String>> _selectedStudents =
       ValueNotifier<List<String>>(<String>[]);
 
@@ -249,7 +257,7 @@ class _BillingTransactionReportScreenState
               builder: (_, selected, __) => CustomMultiSelectDropdown(
                 label: ReportsStrings.paymentMethod,
                 hintText: ReportsStrings.allPaymentMethods,
-                items: const ["Card", "ACH", "Cash"],
+                items: _paymentMethodOptions,
                 selectedItems: selected,
                 showSelectAll: true,
                 onChanged: (s) => _selectedPaymentMethods.value = s,

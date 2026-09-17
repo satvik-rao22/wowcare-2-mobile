@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -151,6 +150,47 @@ class DocumentImageWidget extends StatefulWidget {
     _profilePhotoRefreshTick.value++;
   }
 
+  /// Marks the given owner's photo as DELETED and drops every trace of it.
+  ///
+  /// [clearProfilePhotoCache] alone is not enough after a delete. It evicts the
+  /// cache and wakes every mounted avatar, but the re-resolution that follows
+  /// comes back EMPTY — and [_resolveProfilePhotoIfNeeded] only ever assigns
+  /// `_resolvedImageUrl` on a non-empty result, so each avatar quietly keeps
+  /// the URL it resolved before the delete. The photo would stay on screen
+  /// until the app restarted.
+  ///
+  /// The tombstone recorded here is what lets that resolution distinguish
+  /// "came back empty because it was deleted" (clear the avatar) from "came
+  /// back empty because the lookup failed or raced" (keep what we have, which
+  /// is the behaviour every other caller depends on). It is deliberately
+  /// short-lived: once the backend is consistently reporting no photo, an
+  /// empty result is no longer surprising, and a stale tombstone would
+  /// suppress a photo the user re-uploads later.
+  static void forgetProfilePhoto({String? studentCode, String? staffCode}) {
+    final student = (studentCode ?? '').trim();
+    final staff = (staffCode ?? '').trim();
+
+    void forget(String key) {
+      // Evict the dead URL from Flutter's decoded-image cache before dropping
+      // it, or the bitmap keeps painting even once the URL 404s. Mirrors the
+      // eviction [primeProfilePhotoUrl] does for the opposite reason.
+      final cached = _DocumentImageWidgetState._profilePhotoUrlCache[key];
+      if (cached != null && cached.trim().isNotEmpty) {
+        try {
+          PaintingBinding.instance.imageCache.evict(NetworkImage(cached.trim()));
+        } catch (_) {}
+      }
+      _removeProfilePhotoKey(key);
+      _DocumentImageWidgetState._profilePhotoDeletedAt[key] = AppTime.nowUtc();
+    }
+
+    if (student.isNotEmpty) forget('student:$student');
+    if (staff.isNotEmpty) forget('staff:$staff');
+
+    // Wake every mounted avatar so the deletion is visible immediately.
+    _profilePhotoRefreshTick.value++;
+  }
+
   /// Seeds the freshly-resolved [url] into the cache for the given owner and
   /// wakes every mounted avatar, so a just-uploaded photo/logo shows
   /// immediately WITHOUT each avatar re-hitting the (eventually-consistent)
@@ -216,6 +256,28 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       <String, DateTime>{};
   static final Map<String, Future<String?>> _profilePhotoInFlight =
       <String, Future<String?>>{};
+
+  /// Owners whose photo was just deleted, and when. See
+  /// [DocumentImageWidget.forgetProfilePhoto] for why an empty resolve needs
+  /// this to be actionable. Entries expire after [_deletedTombstoneTtl].
+  static final Map<String, DateTime> _profilePhotoDeletedAt =
+      <String, DateTime>{};
+
+  /// Long enough to outlast the backend's eventual consistency right after a
+  /// delete, short enough that it cannot suppress a later re-upload.
+  static const Duration _deletedTombstoneTtl = Duration(minutes: 2);
+
+  /// True while [key]'s photo is known to have been deleted recently, so an
+  /// empty resolve should CLEAR the avatar rather than leave the old image up.
+  static bool _wasRecentlyDeleted(String key) {
+    final deletedAt = _profilePhotoDeletedAt[key];
+    if (deletedAt == null) return false;
+    if (AppTime.nowUtc().difference(deletedAt) > _deletedTombstoneTtl) {
+      _profilePhotoDeletedAt.remove(key);
+      return false;
+    }
+    return true;
+  }
 
   /// `USR_*` → `STF_*` for avatars that only know the account code (see
   /// [DocumentImageWidget.userCode]). Session-scoped and never invalidated:
@@ -463,6 +525,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
+      } else if (_wasRecentlyDeleted(cacheKey)) {
+        setState(() => _resolvedImageUrl = null);
       }
       return;
     }
@@ -484,6 +548,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
+      } else if (_wasRecentlyDeleted(cacheKey)) {
+        // Deleted, and the backend agrees. Drop the image we were showing —
+        // without this the avatar keeps the pre-delete photo until restart.
+        setState(() => _resolvedImageUrl = null);
       }
     } catch (_) {
       // Photo resolution failed (e.g. network / 404). Keep the initials
@@ -1110,9 +1178,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
                 height: widget.size,
                 fit: widget.fit,
               )
+            // `MediaRes.userImageMale` was, despite its name, the retired
+            // owl/graduation-cap WowCare logo — so any avatar without a
+            // resolved photo or name (the async gap while a signed image URL
+            // is being fetched) briefly flashed old branding instead of a
+            // neutral no-photo placeholder. A plain person icon reads as
+            // "no photo yet" instead of as content.
             : CircleAvatar(
                 radius: widget.size / 2,
-                backgroundImage: const AssetImage(MediaRes.userImageMale),
+                backgroundColor: AppColors.shimmerBase,
+                child: Icon(
+                  Icons.person,
+                  size: widget.size * 0.6,
+                  color: AppColors.userProfileMutedIconColor,
+                ),
               ));
 
     // Fixed: Improved null safety checks

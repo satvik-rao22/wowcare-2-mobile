@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/view_invoice_cubit.dart';
@@ -10,6 +11,7 @@ import 'package:wowcare/presentation/features/billing/widgets/billing_school_hea
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class ViewInvoiceScreen extends StatelessWidget {
   const ViewInvoiceScreen({super.key, required this.transaction});
@@ -71,7 +73,7 @@ class _ViewInvoiceView extends StatelessWidget {
         final isStaff = context.watch<RoleCubit>().isStaff;
         return StaffFormLayout(
           title: BillingStrings.viewInvoice,
-          bottomBar: isStaff ? _buildBottomBar(context) : null,
+          bottomBar: _buildBottomBar(context, isStaff),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +84,7 @@ class _ViewInvoiceView extends StatelessWidget {
                 const SizedBox(height: 16),
                 _buildInvoiceMeta(state.invoiceDetail),
                 const SizedBox(height: 12),
-                _buildItemsTable(),
+                _buildItemsTable(state.invoiceDetail),
               ],
             ),
           ),
@@ -188,7 +190,13 @@ class _ViewInvoiceView extends StatelessWidget {
     );
   }
 
-  Widget _buildItemsTable() {
+  Widget _buildItemsTable(InvoiceListItemEntity? detail) {
+    // The transaction summary only ever carries the FIRST item's description
+    // flattened into one string — the fetched invoice [detail] (when it has
+    // resolved) carries every line item with its own amount, matching the
+    // web invoice modal's per-item breakdown instead of one combined row.
+    final List<InvoiceListLineItemEntity> lineItems = detail?.items ?? const [];
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.billingGreyLight,
@@ -220,29 +228,58 @@ class _ViewInvoiceView extends StatelessWidget {
             ],
           ),
           Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
-          Row(
-            children: [
-              Expanded(
-                flex: 4,
-                child: Text(
-                  transaction.displayDescription,
+          if (lineItems.isEmpty)
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    transaction.displayDescription,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(
+                  '\$${transaction.amount.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              Text(
-                '\$${transaction.amount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              ],
+            )
+          else
+            for (final item in lineItems)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        item.description.isEmpty ? '-' : item.description,
+                        style: const TextStyle(
+                          color: AppColors.primaryColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '\$${item.totalPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -277,34 +314,32 @@ class _ViewInvoiceView extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
-          child: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              BillingStrings.sendInvoice,
-              style: TextStyle(
-                color: AppColors.billingButtonTextColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
+  Future<void> _onDownload(BuildContext context) async {
+    final cubit = context.read<ViewInvoiceCubit>();
+    final error = await cubit.downloadInvoice(transaction);
+    if (!context.mounted) return;
+    if (error != null) {
+      CoreUtils.showTopSnackBar(context: context, message: error, isError: true);
+    } else {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: BillingStrings.downloaded,
+        isSuccess: true,
+      );
+    }
+  }
+
+  Widget _buildBottomBar(BuildContext context, bool isStaff) {
+    // Download does the (async) PDF work and gets CustomConfirmButton's
+    // built-in spinner; Send Invoice just pops back (instant), so it's the
+    // plain cancel-styled slot — swapped from the two buttons' usual
+    // primary/secondary roles on purpose, to match which one is actually async.
+    return CustomButtonLayout(
+      confirmButtonLabel: BillingStrings.download,
+      onPressedConfirm: () => _onDownload(context),
+      showCancelButton: isStaff,
+      cancelButtonLabel: BillingStrings.sendInvoice,
+      onPressedCancel: () => Navigator.of(context).pop(),
     );
   }
 }

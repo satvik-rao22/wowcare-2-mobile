@@ -214,6 +214,7 @@ class PaymentMethodModel {
     this.status,
     this.card,
     this.echeck,
+    this.acceptedByPolicy = true,
   });
 
   final String code;
@@ -226,6 +227,7 @@ class PaymentMethodModel {
   final String? status;
   final PaymentMethodCardModel? card;
   final PaymentMethodEcheckModel? echeck;
+  final bool acceptedByPolicy;
 
   factory PaymentMethodModel.fromJson(Map<String, dynamic> json) {
     final cardJson = json['card'];
@@ -245,6 +247,9 @@ class PaymentMethodModel {
       echeck: echeckJson is Map<String, dynamic>
           ? PaymentMethodEcheckModel.fromJson(echeckJson)
           : null,
+      // Missing key (an older backend) stays permissive (true) — only an
+      // explicit `false` greys the method out.
+      acceptedByPolicy: json['acceptedByPolicy'] as bool? ?? true,
     );
   }
 
@@ -259,6 +264,7 @@ class PaymentMethodModel {
         status: status,
         card: card?.toEntity(),
         echeck: echeck?.toEntity(),
+        acceptedByPolicy: acceptedByPolicy,
       );
 }
 

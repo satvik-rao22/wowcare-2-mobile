@@ -37,12 +37,14 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
@@ -148,6 +150,23 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
   StudentSettings? _studentSettings;
 
+  /// Resolves whether this student has any guardian linked — gates the
+  /// Messaging action icon. There's no one to receive a message for a
+  /// student with no guardian, so tapping it used to only fail after a
+  /// round trip (the backend's "no parent/guardian added" error); this lets
+  /// the icon start out disabled instead.
+  final StudentGuardianCubit _guardianCubit =
+      serviceLocator<StudentGuardianCubit>();
+
+  /// Whether this student's billing family was found — gates the Billing
+  /// action icon for the admin persona (the only persona that opens a
+  /// *student-specific* billing profile; parents always land on their own
+  /// billing tab regardless, which needs no such check). Null until
+  /// resolved; starts permissive (enabled) so a slow/failed lookup doesn't
+  /// wrongly block a real billing profile — it flips to disabled only once
+  /// resolution has actually confirmed none exists.
+  bool? _hasBillingFamily;
+
   @override
   void initState() {
     super.initState();
@@ -167,6 +186,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
     _loadStudentSettings();
+    if ((_activeStudentCode ?? '').trim().isNotEmpty) {
+      unawaited(_guardianCubit.load(_activeStudentCode!.trim()));
+      unawaited(_resolveHasBillingFamily(_activeStudentCode!.trim()));
+    }
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on another
@@ -463,12 +486,71 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void dispose() {
     _parentChildSub?.cancel();
     _profileCubit.close();
+    _guardianCubit.close();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
     _importantDatesScrollController.dispose();
     _documentsScrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _deleteProfileImage() async {
+    // Re-checked here, not just at the tap target: mirrors _pickProfileImage,
+    // so the write gate holds even if a caller ever reaches this directly.
+    final role = context.read<RoleCubit>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    final studentCode = (_activeStudentCode ?? '').trim();
+    if (studentCode.isEmpty) return;
+
+    try {
+      await serviceLocator<ImageUploadService>().deleteProfilePhoto(
+        owner: ProfilePhotoOwner.student,
+        code: studentCode,
+      );
+
+      // Clear the field the avatar reads FIRST — that is what visually removes
+      // the image — then forget the cached URL for every other mounted avatar.
+      if (!mounted) return;
+      setState(() => _profilePhotoUrl = null);
+      DocumentImageWidget.forgetProfilePhoto(studentCode: studentCode);
+
+      // The profile blob is persisted (see the upload path below), and it still
+      // holds the old photo URL. Re-read and re-save it, or the deleted photo
+      // returns the next time this screen loads from cache.
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final refreshed = await dataSource.getStudentProfile(studentCode);
+      await _cacheManager.saveCache(
+        CacheManager.buildCacheKey(
+          feature: 'student',
+          resource: 'profile',
+          identifier: studentCode,
+        ),
+        refreshed.toJson(),
+      );
+
+      if (!mounted) return;
+      setState(
+        () => _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isEmpty
+            ? null
+            : refreshed.profilePhotoUrl!.trim(),
+      );
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: StudentStrings.profilePhotoDeletedSuccessfully,
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: '${StudentStrings.failedToDeleteProfilePhoto} $e',
+        isError: true,
+      );
+    }
   }
 
   Future<void> _pickProfileImage() async {
@@ -768,7 +850,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _pickProfileImage,
+                  onTap: () => ProfilePhotoActionSheet.show(
+                    context,
+                    hasPhoto:
+                        (_profilePhotoUrl ?? '').trim().isNotEmpty &&
+                        !_isUploadingProfilePhoto,
+                    subjectName: _displayName,
+                    onChangePhoto: _pickProfileImage,
+                    onDelete: _deleteProfileImage,
+                  ),
                   child: Opacity(
                     opacity: canChangePhoto ? 1 : 0.55,
                     child: Stack(
@@ -1135,74 +1225,41 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               );
             },
           ),
-          _buildActionIcon(
-            context,
-            role,
-            MediaRes.message_panel_icon,
-            enabled: role.canAccessAny([
-              AppAccessModules.parentMessaging,
-              AppAccessModules.staffMessaging,
-            ]),
-            onTap: () {
-              final messagingOk = role.canAccessAny([
-                AppAccessModules.parentMessaging,
-                AppAccessModules.staffMessaging,
-              ]);
-              if (!messagingOk) {
-                ModuleAccess.showFeatureRestricted(context);
-                return;
-              }
-              final code = (_activeStudentCode ?? '').trim();
-              if (code.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
-                  isError: true,
-                );
-                return;
-              }
-              openMessagingShortcut(
+          BlocBuilder<StudentGuardianCubit, StudentGuardianState>(
+            bloc: _guardianCubit,
+            builder: (context, guardianState) {
+              // Stays enabled while unresolved (still loading, or the lookup
+              // failed) — only a CONFIRMED empty guardian list disables it,
+              // so a slow/failed fetch never wrongly blocks a real guardian.
+              final bool noGuardianConfirmed = !guardianState.isLoading &&
+                  guardianState.errorMessage == null &&
+                  guardianState.guardians.isEmpty;
+              final bool messagingOk = role.canAccessAny([
+                    AppAccessModules.parentMessaging,
+                    AppAccessModules.staffMessaging,
+                  ]) &&
+                  !noGuardianConfirmed;
+              return _buildActionIcon(
                 context,
-                recipients: [
-                  SelectedRecipient(
-                    code: code,
-                    name: _displayName,
-                    isStaff: false,
-                    classroomCode: _displayClassroomCode,
-                  ),
-                ],
-              );
-            },
-          ),
-          // Billing is hidden for the staff persona; admins open the
-          // student's family billing profile, parents/guardians land on
-          // their family billing tab.
-          if (!role.isStaff)
-            _buildActionIcon(
-              context,
-              role,
-              MediaRes.billing_drawer_icon,
-              enabled: role.canAccessAny([
-                AppAccessModules.transaction,
-                AppAccessModules.invoices,
-                AppAccessModules.recurringPlans,
-                AppAccessModules.billingSettings,
-              ]),
-              onTap: () {
-                final billingOk = role.canAccessAny([
-                  AppAccessModules.transaction,
-                  AppAccessModules.invoices,
-                  AppAccessModules.recurringPlans,
-                  AppAccessModules.billingSettings,
-                ]);
-                if (!billingOk) {
-                  ModuleAccess.showFeatureRestricted(context);
-                  return;
-                }
-                // Admin persona (role == 'admin', i.e. isAdmin but not staff):
-                // open this student's family billing profile.
-                if (role.isAdmin && !role.isStaff) {
+                role,
+                MediaRes.message_panel_icon,
+                enabled: messagingOk,
+                disabledMessage: noGuardianConfirmed
+                    ? StudentStrings.noGuardiansAvailable
+                    : null,
+                onTap: () {
+                  if (!messagingOk) {
+                    if (noGuardianConfirmed) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: StudentStrings.noGuardiansAvailable,
+                        isWarning: true,
+                      );
+                    } else {
+                      ModuleAccess.showFeatureRestricted(context);
+                    }
+                    return;
+                  }
                   final code = (_activeStudentCode ?? '').trim();
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
@@ -1213,23 +1270,122 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     );
                     return;
                   }
-                  _openStudentFamilyBilling(context, code);
-                  return;
-                }
-                // Parent/guardian persona: land on the bottom-nav Billing
-                // branch, same as the dashboard billing card.
-                if (role.isParent) {
-                  context.go(ParentBillingScreen.routeName);
-                  return;
-                }
-                // Any other persona reaching here (e.g. kiosk with module
-                // access somehow granted) has no billing destination.
-                ModuleAccess.showFeatureRestricted(context);
+                  openMessagingShortcut(
+                    context,
+                    recipients: [
+                      SelectedRecipient(
+                        code: code,
+                        name: _displayName,
+                        isStaff: false,
+                        classroomCode: _displayClassroomCode,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+          // Billing is hidden for the staff persona; admins open the
+          // student's family billing profile, parents/guardians land on
+          // their family billing tab.
+          if (!role.isStaff)
+            Builder(
+              builder: (context) {
+                // Only the admin persona's destination depends on this
+                // specific student having a billing family (see
+                // _resolveHasBillingFamily) — a parent always has their own
+                // billing tab to land on regardless, so this only gates admin.
+                final bool noBillingFamilyConfirmed = role.isAdmin &&
+                    !role.isStaff &&
+                    _hasBillingFamily == false;
+                final bool billingOk = role.canAccessAny([
+                      AppAccessModules.transaction,
+                      AppAccessModules.invoices,
+                      AppAccessModules.recurringPlans,
+                      AppAccessModules.billingSettings,
+                    ]) &&
+                    !noBillingFamilyConfirmed;
+                return _buildActionIcon(
+                  context,
+                  role,
+                  MediaRes.billing_drawer_icon,
+                  enabled: billingOk,
+                  disabledMessage: noBillingFamilyConfirmed
+                      ? StudentStrings.noBillingProfileFoundForThisStudent
+                      : null,
+                  onTap: () {
+                    if (!billingOk) {
+                      if (noBillingFamilyConfirmed) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: StudentStrings
+                              .noBillingProfileFoundForThisStudent,
+                          isWarning: true,
+                        );
+                      } else {
+                        ModuleAccess.showFeatureRestricted(context);
+                      }
+                      return;
+                    }
+                    // Admin persona (role == 'admin', i.e. isAdmin but not
+                    // staff): open this student's family billing profile.
+                    if (role.isAdmin && !role.isStaff) {
+                      final code = (_activeStudentCode ?? '').trim();
+                      if (code.isEmpty) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: StudentStrings
+                              .studentDetailsNotLoadedYetPleaseTryAgain,
+                          isError: true,
+                        );
+                        return;
+                      }
+                      _openStudentFamilyBilling(context, code);
+                      return;
+                    }
+                    // Parent/guardian persona: land on the bottom-nav Billing
+                    // branch, same as the dashboard billing card.
+                    if (role.isParent) {
+                      context.go(ParentBillingScreen.routeName);
+                      return;
+                    }
+                    // Any other persona reaching here (e.g. kiosk with
+                    // module access somehow granted) has no billing
+                    // destination.
+                    ModuleAccess.showFeatureRestricted(context);
+                  },
+                );
               },
             ),
         ],
       ),
     );
+  }
+
+  /// Pre-resolves whether [studentCode] has a billing family, so the
+  /// Billing icon can start out disabled instead of only failing after a
+  /// tap. Same lookup [_openStudentFamilyBilling] does on demand, just run
+  /// once up front and cached as a plain bool rather than navigated from.
+  Future<void> _resolveHasBillingFamily(String studentCode) async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return;
+      final families = await serviceLocator<GetFamilySummaryUseCase>()(
+        organizationCode: org,
+        school: school,
+      );
+      final found = families.any((f) => f.studentCodes.contains(studentCode));
+      if (!mounted) return;
+      setState(() => _hasBillingFamily = found);
+    } catch (_) {
+      // Leave unresolved (stays permissive) — a transient failure here
+      // shouldn't block a billing profile that may well exist.
+    }
   }
 
   /// Resolves the student's family (`FAM_…`) from the billing family-summary —
@@ -1311,11 +1467,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     String asset, {
     required VoidCallback onTap,
     required bool enabled,
+
+    /// Shown instead of the generic "you do not have access" message when
+    /// disabled for a reason OTHER than module permission (e.g. no guardian
+    /// linked, no billing family found) — that generic wording is actively
+    /// misleading for those cases, reading as a permissions problem when
+    /// it's really "there's nothing here to open yet".
+    String? disabledMessage,
   }) {
     final bool isSvg = asset.toLowerCase().endsWith('.svg');
     final void Function() tap = enabled
         ? onTap
-        : () => ModuleAccess.showFeatureRestricted(context);
+        : () => disabledMessage != null
+            ? CoreUtils.showTopSnackBar(
+                context: context,
+                message: disabledMessage,
+                isWarning: true,
+              )
+            : ModuleAccess.showFeatureRestricted(context);
     return InkWell(
       onTap: tap,
       child: Opacity(

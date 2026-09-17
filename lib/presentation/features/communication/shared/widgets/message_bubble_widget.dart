@@ -11,6 +11,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_open_helper.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_url_resolver.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/router/app_routes.dart';
@@ -800,8 +801,20 @@ class _MessageBubbleState extends State<MessageBubble>
                                 Builder(
                                   builder: (_) {
                                     final sender = _senderParticipant();
-                                    final avatarUrl =
-                                        sender?.avatarUrl?.trim() ?? '';
+                                    // The participant payload carries no
+                                    // photo and no staff code for most
+                                    // senders, so the account code is the
+                                    // only thing that can resolve a real
+                                    // profile photo — see
+                                    // [ParticipantAvatarSource].
+                                    final avatar = ParticipantAvatarSource.of(
+                                      avatarUrl: sender?.avatarUrl,
+                                      staffCode: sender?.staffCode,
+                                      userCode:
+                                          sender?.userCode ??
+                                          widget.message.senderUserCode,
+                                      role: sender?.role,
+                                    );
                                     return DocumentImageWidget(
                                       disableAttendanceStatusLookup: true,
                                       // Scoped to this specific message so a
@@ -814,15 +827,10 @@ class _MessageBubbleState extends State<MessageBubble>
                                         'msg-sender-avatar-${widget.message.code}',
                                       ),
                                       fileUuid: '',
-                                      imageUrl: avatarUrl.startsWith('http')
-                                          ? avatarUrl
-                                          : null,
-                                      mediaAssetCode:
-                                          avatarUrl.isNotEmpty &&
-                                              !avatarUrl.startsWith('http')
-                                          ? avatarUrl
-                                          : null,
-                                      staffCode: sender?.staffCode,
+                                      imageUrl: avatar.imageUrl,
+                                      mediaAssetCode: avatar.mediaAssetCode,
+                                      staffCode: avatar.staffCode,
+                                      userCode: avatar.userCode,
                                       name: widget.message.senderName ?? '',
                                       size: 20,
                                       fontSize: 10,

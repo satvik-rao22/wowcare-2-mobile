@@ -4453,68 +4453,78 @@ const ConversationParticipantCollectionSchema = Schema(
       name: r'active',
       type: IsarType.bool,
     ),
-    r'conversationId': PropertySchema(
+    r'avatarUrl': PropertySchema(
       id: 1,
+      name: r'avatarUrl',
+      type: IsarType.string,
+    ),
+    r'conversationId': PropertySchema(
+      id: 2,
       name: r'conversationId',
       type: IsarType.long,
     ),
     r'createdAt': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'id': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'id',
       type: IsarType.long,
     ),
     r'joinedAt': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'joinedAt',
       type: IsarType.dateTime,
     ),
     r'lastReadAt': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'lastReadAt',
       type: IsarType.dateTime,
     ),
     r'leftAt': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'leftAt',
       type: IsarType.dateTime,
     ),
     r'muted': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'muted',
       type: IsarType.bool,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'role': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'role',
       type: IsarType.string,
     ),
+    r'staffCode': PropertySchema(
+      id: 11,
+      name: r'staffCode',
+      type: IsarType.string,
+    ),
     r'staffStatus': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'staffStatus',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'userCode': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'userName',
       type: IsarType.string,
     )
@@ -4531,7 +4541,19 @@ int _conversationParticipantCollectionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.avatarUrl;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.role.length * 3;
+  {
+    final value = object.staffCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.staffStatus;
     if (value != null) {
@@ -4550,19 +4572,21 @@ void _conversationParticipantCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.active);
-  writer.writeLong(offsets[1], object.conversationId);
-  writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeLong(offsets[3], object.id);
-  writer.writeDateTime(offsets[4], object.joinedAt);
-  writer.writeDateTime(offsets[5], object.lastReadAt);
-  writer.writeDateTime(offsets[6], object.leftAt);
-  writer.writeBool(offsets[7], object.muted);
-  writer.writeBool(offsets[8], object.notificationsEnabled);
-  writer.writeString(offsets[9], object.role);
-  writer.writeString(offsets[10], object.staffStatus);
-  writer.writeDateTime(offsets[11], object.updatedAt);
-  writer.writeString(offsets[12], object.userCode);
-  writer.writeString(offsets[13], object.userName);
+  writer.writeString(offsets[1], object.avatarUrl);
+  writer.writeLong(offsets[2], object.conversationId);
+  writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeLong(offsets[4], object.id);
+  writer.writeDateTime(offsets[5], object.joinedAt);
+  writer.writeDateTime(offsets[6], object.lastReadAt);
+  writer.writeDateTime(offsets[7], object.leftAt);
+  writer.writeBool(offsets[8], object.muted);
+  writer.writeBool(offsets[9], object.notificationsEnabled);
+  writer.writeString(offsets[10], object.role);
+  writer.writeString(offsets[11], object.staffCode);
+  writer.writeString(offsets[12], object.staffStatus);
+  writer.writeDateTime(offsets[13], object.updatedAt);
+  writer.writeString(offsets[14], object.userCode);
+  writer.writeString(offsets[15], object.userName);
 }
 
 ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
@@ -4573,19 +4597,21 @@ ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
 ) {
   final object = ConversationParticipantCollection();
   object.active = reader.readBoolOrNull(offsets[0]);
-  object.conversationId = reader.readLong(offsets[1]);
-  object.createdAt = reader.readDateTime(offsets[2]);
-  object.id = reader.readLong(offsets[3]);
-  object.joinedAt = reader.readDateTime(offsets[4]);
-  object.lastReadAt = reader.readDateTimeOrNull(offsets[5]);
-  object.leftAt = reader.readDateTimeOrNull(offsets[6]);
-  object.muted = reader.readBoolOrNull(offsets[7]);
-  object.notificationsEnabled = reader.readBoolOrNull(offsets[8]);
-  object.role = reader.readString(offsets[9]);
-  object.staffStatus = reader.readStringOrNull(offsets[10]);
-  object.updatedAt = reader.readDateTime(offsets[11]);
-  object.userCode = reader.readString(offsets[12]);
-  object.userName = reader.readString(offsets[13]);
+  object.avatarUrl = reader.readStringOrNull(offsets[1]);
+  object.conversationId = reader.readLong(offsets[2]);
+  object.createdAt = reader.readDateTime(offsets[3]);
+  object.id = reader.readLong(offsets[4]);
+  object.joinedAt = reader.readDateTime(offsets[5]);
+  object.lastReadAt = reader.readDateTimeOrNull(offsets[6]);
+  object.leftAt = reader.readDateTimeOrNull(offsets[7]);
+  object.muted = reader.readBoolOrNull(offsets[8]);
+  object.notificationsEnabled = reader.readBoolOrNull(offsets[9]);
+  object.role = reader.readString(offsets[10]);
+  object.staffCode = reader.readStringOrNull(offsets[11]);
+  object.staffStatus = reader.readStringOrNull(offsets[12]);
+  object.updatedAt = reader.readDateTime(offsets[13]);
+  object.userCode = reader.readString(offsets[14]);
+  object.userName = reader.readString(offsets[15]);
   return object;
 }
 
@@ -4599,30 +4625,34 @@ P _conversationParticipantCollectionDeserializeProp<P>(
     case 0:
       return (reader.readBoolOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDateTime(offset)) as P;
-    case 3:
       return (reader.readLong(offset)) as P;
-    case 4:
+    case 3:
       return (reader.readDateTime(offset)) as P;
+    case 4:
+      return (reader.readLong(offset)) as P;
     case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 6:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 8:
       return (reader.readBoolOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
-    case 11:
-      return (reader.readDateTime(offset)) as P;
-    case 12:
       return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
     case 13:
+      return (reader.readDateTime(offset)) as P;
+    case 14:
+      return (reader.readString(offset)) as P;
+    case 15:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -4661,6 +4691,182 @@ extension ConversationParticipantCollectionQueryFilter on QueryBuilder<
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'active',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'avatarUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'avatarUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'avatarUrl',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      avatarUrlContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'avatarUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      avatarUrlMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'avatarUrl',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'avatarUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> avatarUrlIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'avatarUrl',
+        value: '',
       ));
     });
   }
@@ -5280,6 +5486,182 @@ extension ConversationParticipantCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      staffCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      staffCodeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffCode',
         value: '',
       ));
     });

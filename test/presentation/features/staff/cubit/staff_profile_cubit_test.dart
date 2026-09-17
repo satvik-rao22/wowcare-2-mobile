@@ -3,6 +3,8 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
+import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_settings_usecase.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 
 StaffProfile _profile(String staffCode) => StaffProfile(
@@ -46,6 +48,15 @@ class _RecordingRepo implements StaffRepository {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
+/// Neither existing test exercises settings-fetching, so this fake never
+/// expects a call — it exists only to satisfy StaffProfileCubit's
+/// constructor.
+class _UnusedStudentRepo implements StudentRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} was not expected');
+}
+
 void main() {
   test(
     'fetchProfile returns the use-case value and forwards staffCode',
@@ -54,6 +65,9 @@ void main() {
       final cubit = StaffProfileCubit(
         getStaffProfileUseCase: GetStaffProfileUseCase(repo),
         loadCachedStaffProfileUseCase: LoadCachedStaffProfileUseCase(repo),
+        getStudentSettingsUseCase: GetStudentSettingsUseCase(
+          _UnusedStudentRepo(),
+        ),
       );
 
       final result = await cubit.fetchProfile(staffCode: 'S9');
@@ -71,6 +85,9 @@ void main() {
     final cubit = StaffProfileCubit(
       getStaffProfileUseCase: GetStaffProfileUseCase(repo),
       loadCachedStaffProfileUseCase: LoadCachedStaffProfileUseCase(repo),
+      getStudentSettingsUseCase: GetStudentSettingsUseCase(
+        _UnusedStudentRepo(),
+      ),
     );
 
     await cubit.fetchProfile(staffCode: 'S9', forEditStaff: true);

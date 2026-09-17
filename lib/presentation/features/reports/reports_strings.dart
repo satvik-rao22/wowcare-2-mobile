@@ -156,6 +156,9 @@ class ReportsStrings {
   static const String close = 'Close';
   static const String couldNotLoadClassroomsTapToRetry =
       'Could not load classrooms. Tap to retry.';
+  static const String couldNotPreviewSpreadsheet =
+      'This spreadsheet could not be previewed. Download it to open in '
+      'another app.';
   static const String cprExpirationDate = 'CPR Expiration Date';
   static const String date = 'Date';
   static const String dateOfBirth = 'Date Of Birth';
@@ -176,6 +179,10 @@ class ReportsStrings {
   static const String enrollDate = 'Enroll Date';
   static const String excelFilePreview = 'Excel File Preview';
   static const String exportFormat = 'Export Format';
+  static const String formatPdf = 'PDF';
+
+  /// Label for the `XLSX` export value — matches the web app's wording.
+  static const String formatExcel = 'Excel (.xlsx)';
   static const String feb = 'Feb';
   static const String fields = 'FIELDS';
   static const String filePreview = 'File Preview';
@@ -221,6 +228,10 @@ class ReportsStrings {
       'Please close and reopen this form, then reselect them.';
   static const String pleaseSelectAtLeastOneField =
       'Please select at least one field';
+  static const String preparingPreview = 'Preparing preview…';
+  static const String previewShowsPartOfThisSheet =
+      'Preview shows the first part of this sheet. Download the file to see '
+      'all of it.';
   static const String primaryClassroom = 'Primary Classroom';
   static const String recentlyGeneratedReports = 'Recently Generated Reports';
   static const String relation = 'Relation';
@@ -251,6 +262,7 @@ class ReportsStrings {
   static const String tags = 'Tags';
   static const String tapDownloadToSaveAndOpenThisExcelFile =
       'Tap download to save and open this Excel file';
+  static const String thisSheetHasNoData = 'This sheet has no data.';
   static const String time = 'Time';
   static const String transactionStatus = 'Transaction Status';
   static const String unableToDownloadInvalidReportIdentifier =

@@ -20,6 +20,7 @@ class TransactionDetailsState extends Equatable {
     required this.familyError,
     required this.hasMoreData,
     required this.isLoadingMore,
+    this.inactiveStudentCodes = const <String>{},
   });
 
   const TransactionDetailsState.initial()
@@ -40,7 +41,8 @@ class TransactionDetailsState extends Equatable {
         familyName = '',
         familyError = '',
         hasMoreData = false,
-        isLoadingMore = false;
+        isLoadingMore = false,
+        inactiveStudentCodes = const <String>{};
 
   final List<TransactionItem> siblingTransactions;
   final double netPaidAmount;
@@ -64,6 +66,13 @@ class TransactionDetailsState extends Equatable {
   final bool hasMoreData;
   final bool isLoadingMore;
 
+  /// Student codes (from [familyChildren]) whose enrollment status resolved
+  /// to INACTIVE — the family-ledger API carries no status field of its own,
+  /// so this is looked up separately per student code. Drives greying out
+  /// an inactive child's chip and excluding them from Create Invoice's
+  /// pre-selected students.
+  final Set<String> inactiveStudentCodes;
+
   double get familyTotalInvoiced =>
       netPaidAmount + amountUnpaid + amountInProcess;
 
@@ -86,6 +95,7 @@ class TransactionDetailsState extends Equatable {
     String? familyError,
     bool? hasMoreData,
     bool? isLoadingMore,
+    Set<String>? inactiveStudentCodes,
   }) {
     return TransactionDetailsState(
       siblingTransactions: siblingTransactions ?? this.siblingTransactions,
@@ -106,6 +116,8 @@ class TransactionDetailsState extends Equatable {
       familyError: familyError ?? this.familyError,
       hasMoreData: hasMoreData ?? this.hasMoreData,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      inactiveStudentCodes:
+          inactiveStudentCodes ?? this.inactiveStudentCodes,
     );
   }
 
@@ -129,5 +141,6 @@ class TransactionDetailsState extends Equatable {
         familyError,
         hasMoreData,
         isLoadingMore,
+        inactiveStudentCodes,
       ];
 }

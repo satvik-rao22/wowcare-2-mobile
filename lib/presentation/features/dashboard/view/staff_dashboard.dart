@@ -23,9 +23,13 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class StaffDashboard extends StatefulWidget {
-  const StaffDashboard({super.key});
+  const StaffDashboard({super.key, this.focus});
 
   static const String routeName = '/staff-dashboard';
+
+  /// See `DashboardScreen.focus`. `'ratioMonitoring'` scrolls to the Ratio
+  /// Monitoring card once this dashboard has rendered.
+  final String? focus;
 
   @override
   State<StaffDashboard> createState() => _StaffDashboardState();
@@ -34,6 +38,7 @@ class StaffDashboard extends StatefulWidget {
 class _StaffDashboardState extends State<StaffDashboard>
     with TabBecameVisibleMixin {
   late final StaffDashboardCoordinatorCubit _coordinator;
+  final GlobalKey _ratioCardKey = GlobalKey();
 
   // static const double _maxContentWidth = 640;
 
@@ -41,6 +46,40 @@ class _StaffDashboardState extends State<StaffDashboard>
   void initState() {
     super.initState();
     _coordinator = serviceLocator<StaffDashboardCoordinatorCubit>();
+    if (widget.focus == 'ratioMonitoring') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToRatioCard();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(StaffDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The dashboard is the kept-alive root of the shell's first branch (see
+    // DashboardScreen's doc comment), so a repeat "Classroom Notes" tap while
+    // it's already mounted rebuilds this widget with a new `focus` instead of
+    // recreating it — initState alone only ever fired once, on the first-ever
+    // dashboard build, so every later tap silently redirected without
+    // scrolling. Re-check here too, same guard as initState.
+    if (widget.focus == 'ratioMonitoring' &&
+        oldWidget.focus != widget.focus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToRatioCard();
+      });
+    }
+  }
+
+  void _scrollToRatioCard() {
+    final ctx = _ratioCardKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.0,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+    );
   }
 
   // Dashboard is branch index 0 in app_router.dart's shell.
@@ -75,7 +114,7 @@ class _StaffDashboardState extends State<StaffDashboard>
       case StaffDashboardCard.myDay:
         return const MyDayCard();
       case StaffDashboardCard.ratioMonitoring:
-        return const RatioMonitoringCard();
+        return RatioMonitoringCard(key: _ratioCardKey);
       case StaffDashboardCard.myShifts:
         return const MyShiftsCard();
       case StaffDashboardCard.myAttendance:
@@ -197,6 +236,11 @@ class _StaffDashboardCardList extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: _maxContentWidth),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
+                  // Pre-build all cards so GlobalKey scroll targets (e.g. the
+                  // Ratio Monitoring card's notification-driven auto-scroll)
+                  // are always resolvable regardless of initial scroll
+                  // position - mirrors AdminDashboard's identical fix.
+                  cacheExtent: 5000,
                   slivers: [
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 28),

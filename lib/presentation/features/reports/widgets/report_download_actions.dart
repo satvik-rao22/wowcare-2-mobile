@@ -31,6 +31,28 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// On-disk name for a downloaded report, made unique per [assetCode].
+  ///
+  /// Reports generated with different filters (e.g. Active vs Inactive staff)
+  /// can come back with the same file name. Saving both to one path overwrote
+  /// the first, and the OS viewer (iOS QuickLook in particular) kept showing
+  /// its cached preview of the earlier file — the second report displayed the
+  /// first one's data.
+  ///
+  /// Billing reports are generated synchronously and carry the whole file
+  /// inline as `base64:<bytes>` in place of a real asset code. Appending that
+  /// produced a name thousands of characters long — past the OS's 255-byte
+  /// file-name limit — so every write threw and the billing forms showed
+  /// "Failed to save file". Such codes get a timestamp suffix instead.
+  String _uniqueStorageName(String fileName, String assetCode) {
+    final suffix = assetCode.startsWith('base64:') || assetCode.length > 64
+        ? '${DateTime.now().millisecondsSinceEpoch}'
+        : assetCode;
+    final dot = fileName.lastIndexOf('.');
+    if (dot <= 0) return '${fileName}_$suffix';
+    return '${fileName.substring(0, dot)}_$suffix${fileName.substring(dot)}';
+  }
+
   Future<void> downloadAndViewReport(
     BuildContext context,
     String assetCode,
@@ -80,16 +102,21 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
   /// the saved file with the OS's default handler — unlike
   /// [_downloadAndViewReport], which only renders bytes in-memory and never
   /// persists anything, this is what makes "Download" actually download.
-  /// [previewPdfInApp]: after saving, show a PDF in the app's own
+  /// [previewInApp]: after saving, show the report in the app's own
   /// [ReportFileViewerScreen] instead of handing it to the OS — used for a
-  /// report the user just generated, so the result is always visible even on
-  /// devices with no PDF handler installed. Non-PDF files (XLSX) are still
-  /// opened with the OS handler.
+  /// report the user just generated, so the result is always visible.
+  ///
+  /// This covers XLSX as well as PDF. iOS gets an in-app preview from the OS
+  /// for free (open_filex hands the file to QuickLook, which renders both),
+  /// but the Android equivalent is an `ACTION_VIEW` intent that does nothing
+  /// at all when no app declares the mime type — routine for XLSX, which is
+  /// the billing forms' default format. Previewing in-app is what makes a
+  /// generated report appear on Android the way it does on iPhone.
   Future<void> downloadAndSaveReport(
     BuildContext context,
     String assetCode,
     String fileName, {
-    bool previewPdfInApp = false,
+    bool previewInApp = false,
   }) async {
     final cubit = context.read<ReportsCubit>();
 
@@ -145,15 +172,35 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
 
       final filePath = await cubit.saveReportFile(
         fileData: Uint8List.fromList(fileData),
-        fileName: fileName,
+        fileName: _uniqueStorageName(fileName, assetCode),
         assetCode: assetCode,
       );
 
       if (!mounted) return;
       dismissDialog(context); // close saving dialog
 
+      final lowerName = fileName.toLowerCase();
+      final previewType = lowerName.endsWith('.pdf')
+          ? 'pdf'
+          : lowerName.endsWith('.xlsx')
+          ? 'xlsx'
+          : null;
+
       if (filePath == null) {
         AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
+        // The bytes are already in memory, so an in-app preview can still
+        // show the report even though writing it to disk failed.
+        if (previewInApp && previewType != null) {
+          await context.push<void>(
+            ReportRoutes.fileViewer,
+            extra: ReportFileViewerArgs(
+              fileData: Uint8List.fromList(fileData),
+              fileName: fileName,
+              fileType: previewType,
+            ),
+          );
+          return;
+        }
         CoreUtils.showTopSnackBar(
           context: context,
           message: ReportsStrings.failedToSaveFile,
@@ -171,14 +218,14 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
         );
       }
 
-      if (previewPdfInApp && fileName.toLowerCase().endsWith('.pdf')) {
+      if (previewInApp && previewType != null) {
         if (!mounted) return;
         await context.push<void>(
           ReportRoutes.fileViewer,
           extra: ReportFileViewerArgs(
             fileData: Uint8List.fromList(fileData),
             fileName: fileName,
-            fileType: 'pdf',
+            fileType: previewType,
           ),
         );
         return;

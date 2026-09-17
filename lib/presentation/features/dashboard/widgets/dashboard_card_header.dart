@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
@@ -15,6 +16,7 @@ class DashboardCardHeader extends StatelessWidget {
     this.showRedirect = false,
     this.onRedirect,
     this.trailing,
+    this.badgeCount = 0,
   });
 
   final String title;
@@ -24,6 +26,10 @@ class DashboardCardHeader extends StatelessWidget {
   /// Shows the gradient redirect arrow next to the title.
   final bool showRedirect;
   final VoidCallback? onRedirect;
+
+  /// Unread-style count pill shown right after the title when > 0 (e.g. the
+  /// Ratio Monitoring card's aggregate Classroom Notes unread count).
+  final int badgeCount;
 
   /// Optional extra widget placed just before the collapse toggle.
   final Widget? trailing;
@@ -44,6 +50,24 @@ class DashboardCardHeader extends StatelessWidget {
           ),
           maxLines: 1,
         ),
+        if (badgeCount > 0) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.successColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              badgeCount > 99 ? AppStrings.unreadCountOverflow : '$badgeCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
         if (showRedirect) ...[
           const SizedBox(width: 6),
           GestureDetector(

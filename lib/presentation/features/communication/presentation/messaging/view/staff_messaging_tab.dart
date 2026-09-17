@@ -1465,6 +1465,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final counterpart = participants
         .where((p) => p.userCode != _contactFilter.state.currentAccountCode)
         .firstOrNull;
+    // Conversation-level avatarUrl is never populated for STAFF_DIRECT chats
+    // — resolve the counterpart's own participant avatar when the caller
+    // didn't already pass one.
+    final resolvedAvatar = avatar.trim().isNotEmpty
+        ? avatar
+        : (counterpart?.avatarUrl ?? '').trim();
     // How many OTHER active participants this conversation has — seeded
     // into the fresh per-thread CommunicationCubit instance below so its
     // read/delivered-by-all tick aggregation has something to work with
@@ -1485,8 +1491,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             recipientCount: recipientCount,
             staffInfo: StaffThreadInfo(
               name: name,
-              avatar: avatar,
+              avatar: resolvedAvatar,
               code: code,
+              staffUserCode: counterpart?.userCode,
               // Passed explicitly so the Firestore watch path matches the
               // conversation's own org/school, not the viewer's stored
               // active org/school (which may differ after a school switch).
