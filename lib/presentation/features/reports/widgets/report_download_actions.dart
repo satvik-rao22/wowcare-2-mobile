@@ -38,10 +38,19 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
   /// the first, and the OS viewer (iOS QuickLook in particular) kept showing
   /// its cached preview of the earlier file — the second report displayed the
   /// first one's data.
+  ///
+  /// Billing reports are generated synchronously and carry the whole file
+  /// inline as `base64:<bytes>` in place of a real asset code. Appending that
+  /// produced a name thousands of characters long — past the OS's 255-byte
+  /// file-name limit — so every write threw and the billing forms showed
+  /// "Failed to save file". Such codes get a timestamp suffix instead.
   String _uniqueStorageName(String fileName, String assetCode) {
+    final suffix = assetCode.startsWith('base64:') || assetCode.length > 64
+        ? '${DateTime.now().millisecondsSinceEpoch}'
+        : assetCode;
     final dot = fileName.lastIndexOf('.');
-    if (dot <= 0) return '${fileName}_$assetCode';
-    return '${fileName.substring(0, dot)}_$assetCode${fileName.substring(dot)}';
+    if (dot <= 0) return '${fileName}_$suffix';
+    return '${fileName.substring(0, dot)}_$suffix${fileName.substring(dot)}';
   }
 
   Future<void> downloadAndViewReport(
@@ -170,8 +179,28 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
       if (!mounted) return;
       dismissDialog(context); // close saving dialog
 
+      final lowerName = fileName.toLowerCase();
+      final previewType = lowerName.endsWith('.pdf')
+          ? 'pdf'
+          : lowerName.endsWith('.xlsx')
+          ? 'xlsx'
+          : null;
+
       if (filePath == null) {
         AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
+        // The bytes are already in memory, so an in-app preview can still
+        // show the report even though writing it to disk failed.
+        if (previewInApp && previewType != null) {
+          await context.push<void>(
+            ReportRoutes.fileViewer,
+            extra: ReportFileViewerArgs(
+              fileData: Uint8List.fromList(fileData),
+              fileName: fileName,
+              fileType: previewType,
+            ),
+          );
+          return;
+        }
         CoreUtils.showTopSnackBar(
           context: context,
           message: ReportsStrings.failedToSaveFile,
@@ -188,13 +217,6 @@ mixin ReportDownloadActions<T extends StatefulWidget> on State<T> {
           isSuccess: true,
         );
       }
-
-      final lowerName = fileName.toLowerCase();
-      final previewType = lowerName.endsWith('.pdf')
-          ? 'pdf'
-          : lowerName.endsWith('.xlsx')
-          ? 'xlsx'
-          : null;
 
       if (previewInApp && previewType != null) {
         if (!mounted) return;
