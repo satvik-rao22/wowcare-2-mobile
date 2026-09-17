@@ -30,11 +30,11 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_themes.dart';
-import 'package:wowcare/shared/common/widgets/common_single_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_text_field.dart';
+import 'package:wowcare/shared/common/widgets/text_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 
 /// A labelled row in the sheet.
@@ -196,10 +196,7 @@ void main() {
                 ),
                 _row(
                   'a text field',
-                  const CustomTextField(
-                    label: 'Student name',
-                    hintText: 'Enter a name',
-                  ),
+                  const CustomTextField(hintText: 'Enter a name'),
                 ),
                 _row(
                   'a search bar',
@@ -210,11 +207,12 @@ void main() {
                 ),
                 _row(
                   'a dropdown',
-                  CommonSingleSelectDropdown(
+                  CustomDropdown(
                     label: 'Classroom',
-                    value: 'Indigo Preschool',
+                    hintText: 'Pick a classroom',
                     items: const <String>['Indigo Preschool'],
-                    onSelected: (_) {},
+                    selectedItem: 'Indigo Preschool',
+                    onSelect: (_) {},
                   ),
                 ),
                 _row(
