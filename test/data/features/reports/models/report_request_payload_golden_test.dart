@@ -195,7 +195,7 @@ Map<String, ReportParams> fixtures() => {
       'Last Physical Date',
       'Is Active',
     },
-    statusFilter: 'All Staff',
+    statusFilter: 'Active Staff',
     format: 'XLSX',
     schoolName: 'Sunny School',
     classroomCodes: ['R1', 'R2'],
@@ -597,7 +597,7 @@ const String goldenJson = r'''
     "includePrimaryClassroom": true,
     "reportType": "STAFF_DETAILS",
     "schoolName": "Sunny School",
-    "status": "ALL"
+    "status": "ACTIVE"
   },
   "staffDetails_inactive_emptyRooms": {
     "format": "PDF",

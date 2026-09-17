@@ -74,8 +74,6 @@ class StaffDetailsRequestBody extends ReportRequestPayload {
         return 'ACTIVE';
       case 'Inactive Staff':
         return 'INACTIVE';
-      case 'All Staff':
-        return 'ALL';
       default:
         return 'ACTIVE';
     }

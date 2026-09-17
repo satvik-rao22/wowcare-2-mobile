@@ -62,11 +62,7 @@ class _StaffDirectoryReportScreenState
     ReportsStrings.designation,
   ];
 
-  static const List<String> _statusOptions = <String>[
-    'Active Staff',
-    'Inactive Staff',
-    'All Staff',
-  ];
+  static const List<String> _statusOptions = <String>['Active', 'Inactive'];
 
   /// §2.2 bucket B — which staff columns the report includes.
   final ValueNotifier<Set<String>> _selectedStaffFields =

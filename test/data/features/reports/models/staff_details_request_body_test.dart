@@ -76,7 +76,7 @@ void main() {
 
       expect(body['status'], 'INACTIVE');
     });
-    test('toRequestBody maps all staff status correctly', () {
+    test('toRequestBody falls back to ACTIVE for the removed All Staff option', () {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
@@ -89,7 +89,7 @@ void main() {
 
       final body = ReportRequestPayload.fromParams(params).toJson();
 
-      expect(body['status'], 'ALL');
+      expect(body['status'], 'ACTIVE');
     });
     test('toRequestBody excludes empty classrooms', () {
       final params = StaffDetailsReportParams(
