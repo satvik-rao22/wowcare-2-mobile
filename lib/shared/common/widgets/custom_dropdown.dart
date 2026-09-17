@@ -438,22 +438,9 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                     vertical: 10,
                     horizontal: 8,
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.primaryColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.primaryColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.themeColor),
-                  ),
+                  border: AppSurfaces.fieldBorder(radius: 8),
+                  enabledBorder: AppSurfaces.fieldBorder(radius: 8),
+                  focusedBorder: AppSurfaces.fieldBorder(radius: 8, colour: AppPalette.focusRing),
                 ),
               ),
             ),

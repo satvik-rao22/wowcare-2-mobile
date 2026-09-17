@@ -187,18 +187,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                       horizontal: AppSpacing.s14,
                       vertical: AppSpacing.sm,
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: const BorderSide(
-                        color: AppColors.attendanceBorderLightColor,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: const BorderSide(
-                        color: AppColors.attendanceBorderLightColor,
-                      ),
-                    ),
+                    border: AppSurfaces.fieldBorder(radius: AppRadius.r10),
+                    enabledBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
                   ),
                 ),
               ),

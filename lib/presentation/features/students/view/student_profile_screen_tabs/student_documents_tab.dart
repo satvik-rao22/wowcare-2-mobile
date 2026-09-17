@@ -527,8 +527,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                             icon: const Icon(Icons.close),
                                           ),
                                     filled: true,
-                                    fillColor:
-                                        AppColors.staffLightBackgroundColor,
+                                    fillColor: AppSurfaces.fieldFill,
                                     border: OutlineInputBorder(
                                       borderRadius: AppRadius.allMd,
                                       borderSide: BorderSide.none,

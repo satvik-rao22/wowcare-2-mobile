@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
@@ -385,18 +386,9 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
             fillColor: AppSurfaces.fieldFill,
             hintText: AppStrings.classroomCodeHint,
             hintStyle: const TextStyle(color: AppColors.messagingHintText),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.messagingBorderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.messagingBorderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
-            ),
+            border: AppSurfaces.fieldBorder(radius: 8),
+            enabledBorder: AppSurfaces.fieldBorder(radius: 8),
+            focusedBorder: AppSurfaces.fieldBorder(radius: 8, colour: AppPalette.focusRing),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppSizes.sm,
               vertical: AppSizes.sm,

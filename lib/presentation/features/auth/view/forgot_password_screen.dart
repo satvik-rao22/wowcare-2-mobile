@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -177,18 +177,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   ),
                                 ),
                                 filled: true,
-                                fillColor: AppColors.authSurfaceLight,
+                                fillColor: AppSurfaces.fieldFill,
                                 border: const OutlineInputBorder(
                                   borderSide: BorderSide.none,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(12),
                                   ),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: AppColors.themeColor,
-                                  ),
+                                focusedBorder: AppSurfaces.fieldBorder(
+                                  radius: 12,
+                                  colour: AppPalette.focusRing,
                                 ),
                                 contentPadding: EdgeInsets.symmetric(
                                   vertical: screenHeight * 0.018,

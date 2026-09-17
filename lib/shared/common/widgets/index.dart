@@ -77,7 +77,6 @@ export 'selected_student_tile.dart';
 export 'selection_list_item.dart';
 export 'simmer_loader.dart';
 export 'simple_time_picker_field.dart';
-export 'student_search_dropdown.dart';
 export 'student_tile.dart';
 export 'text_field.dart';
 export 'multi_selection_widget.dart' hide GradientCheckbox;

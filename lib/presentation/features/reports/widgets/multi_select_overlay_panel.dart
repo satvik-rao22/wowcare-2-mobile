@@ -92,9 +92,7 @@ class _MultiSelectOverlayPanelState<T>
                           widget.searchHintText ??
                           'Search ${widget.pluralLabel}',
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: AppSurfaces.fieldBorder(radius: 8),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,

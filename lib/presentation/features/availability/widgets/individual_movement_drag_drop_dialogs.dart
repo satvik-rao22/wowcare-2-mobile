@@ -308,14 +308,8 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                             horizontal: 14,
                             vertical: 12,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
-                          ),
+                          border: AppSurfaces.fieldBorder(radius: 10),
+                          enabledBorder: AppSurfaces.fieldBorder(radius: 10),
                         ),
                       ),
                     ],

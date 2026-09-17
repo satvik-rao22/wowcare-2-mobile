@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -562,42 +563,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               filled: true,
               fillColor: AppSurfaces.fieldFill,
               hintText: 'Edit your message...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.messagingErrorIcon,
-                  width: 1.5,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: AppColors.messagingErrorIcon,
-                  width: 2,
-                ),
-              ),
-              //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: AppSurfaces.fieldBorder(radius: 12),
+              enabledBorder: AppSurfaces.fieldBorder(radius: 12),
+              focusedBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.focusRing),
+              errorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
+              focusedErrorBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.statusError),
+              //border: AppSurfaces.fieldBorder(radius: 12),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: AppSizes.md,
                 vertical: AppSizes.sm,

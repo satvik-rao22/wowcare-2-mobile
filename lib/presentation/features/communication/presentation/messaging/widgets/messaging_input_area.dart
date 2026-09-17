@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -156,27 +157,9 @@ class MessagingInputArea extends StatelessWidget {
                       hintStyle: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingComposerHint,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.messagingInputBorder,
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.messagingInputBorder,
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.primaryColor,
-                          width: 1.5,
-                        ),
-                      ),
+                      border: AppSurfaces.fieldBorder(radius: 12),
+                      enabledBorder: AppSurfaces.fieldBorder(radius: 12),
+                      focusedBorder: AppSurfaces.fieldBorder(radius: 12, colour: AppPalette.focusRing),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.md,
                         vertical: AppSizes.sm,

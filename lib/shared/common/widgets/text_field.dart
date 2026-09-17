@@ -7,7 +7,6 @@ import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
   final TextInputType keyboardType;
-  final Color? fillColor;
   final String? hintText;
   final String? Function(String?)? validator;
 
@@ -39,7 +38,6 @@ class CustomTextField extends StatelessWidget {
     super.key,
     this.controller,
     this.keyboardType = TextInputType.text,
-    this.fillColor,
     this.hintText,
     this.validator,
     this.isFilled = false,
@@ -80,7 +78,7 @@ class CustomTextField extends StatelessWidget {
           prefixIcon: prefixIcon,
           suffixIcon: suffixIcon,
           filled: true,
-          fillColor: fillColor ?? AppSurfaces.fieldFill,
+          fillColor: AppSurfaces.fieldFill,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 12,

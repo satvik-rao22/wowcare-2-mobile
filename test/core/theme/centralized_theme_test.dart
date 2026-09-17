@@ -437,4 +437,99 @@ void main() {
       expect(cubit.state, ThemeMode.system);
     });
   });
+
+  group('every input is a well, and the well lives in one place', () {
+    /// The span of an `Foo(` call, from its name to the `)` that closes it.
+    String? callAt(String src, int nameStart, int openParen) {
+      int depth = 0;
+      for (int i = openParen; i < src.length; i++) {
+        if (src[i] == '(') depth++;
+        if (src[i] == ')') {
+          depth--;
+          if (depth == 0) return src.substring(nameStart, i + 1);
+        }
+      }
+      return null;
+    }
+
+    /// Every `TextField(...)` / `TextFormField(...)` in `lib/`.
+    List<({String path, String code})> inputs() {
+      final RegExp open = RegExp(r'\bTextF(?:ield|ormField)\(');
+      return <({String path, String code})>[
+        for (final ({String path, String source}) f in sources)
+          for (final RegExpMatch m in open.allMatches(stripComments(f.source)))
+            if (callAt(stripComments(f.source), m.start, m.end - 1)
+                case final String code)
+              (path: f.path, code: code),
+      ];
+    }
+
+    test('no input paints its own fill', () {
+      // The only fills an input may name are the well's own. Anything else,
+      // and re-skinning the app cannot reach it.
+      final RegExp fill = RegExp(r'fillColor:\s*([A-Za-z0-9_.]+)');
+      const Set<String> allowed = <String>{
+        'AppSurfaces.fieldFill',
+        'AppPalette.surfaceField',
+        'AppColors.fieldBackgroundColor',
+        'AppColors.transparentColor',
+      };
+      final List<String> found = <String>[
+        for (final ({String path, String code}) i in inputs())
+          for (final RegExpMatch m in fill.allMatches(i.code))
+            if (!allowed.contains(m.group(1))) '${i.path}: ${m.group(1)}',
+      ];
+      expect(
+        found,
+        isEmpty,
+        reason:
+            'An input is a well: it takes AppSurfaces.fieldFill, or lets the '
+            'app-wide inputDecorationTheme supply it. A card fill makes the '
+            'field look raised instead of cut in, at:\n${found.join('\n')}',
+      );
+    });
+
+    test('no input draws its own edge at rest', () {
+      // A well is told by its fill, not by a line round it. The focus ring
+      // and the error edge come from AppSurfaces.fieldBorder.
+      final RegExp rest = RegExp(
+        r'(?:^|\s)(?:border|enabledBorder):\s*(?:const\s+)?'
+        r'(?:Outline|Underline)InputBorder\(',
+      );
+      final List<String> found = <String>[
+        for (final ({String path, String code}) i in inputs())
+          for (final RegExpMatch m in rest.allMatches(i.code))
+            if (callAt(i.code, m.start, i.code.indexOf('(', m.end - 1))
+                case final String b)
+              if (!b.contains('BorderSide.none')) i.path,
+      ];
+      expect(
+        found.toSet().toList(),
+        isEmpty,
+        reason:
+            'Use AppSurfaces.fieldBorder(radius:) for the rest state, which '
+            'is edgeless, and pass a colour only for focus or error, at:\n'
+            '${found.toSet().join('\n')}',
+      );
+    });
+
+    test('there is exactly one search widget', () {
+      // Attendance and Classrooms each had their own, and they did not match.
+      final List<String> found = <String>[
+        for (final ({String path, String source}) f in sources)
+          if (RegExp(
+            r'class\s+\w*Search(?:Bar|Field)\w*\s+extends\s+\w*Widget',
+          ).hasMatch(stripComments(f.source)))
+            f.path,
+      ];
+      expect(
+        found,
+        <String>['lib/shared/common/widgets/custom_search_bar.dart'],
+        reason:
+            'CustomSearchBar is the only search input. It takes a debounce, '
+            'a clear button and a density, so a new one is never needed:\n'
+            '${found.join('\n')}',
+      );
+    });
+  });
 }

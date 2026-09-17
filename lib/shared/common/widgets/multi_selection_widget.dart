@@ -124,12 +124,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                 fillColor: AppSurfaces.fieldFill,
                                 hintText: widget.hintText,
                                 prefixIcon: const Icon(Icons.search, size: 20),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: MaterialHues.grey300,
-                                  ),
-                                ),
+                                border: AppSurfaces.fieldBorder(radius: 10),
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                 ),

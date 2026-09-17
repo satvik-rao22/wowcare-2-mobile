@@ -470,8 +470,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                           icon: const Icon(Icons.close),
                                         ),
                                   filled: true,
-                                  fillColor:
-                                      AppColors.staffLightBackgroundColor,
+                                  fillColor: AppSurfaces.fieldFill,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide.none,
