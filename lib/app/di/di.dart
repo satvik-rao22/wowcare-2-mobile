@@ -292,7 +292,10 @@ import '../../domain/features/student/usecases/update_pickup_usecase.dart';
 import '../../domain/features/student/usecases/delete_pickup_usecase.dart';
 import '../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_guardians_usecase.dart';
+import '../../domain/features/student/usecases/change_guardian_pin_usecase.dart';
 import '../../domain/features/student/usecases/delete_guardian_usecase.dart';
+import '../../domain/features/student/usecases/generate_guardian_pin_usecase.dart';
+import '../../domain/features/student/usecases/resend_guardian_invite_usecase.dart';
 import '../../domain/features/student/usecases/get_student_health_usecase.dart';
 import '../../domain/features/student/usecases/get_student_settings_usecase.dart';
 import '../../domain/features/student/usecases/update_student_health_usecase.dart';
@@ -1675,6 +1678,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteGuardianUseCase>(
     () => DeleteGuardianUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<ResendGuardianInviteUseCase>(
+    () => ResendGuardianInviteUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangeGuardianPinUseCase>(
+    () => ChangeGuardianPinUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GenerateGuardianPinUseCase>(
+    () => GenerateGuardianPinUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentHealthUseCase>(
     () => GetStudentHealthUseCase(serviceLocator()),
   );
@@ -2742,6 +2754,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentGuardianCubit(
       getStudentGuardiansUseCase: serviceLocator(),
       deleteGuardianUseCase: serviceLocator(),
+      resendGuardianInviteUseCase: serviceLocator(),
+      changeGuardianPinUseCase: serviceLocator(),
+      generateGuardianPinUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentHealthCubit>(
