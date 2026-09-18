@@ -348,6 +348,14 @@ class ApiPaths {
   static String userEmailChange(String userCode) =>
       '$userRoot/$userCode/email-change';
 
+  /// Re-sends a guardian's app invitation email. Declared WITHOUT the leading
+  /// `user` segment on purpose: `invitations` falls through to the `user`
+  /// microservice by default, and [ApiPathsUat] prepends the segment itself —
+  /// so this resolves to `{gateway}/api/v1/user/invitations/resend-invite-guardian`.
+  /// Spelling it as `/api/v1/user/...` here would double it to `/user/user/...`.
+  static const String resendInviteGuardian =
+      '/api/v1/invitations/resend-invite-guardian';
+
   // —— Organization / school host ——
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
   static String schoolNamesByOrgPath(String orgCode) =>
@@ -580,6 +588,16 @@ class ApiPaths {
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
   static String guardianProfilePhotoFinalizePath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
+
+  /// `POST /api/v1/guardian/{code}/change-pin/{pin}` — sets a guardian's clock
+  /// PIN to an operator-supplied value (student MS).
+  static String guardianChangePinPath(String guardianCode, String pin) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}'
+      '/change-pin/${Uri.encodeComponent(pin.trim())}';
+
+  /// `POST /api/v1/guardian/{code}/generate-pin` — server picks a new clock PIN.
+  static String guardianGeneratePinPath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/generate-pin';
 
   /// POST `/api/v1/guardian/delete-profile-photo/{guardianCode}` (empty `{}` body).
   ///

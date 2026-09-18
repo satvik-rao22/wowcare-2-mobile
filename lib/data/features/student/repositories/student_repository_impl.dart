@@ -1357,6 +1357,55 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<String> resendGuardianInvite({
+    required String invitedEmail,
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) {
+    // Sending an invite email does not mutate the guardian record, so no
+    // cache invalidation here (unlike the delete/update paths above).
+    return _remoteDataSource.resendGuardianInvite(
+      invitedEmail: invitedEmail,
+      userCode: userCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<({String message, String newClockPin})> changeGuardianPin({
+    required String guardianCode,
+    required String pin,
+    required String studentCode,
+  }) async {
+    final result = await _remoteDataSource.changeGuardianPin(
+      guardianCode: guardianCode,
+      pin: pin,
+    );
+
+    // The clock PIN is part of the cached guardian record, so drop the cache
+    // or the reloaded card would show the OLD pin.
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return result;
+  }
+
+  @override
+  Future<({String message, String newClockPin})> generateGuardianPin({
+    required String guardianCode,
+    required String studentCode,
+  }) async {
+    final result = await _remoteDataSource.generateGuardianPin(
+      guardianCode: guardianCode,
+    );
+
+    await _cacheManager.invalidateCache(_studentGuardiansCacheKey(studentCode));
+
+    return result;
+  }
+
+  @override
   Future<List<String>> getTagNamesForSchool({
     required String schoolCode,
   }) async {
