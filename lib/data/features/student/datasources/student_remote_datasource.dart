@@ -301,6 +301,34 @@ abstract class StudentRemoteDataSource {
     required String studentCode,
   });
 
+  /// Re-sends the app invitation email to one guardian via
+  /// `POST /api/v1/user/invitations/resend-invite-guardian`.
+  ///
+  /// Returns the server's `message` so the caller can surface it verbatim.
+  Future<String> resendGuardianInvite({
+    required String invitedEmail,
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Sets a guardian's clock PIN to [pin] via
+  /// `POST /api/v1/guardian/{code}/change-pin/{pin}`.
+  ///
+  /// Returns `(message, newClockPin)` from the response envelope.
+  Future<({String message, String newClockPin})> changeGuardianPin({
+    required String guardianCode,
+    required String pin,
+  });
+
+  /// Asks the server to generate a new clock PIN via
+  /// `POST /api/v1/guardian/{code}/generate-pin`.
+  ///
+  /// Returns `(message, newClockPin)` from the response envelope.
+  Future<({String message, String newClockPin})> generateGuardianPin({
+    required String guardianCode,
+  });
+
   /// Fetches tags for a school via `GET /api/v1/tags`.
   ///
   /// Returns the `content` list from the paginated `data` payload, each item
@@ -1632,6 +1660,105 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian deleted successfully';
+  }
+
+  @override
+  Future<String> resendGuardianInvite({
+    required String invitedEmail,
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.resendInviteGuardian);
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{
+        'invitedEmail': invitedEmail,
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected resend guardian invite API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    final message = data['message']?.toString().trim() ?? '';
+
+    // This endpoint answers 200 with `success: false` for business failures
+    // (e.g. the guardian already accepted), so the flag — not the HTTP status —
+    // decides. Throwing here routes the server's own text through the same
+    // ApiErrorHandler path every other failure uses.
+    if (data['success'] == false) {
+      throw Exception(
+        message.isEmpty ? 'Failed to send invitation' : message,
+      );
+    }
+
+    return message.isEmpty ? 'Invitation sent successfully' : message;
+  }
+
+  /// Shared envelope parser for the two clock-PIN endpoints, which return an
+  /// identical `{success, message, data:{newClockPin, guardianCode}}` shape.
+  ({String message, String newClockPin}) _parseClockPinResponse(
+    dynamic responseData,
+    String context,
+  ) {
+    if (responseData is! Map<String, dynamic>) {
+      throw Exception('Unexpected $context API response format');
+    }
+
+    final root = responseData;
+    final message = root['message']?.toString().trim() ?? '';
+
+    // 200 with `success: false` is a business failure — surface the server text.
+    if (root['success'] == false) {
+      throw Exception(
+        message.isEmpty ? 'Failed to update clock PIN' : message,
+      );
+    }
+
+    final data = root['data'];
+    final newClockPin = data is Map<String, dynamic>
+        ? (data['newClockPin']?.toString().trim() ?? '')
+        : '';
+
+    return (
+      message: message.isEmpty ? 'Clock pin generated successfully' : message,
+      newClockPin: newClockPin,
+    );
+  }
+
+  @override
+  Future<({String message, String newClockPin})> changeGuardianPin({
+    required String guardianCode,
+    required String pin,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianChangePinPath(guardianCode, pin),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(endpoint);
+
+    return _parseClockPinResponse(response.data, 'guardian change-pin');
+  }
+
+  @override
+  Future<({String message, String newClockPin})> generateGuardianPin({
+    required String guardianCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianGeneratePinPath(guardianCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(endpoint);
+
+    return _parseClockPinResponse(response.data, 'guardian generate-pin');
   }
 
   @override

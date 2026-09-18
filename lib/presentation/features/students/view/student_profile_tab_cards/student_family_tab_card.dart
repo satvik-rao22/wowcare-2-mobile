@@ -16,6 +16,8 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/presentation/features/students/widgets/change_guardian_pin_dialog.dart';
+import 'package:wowcare/presentation/features/students/widgets/guardian_action_panel.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -255,11 +257,144 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     );
   }
 
+  /// Guard shared by the not-yet-wired actions: both need a resolved guardian
+  /// before they can call anything, so the check lands here once.
+  bool _hasGuardianContext(StudentGuardian guardian) {
+    final studentCode = widget.studentCode ?? '';
+    if (studentCode.isEmpty || guardian.guardianCode.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: StudentStrings.guardianDetailsAreNotLoadedYetPleaseTryAgain,
+        isError: true,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  /// Re-sends the app invite to THIS parent only — keyed on their own
+  /// `userCode` + `email`, never the student's or another guardian's.
+  Future<void> _onResendInvite(StudentGuardian guardian) async {
+    if (!mounted || !_hasGuardianContext(guardian)) return;
+
+    final invitedEmail = guardian.email.trim();
+    final userCode = guardian.userCode.trim();
+    if (invitedEmail.isEmpty || userCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: StudentStrings.thisParentHasNoEmailOnFileAddOneBeforeSending,
+        isError: true,
+      );
+      return;
+    }
+
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
+    try {
+      // The cubit resolves the org/school context from storage — a view must
+      // not reach for StorageService itself (Mandate 5).
+      final message = await _guardianCubit.resendInvite(
+        invitedEmail: invitedEmail,
+        userCode: userCode,
+        schoolCode: widget.schoolCode ?? '',
+      );
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isMutating = false);
+      }
+    }
+  }
+
+  /// Change / regenerate THIS parent's clock PIN.
+  ///
+  /// The dialog only collects the choice; the matching API call is made here so
+  /// the sheet stays free of data-layer concerns. Either route ends with a
+  /// forced guardian-list reload so the card shows the new PIN.
+  Future<void> _onChangePin(StudentGuardian guardian) async {
+    if (!mounted || !_hasGuardianContext(guardian)) return;
+
+    final choice = await ChangeGuardianPinDialog.show(context);
+    if (!mounted || choice == null) return;
+
+    final guardianCode = guardian.guardianCode.trim();
+    final studentCode = widget.studentCode ?? '';
+
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
+    try {
+      final result = switch (choice.mode) {
+        ChangeGuardianPinMode.manual => await _guardianCubit.changePin(
+          guardianCode: guardianCode,
+          pin: choice.pin ?? '',
+          studentCode: studentCode,
+        ),
+        ChangeGuardianPinMode.regenerate => await _guardianCubit.generatePin(
+          guardianCode: guardianCode,
+          studentCode: studentCode,
+        ),
+      };
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: result.message,
+        isSuccess: true,
+      );
+      // Force a network reload: the repository already dropped the guardian
+      // cache, and `force` skips it on the way out too, so the list re-renders
+      // with the new PIN rather than a stale one.
+      await _reload(force: true);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isMutating = false);
+      }
+    }
+  }
+
+  /// Opens the admin-only action panel for a guardian card. Edit and Delete
+  /// reuse the exact handlers behind the card's inline buttons.
+  Future<void> _onGuardianOptions(StudentGuardian guardian) {
+    return GuardianActionPanel.show(
+      context,
+      onEdit: _isMutating ? null : () => _onEditParent(guardian),
+      onDelete: _isMutating ? null : () => _onDeleteParent(guardian),
+      onResendInvite: () => _onResendInvite(guardian),
+      onChangePin: () => _onChangePin(guardian),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
+    // Three-dot options are admin-only (organization admin, school admin,
+    // director…). `isTrueAdmin` is the ADMIN persona bucket — it excludes the
+    // STAFF/teacher persona that `isAdmin` also covers. Guarded on
+    // `isPersonaResolved` because `RoleState.role` defaults to `admin` before
+    // `/users/details` resolves, which would otherwise flash the menu for a
+    // non-admin.
+    final canUseGuardianActions =
+        role.isPersonaResolved && role.isTrueAdmin && canStudentWrite;
 
     return CustomRefreshIndicator(
       onRefresh: () => _reload(force: true),
@@ -350,6 +485,9 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           showActionButtons: canStudentWrite,
                           onEdit: () => _onEditParent(data[i]),
                           onDelete: () => _onDeleteParent(data[i]),
+                          onOptions: canUseGuardianActions
+                              ? () => _onGuardianOptions(data[i])
+                              : null,
                         ),
                         if (i != data.length - 1) AppSpacing.gapVSm,
                       ],
@@ -376,6 +514,7 @@ class _FamilyCard extends StatelessWidget {
     required this.onDelete,
     required this.isLoading,
     this.showActionButtons = true,
+    this.onOptions,
     this.photoUrl,
     this.photoAssetCode,
   });
@@ -389,6 +528,10 @@ class _FamilyCard extends StatelessWidget {
   final VoidCallback onDelete;
   final bool isLoading;
   final bool showActionButtons;
+
+  /// Opens the guardian action panel. Null hides the three-dot button entirely
+  /// (non-admin personas).
+  final VoidCallback? onOptions;
   final String? photoUrl;
   final String? photoAssetCode;
 
@@ -440,7 +583,7 @@ class _FamilyCard extends StatelessWidget {
                     size: 45,
                   ),
                   SizedBox(width: isTablet ? AppSpacing.md : 9),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       name,
                       style: AppTextStyles.value.copyWith(
@@ -449,6 +592,23 @@ class _FamilyCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (onOptions != null)
+                    IconButton(
+                      onPressed: isLoading ? null : onOptions,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 32,
+                        height: 32,
+                      ),
+                      splashRadius: 20,
+                      tooltip: StudentStrings.options,
+                      icon: const Icon(
+                        Icons.more_vert,
+                        size: AppDimensions.iconSm,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
                 ],
               ),
             ),
