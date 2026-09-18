@@ -23,6 +23,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/core/utils/guardian_code_resolver.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/activity_feed_invalidation.dart';
@@ -226,6 +227,26 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     final target = (widget.highlightCode ?? '').trim();
     final c = (code ?? '').trim();
     return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
+
+  /// True when [activity]'s own card code matches the notification's
+  /// highlightCode, OR when highlightCode instead names one of the
+  /// individual records this card groups together. A rendered card is keyed
+  /// by its `cardGroupCode`/`batchGroupCode` (see
+  /// `NotificationRouteResolver._kActivity`'s doc comment), but some
+  /// deep-links only know a single underlying record's `activityCode` —
+  /// without this fallback, that link's highlight silently never matches any
+  /// card even though the record IS present, just merged into one.
+  bool _activityMatchesHighlight(ActivityItem activity) {
+    if (_isHighlightTarget(activity.activityCode)) return true;
+    final target = (widget.highlightCode ?? '').trim();
+    if (target.isEmpty) return false;
+    final refs = activity.studentActivityRefs;
+    if (refs == null) return false;
+    return refs.any(
+      (r) => (r['activityCode'] ?? '').trim().toUpperCase() ==
+          target.toUpperCase(),
+    );
   }
 
   late bool isNotParent;
@@ -904,6 +925,11 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       return;
     }
 
+    // Resolve BEFORE classroom loading below, so _applyDeepLinkClassroom can
+    // use the result as its fallback the moment classroom options are ready.
+    await _resolveDeepLinkStudentScope();
+    if (!mounted) return;
+
     await _loadStaffClassroomScope();
 
     final classroomCacheKey = CacheManager.buildCacheKey(
@@ -1507,6 +1533,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     }
 
     if (!mounted) return;
+    var appliedDeepLinkStudent = false;
     setState(() {
       _classroomStudents
         ..clear()
@@ -1523,7 +1550,9 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         _selectedStudent = null;
       }
       _pinProfileStudent();
+      appliedDeepLinkStudent = _applyDeepLinkStudent();
     });
+    if (appliedDeepLinkStudent) _loadDailyFeed(refresh: true);
   }
 
   Future<void> _loadStudentsForSelectedClassrooms(
@@ -2133,6 +2162,29 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         context.read<ParentChildCubit>().selectByCode(code);
       }
     }
+    // STAFF/ADMIN equivalent of the guardian branch above: a new deep-link
+    // arriving into an already-live tab needs its classroom/student scope
+    // re-resolved (see _resolveDeepLinkStudentScope). Best-effort: if the
+    // target classroom's roster was never loaded in this session, the
+    // student filter simply doesn't apply — same safe degrade (unfiltered +
+    // scroll-to-highlight) as before this existed.
+    if (!_parentHome &&
+        widget.deepLinkStudentCode != oldWidget.deepLinkStudentCode) {
+      _deepLinkStudentApplied = false;
+      _deepLinkClassroomApplied = false;
+      _resolvedDeepLinkClassroomName = null;
+      _resolvedDeepLinkStudentName = null;
+      unawaited(
+        _resolveDeepLinkStudentScope().then((_) {
+          if (!mounted) return;
+          setState(() {
+            _applyDeepLinkClassroom();
+            _applyDeepLinkStudent();
+          });
+          _loadDailyFeed(refresh: true);
+        }),
+      );
+    }
 
     final changed =
         widget.highlightCode != oldWidget.highlightCode ||
@@ -2242,6 +2294,12 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       _selectedStudent = null;
     }
     _pinProfileStudent();
+    // The classroom-scoped feed fetch that already ran (or is about to) was
+    // built with `studentCodes: []` — applying the filter here doesn't
+    // retroactively narrow it, so force a refetch when it newly applies.
+    if (_applyDeepLinkStudent()) {
+      _loadDailyFeed(refresh: true);
+    }
   }
 
   /// Seeds the classroom + student the screen was opened for (from a student
@@ -2291,9 +2349,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     if (_highlightApplied || _highlightScrollScheduled) return;
     if ((widget.highlightCode ?? '').trim().isEmpty) return;
     final displayed = _displayedActivities;
-    final index = displayed.indexWhere(
-      (a) => _isHighlightTarget(a.activityCode),
-    );
+    final index = displayed.indexWhere(_activityMatchesHighlight);
     if (index < 0) return; // not in this page yet — retried on the next load
     _highlightScrollScheduled = true;
 
@@ -2359,14 +2415,38 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   /// the selection. No-op when there's no deep link or the code isn't in the
   /// viewer's (possibly staff-scoped) classroom list.
   void _applyDeepLinkClassroom() {
-    final code = (widget.highlightClassroomCode ?? '').trim();
-    if (code.isEmpty) return;
     if (_deepLinkClassroomApplied) return;
-    final name = (_classroomNameByCode[code] ?? '').trim();
+    final code = (widget.highlightClassroomCode ?? '').trim();
+    // Prefer a classroomCode already in the payload; fall back to the
+    // classroom resolved from the deep-linked student's own profile (see
+    // _resolveDeepLinkStudentScope) for links that only carry a studentCode.
+    final name = code.isNotEmpty
+        ? (_classroomNameByCode[code] ?? '').trim()
+        : (_resolvedDeepLinkClassroomName ?? '').trim();
     if (name.isEmpty || !_classroomOptions.contains(name)) return;
     _deepLinkClassroomApplied = true;
     _selectdClassroom = name;
     _selectedClassrooms = <String>[name];
+  }
+
+  /// Filters the STAFF/ADMIN feed to the deep-linked student, once their
+  /// name is known (see [_resolveDeepLinkStudentScope]) and available in
+  /// this classroom's own roster. One-shot, same reasoning as
+  /// [_deepLinkClassroomApplied] — the notification's student is the subject
+  /// of the tap, not a standing filter the viewer can never clear.
+  ///
+  /// Returns `true` the one time it actually applies the filter — every call
+  /// site MUST reload the feed when it does, since the classroom-scoped
+  /// fetch that already ran (or is about to) was built with `studentCodes:
+  /// []` and never picks up a filter set on it afterwards.
+  bool _applyDeepLinkStudent() {
+    if (_parentHome || _deepLinkStudentApplied) return false;
+    final name = (_resolvedDeepLinkStudentName ?? '').trim();
+    if (name.isEmpty || !_availableStudents.contains(name)) return false;
+    _deepLinkStudentApplied = true;
+    _selectedStudent = name;
+    _selectedStudents = <String>[name];
+    return true;
   }
 
   /// Applied once, so a later refresh can't yank the user off a room they
@@ -2379,6 +2459,45 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   /// user picks a child whose classroom isn't cached yet — would resolve back
   /// to the notification's child and fight the dropdown the user just used.
   bool _deepLinkStudentApplied = false;
+
+  /// STAFF/ADMIN-only resolution of [ActivityFeedScreen.deepLinkStudentCode]
+  /// into the classroom/student NAMES the admin-side filters are keyed by
+  /// (unlike the guardian path, which resolves via `ParentChildCubit`).
+  /// Activity email/deep-links only ever carry a bare studentCode — no
+  /// classroomCode — so unlike [_applyDeepLinkClassroom] (which reads a
+  /// classroom code already present in the payload), this fetches the
+  /// student's own profile once to learn which classroom to scope to.
+  /// Populated by [_resolveDeepLinkStudentScope]; consumed by
+  /// [_applyDeepLinkClassroom] (classroom fallback) and
+  /// [_applyDeepLinkStudent] (student filter).
+  String? _resolvedDeepLinkClassroomName;
+  String? _resolvedDeepLinkStudentName;
+
+  /// Fetches the deep-linked student's own profile so the STAFF/ADMIN feed
+  /// can scope to their classroom and filter to them by name — mirrors the
+  /// resolution a guardian gets for free via `ParentChildCubit`. Best-effort
+  /// and non-fatal: on failure the feed still opens (just unfiltered, same
+  /// as before this existed), relying on [_scheduleHighlightScroll] alone.
+  Future<void> _resolveDeepLinkStudentScope() async {
+    if (_parentHome) return;
+    final code = (widget.deepLinkStudentCode ?? '').trim();
+    if (code.isEmpty || _deepLinkStudentApplied) return;
+    if (_resolvedDeepLinkStudentName != null) return; // already fetched
+    try {
+      final profile = await serviceLocator<GetStudentProfileUseCase>()(
+        code: code,
+      );
+      if (!mounted) return;
+      _resolvedDeepLinkStudentName = profile.fullName.trim();
+      final classroom = (profile.classroomName ?? '').trim();
+      if (classroom.isNotEmpty) _resolvedDeepLinkClassroomName = classroom;
+    } catch (e) {
+      AppLogger.d(
+        '[ActivityDailyTab] deep-link student profile fetch failed '
+        '(non-fatal): $e',
+      );
+    }
+  }
 
   /// Keeps the profile student present in the options + selection when launched
   /// from a student profile. Both this widget's pruning and
@@ -2921,16 +3040,25 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                           final students = activity.studentList;
                           final Color activityColor =
                               _colorPalette[index % _colorPalette.length];
-                          final bool isHighlightTarget = _isHighlightTarget(
-                            activity.activityCode,
-                          );
+                          final bool isHighlightTarget =
+                              _activityMatchesHighlight(activity);
                           if (isHighlightTarget) _scheduleHighlightScroll();
 
                           return HighlightableCard(
                             key: isHighlightTarget ? _highlightCardKey : null,
-                            code: activity.activityCode,
+                            code: isHighlightTarget
+                                ? widget.highlightCode
+                                : activity.activityCode,
                             highlightCode: widget.highlightCode,
                             borderRadius: 12,
+                            // This row's own layout is a timeline (colored dots/
+                            // lines) plus a nested, only-15%-opacity card
+                            // container — none of it is a single opaque
+                            // background, but the flash painted BEHIND all of
+                            // that (the default) still reads as invisible in
+                            // practice. Paint it in front instead, per
+                            // HighlightableCard's own `foreground` doc.
+                            foreground: true,
                             child: Column(
                               children: [
                                 Row(
@@ -3787,7 +3915,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                 final Color activityColor =
                                     _colorPalette[index % _colorPalette.length];
                                 final bool isHighlightTarget =
-                                    _isHighlightTarget(activity.activityCode);
+                                    _activityMatchesHighlight(activity);
                                 if (isHighlightTarget) {
                                   _scheduleHighlightScroll();
                                 }
@@ -3796,9 +3924,15 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                   key: isHighlightTarget
                                       ? _highlightCardKey
                                       : null,
-                                  code: activity.activityCode,
+                                  code: isHighlightTarget
+                                      ? widget.highlightCode
+                                      : activity.activityCode,
                                   highlightCode: widget.highlightCode,
                                   borderRadius: 12,
+                                  // See the other HighlightableCard call site's
+                                  // comment above — same layered timeline
+                                  // layout hides a background-painted flash.
+                                  foreground: true,
                                   child: Column(
                                     children: [
                                       Row(

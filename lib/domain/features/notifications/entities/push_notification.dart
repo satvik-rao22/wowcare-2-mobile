@@ -39,6 +39,13 @@ class PushNotification extends Equatable {
   /// `blockIfWrongAccount`.
   String? get userCode => data['userCode'] ?? data['user_code'];
 
+  /// The persona the link/notification was generated for (e.g. `GUARDIAN`,
+  /// `STAFF`, `ADMIN`) — only sent by email deep-links, never real FCM pushes.
+  /// A same-school account with multiple personas needs this to switch to
+  /// the right one; org/school alone can't express it (see
+  /// `switchActiveSchoolPersonaIfNeeded`).
+  String? get role => data['role'];
+
   @override
   List<Object?> get props => [title, body, action, type, data, messageId];
 }

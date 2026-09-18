@@ -373,6 +373,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           highlightCode: widget.highlightCode,
                           highlightDate: widget.highlightDate,
                           highlightClassroomCode: widget.highlightClassroomCode,
+                          // Missing here meant a staff/admin deep-link's student
+                          // scope (see ActivityDailyTab._resolveDeepLinkStudentScope)
+                          // never even ran — this layout branch simply never
+                          // received the code the parent branch below already did.
+                          deepLinkStudentCode: widget.deepLinkStudentCode,
                           onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
                         ActivityCustomTab(

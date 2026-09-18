@@ -33,7 +33,7 @@ class HighlightableCard extends StatefulWidget {
     this.highlightColor,
     this.duration = const Duration(milliseconds: 2200),
     this.scrollOnHighlight = false,
-    this.foreground = false,
+    this.foreground = true,
   });
 
   /// The card content.
@@ -59,11 +59,15 @@ class HighlightableCard extends StatefulWidget {
 
   /// Paints the flash IN FRONT of [child] instead of behind it.
   ///
-  /// The default (behind) is invisible when the child paints its own opaque,
-  /// full-bleed background — e.g. `StaffStyleCard`, an opaque white `Container`
-  /// with no margin — because the child covers the exact same rect and hides
-  /// both the border and the tint. Set this for such cards; the tint is
-  /// translucent, so the content still reads through.
+  /// Defaults to `true`: painting behind is invisible whenever the child's
+  /// own layout covers the same rect with anything opaque-ish — an opaque
+  /// full-bleed `Container` (`StaffStyleCard`), or (as found in the activity
+  /// feed) just several layered/colored elements that collectively obscure
+  /// it even with no single opaque layer. This bit us twice independently
+  /// (`parent_billing_screen.dart`, `activity_daily_tab.dart`) before the
+  /// default was flipped — foreground is translucent, so content still reads
+  /// through; set this to `false` only for a card verified to render
+  /// correctly with the tint behind it.
   final bool foreground;
 
   bool get _matches {

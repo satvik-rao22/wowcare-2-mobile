@@ -11,6 +11,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/src/app_router.dart';
 
 /// Switches the app's active organisation/school when a push notification
 /// targets a school other than the one currently selected.
@@ -156,6 +157,22 @@ Future<bool> switchActiveSchoolIfNeeded({
     await parentChild.ensureLoaded(force: true);
   } catch (e) {
     AppLogger.d('[FCM] parent/child reload failed (non-fatal): $e');
+  }
+
+  // The app shell's nav chrome (drawer/bottom-nav) and every kept-alive
+  // branch screen are built for the OLD school's persona/module access and
+  // don't reactively rebuild just because RoleCubit's state changed
+  // underneath them — same problem switchActiveSchoolPersonaIfNeeded hits
+  // and fixes the same way custom_app_bar.dart's manual switch already does:
+  // unwind any pushed screens, land on the dashboard branch (which DOES
+  // branch on RoleCubit, so this is what actually rebuilds the chrome),
+  // then tell every kept-alive branch to reload. The caller navigates to the
+  // REAL destination right after this returns.
+  if (context.mounted) {
+    popAllShellBranchNavigators(context);
+  }
+  if (context.mounted) {
+    goToDashboardRoot(context);
   }
 
   // Tell every kept-alive branch screen to reload fresh for the new school.
