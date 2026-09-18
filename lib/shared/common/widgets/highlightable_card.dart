@@ -31,7 +31,8 @@ class HighlightableCard extends StatefulWidget {
     this.onHighlighted,
     this.borderRadius = 14,
     this.highlightColor,
-    this.duration = const Duration(milliseconds: 2200),
+    this.highlightGradient,
+    this.duration = const Duration(milliseconds: 3200),
     this.scrollOnHighlight = false,
     this.foreground = true,
   });
@@ -50,7 +51,21 @@ class HighlightableCard extends StatefulWidget {
   final VoidCallback? onHighlighted;
 
   final double borderRadius;
+
+  /// Single-color override. Ignored when [highlightGradient] is set. When
+  /// neither is set, the built-in sunset gradient (see [_defaultGradient])
+  /// is used.
   final Color? highlightColor;
+
+  /// Gradient override for the flash border + fill. Defaults to
+  /// [AppColors.primaryGradientColors] — the app's own brand gradient
+  /// (bottom nav bar, drawer header) — so the highlight reads as an
+  /// intentional "this is the one" accent rather than an arbitrary color,
+  /// while still standing out against a plain card because it's a moving
+  /// two-stop gradient + border, not the flat dark-plum wash that used to
+  /// blend into headers/nav/buttons.
+  final List<Color>? highlightGradient;
+
   final Duration duration;
 
   /// When true, the card scrolls itself into view (via its own context) on
@@ -145,31 +160,85 @@ class _HighlightableCardState extends State<HighlightableCard>
     super.dispose();
   }
 
+  static const List<Color> _defaultGradient = AppColors.primaryGradientColors;
+
   @override
   Widget build(BuildContext context) {
     if (!widget._matches) return widget.child;
-    final color = widget.highlightColor ?? AppColors.primaryColor;
+    final colors = widget.highlightGradient ??
+        (widget.highlightColor != null
+            ? [widget.highlightColor!, widget.highlightColor!]
+            : _defaultGradient);
     return AnimatedBuilder(
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
         // Overlay starts strong (t=1) and fades to nothing (t=0).
         final t = 1 - _controller.value;
-        return DecoratedBox(
-          position: widget.foreground
-              ? DecorationPosition.foreground
-              : DecorationPosition.background,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            border: Border.all(
-              color: color.withValues(alpha: 0.9 * t),
-              width: 2,
-            ),
-            color: color.withValues(alpha: 0.12 * t),
-          ),
+        final painter = _GradientHighlightPainter(
+          t: t,
+          borderRadius: widget.borderRadius,
+          colors: colors,
+        );
+        return CustomPaint(
+          painter: widget.foreground ? null : painter,
+          foregroundPainter: widget.foreground ? painter : null,
           child: child,
         );
       },
     );
   }
+}
+
+class _GradientHighlightPainter extends CustomPainter {
+  _GradientHighlightPainter({
+    required this.t,
+    required this.borderRadius,
+    required this.colors,
+  });
+
+  final double t;
+  final double borderRadius;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(borderRadius),
+    );
+
+    final fillColors = colors.map((c) => c.withValues(alpha: 0.28 * t)).toList();
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        colors: fillColors,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(rect)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(rrect, fillPaint);
+
+    final borderColors = colors.map((c) => c.withValues(alpha: t)).toList();
+    const strokeWidth = 3.0;
+    final borderRect = RRect.fromRectAndRadius(
+      rect.deflate(strokeWidth / 2),
+      Radius.circular(borderRadius - strokeWidth / 2),
+    );
+    final borderPaint = Paint()
+      ..shader = LinearGradient(
+        colors: borderColors,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    canvas.drawRRect(borderRect, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GradientHighlightPainter oldDelegate) =>
+      oldDelegate.t != t ||
+      oldDelegate.borderRadius != borderRadius ||
+      oldDelegate.colors != colors;
 }
