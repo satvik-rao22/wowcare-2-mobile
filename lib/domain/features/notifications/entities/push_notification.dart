@@ -32,6 +32,13 @@ class PushNotification extends Equatable {
       data['organizationCode'] ?? data['orgCode'] ?? data['organization_code'];
   String? get schoolCode => data['schoolCode'] ?? data['school_code'];
 
+  /// The account (`USR_*`) this notification/link was actually generated for
+  /// — currently only sent by email deep-links, never real FCM pushes (a push
+  /// only ever reaches whoever's device token it targeted). Used to detect a
+  /// link opened while a DIFFERENT account is logged in on the device — see
+  /// `blockIfWrongAccount`.
+  String? get userCode => data['userCode'] ?? data['user_code'];
+
   @override
   List<Object?> get props => [title, body, action, type, data, messageId];
 }

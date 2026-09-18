@@ -88,6 +88,24 @@ class NotificationRouteResolver {
   }) {
     final action = NotificationAction.canonical(n.action);
 
+    // INV_GEN_GUARD_EML's paymentUrl: a guardian tapping "login to the
+    // ChildcareWow app" on a NEW invoice lands straight on that invoice's
+    // payment screen, not just a highlighted list row — scoped to this one
+    // action (not every billing action) so invoiceDue/paymentSuccess/etc.
+    // keep their existing, already-working list+highlight behavior.
+    if (isGuardian && action == NotificationAction.invoiceGenerated) {
+      final invoiceCode = _firstCode(n, _kInvoice);
+      if (invoiceCode != null) {
+        final query = <String, String>{'invoiceCode': invoiceCode};
+        final student = _firstCode(n, _kStudent);
+        if (student != null) query['studentCode'] = student;
+        return NotificationDestination(
+          path: AppRoutes.invoiceByCode,
+          queryParameters: query,
+        );
+      }
+    }
+
     // Billing is persona-routed (see [_billingActions]). Guardians land on the
     // parent billing screen, everyone else on the admin/dashboard billing
     // screen. `invoiceCode` rides along as `highlightCode` so the row can be
@@ -113,9 +131,17 @@ class NotificationRouteResolver {
     }
 
     if (isAdminPersona) {
-      final adminDestination = _adminNewsletterOrApprovalDestination(n, action);
-      if (adminDestination != null) return adminDestination;
+      final newsletterDestination = _adminNewsletterDestination(n, action);
+      if (newsletterDestination != null) return newsletterDestination;
     }
+
+    // Incident approve/acknowledge deep-links straight to the specific
+    // activity for EVERY persona, not just admin — the target screen
+    // (activityApprovalByCode → IncidentActivityScreen) already self-derives
+    // Approve/Reject vs Acknowledge purely from the loaded activity's own
+    // server state, so there's no reason to gate the routing itself.
+    final incidentDestination = _incidentApprovalDestination(n, action);
+    if (incidentDestination != null) return incidentDestination;
 
     final builder = _table[action];
     if (builder != null) return builder(n);
@@ -339,7 +365,7 @@ class NotificationRouteResolver {
   static const _kInvoice = ['invoiceCode', 'invoice_code'];
   // Backend doesn't send a newsletter-identifying code yet (only
   // organizationCode/schoolCode) — these are the keys to watch for once it
-  // does. Until then [_adminNewsletterOrApprovalDestination] falls back to the
+  // does. Until then [_adminNewsletterDestination] falls back to the
   // newsletter list, same as every other persona gets today.
   static const _kNewsletter = ['newsletterCode', 'newsletter_code'];
 
@@ -349,7 +375,7 @@ class NotificationRouteResolver {
   /// lands on. Returns null (caller falls through to [_table]) when the action
   /// isn't one of these, or the payload doesn't carry the code needed to
   /// target a specific item.
-  static NotificationDestination? _adminNewsletterOrApprovalDestination(
+  static NotificationDestination? _adminNewsletterDestination(
     PushNotification n,
     String action,
   ) {
@@ -361,19 +387,29 @@ class NotificationRouteResolver {
         queryParameters: {'code': code},
       );
     }
-    if (action == NotificationAction.incidentApprovalPending ||
-        action == NotificationAction.incidentAcknowledgementPending) {
-      final code = _firstCode(n, _kActivity);
-      if (code == null) return null;
-      final query = <String, String>{'code': code};
-      final student = _firstCode(n, _kStudent);
-      if (student != null) query['studentCode'] = student;
-      return NotificationDestination(
-        path: AppRoutes.activityApprovalByCode,
-        queryParameters: query,
-      );
-    }
     return null;
+  }
+
+  /// Deep-links an incident approval/acknowledgement notification straight to
+  /// [AppRoutes.activityApprovalByCode] for ANY persona — see the call site's
+  /// comment in [resolve] for why this doesn't need an admin gate.
+  static NotificationDestination? _incidentApprovalDestination(
+    PushNotification n,
+    String action,
+  ) {
+    if (action != NotificationAction.incidentApprovalPending &&
+        action != NotificationAction.incidentAcknowledgementPending) {
+      return null;
+    }
+    final code = _firstCode(n, _kActivity);
+    if (code == null) return null;
+    final query = <String, String>{'code': code};
+    final student = _firstCode(n, _kStudent);
+    if (student != null) query['studentCode'] = student;
+    return NotificationDestination(
+      path: AppRoutes.activityApprovalByCode,
+      queryParameters: query,
+    );
   }
 
   /// True for any action that lands on a newsletter list. Routed by persona in

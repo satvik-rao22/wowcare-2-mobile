@@ -91,6 +91,7 @@ import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_meth
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/open_invoice_by_code_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
@@ -248,6 +249,11 @@ class AppRoutes {
   // specific newsletter / pending-approval activity, not a generic list.
   static const String newsletterPreviewByCode = '/newsletter-preview-by-code';
   static const String activityApprovalByCode = '/activity-approval-by-code';
+
+  // Notification/email deep-link: open one invoice by code (self-loading —
+  // no in-memory TransactionItem required, unlike ViewInvoiceScreen's own
+  // route which navigates from an already-loaded billing list row).
+  static const String invoiceByCode = OpenInvoiceByCodeScreen.routeName;
 }
 
 /// Path lookups by branch index — used by the bottom nav when there is no
@@ -2447,6 +2453,22 @@ final GoRouter appRouter = GoRouter(
                 studentCode: q['studentCode'],
               ),
             ),
+          ),
+        );
+      },
+    ),
+    // Notification/email deep-link (INV_GEN_GUARD_EML's paymentUrl): open one
+    // invoice by code — see OpenInvoiceByCodeScreen's own doc for why this is
+    // a separate self-loading route rather than ViewInvoiceScreen.routeName.
+    GoRoute(
+      path: AppRoutes.invoiceByCode,
+      pageBuilder: (context, state) {
+        final q = state.uri.queryParameters;
+        return _fastPage(
+          state,
+          OpenInvoiceByCodeScreen(
+            invoiceCode: q['invoiceCode'] ?? '',
+            studentCode: q['studentCode'],
           ),
         );
       },
