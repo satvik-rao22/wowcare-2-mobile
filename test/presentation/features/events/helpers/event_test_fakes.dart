@@ -132,13 +132,25 @@ class FakeEventRepository implements EventRepository {
     return pageResults[page];
   }
 
+  /// How many times the calendar feed has actually been fetched. The cubit
+  /// dedupes on month + scope, so this is what tells a test whether a refetch
+  /// really happened or was swallowed by the cache.
+  int calendarFeedCalls = 0;
+
+  /// Rows the next feed fetch returns.
+  List<CalendarFeedItem> calendarFeedRows = const [];
+
   @override
   Future<List<CalendarFeedItem>> getCalendarFeed({
     required DateTime from,
     required DateTime to,
     required String scope,
     String partyCode = '',
-  }) async => const [];
+  }) async {
+    _maybeThrow();
+    calendarFeedCalls++;
+    return calendarFeedRows;
+  }
 
   @override
   Future<Event?> getEventByCode(String code) async => null;

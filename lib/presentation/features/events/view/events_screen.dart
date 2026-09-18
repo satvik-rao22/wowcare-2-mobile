@@ -647,6 +647,25 @@ class _EventsScreenState extends State<EventsScreen> {
   String _feedScope(RoleCubit roles) =>
       roles.isAdmin ? 'ALL_ITEMS' : 'MY_ITEMS';
 
+  /// Drop the cached month and refetch the calendar feed.
+  ///
+  /// [EventsCubit.loadCalendarFeed] dedupes on month + scope and returns
+  /// early for a month it has already fetched, so anything that changes what
+  /// the feed contains — creating an event, editing or deleting one from the
+  /// detail screen, moving a task's status — has to reset it first. Without
+  /// this the occurrence lists behind the grid and list views refresh while
+  /// the calendar keeps rendering the stale month, and a new event looks like
+  /// it was never saved.
+  Future<void> _refreshCalendarFeed(
+    BuildContext context,
+    RoleCubit roles,
+  ) async {
+    if (!_canReadCalendar(roles)) return;
+    final cubit = context.read<EventsCubit>();
+    cubit.resetCalendarFeed();
+    await cubit.loadCalendarFeed(_focusedDay, scope: _feedScope(roles));
+  }
+
   Color _feedColor(CalendarFeedItem item) {
     final hex = item.colorHint.replaceAll('#', '');
     if (hex.length == 6) {
@@ -725,11 +744,7 @@ class _EventsScreenState extends State<EventsScreen> {
     await cubit.changeStatus(task.code, picked);
     if (!context.mounted) return;
     // The feed row carries its own copy of the status — refresh it.
-    context.read<EventsCubit>().resetCalendarFeed();
-    await context.read<EventsCubit>().loadCalendarFeed(
-          _focusedDay,
-          scope: _feedScope(context.read<RoleCubit>()),
-        );
+    await _refreshCalendarFeed(context, context.read<RoleCubit>());
   }
 
   // Future<void> _pickTaskPriority(BuildContext context, Task task) async {
@@ -780,9 +795,10 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  void _openFeedItem(BuildContext context, CalendarFeedItem item) {
+  Future<void> _openFeedItem(BuildContext context, CalendarFeedItem item) async {
+    final roles = context.read<RoleCubit>();
     if (item.isEvent) {
-      context.push(
+      await context.push(
         EventDetailScreen.routeName,
         extra: <String, dynamic>{
           'eventCode': item.eventCode,
@@ -793,12 +809,18 @@ class _EventsScreenState extends State<EventsScreen> {
       // TaskDetailScreen resolves via TasksState.taskByCode, which matches
       // the ASSIGNMENT code (TSA_…) — the feed's `code` — not the series
       // code (TSK_…). The tasks list must be loaded for the lookup to hit.
-      context.push(
+      await context.push(
         TaskDetailScreen.routeName,
         extra: <String, dynamic>{'taskCode': item.code},
       );
+    } else {
+      // Holidays are read-only on the calendar — no navigation, nothing to
+      // refresh.
+      return;
     }
-    // Holidays are read-only on the calendar — no navigation.
+    if (!context.mounted) return;
+    // Either screen can edit or delete what it was opened on.
+    await _refreshCalendarFeed(context, roles);
   }
 
   Widget _calendarCard(BuildContext context, EventsState state, RoleCubit roles) {
@@ -940,23 +962,34 @@ class _EventsScreenState extends State<EventsScreen> {
           ],
         ),
         const SizedBox(height: 8),
+        // The refresh wraps *both* branches. It used to wrap only the list,
+        // so an empty day — the one state where you most want to pull —
+        // had no way to refetch, and a stale feed was unrecoverable without
+        // leaving the screen.
         Expanded(
-          child: items.isEmpty
-              ? _emptyState(
-                  state.calendarLoading
-                      ? 'Loading…'
-                      : 'Nothing scheduled for this day',
-                )
-              : RefreshIndicator(
-                  color: AppColors.themeColor,
-                  onRefresh: () async {
-                    context.read<EventsCubit>().resetCalendarFeed();
-                    await context.read<EventsCubit>().loadCalendarFeed(
-                          _focusedDay,
-                          scope: _feedScope(roles),
-                        );
-                  },
-                  child: ListView.separated(
+          child: RefreshIndicator(
+            color: AppColors.themeColor,
+            onRefresh: () => _refreshCalendarFeed(context, roles),
+            child: items.isEmpty
+                // RefreshIndicator drives the gesture from its child's
+                // scrollable, and the empty state does not scroll on its own:
+                // it needs a viewport-height box to be draggable at all.
+                ? LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: _emptyState(
+                          state.calendarLoading
+                              ? 'Loading…'
+                              : 'Nothing scheduled for this day',
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 90),
                     itemCount: items.length,
@@ -964,7 +997,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     itemBuilder: (context, index) =>
                         _feedItemCard(context, state, roles, items[index]),
                   ),
-                ),
+          ),
         ),
       ],
     );
@@ -1482,21 +1515,27 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  void _openDetail(BuildContext context, Event event) {
-    context.push(
+  Future<void> _openDetail(BuildContext context, Event event) async {
+    final roles = context.read<RoleCubit>();
+    await context.push(
       EventDetailScreen.routeName,
       extra: <String, dynamic>{
         'eventCode': event.code,
         'occurrenceCode': event.occurrenceCode,
       },
     );
+    if (!context.mounted) return;
+    await _refreshCalendarFeed(context, roles);
   }
 
-  void _openForm(BuildContext context) {
-    context.push(
+  Future<void> _openForm(BuildContext context) async {
+    final roles = context.read<RoleCubit>();
+    await context.push(
       EventFormScreen.routeName,
       extra: <String, dynamic>{'initialDate': _selectedDay.toIso8601String()},
     );
+    if (!context.mounted) return;
+    await _refreshCalendarFeed(context, roles);
   }
 
   /// Upcoming events first (today onward ascending), past events after
