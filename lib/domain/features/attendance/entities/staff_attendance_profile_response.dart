@@ -40,6 +40,7 @@ class StaffAttendanceProfileRecord extends Equatable {
     required this.attendedMinutes,
     required this.signedInMethod,
     required this.notExpectedComment,
+    this.code,
   });
 
   /// `m['attendanceDate'] as String? ?? ''`
@@ -99,6 +100,11 @@ class StaffAttendanceProfileRecord extends Equatable {
   /// `m['notExpectedComment'] as String? ?? ''` (screen keeps the `.trim()`)
   final String notExpectedComment;
 
+  /// `m['code']` — the session record's own identifier. Not read by the
+  /// legacy profile screen, which only displays sessions; the Attendance V2
+  /// overtime module edits and deletes them and so needs it.
+  final String? code;
+
   @override
   List<Object?> get props => [
     attendanceDate,
@@ -118,6 +124,7 @@ class StaffAttendanceProfileRecord extends Equatable {
     attendedMinutes,
     signedInMethod,
     notExpectedComment,
+    code,
   ];
 }
 

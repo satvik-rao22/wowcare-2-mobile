@@ -96,8 +96,6 @@ class ApiConstantsUat {
         return newsLatterBaseUrl;
       case ApiMicroservicesUat.notification:
         return notificationBaseUrl;
-      case ApiMicroservicesUat.scheduler:
-        return schedulerBaseUrl;
       case ApiMicroservicesUat.eventsTodo:
         return eventsTodoBaseUrl;
       default:

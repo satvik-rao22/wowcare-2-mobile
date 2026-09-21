@@ -32,6 +32,8 @@ import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/modules/attendance_v2/core/config/av2_config.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 
@@ -511,6 +513,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
+    // Attendance V2: the new module owns the detail screen and self-loads.
+    // Skip the legacy data fetches when it's enabled.
+    if (Av2Config.enabled) return;
     final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
@@ -931,6 +936,17 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
+    // Attendance V2: render the new overtime detail module. Gating here
+    // rather than at the router keeps every caller (and the typed
+    // StaffAttendanceProfileArgs) working unchanged, and the legacy UI below
+    // is preserved for rollback — flip Av2Config.enabled to false.
+    if (Av2Config.enabled) {
+      return StaffDetailScreen(
+        staffCode: widget.staffCode,
+        staffName: widget.staffName,
+      );
+    }
+
     final contentPadding = ResponsiveHelper(context).contentPadding;
 
     return GlobalScaffold(

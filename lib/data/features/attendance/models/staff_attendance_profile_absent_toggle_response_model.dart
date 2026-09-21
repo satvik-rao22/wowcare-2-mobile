@@ -28,6 +28,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     required this.markAbsentMethod,
     required this.classroomName,
     required this.classroomCode,
+    this.code,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceReason,
+    this.absenceType,
   });
 
   final String absenceDate;
@@ -38,6 +43,14 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
   final String? markAbsentMethod;
   final String? classroomName;
   final String? classroomCode;
+
+  // Carried for the Attendance V2 overtime module, which edits and deletes
+  // absences and so needs the record's own code and how it was filed.
+  final String? code;
+  final String? absenceFromDate;
+  final String? absenceToDate;
+  final String? absenceReason;
+  final String? absenceType;
 
   factory StaffAttendanceProfileAbsentToggleRecordModel.fromJson(
     Map<String, dynamic> m,
@@ -51,6 +64,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
       markAbsentMethod: m['markAbsentMethod'] as String?,
       classroomName: m['classroomName'] as String?,
       classroomCode: m['classroomCode'] as String?,
+      code: (m['code'] ?? m['absenceCode'])?.toString(),
+      absenceFromDate: m['absenceFromDate']?.toString(),
+      absenceToDate: m['absenceToDate']?.toString(),
+      absenceReason: m['absenceReason']?.toString(),
+      absenceType: m['absenceType']?.toString(),
     );
   }
 
@@ -64,6 +82,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     markAbsentMethod,
     classroomName,
     classroomCode,
+    code,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
   ];
 
   StaffAttendanceProfileAbsentToggleRecord toEntity() {
@@ -76,6 +99,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
       markAbsentMethod: markAbsentMethod,
       classroomName: classroomName,
       classroomCode: classroomCode,
+      code: code,
+      absenceFromDate: absenceFromDate,
+      absenceToDate: absenceToDate,
+      absenceReason: absenceReason,
+      absenceType: absenceType,
     );
   }
 }

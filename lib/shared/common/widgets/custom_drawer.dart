@@ -799,9 +799,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showDashboardDrawer =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.dashboard);
-    final showSettingsMenu =
-        !roleProvider.usesGranularModuleAccess ||
-        roleProvider.canOpenModule(AppAccessModules.settings);
     final showReportsDrawer =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.reports);
@@ -1325,44 +1322,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 _expandedDrawerSection != null,
                             onTap: () => _navigate(ReportsScreen.routeName),
                           ),
-                        // if (showSettingsMenu)
-                        //   _CustomExpansionTile(
-                        //     title: 'Settings',
-                        //     icon: MediaRes.settings_drawer_Blue,
-                        //     isExpansionEnabled: true,
-                        //     expandedOverride:
-                        //         _expandedDrawerSection == 'Settings',
-                        //     onExpansionChanged: (expanded) =>
-                        //         _onDrawerSectionExpansionChanged(
-                        //           'Settings',
-                        //           expanded,
-                        //         ),
-                        //     children: [
-                        //       DrawerListTile(
-                        //         title: 'Privacy Policy',
-                        //         leading: SvgPicture.asset(
-                        //           MediaRes.settings_drawer_Blue,
-                        //           colorFilter: const ColorFilter.mode(
-                        //             AppColors.themeColor,
-                        //             BlendMode.srcIn,
-                        //           ),
-                        //         ),
-                        //         onTap: () {},
-                        //       ),
-                        //       DrawerListTile(
-                        //         title: 'Terms & Conditions',
-                        //         leading: SvgPicture.asset(
-                        //           MediaRes.settings_drawer_Blue,
-                        //           colorFilter: const ColorFilter.mode(
-                        //             AppColors.themeColor,
-                        //             BlendMode.srcIn,
-                        //           ),
-                        //         ),
-                        //         onTap: () {},
-                        //       ),
-                        //     ],
-                        //   ),
-
+                        // Privacy Policy and Terms & Conditions replaced a
+                        // 'Settings' expansion tile whose two children did
+                        // nothing. They are legal links, so unlike that tile
+                        // they are not gated on the settings module.
                         _CustomExpansionTile(
                           title: 'Privacy Policy',
                           icon: MediaRes.settings_drawer_Blue,

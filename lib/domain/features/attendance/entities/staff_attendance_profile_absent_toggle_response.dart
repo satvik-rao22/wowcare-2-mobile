@@ -29,6 +29,11 @@ class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
     required this.markAbsentMethod,
     required this.classroomName,
     required this.classroomCode,
+    this.code,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceReason,
+    this.absenceType,
   });
 
   /// `m['absenceDate'] as String? ?? ''`
@@ -65,6 +70,27 @@ class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
   /// `m['classroomCode'] as String?` (nullable; screen trims for fallback)
   final String? classroomCode;
 
+  // The five below are not read by the legacy profile screen, which only ever
+  // displayed an absence. The Attendance V2 overtime module edits and deletes
+  // them, so it needs the record's own code and the range/reason/type it was
+  // filed with. `code` falls back to `absenceCode`, which is what some
+  // payloads name it.
+
+  /// `m['code'] ?? m['absenceCode']` — identifies the record for edit/delete.
+  final String? code;
+
+  /// `m['absenceFromDate']` — set when the absence spans a range.
+  final String? absenceFromDate;
+
+  /// `m['absenceToDate']` — set when the absence spans a range.
+  final String? absenceToDate;
+
+  /// `m['absenceReason']`
+  final String? absenceReason;
+
+  /// `m['absenceType']`
+  final String? absenceType;
+
   @override
   List<Object?> get props => [
     absenceDate,
@@ -75,6 +101,11 @@ class StaffAttendanceProfileAbsentToggleRecord extends Equatable {
     markAbsentMethod,
     classroomName,
     classroomCode,
+    code,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
   ];
 }
 

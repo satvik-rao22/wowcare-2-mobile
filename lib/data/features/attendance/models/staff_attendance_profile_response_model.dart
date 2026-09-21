@@ -37,6 +37,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
     required this.attendedMinutes,
     required this.signedInMethod,
     required this.notExpectedComment,
+    this.code,
   });
 
   final String attendanceDate;
@@ -57,6 +58,10 @@ class StaffAttendanceProfileRecordModel extends Equatable {
   final String? signedInMethod;
   final String notExpectedComment;
 
+  /// The session record's own identifier, carried for the Attendance V2
+  /// overtime module's edit/delete actions.
+  final String? code;
+
   factory StaffAttendanceProfileRecordModel.fromJson(Map<String, dynamic> m) {
     return StaffAttendanceProfileRecordModel(
       attendanceDate: m['attendanceDate'] as String? ?? '',
@@ -76,6 +81,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
       attendedMinutes: m['attendedMinutes'] as int? ?? 0,
       signedInMethod: m['signedInMethod'] as String?,
       notExpectedComment: m['notExpectedComment'] as String? ?? '',
+      code: m['code']?.toString(),
     );
   }
 
@@ -98,6 +104,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
     attendedMinutes,
     signedInMethod,
     notExpectedComment,
+    code,
   ];
 
   StaffAttendanceProfileRecord toEntity() {
@@ -119,6 +126,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
       attendedMinutes: attendedMinutes,
       signedInMethod: signedInMethod,
       notExpectedComment: notExpectedComment,
+      code: code,
     );
   }
 }
