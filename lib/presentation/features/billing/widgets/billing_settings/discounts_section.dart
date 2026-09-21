@@ -317,7 +317,6 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                       percentage: d.percentage,
                       totalAmountDiscounted: d.totalAmountDiscounted,
                       isActive: d.isActive,
-                      onView: () {},
                       onEdit: d.isActive ? () => _onEdit(d) : null,
                       onDeactivate: d.isActive ? () => _onDeactivate(d) : null,
                       onReactivate: !d.isActive ? () => _onReactivate(d) : null,

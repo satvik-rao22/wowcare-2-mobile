@@ -67,17 +67,6 @@ class TransactionsSection extends StatefulWidget {
 class _TransactionsSectionState extends State<TransactionsSection> {
   late final TransactionsCubit _cubit = serviceLocator<TransactionsCubit>();
 
-  /// Invoice-lifecycle statuses offered by the funnel sheet. Sent upper-cased
-  /// as the `status` query param (`status=OVERDUE`).
-  static const List<String> _statusOptions = <String>[
-    BillingStrings.paid,
-    BillingStrings.unpaid,
-    BillingStrings.overdue,
-    BillingStrings.sent,
-    BillingStrings.draft,
-    BillingStrings.cancelled,
-  ];
-
   /// Row kinds offered by the funnel sheet. Sent verbatim as the `type` query
   /// param (`type=Payment`), matching what the web client sends.
   static const List<String> _typeOptions = <String>[
@@ -85,6 +74,31 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     BillingStrings.payment,
     BillingStrings.refund,
     BillingStrings.credit,
+  ];
+
+  /// Student-enrollment statuses offered by the funnel sheet's Status facet.
+  static const List<String> _studentStatusOptions = <String>[
+    BillingStrings.active,
+    BillingStrings.upcoming,
+    BillingStrings.inactive,
+  ];
+
+  /// Payment modes offered by the funnel sheet. Sent verbatim as the `mode`
+  /// query param (`mode=Check`), matching what the web client sends.
+  static const List<String> _modeOptions = <String>[
+    BillingStrings.cash,
+    BillingStrings.check,
+    BillingStrings.online,
+    BillingStrings.other,
+  ];
+
+  /// Payment outcomes offered by the funnel sheet's Payment Status facet —
+  /// distinct from the invoice-lifecycle values the `status` query param
+  /// takes (that's legend-only now). Sent as the `paymentStatus` query param.
+  static const List<String> _paymentStatusOptions = <String>[
+    BillingStrings.paid,
+    BillingStrings.inProgress,
+    BillingStrings.failed,
   ];
   final TextEditingController _searchController = TextEditingController();
 
@@ -373,19 +387,24 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 items: tags,
                 initialSelected: state.selectedTagNames,
               ),
-            // Status and Type are single-select: the endpoint takes one of
-            // each, and the values are mutually exclusive. Note the
-            // single-select dropdown has no "clear" entry — Clear All resets
-            // them.
+            // Student status (Active/Upcoming/Inactive) is a student-side
+            // facet, resolved through the student list API like Classroom/Tag
+            // above — not sent to the transactions endpoint directly.
             FilerSection(
               label: BillingStrings.status,
-              items: _statusOptions,
+              items: _studentStatusOptions,
               initialSelected: [
-                if ((state.selectedStatus ?? '').isNotEmpty)
-                  state.selectedStatus!,
+                if ((state.selectedStudentStatus ?? '').isNotEmpty)
+                  state.selectedStudentStatus!,
               ],
               isSingleSelect: true,
             ),
+            // Type, Mode and Payment Status are all single-select: the
+            // endpoint takes one of each. Mode/Payment Status only make
+            // sense for a Payment-type row (a Cash/Check/Online/Other
+            // method and a Paid/In Progress/Failed outcome don't apply to
+            // an Invoice, Refund or Credit row), so once a Type is picked
+            // they're hidden rather than left showing an irrelevant filter.
             FilerSection(
               label: BillingStrings.type,
               items: _typeOptions,
@@ -394,15 +413,46 @@ class _TransactionsSectionState extends State<TransactionsSection> {
               ],
               isSingleSelect: true,
             ),
+            FilerSection(
+              label: BillingStrings.mode,
+              items: _modeOptions,
+              initialSelected: [
+                if ((state.selectedMode ?? '').isNotEmpty) state.selectedMode!,
+              ],
+              isSingleSelect: true,
+              visibleWhen: (current) =>
+                  (current[BillingStrings.type] ?? const []).isEmpty,
+            ),
+            FilerSection(
+              label: BillingStrings.paymentStatus,
+              items: _paymentStatusOptions,
+              initialSelected: [
+                if ((state.selectedPaymentStatus ?? '').isNotEmpty)
+                  state.selectedPaymentStatus!,
+              ],
+              isSingleSelect: true,
+              visibleWhen: (current) =>
+                  (current[BillingStrings.type] ?? const []).isEmpty,
+            ),
           ],
           onApply: (applied) {
+            final pickedStudentStatus =
+                applied[BillingStrings.status] ?? const <String>[];
             final pickedType =
                 applied[BillingStrings.type] ?? const <String>[];
-            final pickedStatus =
-                applied[BillingStrings.status] ?? const <String>[];
+            final pickedMode =
+                applied[BillingStrings.mode] ?? const <String>[];
+            final pickedPaymentStatus =
+                applied[BillingStrings.paymentStatus] ?? const <String>[];
             unawaited(_cubit.applyTransactionFilters(
               type: pickedType.isEmpty ? null : pickedType.first,
-              status: pickedStatus.isEmpty ? null : pickedStatus.first,
+              mode: pickedMode.isEmpty ? null : pickedMode.first,
+              paymentStatus: pickedPaymentStatus.isEmpty
+                  ? null
+                  : pickedPaymentStatus.first,
+              studentStatus: pickedStudentStatus.isEmpty
+                  ? null
+                  : pickedStudentStatus.first,
               classroomNames:
                   applied[BillingStrings.classroom] ?? const <String>[],
               tagNames: applied[BillingStrings.tags] ?? const <String>[],

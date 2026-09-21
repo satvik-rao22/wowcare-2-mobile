@@ -118,7 +118,10 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   // -------------------------------------------------------------------------
 
   void _changeDate(int days) {
-    final newDate = _selectedAvailabilityDate.add(Duration(days: days));
+    _setDate(_selectedAvailabilityDate.add(Duration(days: days)));
+  }
+
+  void _setDate(DateTime newDate) {
     setState(() {
       _selectedAvailabilityDate = newDate;
     });
@@ -127,6 +130,17 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
       date: newDate,
       isTwoShifts: true,
     );
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedAvailabilityDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    _setDate(picked);
   }
 
   Widget _buildAvailabilityDateNavigator() {
@@ -165,7 +179,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         // Calendar icon
         Material(
           child: InkWell(
-            onTap: () {},
+            onTap: _pickDate,
             borderRadius: BorderRadius.circular(100),
             splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
             child: Padding(

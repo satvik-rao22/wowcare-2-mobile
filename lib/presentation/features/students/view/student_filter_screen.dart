@@ -74,7 +74,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
   // Options
   List<String> _classroomList = [];
-  final List<String> _statusList = const ['Active', 'Inactive', 'Upcoming'];
+  final List<String> _statusList = const ['Active', 'Upcoming'];
   List<String> _tagsList = const [];
   List<String> _parentsList = const [];
   final List<String> _attendanceList = const [

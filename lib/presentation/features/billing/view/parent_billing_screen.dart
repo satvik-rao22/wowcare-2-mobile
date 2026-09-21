@@ -1,6 +1,10 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
@@ -222,6 +226,72 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     );
   }
 
+  Widget _buildAutoPayBlockedBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.billingInfoBannerBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.billingInfoBannerBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 20, color: AppColors.billingWarningIconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  BillingStrings.autoPayNotAbleToRun,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.billingInfoBannerTextColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  BillingStrings.autoPayNotAbleToRunBodyShort,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.billingInfoBannerTextColor.withValues(
+                      alpha: 0.9,
+                    ),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _UpdateAutoPayButton(
+                  onTap: () async {
+                    final result = await context.push(
+                      AutoPayPaymentMethodsScreen.routeName,
+                    );
+                    if (!mounted) return;
+                    // Reflects the change immediately regardless of the
+                    // Save result — a successful save also refreshes below,
+                    // but the pull-to-refresh contract promises this banner
+                    // is never stale after returning from that screen.
+                    unawaited(_cubit.refresh());
+                    if (result == true) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: BillingStrings.autoPaySettingsUpdated,
+                        isSuccess: true,
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBillingTab(ParentBillingState state) {
     return CustomRefreshIndicator(
       onRefresh: _cubit.refresh,
@@ -232,14 +302,13 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  AppText.title(BillingStrings.billing),
-                ],
+            if (state.autoPayBlocked) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _buildAutoPayBlockedBanner(),
               ),
-            ),
+              const SizedBox(height: 15),
+            ],
             Column(
               children: [
                 _builtStudentGridSkeleton(state),
@@ -456,5 +525,45 @@ class _TabUnderlinePainter extends BoxPainter {
       height,
     );
     canvas.drawRect(rect, Paint()..color = color);
+  }
+}
+
+/// Small gradient-outlined "Update AutoPay" button for the blocked-AutoPay
+/// banner — a secondary key (the flat skin's outline button: a 1px rim over
+/// the banner's own ground) with a flat brand label, matching
+/// [CustomCancelButton] instead of a filled/solid button.
+class _UpdateAutoPayButton extends StatelessWidget {
+  const _UpdateAutoPayButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SkeuKeyBox(
+      variant: KeyVariant.secondary,
+      radius: 8,
+      height: 30,
+      padding: const EdgeInsets.all(1),
+      child: Material(
+        color: AppColors.transparentColor,
+        borderRadius: BorderRadius.circular(7),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(7),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            child: const Text(
+              BillingStrings.updateAutoPay,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

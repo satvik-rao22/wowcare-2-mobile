@@ -130,6 +130,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
 
   @override
   Widget build(BuildContext context) {
+    // Watched (not read) so the header's "Total Outstanding" badge stays in
+    // sync as the date range / month selection reloads the overview — it is
+    // shown regardless of the minimized state, matching web's header badge.
+    final overview = context.watch<TransactionsCubit>().state.overview;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -146,6 +150,11 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             showRedirect: true,
             onRedirect: () => context.go(BillingScreen.routeName),
             minimized: _minimized,
+            trailing: overview == null
+                ? null
+                : Flexible(
+                    child: _TotalOutstandingBadge(amount: overview.outstanding),
+                  ),
             onToggle: () {
               setState(() {
                 _minimized = !_minimized;
@@ -327,7 +336,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                   totalAllAmounts,
                 ),
                 label: 'Outstanding',
-                percentageColor: MaterialHues.red,
+                percentageColor: AppColors.errorColor,
+                amountColor: AppColors.errorColor,
+                labelColor: AppColors.errorColor,
               ),
             ),
           ],
@@ -548,15 +559,17 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
     required String percentage,
     required String label,
     required Color percentageColor,
+    Color amountColor = AppColors.themeColor,
+    Color? labelColor,
   }) {
     return Column(
       children: [
         Text(
           amount,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: AppColors.themeColor,
+            color: amountColor,
           ),
         ),
         const SizedBox(height: 4),
@@ -574,10 +587,40 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor.withValues(alpha: 0.8),
+            color: labelColor ?? AppColors.primaryColor.withValues(alpha: 0.8),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Header badge mirroring web's "Total Outstanding: $X" pill — a red-tinted
+/// highlight so the outstanding balance stands out next to the card title
+/// even while the card is minimized.
+class _TotalOutstandingBadge extends StatelessWidget {
+  const _TotalOutstandingBadge({required this.amount});
+
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.errorColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'Total Outstanding: \$${amount.toStringAsFixed(2)}',
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.errorColor,
+        ),
+      ),
     );
   }
 }

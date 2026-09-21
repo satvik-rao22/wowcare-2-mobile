@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/router/app_routes.dart' show DashboardRoutes;
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -193,8 +194,11 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       // Classroom Notes — staff-internal (each classroom's
                       // Notes chat). Gated to non-parents so it is hidden
                       // from the Guardian persona, mirroring the web.
-                      // Routes to the Classrooms list (itself staff/admin
-                      // only); each classroom's Notes tab is its chat.
+                      // Routes to the Dashboard's Ratio Monitoring section
+                      // (every classroom's notes badge at a glance) rather
+                      // than dropping straight into one classroom's Notes
+                      // tab — mirrors the Classroom Notes notification
+                      // routing in NotificationRouteResolver.
                       if (!isParent) ...[
                         SizedBox(height: responsive.verticalSpacing),
                         CommunicationLauncherButton(
@@ -208,7 +212,14 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                           verticalPadding: responsive.isTablet ? 26 : 22,
                           onTap: () {
                             Navigator.of(context).pop();
-                            context.go(AppRoutes.classroom);
+                            context.go(
+                              Uri(
+                                path: DashboardRoutes.root,
+                                queryParameters: const {
+                                  'focus': 'ratioMonitoring',
+                                },
+                              ).toString(),
+                            );
                           },
                         ),
                       ],

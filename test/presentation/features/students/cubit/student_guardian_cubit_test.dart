@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/student/usecases/change_guardian_pin_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/delete_guardian_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/generate_guardian_pin_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_guardians_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/resend_guardian_invite_usecase.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 
 StudentGuardian _guardian(String code) => StudentGuardian(
@@ -63,6 +67,46 @@ class _FakeDeleteGuardianUseCase extends DeleteGuardianUseCase {
   }
 }
 
+/// The PIN and invite collaborators the cubit now requires. These tests only
+/// exercise fetch/delete, so they fail loudly rather than pretending to work.
+class _FakeResendGuardianInviteUseCase extends ResendGuardianInviteUseCase {
+  _FakeResendGuardianInviteUseCase() : super(_FakeRepo());
+
+  @override
+  Future<String> call({
+    required String invitedEmail,
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) => throw UnimplementedError('resend invite was not expected');
+}
+
+class _FakeChangeGuardianPinUseCase extends ChangeGuardianPinUseCase {
+  _FakeChangeGuardianPinUseCase() : super(_FakeRepo());
+
+  @override
+  Future<({String message, String newClockPin})> call({
+    required String guardianCode,
+    required String pin,
+    required String studentCode,
+  }) => throw UnimplementedError('change pin was not expected');
+}
+
+class _FakeGenerateGuardianPinUseCase extends GenerateGuardianPinUseCase {
+  _FakeGenerateGuardianPinUseCase() : super(_FakeRepo());
+
+  @override
+  Future<({String message, String newClockPin})> call({
+    required String guardianCode,
+    required String studentCode,
+  }) => throw UnimplementedError('generate pin was not expected');
+}
+
+class _FakeStorageService implements StorageService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 class _Fakes {
   final get = _FakeGetGuardiansUseCase();
   final delete = _FakeDeleteGuardianUseCase();
@@ -70,6 +114,10 @@ class _Fakes {
   StudentGuardianCubit build() => StudentGuardianCubit(
     getStudentGuardiansUseCase: get,
     deleteGuardianUseCase: delete,
+    resendGuardianInviteUseCase: _FakeResendGuardianInviteUseCase(),
+    changeGuardianPinUseCase: _FakeChangeGuardianPinUseCase(),
+    generateGuardianPinUseCase: _FakeGenerateGuardianPinUseCase(),
+    storageService: _FakeStorageService(),
   );
 }
 

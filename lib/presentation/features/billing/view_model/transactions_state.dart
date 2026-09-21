@@ -10,6 +10,9 @@ class TransactionsState extends Equatable {
     this.activeFilter,
     this.selectedType,
     this.selectedStatus,
+    this.selectedMode,
+    this.selectedPaymentStatus,
+    this.selectedStudentStatus,
     this.classroomNames = const <String>[],
     this.classroomNameToCode = const <String, String>{},
     this.tagNames = const <String>[],
@@ -67,19 +70,41 @@ class TransactionsState extends Equatable {
   /// when the unfiltered list is shown. Drives the legend highlight.
   ///
   /// It shares the `type`/`status` query params with the funnel sheet's
-  /// [selectedType] / [selectedStatus], so the two are mutually exclusive:
-  /// applying one clears the other (see `TransactionsCubit.applyFilter` and
-  /// `applyTransactionFilters`). Otherwise a legend tap and a funnel pick
-  /// would each silently overwrite half of the other's query.
+  /// [selectedType] (and, historically, [selectedStatus] — now legend-only,
+  /// see its own doc), so applying an explicit Type pick clears the legend
+  /// (see `TransactionsCubit.applyFilter` and `applyTransactionFilters`).
+  /// Otherwise a legend tap and a funnel pick would each silently overwrite
+  /// half of the other's query.
   final TransactionFilter? activeFilter;
 
-  /// Funnel-sheet Type / Status selections, held as the display values the
-  /// sheet works in ('Invoice', 'Paid', …), or null for no restriction.
-  ///
-  /// Single-select: the endpoint takes one `type` and one `status`, and these
-  /// are mutually exclusive choices rather than a set to union.
+  /// Funnel-sheet Type selection, held as the display value the sheet works
+  /// in ('Invoice', 'Payment', …), or null for no restriction. Single-select:
+  /// the endpoint takes one `type`.
   final String? selectedType;
+
+  /// The stat-bar legend's `status` value ('SUCCESS' / 'IN_PROCESS' via
+  /// [TransactionFilter.statusParam]) — no longer settable from the funnel
+  /// sheet (that field is now [selectedPaymentStatus], a genuinely different
+  /// backend facet: the transactions endpoint takes `status` and
+  /// `paymentStatus` as two distinct query params).
   final String? selectedStatus;
+
+  /// Funnel-sheet payment-mode selection ('Cash' / 'Check' / 'Online' /
+  /// 'Other'), sent verbatim as the `mode` query param, or null for no
+  /// restriction.
+  final String? selectedMode;
+
+  /// Funnel-sheet Payment Status selection ('Paid' / 'In Progress' /
+  /// 'Failed'), sent as the `paymentStatus` query param, or null for no
+  /// restriction. Distinct from [selectedStatus] — see its doc.
+  final String? selectedPaymentStatus;
+
+  /// Funnel-sheet student-status selection ('Active' / 'Upcoming' /
+  /// 'Inactive'), held as the display value, or null for no restriction.
+  /// This is a student-enrollment facet resolved the same way as
+  /// classroom/tag — through the student list API, intersected against each
+  /// row's `studentCode` — not a query param on the transactions endpoint.
+  final String? selectedStudentStatus;
 
   /// Funnel-sheet option data for the student-side facets, loaded from the
   /// classroom and tag APIs.
@@ -114,7 +139,9 @@ class TransactionsState extends Equatable {
   /// the filter button so an applied filter stays visible after it closes.
   bool get hasActiveFilters =>
       (selectedType ?? '').isNotEmpty ||
-      (selectedStatus ?? '').isNotEmpty ||
+      (selectedMode ?? '').isNotEmpty ||
+      (selectedPaymentStatus ?? '').isNotEmpty ||
+      (selectedStudentStatus ?? '').isNotEmpty ||
       selectedClassroomNames.isNotEmpty ||
       selectedTagNames.isNotEmpty;
 
@@ -171,6 +198,9 @@ class TransactionsState extends Equatable {
     TransactionFilter? Function()? activeFilter,
     String? Function()? selectedType,
     String? Function()? selectedStatus,
+    String? Function()? selectedMode,
+    String? Function()? selectedPaymentStatus,
+    String? Function()? selectedStudentStatus,
     List<String>? classroomNames,
     Map<String, String>? classroomNameToCode,
     List<String>? tagNames,
@@ -197,6 +227,13 @@ class TransactionsState extends Equatable {
           selectedType != null ? selectedType() : this.selectedType,
       selectedStatus:
           selectedStatus != null ? selectedStatus() : this.selectedStatus,
+      selectedMode: selectedMode != null ? selectedMode() : this.selectedMode,
+      selectedPaymentStatus: selectedPaymentStatus != null
+          ? selectedPaymentStatus()
+          : this.selectedPaymentStatus,
+      selectedStudentStatus: selectedStudentStatus != null
+          ? selectedStudentStatus()
+          : this.selectedStudentStatus,
       classroomNames: classroomNames ?? this.classroomNames,
       classroomNameToCode: classroomNameToCode ?? this.classroomNameToCode,
       tagNames: tagNames ?? this.tagNames,
@@ -227,6 +264,9 @@ class TransactionsState extends Equatable {
         activeFilter,
         selectedType,
         selectedStatus,
+        selectedMode,
+        selectedPaymentStatus,
+        selectedStudentStatus,
         classroomNames,
         classroomNameToCode,
         tagNames,

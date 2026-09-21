@@ -36,6 +36,7 @@ class StaffDocumentsTab extends StatelessWidget {
     required this.staffCode,
     this.canEdit = false,
     this.highlightCode,
+    this.onRefreshSettings,
   });
 
   final String staffCode;
@@ -48,6 +49,12 @@ class StaffDocumentsTab extends StatelessWidget {
   /// the matching document card scrolls into view, expands, and flashes.
   final String? highlightCode;
 
+  /// Re-fetches the school's `canStaffEditTheirOwnHealthRecords` setting that
+  /// [canEdit] is derived from, so pull-to-refresh here also picks up an
+  /// admin toggling "Allow Staff Upload Document" without needing to leave
+  /// and reopen this profile.
+  final Future<void> Function()? onRefreshSettings;
+
   @override
   Widget build(BuildContext context) {
     // Cubits are created by the route builder (§1.6), not here.
@@ -55,6 +62,7 @@ class StaffDocumentsTab extends StatelessWidget {
       staffCode: staffCode,
       canEdit: canEdit,
       highlightCode: highlightCode,
+      onRefreshSettings: onRefreshSettings,
     );
   }
 }
@@ -64,11 +72,13 @@ class _StaffDocumentsTabView extends StatefulWidget {
     required this.staffCode,
     this.canEdit = false,
     this.highlightCode,
+    this.onRefreshSettings,
   });
 
   final String staffCode;
   final bool canEdit;
   final String? highlightCode;
+  final Future<void> Function()? onRefreshSettings;
 
   @override
   State<_StaffDocumentsTabView> createState() => _StaffDocumentsTabViewState();
@@ -410,10 +420,14 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
 
             return CustomRefreshIndicator(
               onRefresh: () async {
-                await _documentsListCubit.refresh(
-                  widget.staffCode,
-                  expired: _showExpired ? true : null,
-                );
+                await Future.wait([
+                  _documentsListCubit.refresh(
+                    widget.staffCode,
+                    expired: _showExpired ? true : null,
+                  ),
+                  if (widget.onRefreshSettings != null)
+                    widget.onRefreshSettings!(),
+                ]);
               },
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {

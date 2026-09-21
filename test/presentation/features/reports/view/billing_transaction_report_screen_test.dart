@@ -273,13 +273,13 @@ void main() {
   }
 
   testWidgets(
-    'Generating with no transaction filter sends no transaction keys at all',
+    'Payment method and transaction status default to their first option',
     (tester) async {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      // Nothing is pre-selected and nothing blocks submission: an untouched
-      // form is a request for every transaction.
+      // The first payment method and transaction status are pre-selected; the
+      // student filter still starts empty (= every student).
       final generateBtnFinder = find.text('Generate Report');
       expect(generateBtnFinder, findsOneWidget);
       await tester.tap(generateBtnFinder);
@@ -290,14 +290,12 @@ void main() {
       final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, ReportType.billingTransaction);
       expect(params.transactionTypes, isNull);
-      expect(params.transactionStatuses, isNull);
-      expect(params.paymentMethods, isNull);
+      expect(params.transactionStatuses, ['Success']);
+      expect(params.paymentMethods, ['Card']);
       expect(params.studentCodes, isNull);
 
       final requestBody = ReportRequestPayload.fromParams(params).toJson();
       expect(requestBody.containsKey('transactionTypes'), isFalse);
-      expect(requestBody.containsKey('transactionStatuses'), isFalse);
-      expect(requestBody.containsKey('paymentMethods'), isFalse);
       expect(requestBody.containsKey('studentCodes'), isFalse);
     },
   );

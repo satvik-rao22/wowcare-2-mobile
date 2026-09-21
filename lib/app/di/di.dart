@@ -287,7 +287,10 @@ import '../../domain/features/student/usecases/update_pickup_usecase.dart';
 import '../../domain/features/student/usecases/delete_pickup_usecase.dart';
 import '../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_guardians_usecase.dart';
+import '../../domain/features/student/usecases/change_guardian_pin_usecase.dart';
 import '../../domain/features/student/usecases/delete_guardian_usecase.dart';
+import '../../domain/features/student/usecases/generate_guardian_pin_usecase.dart';
+import '../../domain/features/student/usecases/resend_guardian_invite_usecase.dart';
 import '../../domain/features/student/usecases/get_student_health_usecase.dart';
 import '../../domain/features/student/usecases/get_student_settings_usecase.dart';
 import '../../domain/features/student/usecases/update_student_health_usecase.dart';
@@ -596,6 +599,7 @@ import '../../presentation/features/billing/view_model/transaction_details_cubit
 import '../../presentation/features/billing/view_model/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/view_model/add_credit_cubit.dart';
 import '../../presentation/features/billing/view_model/view_invoice_cubit.dart';
+import '../../presentation/features/billing/view_model/view_receipt_cubit.dart';
 import '../../presentation/features/billing/view_model/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
@@ -1073,6 +1077,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
       getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getAutoPayStatus: serviceLocator<GetAutoPayStatusUseCase>(),
+      getPaymentMethods: serviceLocator<GetPaymentMethodsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -1699,6 +1705,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteGuardianUseCase>(
     () => DeleteGuardianUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ResendGuardianInviteUseCase>(
+    () => ResendGuardianInviteUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangeGuardianPinUseCase>(
+    () => ChangeGuardianPinUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GenerateGuardianPinUseCase>(
+    () => GenerateGuardianPinUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentHealthUseCase>(
     () => GetStudentHealthUseCase(serviceLocator()),
@@ -2489,6 +2504,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
       loadCachedStaffProfileUseCase: serviceLocator(),
+      getStudentSettingsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
@@ -2766,6 +2782,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentGuardianCubit(
       getStudentGuardiansUseCase: serviceLocator(),
       deleteGuardianUseCase: serviceLocator(),
+      resendGuardianInviteUseCase: serviceLocator(),
+      changeGuardianPinUseCase: serviceLocator(),
+      generateGuardianPinUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentHealthCubit>(
@@ -3378,6 +3398,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -3385,6 +3406,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
+    ),
+  );
+  serviceLocator.registerFactory<ViewReceiptCubit>(
+    () => ViewReceiptCubit(
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<SendInvoiceCubit>(

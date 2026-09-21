@@ -17,6 +17,7 @@ class InvoiceTransactionEntity extends Equatable {
     required this.paidAmount,
     required this.refundedAmount,
     required this.invoiceCode,
+    this.gatewayPayment = false,
   });
 
   final String id;
@@ -30,6 +31,11 @@ class InvoiceTransactionEntity extends Equatable {
   final String status;
   final String? method;
   final double amount;
+
+  /// Whether this transaction was processed through the payment gateway
+  /// (an "Online" card/ACH charge) rather than manually recorded (Cash,
+  /// Cheque, Other).
+  final bool gatewayPayment;
 
   /// Amount already paid against this invoice; `0` means it can still be cancelled.
   final double paidAmount;
@@ -55,6 +61,7 @@ class InvoiceTransactionEntity extends Equatable {
         paidAmount,
         refundedAmount,
         invoiceCode,
+        gatewayPayment,
       ];
 }
 

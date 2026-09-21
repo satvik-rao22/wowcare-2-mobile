@@ -711,6 +711,22 @@ class _ClassroomStaffTabCardViewState
   /// instead of that colleague's profile. Their own card has no destination
   /// from the classroom roster: staff must not message themselves or open a
   /// duplicate profile from this context.
+  void _messageStaff(Staff staff) {
+    openMessagingShortcut(
+      context,
+      recipients: [
+        SelectedRecipient(
+          code: staff.staffCode,
+          name: staff.name,
+          isStaff: true,
+          userCode: staff.userCode,
+          avatar: staff.photoUuid,
+          designation: staff.designation,
+        ),
+      ],
+    );
+  }
+
   Future<void> _openStaffProfile(Staff staff) async {
     if (staff.staffCode.trim().isEmpty) return;
 
@@ -722,19 +738,7 @@ class _ClassroomStaffTabCardViewState
     if (role.isStaff && isOwnCard) return;
 
     if (role.isStaff && !isOwnCard) {
-      openMessagingShortcut(
-        context,
-        recipients: [
-          SelectedRecipient(
-            code: staff.staffCode,
-            name: staff.name,
-            isStaff: true,
-            userCode: staff.userCode,
-            avatar: staff.photoUuid,
-            designation: staff.designation,
-          ),
-        ],
-      );
+      _messageStaff(staff);
       return;
     }
 
@@ -1023,6 +1027,8 @@ class _ClassroomStaffTabCardViewState
                                                       ),
                                                   onNameTap: () =>
                                                       _openStaffProfile(staff),
+                                                  onMessageTap: () =>
+                                                      _messageStaff(staff),
                                                   onSelectionChanged:
                                                       (bool? value) {
                                                         _toggleStaffSelection(
@@ -1142,6 +1148,7 @@ class _StaffListItem extends StatelessWidget {
     this.todayAttendanceStatusRaw,
     required this.designationLabel,
     this.onNameTap,
+    this.onMessageTap,
   });
 
   final Staff staff;
@@ -1151,6 +1158,7 @@ class _StaffListItem extends StatelessWidget {
   final String? todayAttendanceStatusRaw;
   final String designationLabel;
   final VoidCallback? onNameTap;
+  final VoidCallback? onMessageTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1255,7 +1263,8 @@ class _StaffListItem extends StatelessWidget {
               color: AppColors.classroomMessageIconColor,
               iconSize: 20,
               icon: const Icon(Icons.mail),
-              onPressed: () {},
+              tooltip: 'Message',
+              onPressed: onMessageTap,
             ),
             const SizedBox(width: 12),
           ],

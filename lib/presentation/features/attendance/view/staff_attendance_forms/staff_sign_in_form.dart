@@ -415,24 +415,41 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // too), never UI state.
     _submitInFlight = true;
     try {
-      // Admin-only override: clear same-day absence records for any
-      // selected staff who were marked absent, before creating the sign-in.
-      // Self-service (non-admin / QR) sign-in never runs this — an absent
-      // staff member cannot recover their own day this way.
-      if (isStaffAdmin) {
-        await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
-          attendanceDateYyyyMmDd: attendanceDate,
-          actingStaffCode: staffCode,
-          targets: selectedStaff
-              .map(
-                (s) => (
-                  staffCode: (s.staffCode ?? '').trim(),
-                  classroomCode: (s.classroomCode ?? '').trim(),
-                  name: s.name,
-                ),
-              )
-              .toList(),
-        );
+      // Clear same-day absence records for any selected staff who were
+      // marked absent, before creating the sign-in. Runs for admins and for
+      // self sign-in, so a staff member who marked themselves absent can
+      // still sign in. For self-service it is best-effort: if the absence
+      // can't be cleared, the sign-in POST still runs and the backend decides.
+      if (isStaffAdmin || isSelfSignIn) {
+        final targets = selectedStaff
+            .map(
+              (s) => (
+                staffCode: (s.staffCode ?? '').trim(),
+                classroomCode: (s.classroomCode ?? '').trim(),
+                name: s.name,
+              ),
+            )
+            .toList();
+        if (isStaffAdmin) {
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+            attendanceDateYyyyMmDd: attendanceDate,
+            actingStaffCode: staffCode,
+            targets: targets,
+          );
+        } else {
+          try {
+            await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+              attendanceDateYyyyMmDd: attendanceDate,
+              actingStaffCode: staffCode,
+              targets: targets,
+            );
+          } catch (e) {
+            AppLogger.d(
+              '[StaffSignIn] self absence clear failed ($e); '
+              'proceeding to sign-in',
+            );
+          }
+        }
       }
 
       final result = await _submitCubit.submit(

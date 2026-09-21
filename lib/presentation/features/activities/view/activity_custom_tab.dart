@@ -68,6 +68,8 @@ class ActivityCustomTab extends StatelessWidget {
     this.onRefreshStaffSignInStatus,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -94,6 +96,13 @@ class ActivityCustomTab extends StatelessWidget {
   /// Pre-selected classrooms.
   final List<String>? initialClassrooms;
 
+  /// Pre-selected approval statuses (e.g. `['PENDING_ADMIN_APPROVAL']` from
+  /// the Incidents attention card).
+  final List<String>? initialApprovalStatuses;
+
+  /// Widens the date filter to all time instead of the current-month default.
+  final bool initialAllTime;
+
   /// Used to force state reset in didUpdateWidget when navigating repeatedly.
   final String? resetKey;
 
@@ -119,6 +128,8 @@ class ActivityCustomTab extends StatelessWidget {
         onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
         initialActivityTypes: initialActivityTypes,
         initialClassrooms: initialClassrooms,
+        initialApprovalStatuses: initialApprovalStatuses,
+        initialAllTime: initialAllTime,
         resetKey: resetKey,
       ),
     );
@@ -135,6 +146,8 @@ class _ActivityCustomTabView extends StatefulWidget {
     this.onRefreshStaffSignInStatus,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -146,6 +159,8 @@ class _ActivityCustomTabView extends StatefulWidget {
   final Future<void> Function()? onRefreshStaffSignInStatus;
   final List<String>? initialActivityTypes;
   final List<String>? initialClassrooms;
+  final List<String>? initialApprovalStatuses;
+  final bool initialAllTime;
   final String? resetKey;
 
   @override
@@ -209,6 +224,16 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
   bool _forceAllClassroomsOnLoad = false;
+
+  /// True while the current date range came from [_applyAllTimeDateRange]
+  /// (the Incidents attention card's all-time override) rather than a
+  /// picked/default range. The picker stays in the layout and tappable —
+  /// only its displayed value is suppressed (shows "Select Date" instead of
+  /// the underlying "5 years ago – tomorrow" span), since showing that
+  /// span reads as a bug rather than the intentional "no date filter" it
+  /// stands in for. Cleared by [_resetDateRangeToCurrentMonth] (Clear All),
+  /// which restores the picker's normal displayed value.
+  bool _dateRangeShownAsUnselected = false;
   String? _lastFeedRequestKey;
   String? _lastGlobalSelectedStudentCode;
   DateTime? _lastFeedCompletedAt;
@@ -575,6 +600,21 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       }
     }
 
+    if (forceReset ||
+        widget.initialApprovalStatuses != oldWidget.initialApprovalStatuses) {
+      if (widget.initialApprovalStatuses != null &&
+          widget.initialApprovalStatuses!.isNotEmpty) {
+        _filterApprovalStatuses = List.from(widget.initialApprovalStatuses!);
+        changed = true;
+      }
+    }
+
+    if ((forceReset || widget.initialAllTime != oldWidget.initialAllTime) &&
+        widget.initialAllTime) {
+      _applyAllTimeDateRange();
+      changed = true;
+    }
+
     if (changed) {
       // Re-run filter logic and fetch feed
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -583,6 +623,20 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         }
       });
     }
+  }
+
+  /// Widens the date filter to effectively cover the school's whole history
+  /// instead of the current-month default — used when a destination (e.g. the
+  /// Incidents attention card) counts rows with no date bound of its own, so
+  /// scoping its landing list to a month would hide older matches the count
+  /// still includes. A fixed 5-year lookback (rather than a literal null
+  /// start/end) keeps the request within what the range-search API and its
+  /// existing non-nullable `startDate`/`endDate` contract already support.
+  void _applyAllTimeDateRange() {
+    final today = AppTime.now();
+    _selectedStartDate = DateTime(today.year - 5, today.month, today.day);
+    _selectedEndDate = DateTime(today.year, today.month, today.day + 1);
+    _dateRangeShownAsUnselected = true;
   }
 
   @override
@@ -622,9 +676,27 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _selectdClassroom = _selectedClassrooms.first;
       }
     }
+    if (widget.initialApprovalStatuses != null &&
+        widget.initialApprovalStatuses!.isNotEmpty) {
+      _filterApprovalStatuses = List.from(widget.initialApprovalStatuses!);
+    }
+    if (widget.initialAllTime) {
+      _applyAllTimeDateRange();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // _bootstrapSchoolZone unconditionally resets the date range to the
+      // school-calendar current month once the timezone resolves — it runs
+      // AFTER the initState-time _applyAllTimeDateRange() call above (this
+      // whole block is a deferred post-frame callback), so without this the
+      // Incidents attention card's all-time override was silently clobbered
+      // back to "this month" a moment after being applied, hiding any
+      // pending incident from a previous month even though the dashboard's
+      // count still included it.
+      if (widget.initialAllTime && mounted) {
+        setState(_applyAllTimeDateRange);
+      }
       // Feed is locked to the profile student's code + classroom already, so
       // load it right away rather than waiting for the classroom/student
       // bootstrap; _loadRangeFeed de-dupes so the later bootstrap won't refetch.
@@ -1303,6 +1375,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     final today = SchoolZoneDateTime.schoolCalendarTodayOnly(_schoolIana);
     _selectedStartDate = DateTime(today.year, today.month, 1);
     _selectedEndDate = DateTime(today.year, today.month + 1, 0);
+    _dateRangeShownAsUnselected = false;
   }
 
   Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
@@ -1423,7 +1496,19 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
     var list = items;
-    if (_filterActivityTypes.length > 1) {
+    // A single non-attendance type (e.g. the Incidents attention card's
+    // ['Incident']) used to be trusted entirely to the server's
+    // activityTypeCodes filter and skipped this client-side narrowing — but
+    // the range-search endpoint doesn't strictly enforce it, so unrelated
+    // types (Nap Start, Bathroom, …) leaked through whenever exactly one type
+    // was selected. A single ATTENDANCE-event pseudo-type (Sign-in/Sign-out/
+    // Transfer/Marked Absent) is still exempt: those route through a
+    // dedicated attendance API call whose returned items don't carry a
+    // matching activityTypeCode/name to re-filter by.
+    final bool isSingleAttendanceEvent =
+        _filterActivityTypes.length == 1 &&
+        _isAttendanceEventLabel(_filterActivityTypes.first.trim());
+    if (_filterActivityTypes.isNotEmpty && !isSingleAttendanceEvent) {
       final codes = _filterActivityTypes
           .map(_activityTypeCodeForLabel)
           .whereType<String>()
@@ -2606,8 +2691,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                           children: [
                             Expanded(
                               child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
+                                selectedStartDate: _dateRangeShownAsUnselected
+                                    ? null
+                                    : _selectedStartDate,
+                                selectedEndDate: _dateRangeShownAsUnselected
+                                    ? null
+                                    : _selectedEndDate,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -3310,6 +3399,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
             _selectedStartDate = result['startDate'] as DateTime?;
             if (result['endDate'] != null)
               _selectedEndDate = result['endDate'] as DateTime?;
+            // A manual pick always shows its own value, even if the range
+            // was previously displayed as unselected (all-time override).
+            _dateRangeShownAsUnselected = false;
           });
           _loadRangeFeed(refresh: true);
         }
@@ -3332,7 +3424,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 child: Text(
                   selectedStartDate != null
                       ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
-                      : 'Select Date',
+                      : 'Select Date Range',
                   style: AppTextStyles.activityDropdownValueText(
                     hasValue: selectedStartDate != null,
                   ),

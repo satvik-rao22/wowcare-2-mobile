@@ -1229,6 +1229,73 @@ class AppTextStyles {
     height: 1.35,
     decoration: TextDecoration.none,
   );
+
+  // ── Student: guardian change-PIN dialog (Mandate 4) ───────────────────────
+
+  /// Explanatory body copy in the Change PIN dialog.
+  static const TextStyle guardianPinDialogBody = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    height: 1.45,
+  );
+
+  /// "Enter PIN manually" section label.
+  static const TextStyle guardianPinSectionLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Inline validation message under the PIN field.
+  static const TextStyle guardianPinErrorText = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.errorColor,
+  );
+
+  /// The typed PIN itself — tracked out so the four digits read clearly.
+  static const TextStyle guardianPinFieldValue = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    letterSpacing: 2,
+  );
+
+  /// Placeholder in the PIN field (no tracking, unlike the typed value).
+  static const TextStyle guardianPinFieldHint = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.studentGrey,
+    letterSpacing: 0,
+  );
+
+  /// "Or generate by system" divider caption.
+  static const TextStyle guardianPinDividerLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.studentGrey,
+  );
+
+  /// Label on the inline gradient "Change PIN" button.
+  static const TextStyle guardianPinInlineButtonLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.whiteColor,
+  );
+
+  /// Label under each icon in the guardian action panel.
+  static const TextStyle guardianActionPanelLabel = TextStyle(
+    color: AppColors.textOnDarkColor,
+    fontSize: 12,
+  );
 }
 
 /// Reusable text widgets with predefined styles

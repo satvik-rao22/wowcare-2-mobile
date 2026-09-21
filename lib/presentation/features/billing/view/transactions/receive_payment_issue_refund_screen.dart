@@ -118,11 +118,16 @@ class _ReceivePaymentIssueRefundScreenState
     return _studentControllers.putIfAbsent(code, () => TextEditingController());
   }
 
+  /// 'Online' is a gateway-processed payment. Receiving a payment here is
+  /// always a manually recorded Cash/Cheque/Other entry, so 'Online' is
+  /// never offered. Issuing a refund is the exception: a refund against a
+  /// transaction that was itself paid through the gateway can go back out
+  /// through it, so 'Online' stays available only then — refunding a
+  /// manually-recorded (non-gateway) payment can't route through it.
   List<String> _getFilteredPaymentOptions() {
-    if (!widget.isRefund) {
-      return _paymentTypeOptions.where((String t) => t != 'Online').toList();
-    }
-    return _paymentTypeOptions;
+    final allowOnline = widget.isRefund && widget.transaction.gatewayPayment;
+    if (allowOnline) return _paymentTypeOptions;
+    return _paymentTypeOptions.where((String t) => t != 'Online').toList();
   }
 
   double get _outstandingValue => _amountUnpaid ?? 0.0;

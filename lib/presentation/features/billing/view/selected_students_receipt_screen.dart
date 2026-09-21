@@ -311,7 +311,11 @@ class _SelectedStudentsReceiptScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DocumentImageWidget(
-                      fileUuid: student.fullName, // UI-only seed
+                      fileUuid: '',
+                      studentCode: student.code,
+                      mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+                          ? student.photoAssetCode!.trim()
+                          : null,
                       name: student.fullName,
                       size: 50,
                     ),

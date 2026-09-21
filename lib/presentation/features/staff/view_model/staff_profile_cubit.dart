@@ -5,17 +5,31 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import '../../../../domain/features/staff/usecases/load_cached_staff_profile_usecase.dart';
+import '../../../../domain/features/student/entities/student_settings.dart';
+import '../../../../domain/features/student/usecases/get_student_settings_usecase.dart';
 
 class StaffProfileCubit extends Cubit<StaffProfileState> {
   StaffProfileCubit({
     required GetStaffProfileUseCase getStaffProfileUseCase,
     required LoadCachedStaffProfileUseCase loadCachedStaffProfileUseCase,
+    required GetStudentSettingsUseCase getStudentSettingsUseCase,
   }) : _getStaffProfileUseCase = getStaffProfileUseCase,
        _loadCachedStaffProfileUseCase = loadCachedStaffProfileUseCase,
+       _getStudentSettingsUseCase = getStudentSettingsUseCase,
        super(const StaffProfileState.initial());
 
   final GetStaffProfileUseCase _getStaffProfileUseCase;
   final LoadCachedStaffProfileUseCase _loadCachedStaffProfileUseCase;
+  final GetStudentSettingsUseCase _getStudentSettingsUseCase;
+
+  /// School-level settings (`GET /api/v1/student/student-settings`) — despite
+  /// living under the student domain, [StudentSettings.canStaffEditTheirOwnHealthRecords]
+  /// is the school's "Allow Staff Upload Document" toggle, which must also
+  /// let a staff member add/edit documents on THEIR OWN profile even without
+  /// the generic STAFF module write permission. See [StudentSettings]'s doc.
+  Future<StudentSettings> fetchSettings(String schoolCode) {
+    return _getStudentSettingsUseCase(schoolCode: schoolCode);
+  }
 
   /// Thin one-shot fetch of a staff profile ENTITY via the use case, for view
   /// call sites that previously read `StaffRepository.getStaffProfile(...)`

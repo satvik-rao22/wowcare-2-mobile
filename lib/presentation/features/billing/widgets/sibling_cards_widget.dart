@@ -127,6 +127,9 @@ class SiblingCardsWidget extends StatelessWidget {
                       children: [
                         DocumentImageWidget(
                           fileUuid: '',
+                          studentCode: student.code.trim().isNotEmpty
+                              ? student.code
+                              : null,
                           name: student.fullName,
                           size: 30,
                           fontSize: 12,
@@ -147,16 +150,6 @@ class SiblingCardsWidget extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              if (student.role.isNotEmpty)
-                                AppText.value(
-                                  student.role,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTextStyles.value.copyWith(
-                                    fontSize: 12,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                ),
                             ],
                           ),
                         ),

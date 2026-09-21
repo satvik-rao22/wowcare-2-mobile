@@ -278,61 +278,82 @@ prod-ios-debug:
 	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=PROD
 
 # -----------------------------------------------------------------------------
+# App Links host per environment
+#
+# Runner-Release.entitlements (used for Profile/Release/ipa builds — see
+# project.pbxproj CODE_SIGN_ENTITLEMENTS) is a tracked file with a single
+# committed default host (UAT). Xcode has no hook that lets a Flutter
+# --dart-define reach entitlements at codesign time, so instead of leaving
+# every PROD build silently ship the UAT Associated Domains host (the bug
+# this replaces), each recipe below backs the file up, points
+# set_app_link_host.sh at the right host for its environment, builds, then
+# restores the backup via `trap … EXIT` — so the tracked file is only ever
+# mutated for the duration of that one build, even if the build fails or is
+# interrupted, and this never depends on the file's committed git state.
+# -----------------------------------------------------------------------------
+define ios_release_build
+	@cp ios/Runner/Runner-Release.entitlements /tmp/wowcare-runner-release-entitlements.bak && \
+	trap 'cp /tmp/wowcare-runner-release-entitlements.bak ios/Runner/Runner-Release.entitlements && rm -f /tmp/wowcare-runner-release-entitlements.bak' EXIT && \
+	ios/scripts/set_app_link_host.sh $(1) && \
+	$(2)
+endef
+
+# -----------------------------------------------------------------------------
 # IOS PROFILE
 # -----------------------------------------------------------------------------
 
 local-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=LOCAL)
 
 dev-ios-profile:
 	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=DEV
 
 qa-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA)
 
 uat-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT)
 
 prod-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # IOS RELEASE
 # -----------------------------------------------------------------------------
 
 local-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=LOCAL)
 
 dev-ios-release:
 	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=DEV
 
 qa-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA)
 
 uat-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT)
 
 prod-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # IPA BUILD
 # -----------------------------------------------------------------------------
 
 local-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=LOCAL)
 
 dev-ipa:
 	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=DEV
 
 qa-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA)
 
 uat-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT)
 
 prod-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # GENERIC BUILD COMMANDS

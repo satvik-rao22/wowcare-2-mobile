@@ -91,6 +91,7 @@ import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_meth
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/open_invoice_by_code_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
@@ -160,6 +161,7 @@ import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.da
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/shared/common/view/document_viewer_screen.dart';
+import 'package:wowcare/shared/common/view/web_view_screen.dart';
 import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
@@ -253,6 +255,11 @@ class AppRoutes {
   // specific newsletter / pending-approval activity, not a generic list.
   static const String newsletterPreviewByCode = '/newsletter-preview-by-code';
   static const String activityApprovalByCode = '/activity-approval-by-code';
+
+  // Notification/email deep-link: open one invoice by code (self-loading —
+  // no in-memory TransactionItem required, unlike ViewInvoiceScreen's own
+  // route which navigates from an already-loaded billing list row).
+  static const String invoiceByCode = OpenInvoiceByCodeScreen.routeName;
 }
 
 /// Path lookups by branch index — used by the bottom nav when there is no
@@ -1034,7 +1041,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
-              builder: (context, state) => const DashboardScreen(),
+              builder: (context, state) =>
+                  DashboardScreen(focus: state.uri.queryParameters['focus']),
               routes: [
                 GoRoute(
                   path: 'staff',
@@ -2435,6 +2443,10 @@ final GoRouter appRouter = GoRouter(
                     initialClassrooms: q['classroom'] != null
                         ? [q['classroom']!]
                         : null,
+                    initialApprovalStatuses: q['approvalStatus'] != null
+                        ? [q['approvalStatus']!]
+                        : null,
+                    initialAllTime: q['dateRange'] == 'all',
                     resetKey: nonce?.value.toString(),
                   ),
                 );
@@ -2617,6 +2629,22 @@ final GoRouter appRouter = GoRouter(
                 studentCode: q['studentCode'],
               ),
             ),
+          ),
+        );
+      },
+    ),
+    // Notification/email deep-link (INV_GEN_GUARD_EML's paymentUrl): open one
+    // invoice by code — see OpenInvoiceByCodeScreen's own doc for why this is
+    // a separate self-loading route rather than ViewInvoiceScreen.routeName.
+    GoRoute(
+      path: AppRoutes.invoiceByCode,
+      pageBuilder: (context, state) {
+        final q = state.uri.queryParameters;
+        return _fastPage(
+          state,
+          OpenInvoiceByCodeScreen(
+            invoiceCode: q['invoiceCode'] ?? '',
+            studentCode: q['studentCode'],
           ),
         );
       },
@@ -3115,6 +3143,21 @@ final GoRouter appRouter = GoRouter(
             allowActivityWrite: args['allowActivityWrite'] as bool? ?? true,
             studentName: args['studentName'] as Map<String, dynamic>?,
           ),
+        );
+      },
+    ),
+    // Generic in-app browser (privacy policy, terms, any external link).
+    // Root-level so it covers the bottom nav shell, and on a path of its own
+    // so it can take a typed `WebViewArgs` extra without colliding with the
+    // Map-`extra` routes above (see `StaffRoutes.documentViewer`'s note on
+    // declaration-order matching).
+    GoRoute(
+      path: WebViewScreen.routeName,
+      pageBuilder: (context, state) {
+        final args = state.extra as WebViewArgs?;
+        return _fastPage(
+          state,
+          WebViewScreen(url: args?.url ?? '', title: args?.title ?? ''),
         );
       },
     ),

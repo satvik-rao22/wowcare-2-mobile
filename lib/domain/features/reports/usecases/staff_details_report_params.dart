@@ -30,7 +30,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
   /// Set of selected staff field names (e.g., {'Name', 'Email ID', 'Designation'})
   final Set<String> staffFieldsSelected;
 
-  /// Status filter value (e.g., 'Active Staff', 'Inactive Staff', 'All Staff')
+  /// Status filter value (e.g., 'Active Staff', 'Inactive Staff')
   final String statusFilter;
 
   @override

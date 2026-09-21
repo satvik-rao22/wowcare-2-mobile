@@ -216,11 +216,16 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 label: BillingStrings.view,
                 onTap: onViewTap,
               ),
-              _PopupActionConfig(
-                iconPath: MediaRes.moreIcon,
-                label: BillingStrings.more,
-                onTap: onMoreTap,
-              ),
+              // "More" only ever offers Billing Profile for a paid invoice —
+              // when that's already hidden (e.g. this popup is shown FROM the
+              // Billing Profile screen itself), there's nothing left for it to
+              // open, so omit the button rather than open an empty popup.
+              if (showBillingProfile)
+                _PopupActionConfig(
+                  iconPath: MediaRes.moreIcon,
+                  label: BillingStrings.more,
+                  onTap: onMoreTap,
+                ),
             ];
           case BillingInvoiceMenuVariant.cancelled:
             // Cancelled invoice: View + Delete.
@@ -255,7 +260,11 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               label: 'Issue Refund',
               onTap: onIssueRefundTap,
             ),
-          if (!isPaymentSuccess)
+          // "More" only ever offers Billing Profile for a payment — when
+          // that's already hidden (e.g. this popup is shown FROM the Billing
+          // Profile screen itself), there's nothing left for it to open, so
+          // omit the button rather than open an empty popup.
+          if (!isPaymentSuccess && showBillingProfile)
             _PopupActionConfig(
               iconPath: MediaRes.moreIcon,
               label: 'More',

@@ -19,6 +19,8 @@ class BillingStudentCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.fileUuid,
+    this.studentCode,
+    this.mediaAssetCode,
     required this.amount,
     required this.paidOn,
     required this.paymentMethod,
@@ -40,6 +42,8 @@ class BillingStudentCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? fileUuid;
+  final String? studentCode;
+  final String? mediaAssetCode;
   final double amount;
   final String paidOn;
   final String paymentMethod;
@@ -220,14 +224,19 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                   ],
                                   DocumentImageWidget(
                                     fileUuid: widget.fileUuid ?? '',
+                                    studentCode: widget.studentCode,
+                                    mediaAssetCode: widget.mediaAssetCode,
                                     name: widget.name,
                                     size: 50,
                                     shape: BoxShape.circle,
                                     fit: BoxFit.cover,
-                                    // No status dot here — dots are reserved for
-                                    // attendance (present/absent) as elsewhere in
-                                    // the app, and a family has no single
-                                    // attendance status.
+                                    // studentCode is only ever passed to resolve
+                                    // a photo (single-child families) — no
+                                    // status dot here regardless, since dots are
+                                    // reserved for attendance (present/absent)
+                                    // as elsewhere in the app, and a family row
+                                    // has no single attendance status.
+                                    disableAttendanceStatusLookup: true,
                                   ),
                                   SizedBox(width: isTablet ? 16 : 9),
                                   Expanded(

@@ -397,21 +397,38 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     // too), never UI state.
     _submitInFlight = true;
     try {
+      final absenceTargets = currentStudents
+          .map(
+            (s) => (
+              studentCode: s.studentCode,
+              classroomCode: s.classroomCode,
+              fullName: s.fullName,
+            ),
+          )
+          .toList();
       if (!isParent) {
         final staffCode = (request.staffCode ?? '').trim();
         if (staffCode.isNotEmpty) {
           await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
             attendanceDateYyyyMmDd: attendanceDate,
             staffCode: staffCode,
-            students: currentStudents
-                .map(
-                  (s) => (
-                    studentCode: s.studentCode,
-                    classroomCode: s.classroomCode,
-                    fullName: s.fullName,
-                  ),
-                )
-                .toList(),
+            students: absenceTargets,
+          );
+        }
+      } else {
+        // A parent who marked their child absent can still sign them in
+        // (e.g. from My Child's Day). Best-effort: if the absence can't be
+        // cleared, the sign-in POST still runs and the backend decides.
+        try {
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+            attendanceDateYyyyMmDd: attendanceDate,
+            staffCode: (request.staffCode ?? '').trim(),
+            students: absenceTargets,
+          );
+        } catch (e) {
+          AppLogger.d(
+            '[StudentSignIn] parent absence clear failed ($e); '
+            'proceeding to sign-in',
           );
         }
       }
