@@ -941,9 +941,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     // StaffAttendanceProfileArgs) working unchanged, and the legacy UI below
     // is preserved for rollback — flip Av2Config.enabled to false.
     if (Av2Config.enabled) {
+      // The legacy screen's callers default staffName to '-' as a display
+      // placeholder; V2 treats an EMPTY name as "not known yet" and resolves
+      // it from the overview (and keeps it out of the CSV filename), so the
+      // placeholder is normalised away here.
+      final name = widget.staffName.trim();
       return StaffDetailScreen(
         staffCode: widget.staffCode,
-        staffName: widget.staffName,
+        staffName: name == '-' ? '' : name,
       );
     }
 

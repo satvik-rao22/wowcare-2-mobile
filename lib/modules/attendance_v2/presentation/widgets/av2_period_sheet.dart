@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -15,11 +17,7 @@ Future<Av2Period?> showAv2PeriodSheet(
   return showModalBottomSheet<Av2Period>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Av2Colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
-    ),
+    // Ground and corners come from ThemeData.bottomSheetTheme.
     builder: (context) => _Av2PeriodSheet(current: current),
   );
 }
@@ -35,8 +33,10 @@ class _Av2PeriodSheet extends StatefulWidget {
 
 class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
   late bool _wholeMonth = widget.current.isWholeMonth;
-  late DateTime _month =
-      DateTime(widget.current.start.year, widget.current.start.month);
+  late DateTime _month = DateTime(
+    widget.current.start.year,
+    widget.current.start.month,
+  );
   late DateTime _customStart = widget.current.start;
   late DateTime _customEnd = widget.current.end;
 
@@ -73,7 +73,11 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-            Av2Spacing.md, Av2Spacing.sm, Av2Spacing.md, Av2Spacing.md),
+          Av2Spacing.md,
+          Av2Spacing.sm,
+          Av2Spacing.md,
+          Av2Spacing.md,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -105,10 +109,9 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
   Widget _segmented() {
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Av2Colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-      ),
+      // The segmented control's trough is a well; the selected segment
+      // sits proud of it.
+      decoration: AppSurfaces.well(radius: Av2Spacing.radiusSm),
       child: Row(
         children: [
           _segment('Whole month', _wholeMonth, () {
@@ -140,8 +143,7 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
             label,
             textAlign: TextAlign.center,
             style: Av2Text.chip.copyWith(
-              color:
-                  selected ? Av2Colors.textPrimary : Av2Colors.textSecondary,
+              color: selected ? Av2Colors.textPrimary : Av2Colors.textSecondary,
             ),
           ),
         ),
@@ -151,7 +153,10 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
 
   Widget _monthStepper() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Av2Spacing.xs, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Av2Spacing.xs,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: Av2Colors.border),
         borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
@@ -160,7 +165,10 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
         children: [
           IconButton(
             onPressed: () => _stepMonth(-1),
-            icon: const Icon(Icons.chevron_left, color: Av2Colors.textSecondary),
+            icon: const Icon(
+              Icons.chevron_left,
+              color: Av2Colors.textSecondary,
+            ),
             tooltip: 'Previous month',
           ),
           Expanded(
@@ -172,8 +180,10 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
           ),
           IconButton(
             onPressed: () => _stepMonth(1),
-            icon:
-                const Icon(Icons.chevron_right, color: Av2Colors.textSecondary),
+            icon: const Icon(
+              Icons.chevron_right,
+              color: Av2Colors.textSecondary,
+            ),
             tooltip: 'Next month',
           ),
         ],
@@ -187,15 +197,20 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
       borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: Av2Spacing.sm, vertical: Av2Spacing.sm),
+          horizontal: Av2Spacing.sm,
+          vertical: Av2Spacing.sm,
+        ),
         decoration: BoxDecoration(
           border: Border.all(color: Av2Colors.border),
           borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
         ),
         child: Row(
           children: [
-            const Icon(Icons.date_range_outlined,
-                size: 18, color: Av2Colors.textSecondary),
+            const Icon(
+              Icons.date_range_outlined,
+              size: 18,
+              color: Av2Colors.textSecondary,
+            ),
             const SizedBox(width: Av2Spacing.sm),
             Expanded(
               child: Text(
@@ -205,32 +220,16 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Text('Change', style: Av2Text.label.copyWith(color: Av2Colors.theme)),
+            Text(
+              'Change',
+              style: Av2Text.label.copyWith(color: Av2Colors.theme),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _applyButton() {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-      child: InkWell(
-        onTap: _apply,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-        child: Ink(
-          height: 48,
-          decoration: BoxDecoration(
-            color: Av2Colors.primaryFill,
-            borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          ),
-          child: Center(
-            child: Text('Apply',
-                style: Av2Text.bodyMedium.copyWith(color: Av2Colors.onPrimary)),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _applyButton() =>
+      CustomConfirmButton(label: 'Apply', onPressed: _apply);
 }

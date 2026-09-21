@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:intl/intl.dart';
@@ -32,12 +33,7 @@ Future<Av2AbsenceEditResult?> showAv2EditAbsenceSheet(
   return showModalBottomSheet<Av2AbsenceEditResult>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Av2Colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(Av2Spacing.radiusLg),
-      ),
-    ),
+    // Ground and corners come from ThemeData.bottomSheetTheme.
     builder: (context) => _Av2EditAbsenceSheet(day: day),
   );
 }
@@ -145,59 +141,11 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
               const SizedBox(height: Av2Spacing.xs),
               _noteField(),
               const SizedBox(height: Av2Spacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Av2Colors.borderStrong),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            Av2Spacing.radiusSm,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: Av2Text.bodyMedium.copyWith(
-                          color: Av2Colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: Av2Spacing.sm),
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                      child: InkWell(
-                        onTap: _submit,
-                        borderRadius: BorderRadius.circular(
-                          Av2Spacing.radiusSm,
-                        ),
-                        child: Ink(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: Av2Colors.primaryFill,
-                            borderRadius: BorderRadius.circular(
-                              Av2Spacing.radiusSm,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Submit',
-                              style: Av2Text.bodyMedium.copyWith(
-                                color: Av2Colors.onPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              CustomButtonLayout(
+                isForm: false,
+                confirmButtonLabel: 'Submit',
+                onPressedConfirm: _submit,
+                onPressedCancel: () => Navigator.pop(context),
               ),
             ],
           ),
@@ -212,11 +160,8 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
       borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: Av2Colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          border: Border.all(color: Av2Colors.border),
-        ),
+        // A picker you tap rather than type into: the full well, edgeless.
+        decoration: AppSurfaces.well(radius: Av2Spacing.radiusSm),
         child: Row(
           children: [
             Expanded(child: Text(text, style: Av2Text.body, maxLines: 1)),

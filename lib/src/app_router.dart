@@ -24,6 +24,7 @@ import 'package:wowcare/presentation/features/activities/view/edit_create_activi
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/medication_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/observation_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/outdoor_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
@@ -2873,6 +2874,21 @@ final GoRouter appRouter = GoRouter(
         return BlocProvider<ActivityEditorCubit>(
           create: (_) => serviceLocator<ActivityEditorCubit>(),
           child: NotesActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: ObservationActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: ObservationActivityScreen(
             selectedStudents: args.selectedStudents,
             isEdit: args.isEdit,
             activityData: args.activityData,

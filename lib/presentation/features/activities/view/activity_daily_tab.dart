@@ -55,6 +55,7 @@ import 'edit_create_activity_screens/learning_activity.dart';
 import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import 'package:wowcare/domain/features/activity/services/activity_feed_display_rules.dart';
@@ -514,6 +515,10 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
       NotesActivityScreen.routeName,
       ActivityTypeScreenArgs(activityData: activity, isEdit: true),
     ),
+    'Observation': (activity) => (
+      ObservationActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
     'Outdoor': (activity) => (
       OutdoorActivityScreen.routeName,
       ActivityTypeScreenArgs(activityData: activity, isEdit: true),
@@ -609,6 +614,14 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
         readOnly: true,
       ),
     ),
+    'Observation': (activity) => (
+      ObservationActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
+    ),
     'Outdoor': (activity) => (
       OutdoorActivityScreen.routeName,
       ActivityTypeScreenArgs(
@@ -638,6 +651,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
     'Sign-in': MediaRes.dailyActivitySignInIcon,

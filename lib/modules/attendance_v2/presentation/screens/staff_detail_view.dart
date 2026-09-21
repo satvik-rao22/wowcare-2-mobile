@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/responsive/av2_breakpoints.dart';
-import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
@@ -23,24 +24,26 @@ import '../widgets/av2_period_sheet.dart';
 import '../widgets/av2_staff_switcher_sheet.dart';
 
 /// Edits a session: returns true on success so the screen can toast.
-typedef Av2EditSession = Future<void> Function({
-  required String recordCode,
-  required DateTime signInLocal,
-  DateTime? signOutLocal,
-});
+typedef Av2EditSession =
+    Future<void> Function({
+      required String recordCode,
+      required DateTime signInLocal,
+      DateTime? signOutLocal,
+    });
 
 /// Deletes a session by record code.
 typedef Av2DeleteSession = Future<void> Function(String recordCode);
 
 /// Edits an absence record (date + note; reason/type carried through).
-typedef Av2EditAbsence = Future<void> Function({
-  required String code,
-  required DateTime fromDate,
-  required DateTime toDate,
-  required String reason,
-  required String type,
-  required String note,
-});
+typedef Av2EditAbsence =
+    Future<void> Function({
+      required String code,
+      required DateTime fromDate,
+      required DateTime toDate,
+      required String reason,
+      required String type,
+      required String note,
+    });
 
 /// Deletes an absence record by code.
 typedef Av2DeleteAbsence = Future<void> Function(String code);
@@ -151,9 +154,9 @@ class _StaffDetailViewState extends State<StaffDetailView> {
       widget.onStaffSelected != null && widget.staff.isNotEmpty;
 
   Widget _identity() => Av2IdentityRow(
-        profile: _profile,
-        onTap: _canSwitchStaff ? _onSwitchStaff : null,
-      );
+    profile: _profile,
+    onTap: _canSwitchStaff ? _onSwitchStaff : null,
+  );
 
   Future<void> _onSwitchStaff() async {
     final picked = await showAv2StaffSwitcherSheet(
@@ -191,7 +194,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     final confirmed = await showAv2ConfirmDialog(
       context,
       title: 'Delete attendance?',
-      message: '$summary\n\nThis removes the record and recalculates the day. '
+      message:
+          '$summary\n\nThis removes the record and recalculates the day. '
           'This can’t be undone.',
     );
     if (!confirmed || !mounted) return;
@@ -200,22 +204,27 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     try {
       await del(session.recordCode);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance deleted')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Attendance deleted',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t delete attendance. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t delete attendance. Try again.',
+        isError: true,
       );
     }
   }
 
   Future<void> _onAbsentAction(AttendanceDay day) async {
     if (!day.canEditAbsence) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Absence record id unavailable from server')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence record id unavailable from server',
+        isError: true,
       );
       return;
     }
@@ -243,13 +252,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         note: result.note,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Absence updated')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence updated',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t update absence. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t update absence. Try again.',
+        isError: true,
       );
     }
   }
@@ -258,7 +271,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     final confirmed = await showAv2ConfirmDialog(
       context,
       title: 'Delete absence?',
-      message: '${Av2DateFormatter.monthDay(day.date)} · Absent\n\nThis removes '
+      message:
+          '${Av2DateFormatter.monthDay(day.date)} · Absent\n\nThis removes '
           'the absence and recalculates the day. This can’t be undone.',
     );
     if (!confirmed || !mounted) return;
@@ -267,13 +281,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     try {
       await del(day.absenceCode!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Absence deleted')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence deleted',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t delete absence. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t delete absence. Try again.',
+        isError: true,
       );
     }
   }
@@ -290,13 +308,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         signOutLocal: result.signOutLocal,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance updated')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Attendance updated',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t update attendance. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t update attendance. Try again.',
+        isError: true,
       );
     }
   }
@@ -313,22 +335,16 @@ class _StaffDetailViewState extends State<StaffDetailView> {
   }
 
   Widget _hero() => Av2HeroCard(
-        profile: _profile,
-        periodLabel: widget.period.label,
-        onPickRange: _pickPeriod,
-        onTapNeedsAttention: () => _onFilter(Av2DayFilter.all),
-      );
+    profile: _profile,
+    periodLabel: widget.period.label,
+    onPickRange: _pickPeriod,
+    onTapNeedsAttention: () => _onFilter(Av2DayFilter.all),
+  );
 
   Widget _bottomLoader() => const Padding(
-        padding: EdgeInsets.symmetric(vertical: Av2Spacing.md),
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
-          ),
-        ),
-      );
+    padding: EdgeInsets.symmetric(vertical: Av2Spacing.md),
+    child: Center(child: PrimaryCircularLoader(size: 22, strokeWidth: 2)),
+  );
 
   Widget _mobileBody(BuildContext context) {
     final f = Av2Breakpoints.ofContext(context);
@@ -372,7 +388,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(pad, Av2Spacing.xs, pad, Av2Spacing.xl),
+      padding: const EdgeInsets.fromLTRB(
+        pad,
+        Av2Spacing.xs,
+        pad,
+        Av2Spacing.xl,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1080),

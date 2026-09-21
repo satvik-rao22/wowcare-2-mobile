@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:share_plus/share_plus.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:permission_handler/permission_handler.dart' show openAppSettings;
+import 'package:permission_handler/permission_handler.dart'
+    show openAppSettings;
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
@@ -132,7 +134,10 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
       AppLogger.e('[AV2-EXPORT] failed gathering report data', e, s);
       if (mounted) {
         setState(() => _exporting = false);
-        _toast('Couldn’t load the report. Check your connection and try again.');
+        _toast(
+          'Couldn’t load the report. Check your connection and try again.',
+          isError: true,
+        );
       }
       return;
     }
@@ -148,30 +153,25 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
       final baseName = _exportBaseName(data);
       AppLogger.d('[AV2-EXPORT] writing $baseName.csv (${bytes.length} bytes)');
 
-      // `file_saver` is no longer a dependency; the app saves and then hands
-      // the file to the share sheet through FileDownloadService, the same way
-      // invoice and receipt PDFs are exported.
-      final fileName = '$baseName.csv';
-      final savedPath = await serviceLocator<FileDownloadService>().saveFile(
-        fileData: Uint8List.fromList(bytes),
-        fileName: fileName,
-        assetCode: baseName,
-        mimeType: 'text/csv',
+      final saved = await FileSaver.instance.saveAs(
+        name: baseName,
+        bytes: Uint8List.fromList(bytes),
+        ext: 'csv',
+        mimeType: MimeType.csv,
       );
       if (!mounted) return;
-      if (savedPath == null) {
-        AppLogger.e('[AV2-EXPORT] save returned no path');
-        _toast('Couldn’t save the CSV. Please try again.');
+      // saveAs returns a path on save, null/empty if the user cancelled.
+      if (saved != null && saved.isNotEmpty) {
+        AppLogger.i('[AV2-EXPORT] saved to: $saved');
+        _toast('Saved “$baseName.csv”');
       } else {
-        AppLogger.i('[AV2-EXPORT] saved to: $savedPath');
-        await Share.shareXFiles(
-          [XFile(savedPath, mimeType: 'text/csv')],
-          fileNameOverrides: [fileName],
-        );
+        AppLogger.d('[AV2-EXPORT] save cancelled by user');
       }
     } catch (e, s) {
       AppLogger.e('[AV2-EXPORT] failed saving CSV', e, s);
-      if (mounted) _toast('Couldn’t save the CSV. Please try again.');
+      if (mounted) {
+        _toast('Couldn’t save the CSV. Please try again.', isError: true);
+      }
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -184,9 +184,9 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
   }) async {
     final message = permanentlyDenied
         ? 'Storage access is turned off for this app, so the CSV can’t be saved '
-            'to your device. You can re-enable it from Settings.'
+              'to your device. You can re-enable it from Settings.'
         : 'To save the attendance CSV to your device, this app needs permission '
-            'to store files.';
+              'to store files.';
     final proceed = await showAv2PermissionSheet(
       context,
       title: 'Storage permission needed',
@@ -217,8 +217,15 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     return '${name}_${d(data.profile.rangeStart)}_${d(data.profile.rangeEnd)}_$tab';
   }
 
-  void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  /// Every message this screen raises is a failure or a "saved" confirmation,
+  /// so it goes through the app's own top snack bar rather than Material's
+  /// bottom one — see [CoreUtils.showTopSnackBar].
+  void _toast(String message, {bool isError = false}) {
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isError: isError,
+    );
   }
 
   @override
@@ -261,34 +268,34 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 onLoadMore: _cubit.loadMore,
                 hasMore: state.hasMore,
                 loadingMore: state.loadingMore,
-                onEditSession: ({
-                  required recordCode,
-                  required signInLocal,
-                  signOutLocal,
-                }) =>
-                    _cubit.editSession(
-                  recordCode: recordCode,
-                  signInLocal: signInLocal,
-                  signOutLocal: signOutLocal,
-                ),
+                onEditSession:
+                    ({
+                      required recordCode,
+                      required signInLocal,
+                      signOutLocal,
+                    }) => _cubit.editSession(
+                      recordCode: recordCode,
+                      signInLocal: signInLocal,
+                      signOutLocal: signOutLocal,
+                    ),
                 onDeleteSession: (recordCode) =>
                     _cubit.deleteSession(recordCode: recordCode),
-                onEditAbsence: ({
-                  required code,
-                  required fromDate,
-                  required toDate,
-                  required reason,
-                  required type,
-                  required note,
-                }) =>
-                    _cubit.editAbsence(
-                  code: code,
-                  fromDate: fromDate,
-                  toDate: toDate,
-                  reason: reason,
-                  type: type,
-                  note: note,
-                ),
+                onEditAbsence:
+                    ({
+                      required code,
+                      required fromDate,
+                      required toDate,
+                      required reason,
+                      required type,
+                      required note,
+                    }) => _cubit.editAbsence(
+                      code: code,
+                      fromDate: fromDate,
+                      toDate: toDate,
+                      reason: reason,
+                      type: type,
+                      note: note,
+                    ),
                 onDeleteAbsence: (code) => _cubit.deleteAbsence(code: code),
               ),
             );
@@ -296,7 +303,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(Av2Spacing.xl),
-              child: CircularProgressIndicator(color: Av2Colors.theme),
+              child: PrimaryCircularLoader(),
             ),
           );
         },
@@ -319,8 +326,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined,
-                size: 34, color: Av2Colors.textTertiary),
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 34,
+              color: Av2Colors.textTertiary,
+            ),
             const SizedBox(height: Av2Spacing.sm),
             Text(
               message?.trim().isNotEmpty == true
@@ -333,8 +343,10 @@ class _ErrorState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh, size: 18, color: Av2Colors.theme),
-              label: Text('Retry',
-                  style: Av2Text.bodyMedium.copyWith(color: Av2Colors.theme)),
+              label: Text(
+                'Retry',
+                style: Av2Text.bodyMedium.copyWith(color: Av2Colors.theme),
+              ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Av2Colors.border),
                 shape: RoundedRectangleBorder(

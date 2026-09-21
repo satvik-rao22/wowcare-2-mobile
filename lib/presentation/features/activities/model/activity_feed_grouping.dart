@@ -14,6 +14,7 @@ const Set<String> _mergeableMultiStudentActivityNames = {
   'Meal',
   'Bottle',
   'Notes',
+  'Observation',
   'Nap Start',
   'Nap End',
   'Nap',

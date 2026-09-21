@@ -26,6 +26,8 @@ dependencies:
   emoji_picker_flutter: ^4.4.0
   equatable: ^2.0.5
   file_picker: ^11.0.2
+  # Save-As dialog for the Attendance V2 staff overtime CSV export.
+  file_saver: ^0.2.12
   firebase_auth: ^6.5.1
   firebase_core: ^4.1.0
   firebase_analytics: ^12.0.1

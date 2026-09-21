@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Reusable text style widgets following the design patterns from staff_card.dart
 class AppTextStyles {
@@ -1295,6 +1296,74 @@ class AppTextStyles {
   static const TextStyle guardianActionPanelLabel = TextStyle(
     color: AppColors.textOnDarkColor,
     fontSize: 12,
+  );
+
+  // ── Attendance V2 (staff overtime detail) ───────────────────────────────
+  // The module reaches these through `Av2Text`, which is now just a set of
+  // aliases; the values live here so the app has one type scale.
+
+  /// The hero number on the overtime card: total hours, in the brand colour.
+  static const TextStyle av2Hero = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    color: AppColors.themeColor,
+    letterSpacing: -0.5,
+  );
+
+  /// Section and sheet titles inside the overtime detail screen.
+  static const TextStyle av2Title = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// The number on a metric tile (regular hours, overtime, days attended).
+  static const TextStyle av2MetricValue = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 19,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Body copy inside the overtime detail screen.
+  static const TextStyle av2Body = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+  );
+
+  /// Emphasised body copy: a day's date, a session's classroom.
+  static const TextStyle av2BodyMedium = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Field and metric labels in the overtime detail screen.
+  static const TextStyle av2Label = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppPalette.textSecondary,
+  );
+
+  /// Timestamps and secondary metadata on a session row.
+  static const TextStyle av2Caption = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w500,
+    color: AppPalette.textSecondary,
+  );
+
+  /// A filter chip's label. Colour is set per state by the chip.
+  static const TextStyle av2Chip = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
   );
 }
 

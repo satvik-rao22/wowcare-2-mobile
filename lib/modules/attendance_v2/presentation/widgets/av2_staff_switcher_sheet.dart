@@ -16,12 +16,7 @@ Future<Av2StaffSummary?> showAv2StaffSwitcherSheet(
   return showModalBottomSheet<Av2StaffSummary>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Av2Colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(Av2Spacing.radiusLg),
-      ),
-    ),
+    // Ground and corners come from ThemeData.bottomSheetTheme.
     builder: (context) =>
         _StaffSwitcherSheet(staff: staff, currentCode: currentCode),
   );

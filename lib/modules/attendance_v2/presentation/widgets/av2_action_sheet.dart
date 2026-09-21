@@ -14,10 +14,7 @@ Future<Av2RecordAction?> showAv2ActionSheet(
 }) {
   return showModalBottomSheet<Av2RecordAction>(
     context: context,
-    backgroundColor: Av2Colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
-    ),
+    // Ground and corners come from ThemeData.bottomSheetTheme.
     builder: (context) => _Av2ActionSheet(title: title),
   );
 }
@@ -45,7 +42,11 @@ class _Av2ActionSheet extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                Av2Spacing.md, Av2Spacing.md, Av2Spacing.md, Av2Spacing.xs),
+              Av2Spacing.md,
+              Av2Spacing.md,
+              Av2Spacing.md,
+              Av2Spacing.xs,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(title, style: Av2Text.title),
@@ -89,7 +90,9 @@ class _ActionItem extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: Av2Spacing.md, vertical: Av2Spacing.sm),
+          horizontal: Av2Spacing.md,
+          vertical: Av2Spacing.sm,
+        ),
         child: Row(
           children: [
             Icon(icon, size: 20, color: color),

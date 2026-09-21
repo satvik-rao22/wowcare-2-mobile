@@ -125,6 +125,7 @@ String mapApiActivityTypeNameToUiLabel(String apiName) {
   if (s.contains('learning')) return 'Learning';
   if (s.contains('photo') && !s.contains('video')) return 'Photo';
   if (s.contains('video')) return 'Video';
+  if (s.contains('observation')) return 'Observation';
   if (s.contains('note')) return 'Notes';
   if (s.contains('sign') && s.contains('in')) return 'Sign-in';
   if (s.contains('sign') && s.contains('out')) return 'Sign-out';
@@ -530,7 +531,9 @@ ActivityItem activityItemFromFeedRow(
         : null,
     napEndTime: name == 'Nap End' ? (napEndTime ?? napTimeParam) : null,
     whatHappened:
-        (name == 'Incident' || name == 'Notes') &&
+        (name == 'Incident' ||
+                name == 'Notes' ||
+                name == 'Observation') &&
             effectiveDescription.isNotEmpty
         ? effectiveDescription
         : null,

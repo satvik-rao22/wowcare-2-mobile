@@ -11,7 +11,7 @@ class Av2Config {
   /// Daily regular-hours threshold used to split worked time into regular vs
   /// overtime. The backend does not yet return this per school, so we default
   /// to 8h. Replace with the value from `overtimeConfig` once the API exposes
-  /// it (see STAFF_OVERTIME_API_REQUIREMENTS.md §5.1).
+  /// it (see docs/staff-overtime/STAFF_OVERTIME_API_REQUIREMENTS.md §5.1).
   static const int defaultDailyRegularMinutes = 480;
 
   /// Page size for the per-day detail fetch. A single day is a small number of

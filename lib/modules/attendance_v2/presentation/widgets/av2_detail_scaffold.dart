@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -41,12 +42,7 @@ class Av2DetailScaffold extends StatelessWidget {
                 onPressed: isRefreshing ? null : onRefresh,
                 tooltip: 'Refresh',
                 icon: isRefreshing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Av2Colors.theme),
-                      )
+                    ? const PrimaryCircularLoader(size: 18, strokeWidth: 2)
                     : const Icon(Icons.refresh, color: Av2Colors.primary),
               ),
             Padding(
@@ -54,14 +50,12 @@ class Av2DetailScaffold extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: isExporting ? null : onExport,
                 icon: isExporting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Av2Colors.theme),
-                      )
-                    : const Icon(Icons.file_download_outlined,
-                        size: 18, color: Av2Colors.theme),
+                    ? const PrimaryCircularLoader(size: 16, strokeWidth: 2)
+                    : const Icon(
+                        Icons.file_download_outlined,
+                        size: 18,
+                        color: Av2Colors.theme,
+                      ),
                 label: Text(
                   isExporting ? 'Preparing…' : 'Export CSV',
                   style: Av2Text.label.copyWith(

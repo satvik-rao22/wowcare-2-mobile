@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -17,21 +18,16 @@ class Av2EmptyState extends StatelessWidget {
         horizontal: Av2Spacing.md,
         vertical: Av2Spacing.xl,
       ),
-      decoration: BoxDecoration(
-        color: Av2Colors.surface,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
-        border: Border.all(color: Av2Colors.border),
-      ),
+      decoration: AppSurfaces.card(radius: Av2Spacing.radiusLg),
       child: Column(
         children: [
-          const Icon(Icons.event_busy_outlined,
-              size: 28, color: Av2Colors.textTertiary),
-          const SizedBox(height: Av2Spacing.xs),
-          Text(
-            message,
-            style: Av2Text.label,
-            textAlign: TextAlign.center,
+          const Icon(
+            Icons.event_busy_outlined,
+            size: 28,
+            color: Av2Colors.textTertiary,
           ),
+          const SizedBox(height: Av2Spacing.xs),
+          Text(message, style: Av2Text.label, textAlign: TextAlign.center),
         ],
       ),
     );
