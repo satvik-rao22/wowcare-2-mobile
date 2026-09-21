@@ -141,13 +141,25 @@ void main() {
     );
 
     test('the guardian delete goes to the student host, not the staff one', () {
-      // Explicit because the URLs above are env-derived: if the student and
-      // staff microservices ever collapse onto one host, the assertion above
-      // would still pass while the switch was wrong.
+      // Explicit because the URLs above are env-derived: under the
+      // single-gateway DEV/UAT/PROD shape, student and staff now share one
+      // host, so a host/port comparison can no longer tell them apart — the
+      // path prefix is what distinguishes them. Guards against the main test
+      // above passing vacuously if the switch ever pointed guardian at the
+      // staff path instead of the student one.
       expect(
-        Uri.parse(ApiConstants.studentBaseUrl).port,
-        isNot(Uri.parse(ApiConstants.staffBaseUrl).port),
-        reason: 'test premise: student and staff must be distinguishable hosts',
+        ApiPaths.urlWithBase(
+          ApiPaths.guardianDeleteProfilePhotoPath(guardianCode),
+          ApiConstants.studentBaseUrl,
+        ),
+        isNot(
+          ApiPaths.urlWithBase(
+            ApiPaths.staffDeleteProfilePhotoPath(staffCode),
+            ApiConstants.staffBaseUrl,
+          ),
+        ),
+        reason:
+            'test premise: guardian and staff deletes must be distinguishable URLs',
       );
     });
 
