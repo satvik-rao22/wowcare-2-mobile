@@ -33,6 +33,7 @@
         android:label="WowCare 2"
         android:name="${applicationName}"
         android:largeHeap="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:fullBackupContent="false"

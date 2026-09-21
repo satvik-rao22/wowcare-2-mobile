@@ -90,6 +90,8 @@ class ApiConstantsUat {
         return documentMsBaseUrl;
       case ApiMicroservicesUat.communication:
         return communicationBaseUrl;
+      case ApiMicroservicesUat.scheduler:
+        return schedulerBaseUrl;
       case ApiMicroservicesUat.newsLatter:
         return newsLatterBaseUrl;
       case ApiMicroservicesUat.notification:

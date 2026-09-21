@@ -17,6 +17,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -48,6 +49,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   List<String> _selectedTags = [];
   DateTime _selectedAttendanceDate = AppTime.now();
   bool _filtersAdopted = false;
+  bool _signedInOnly = false;
 
   late final ActivityStudentSelectionCubit _cubit;
 
@@ -70,10 +72,19 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     List<StudentAttendanceCustomItem> students,
   ) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return students;
-    return students
-        .where((student) => student.studentName.toLowerCase().contains(query))
-        .toList();
+    var result = query.isEmpty
+        ? students
+        : students
+            .where(
+              (student) => student.studentName.toLowerCase().contains(query),
+            )
+            .toList();
+    if (_signedInOnly) {
+      result = result
+          .where((student) => student.hasSignIn && !student.hasSignOut)
+          .toList();
+    }
+    return result;
   }
 
   void _updateSelectAllState(List<StudentAttendanceCustomItem> filtered) {
@@ -364,11 +375,24 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                       schoolNow.day,
                     );
                     _selectAll = false;
+                    _signedInOnly = false;
                   });
                   _loadStudents();
                 },
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          CustomToggle(
+            label: _signedInOnly ? 'Signed In' : 'All Attended',
+            isToggled: _signedInOnly,
+            labelOnLeftSide: true,
+            onToggle: (value) {
+              setState(() {
+                _signedInOnly = value;
+                _updateSelectAllState(_filteredStudents(students));
+              });
+            },
           ),
           const SizedBox(height: 12),
           Expanded(

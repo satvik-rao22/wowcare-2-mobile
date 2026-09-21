@@ -12,10 +12,12 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/upcoming_birthday.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
@@ -179,6 +181,7 @@ class _StudentCardState extends State<StudentCard> {
     // not the inactive set (Reactivate + Delete + Edit).
     final bool showActiveActions =
         widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.birthDate);
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -280,16 +283,29 @@ class _StudentCardState extends State<StudentCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    widget.name,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.body,
-                                      fontSize: isTablet ? 16 : 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.primaryColor,
-                                      height: 19 / 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          widget.name,
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.body,
+                                            fontSize: isTablet ? 16 : 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.primaryColor,
+                                            height: 19 / 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (birthdayDaysUntil != null) ...[
+                                        AppSpacing.gapHXs,
+                                        BirthdayCountdownChip(
+                                          daysUntil: birthdayDaysUntil,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 AppSpacing.gapHXs,

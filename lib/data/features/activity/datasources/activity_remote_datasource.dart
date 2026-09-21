@@ -922,6 +922,17 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final classroomName =
         (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
 
+    // Sign-in status: attendedClassrooms is chronologically ordered, so the
+    // last entry is the student's current stint, and `toTime == null` there
+    // means they are still signed in. This drives the picker's "Signed In /
+    // All Attended" toggle, which is why the timeline is read rather than
+    // filled with placeholders.
+    final currentEntry = attendedClassrooms.isNotEmpty
+        ? attendedClassrooms.last
+        : const <String, dynamic>{};
+    final signedInTime = (currentEntry['fromTime'] as String?)?.trim();
+    final signedOutTime = (currentEntry['toTime'] as String?)?.trim();
+
     return StudentAttendanceCustomItem(
       studentCode: (student['studentCode'] ?? '').toString().trim(),
       studentName: (student['studentName'] ?? '').toString().trim(),
@@ -933,9 +944,13 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       attendedHours: 0,
       attendedMinutes: 0,
       signedInBy: null,
-      signedInTime: '00:00:00',
+      signedInTime: (signedInTime == null || signedInTime.isEmpty)
+          ? null
+          : signedInTime,
       signedOutBy: null,
-      signedOutTime: null,
+      signedOutTime: (signedOutTime == null || signedOutTime.isEmpty)
+          ? null
+          : signedOutTime,
       tagCodes: const <String>[],
       tagNames: const <String>[],
       attendedMultipleClassroomsOnDate: attendedClassrooms.length > 1,

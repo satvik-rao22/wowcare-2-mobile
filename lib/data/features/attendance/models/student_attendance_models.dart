@@ -578,6 +578,9 @@ class StudentAttendanceCustomPageModel extends Equatable {
   }
 }
 
+/// One classroom stint within a day for the mark-activity student list
+/// (`GET .../student-attendance/view/mark-activity/student-list`).
+/// `toTime == null` means the student is still in this classroom.
 class StaffAttendanceDailyItemModel extends Equatable {
   const StaffAttendanceDailyItemModel({
     this.attendanceRecordCode,

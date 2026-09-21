@@ -145,6 +145,7 @@ class MediaRes {
   static const String docsIcon = '$_baseIcons/docs-icon.svg';
   static const String cameraIcon = '$_baseIcons/camera-icon.svg';
   static const String alertIcon = '$_baseIcons/alert-icon.svg';
+  static const String birthdayCakeIcon = '$_baseIcons/birthday-cake.svg';
   static const String studentAttendanceDrawer =
       '$_baseIcons/Student_Attendance.svg';
   static const String staffAttendanceDrawer =
