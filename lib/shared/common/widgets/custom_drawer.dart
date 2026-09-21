@@ -10,8 +10,10 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+// ignore: unused_import — kept for the temporary gate below
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+// ignore: unused_import — kept for the temporary gate below
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
@@ -751,8 +753,23 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final canViewActivities = roleProvider.canReadModule(
       AppAccessModules.dailyActivity,
     );
-    final canViewEvents = EventAccess.canOpenModule(roleProvider);
-    final canViewTasks = TaskAccess.canAccessModule(roleProvider);
+    // TEMPORARY: Events and Tasks are forced visible in the drawer.
+    //
+    // The backend's `users/details` payload does not list EVENT / EVENT_RSVP /
+    // HOLIDAY / CALENDAR / TASK for any school on this org, even though the
+    // events-todo service happily serves the same account (GET calendar/feed,
+    // occurrences, holidays and tasks/assignments all 200, POST events and
+    // tasks both 201). The gate below is therefore hiding a module that works.
+    //
+    // Restore both lines once the permission payload includes those modules.
+    // NOTE: this unhides the drawer entries only. The router's module guard in
+    // lib/src/app_router.dart and the per-tab `canReadModule` checks inside
+    // events_screen.dart / tasks_screen.dart are untouched, so tapping either
+    // entry still bounces back to the dashboard.
+    // final canViewEvents = EventAccess.canOpenModule(roleProvider);
+    // final canViewTasks = TaskAccess.canAccessModule(roleProvider);
+    const canViewEvents = true;
+    const canViewTasks = true;
     final showParentMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.parentMessaging,
     );

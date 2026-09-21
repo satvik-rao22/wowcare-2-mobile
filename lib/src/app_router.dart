@@ -3780,12 +3780,17 @@ const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
     AppAccessModules.studentAttendance,
   ],
   'staff-attendance-tabbed-view': <String>[AppAccessModules.staffAttendance],
-  EventRoutes.listSegment: <String>[
-    AppAccessModules.event,
-    AppAccessModules.eventRsvp,
-    AppAccessModules.holiday,
-  ],
-  TaskRoutes.listSegment: <String>[AppAccessModules.task],
+  // TEMP-EVENTS-TASKS-UNLOCK: both routes are unguarded while the backend's
+  // users/details payload lists no EVENT / EVENT_RSVP / HOLIDAY / CALENDAR /
+  // TASK module. A segment absent from this map is simply not module-guarded,
+  // so commenting the entries is enough — every other route keeps its guard.
+  // Restore both once the payload is fixed.
+  // EventRoutes.listSegment: <String>[
+  //   AppAccessModules.event,
+  //   AppAccessModules.eventRsvp,
+  //   AppAccessModules.holiday,
+  // ],
+  // TaskRoutes.listSegment: <String>[AppAccessModules.task],
 };
 
 /// Segments under `/dashboard` that a guardian persona must never open,

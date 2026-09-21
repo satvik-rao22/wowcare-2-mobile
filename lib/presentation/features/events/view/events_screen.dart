@@ -17,6 +17,8 @@ import 'package:wowcare/presentation/features/events/utils/holiday_year_window.d
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/events/utils/calendar_feed_mappers.dart';
+// TEMP-EVENTS-TASKS-UNLOCK keeps this for the commented-out read gates below.
+// ignore: unused_import
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
@@ -110,12 +112,19 @@ class _EventsScreenState extends State<EventsScreen> {
   /// Per-tab / per-view read permission. The screen opens when *any* of the
   /// three modules is readable (see `EventAccess.canOpenModule`), so each
   /// surface must still check its own before rendering data.
-  bool _canReadEvents(RoleCubit roles) =>
-      roles.canReadModule(AppAccessModules.event);
-  bool _canReadHolidays(RoleCubit roles) =>
-      roles.canReadModule(AppAccessModules.holiday);
-  bool _canReadCalendar(RoleCubit roles) =>
-      roles.canReadModule(AppAccessModules.calendar);
+  // TEMP-EVENTS-TASKS-UNLOCK: the backend's users/details payload lists no EVENT / EVENT_RSVP /
+  // HOLIDAY / CALENDAR / TASK module, though the events-todo service serves
+  // this account normally. Restore the commented line and delete the
+  // override once the payload is fixed. Grep TEMP-EVENTS-TASKS-UNLOCK.
+  // bool _canReadEvents(RoleCubit roles) =>
+  //     roles.canReadModule(AppAccessModules.event);
+  // bool _canReadHolidays(RoleCubit roles) =>
+  //     roles.canReadModule(AppAccessModules.holiday);
+  // bool _canReadCalendar(RoleCubit roles) =>
+  //     roles.canReadModule(AppAccessModules.calendar);
+  bool _canReadEvents(RoleCubit roles) => true;
+  bool _canReadHolidays(RoleCubit roles) => true;
+  bool _canReadCalendar(RoleCubit roles) => true;
 
   /// Whether the RSVP control should be offered for [event]: the user is on
   /// its roster (existing rule) **and** `EVENT_RSVP` permits responding.
