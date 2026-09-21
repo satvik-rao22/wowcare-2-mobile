@@ -693,3 +693,62 @@ Phase 0 — it is the doc QA and the backend read:
 - Nothing outside the module imports anything but `regularization.dart`. A second import means
   the facade is missing something — extend the facade, don't add the import.
 - `RegConfig.source` is never read at a call site. The flag is the only switch.
+
+---
+
+## §14 · Phase D — real API cutover
+
+The backend shipped, and the shipped contract differs from the spec this module was built
+against (`REGULARIZATION_API_CONTRACT.md` + the Postman collection). Twelve deltas, listed
+below, drive six verifiable steps.
+
+### 14.1 Contract deltas
+
+| # | Shipped contract | What it changes here |
+|---|---|---|
+| 1 | Gate merged into `POST /open-sessions/check`, `staffCodes` optional, one `{blocked, clear}` shape either way | `getOpenSession` + `getOpenSessionsBatch` collapse into one `checkGate()`. **Self-check sends no staff code at all** — the token decides. |
+| 2 | **No `timeZone` in any payload** — the school's attendance config defines the working day | Drop it from raise / edit / approve / raise-batch. Still needed *locally* to render UTC as school-local. |
+| 3 | `autoApproved` is a real response field | Stop deriving it from `approvalByCode == raisedByCode`. |
+| 4 | `GET /` takes no `schoolCode`; the token scopes it | `getMyRequests` + `getSchoolRequests` collapse into one `getRequests({staffCode?, status?})`. |
+| 5 | `approve-selected` body is `{codes}` only | `RegContext.schoolCode()` becomes unused. |
+| 6 | **`POST /sign-in` returns `{signedIn, blocked}`** — the server does bulk partial success itself | The interceptor's payload-narrowing is now redundant. See 14.3. |
+| 7 | Blocked single sign-in → `409`, sessions in `error.rejectedValue` (an array) | The parser currently looks for `openSessions`. |
+| 8 | `PATCH` conflict code is `REGULARIZATION_ALREADY_APPROVED` | Match the code, not a bare `409`. |
+| 9 | Page carries `hasNext` / `totalPages` | Use the server's flag instead of computing from `total`. |
+| 10 | Kiosk must send `staffCodes`; `{}` is a `400` | The gate must never self-check from a kiosk. **`x-role` is already sent by `AuthInterceptor`** — no header work. |
+| 11 | `method` also takes `KIOSK` | |
+| 12 | `skipped` carries both `attendanceCode` and `code` | |
+
+### 14.2 The mock
+
+Deleted — but its *test* value is replaced, not dropped. The 62 data tests move to driving the
+**real `RegHttpDataSource`** through a Dio `HttpClientAdapter` that replays the contract's own
+JSON samples. That is strictly better now the API exists: the tests assert against the real wire
+format rather than a simulation of it.
+
+With one implementation left, `RegRemoteDataSource` (the abstract seam) also goes — it existed
+only to let the mock stand in.
+
+### 14.3 Open decision — bulk sign-in
+
+The server now does partial success itself. Two options:
+
+- **A · pre-check** (what is built): `check` → sheet → `raise-batch` → sign in. The sheet appears
+  before anyone is signed in, so Skip genuinely skips.
+- **B · response-driven**: sign in → read `blocked` from the response → sheet → `raise-batch` →
+  sign in the rest. One fewer round trip, and it is the flow the new response shape was designed
+  for — but the clear staff are signed in before the admin sees the sheet.
+
+Both need the `blocked` list surfaced either way, because today `_attendanceActionResult` reads
+only `success`/`message` and would report a silent success while ten people stayed out.
+
+### 14.4 Steps
+
+| Step | Scope | Verified by |
+|---|---|---|
+| **D1** | Paths, error codes, config — the contract surface | analyze clean + error-parsing tests on the contract's literal JSON |
+| **D2** | Entities + mappers to the real wire shape (deltas 2, 3, 9, 12) | mapper tests against the contract's JSON samples |
+| **D3** | `RegHttpDataSource` + repository down to 7 methods; delete mock + seam (deltas 1, 4, 5) | repository tests through a recorded Dio adapter |
+| **D4** | Usecases 9 → 7; cubits off `schoolCode`/`staffCode` | cubit tests |
+| **D5** | Gate + interceptor for the real sign-in contract (deltas 6, 7, 10) | interceptor tests |
+| **D6** | Live run against the real server | walking the flows on device |

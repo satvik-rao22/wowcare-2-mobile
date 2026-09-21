@@ -2,20 +2,20 @@ import '../entities/reg_page.dart';
 import '../entities/regularization_request.dart';
 import '../repositories/regularization_repository.dart';
 
-/// Loads a page of the staff's own requests (§9.3). [status] `null` = all.
-class GetMyRequestsUseCase {
-  GetMyRequestsUseCase(this._repository);
+/// Own rows for staff, the whole school for an admin — the token decides.
+class GetRequestsUseCase {
+  GetRequestsUseCase(this._repository);
 
   final RegularizationRepository _repository;
 
   Future<RegPage<RegularizationRequest>> call({
-    required String staffCode,
+    String? staffCode,
     RegStatus? status,
     int page = 0,
     int size = 20,
     RegSortOrder sort = RegSortOrder.newestFirst,
   }) {
-    return _repository.getMyRequests(
+    return _repository.getRequests(
       staffCode: staffCode,
       status: status,
       page: page,

@@ -2,11 +2,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import '../../core/config/reg_config.dart';
-import '../../data/reg_context.dart';
 import '../../domain/entities/regularization_request.dart';
 import '../../domain/usecases/approve_request_usecase.dart';
 import '../../domain/usecases/approve_selected_usecase.dart';
-import '../../domain/usecases/get_school_requests_usecase.dart';
+import '../../domain/usecases/get_requests_usecase.dart';
 import '../controllers/reg_inbox_filter.dart';
 import 'reg_inbox_state.dart';
 import 'reg_my_requests_state.dart' show RegListStatus;
@@ -15,28 +14,17 @@ import 'reg_my_requests_state.dart' show RegListStatus;
 /// approved history, from the one §9.5 endpoint.
 class RegInboxCubit extends Cubit<RegInboxState> {
   RegInboxCubit({
-    required GetSchoolRequestsUseCase getSchoolRequests,
+    required GetRequestsUseCase getRequests,
     required ApproveRequestUseCase approveRequest,
     required ApproveSelectedUseCase approveSelected,
-    required RegContext context,
-  })  : _getSchoolRequests = getSchoolRequests,
+  })  : _getRequests = getRequests,
         _approveRequest = approveRequest,
         _approveSelected = approveSelected,
-        _context = context,
         super(const RegInboxState());
 
-  final GetSchoolRequestsUseCase _getSchoolRequests;
+  final GetRequestsUseCase _getRequests;
   final ApproveRequestUseCase _approveRequest;
   final ApproveSelectedUseCase _approveSelected;
-  final RegContext _context;
-
-  String _schoolCode = '';
-
-  Future<String> _resolveSchoolCode() async {
-    if (_schoolCode.isNotEmpty) return _schoolCode;
-    _schoolCode = await _context.schoolCode();
-    return _schoolCode;
-  }
 
   /// [keepMessage] is set by actions that reload right after reporting their
   /// outcome, so the reload does not wipe the message being shown.
@@ -46,16 +34,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       message: keepMessage ? null : '',
     ));
     try {
-      final schoolCode = await _resolveSchoolCode();
-      if (schoolCode.isEmpty) {
-        emit(state.copyWith(
-          status: RegListStatus.error,
-          message: 'No school selected.',
-        ));
-        return;
-      }
-      final page = await _getSchoolRequests(
-        schoolCode: schoolCode,
+      final page = await _getRequests(
         status: state.filter.status,
         sort: state.filter.sort,
         page: 0,
@@ -100,8 +79,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     if (state.loadingMore || !state.hasMore) return;
     emit(state.copyWith(loadingMore: true));
     try {
-      final next = await _getSchoolRequests(
-        schoolCode: await _resolveSchoolCode(),
+      final next = await _getRequests(
         status: state.filter.status,
         sort: state.filter.sort,
         page: state.page + 1,

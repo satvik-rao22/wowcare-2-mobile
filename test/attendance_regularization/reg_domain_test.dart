@@ -184,6 +184,7 @@ void main() {
       String raisedBy = 'STF_1',
       String? approvalBy,
       DateTime? updatedAt,
+      bool autoApproved = false,
     }) {
       return RegularizationRequest(
         code: 'SREG_1',
@@ -199,23 +200,13 @@ void main() {
         approvedSignOutTime: approvedAt,
         approvalByCode: approvalBy,
         updatedAt: updatedAt,
+        autoApproved: autoApproved,
       );
     }
 
-    test('isAutoApproved when the raiser approved their own request (§8.2b)',
-        () {
-      // Derived from the two actor columns — raised_by_role and auto_approved
-      // were dropped from the model precisely because this works (§7.2).
-      expect(
-        build(raisedBy: 'USR_ADMIN', approvalBy: 'USR_ADMIN').isAutoApproved,
-        isTrue,
-      );
-      expect(
-        build(raisedBy: 'STF_1', approvalBy: 'USR_ADMIN').isAutoApproved,
-        isFalse,
-      );
-      // Still pending — nobody approved it.
-      expect(build().isAutoApproved, isFalse);
+    test('autoApproved is carried, not derived', () {
+      expect(build(autoApproved: true).autoApproved, isTrue);
+      expect(build().autoApproved, isFalse);
     });
 
     test('isEditable only while pending (§8.6)', () {
@@ -400,8 +391,8 @@ void main() {
   group('RegBatchResult (§9.2b, §9.7)', () {
     test('reports skipped keys for reconciling an optimistic list', () {
       const r = RegBatchResult(
-        count: 2,
-        skipped: [RegSkipped(key: 'SREG_C', reason: 'already decided')],
+        applied: 2,
+        skipped: [RegSkipped(code: 'SREG_C', reason: 'already decided')],
       );
       expect(r.hasSkipped, isTrue);
       expect(r.skippedKeys, {'SREG_C'});
@@ -410,16 +401,16 @@ void main() {
     });
 
     test('a clean batch summarises without a skip clause', () {
-      const r = RegBatchResult(count: 3, skipped: []);
+      const r = RegBatchResult(applied: 3, skipped: []);
       expect(r.summary, '3 approved');
     });
 
     test('mixed skip reasons are not attributed to one cause', () {
       const r = RegBatchResult(
-        count: 0,
+        applied: 0,
         skipped: [
-          RegSkipped(key: 'a', reason: 'already decided'),
-          RegSkipped(key: 'b', reason: 'already resolved'),
+          RegSkipped(code: 'a', reason: 'already decided'),
+          RegSkipped(code: 'b', reason: 'already resolved'),
         ],
       );
       expect(r.isNoop, isTrue);
@@ -428,32 +419,25 @@ void main() {
   });
 
   group('RegPage', () {
-    RegPage<int> page(List<int> items, int p, int size, int total) =>
-        RegPage<int>(items: items, page: p, size: size, total: total);
+    RegPage<int> page(List<int> items, int p, bool more) => RegPage<int>(
+        items: items, page: p, size: 2, total: 5, hasMore: more);
 
-    test('hasMore while later pages remain', () {
-      expect(page([1, 2], 0, 2, 5).hasMore, isTrue);
-      expect(page([5], 2, 2, 5).hasMore, isFalse);
-    });
-
-    test('an empty page never reports more, whatever total says', () {
-      // Guards against an endless load-more loop if total is inconsistent.
-      expect(page([], 0, 10, 99).hasMore, isFalse);
-      expect(const RegPage<int>.empty().hasMore, isFalse);
-    });
-
-    test('append keeps the newer cursor and concatenates', () {
-      final merged = page([1, 2], 0, 2, 5).append(page([3, 4], 1, 2, 5));
+    test('append takes the newer page cursor and flag', () {
+      final merged = page([1, 2], 0, true).append(page([3, 4], 1, false));
       expect(merged.items, [1, 2, 3, 4]);
       expect(merged.page, 1);
-      expect(merged.hasMore, isTrue);
+      expect(merged.hasMore, isFalse);
     });
 
     test('withItems replaces content but keeps the cursor', () {
-      final replaced = page([1, 2], 1, 2, 5).withItems([9]);
+      final replaced = page([1, 2], 1, true).withItems([9]);
       expect(replaced.items, [9]);
       expect(replaced.page, 1);
-      expect(replaced.total, 5);
+      expect(replaced.hasMore, isTrue);
+    });
+
+    test('an empty page reports nothing more', () {
+      expect(const RegPage<int>.empty().hasMore, isFalse);
     });
   });
 

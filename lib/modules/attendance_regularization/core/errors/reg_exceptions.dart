@@ -1,23 +1,20 @@
 import 'package:dio/dio.dart';
 
-/// Error codes the backend returns for this feature.
 abstract final class RegErrorCodes {
   const RegErrorCodes._();
 
-  /// Sign-in refused because the staff has an unresolved past day (spec §8.3).
+  /// 409 on sign-in; `rejectedValue` carries the blocked day(s).
   static const String regularizationRequired = 'REGULARIZATION_REQUIRED';
+
+  /// 409 on `PATCH /{code}`; approval is terminal.
+  static const String alreadyApproved = 'REGULARIZATION_ALREADY_APPROVED';
 }
 
-/// Raised when an edit loses a race with an approval (spec §9.4, §10.3).
-///
-/// Approval is terminal, so `PATCH /{code}` on an already-approved request
-/// returns `409`. The UI must say so rather than showing a silent no-op —
-/// the user's change genuinely did not apply, and they need to know their
-/// correction was superseded.
+/// An edit that lost a race with an approval. The UI must say so — a silent
+/// no-op would leave the user believing their change applied.
 class RegAlreadyApprovedException implements Exception {
   const RegAlreadyApprovedException(this.code);
 
-  /// The `SREG_…` code that could not be edited.
   final String code;
 
   String get message =>
@@ -27,9 +24,6 @@ class RegAlreadyApprovedException implements Exception {
   String toString() => 'RegAlreadyApprovedException($code)';
 }
 
-/// Thrown by the module when the module itself cannot proceed — as opposed to
-/// a transport failure. Kept minimal on purpose: everything else surfaces
-/// through the host's `ApiErrorHandler`.
 class RegException implements Exception {
   const RegException(this.message);
 
@@ -39,63 +33,65 @@ class RegException implements Exception {
   String toString() => 'RegException($message)';
 }
 
-/// Helpers for recognising this feature's HTTP failures.
+/// Reads this feature's failures out of a Dio error.
+///
+/// Matches on `error.code`, never the status alone: a 409 on sign-in could just
+/// as easily be "already signed in", and opening a sheet for that is wrong.
 abstract final class RegHttpErrors {
   const RegHttpErrors._();
 
-  /// True when [error] is the sign-in guard rejecting the request (§8.3).
-  ///
-  /// Matches on the status **and** the error code, because a `409` on the
-  /// sign-in path could also be an unrelated conflict (e.g. already signed
-  /// in), and opening a regularization sheet for that would be wrong.
-  static bool isRegularizationRequired(Object? error) {
-    if (error is! DioException) return false;
-    final response = error.response;
-    if (response?.statusCode != 409) return false;
-    return _bodyText(response?.data)
-        .contains(RegErrorCodes.regularizationRequired);
+  static String codeOf(Object? error) {
+    final body = _body(error);
+    if (body == null) return '';
+    final err = body['error'];
+    if (err is Map) return (err['code'] ?? '').toString().trim();
+    return (body['code'] ?? '').toString().trim();
   }
 
-  /// True when [error] is a `409` from `PATCH /{code}` — the request was
-  /// approved while the user was editing it (§9.4).
+  static String messageOf(Object? error) =>
+      (_body(error)?['message'] ?? '').toString().trim();
+
+  static bool isRegularizationRequired(Object? error) =>
+      codeOf(error) == RegErrorCodes.regularizationRequired;
+
+  /// Falls back to a bare 409 when the body carried no code, so a gateway that
+  /// strips the envelope still surfaces the right message.
   static bool isAlreadyApproved(Object? error) {
-    if (error is! DioException) return false;
-    return error.response?.statusCode == 409;
+    final code = codeOf(error);
+    if (code.isNotEmpty) return code == RegErrorCodes.alreadyApproved;
+    return _status(error) == 409;
   }
 
-  /// Extracts the open sessions carried by a `409 REGULARIZATION_REQUIRED`
-  /// body, so the client can open the gate sheet with **no second call**
-  /// (§8.3). Returns `[]` when the payload does not carry them, which is the
-  /// signal to fall back to a `GET /open-sessions`.
-  ///
-  /// Tolerates the three shapes the body could reasonably take:
-  /// `{openSessions: [...]}`, `{data: {openSessions: [...]}}` and
-  /// `{data: [...]}`.
-  static List<Map<String, dynamic>> openSessionsFrom(Object? error) {
-    if (error is! DioException) return const [];
-    final data = error.response?.data;
-    if (data is! Map) return const [];
-
-    final direct = data['openSessions'];
-    if (direct is List) return _asMaps(direct);
-
-    final inner = data['data'];
-    if (inner is Map && inner['openSessions'] is List) {
-      return _asMaps(inner['openSessions'] as List);
-    }
-    if (inner is List) return _asMaps(inner);
-
+  /// The blocked day(s) from a 409, so the sheet opens with no second call.
+  /// Empty means fall back to a fresh gate check.
+  static List<Map<String, dynamic>> blockedSessionsFrom(Object? error) {
+    final rejected = rejectedValueOf(error);
+    if (rejected is List) return _asMaps(rejected);
+    if (rejected is Map) return [Map<String, dynamic>.from(rejected)];
     return const [];
+  }
+
+  static Object? rejectedValueOf(Object? error) {
+    final body = _body(error);
+    if (body == null) return null;
+    final err = body['error'];
+    if (err is Map && err.containsKey('rejectedValue')) {
+      return err['rejectedValue'];
+    }
+    return body['rejectedValue'];
+  }
+
+  static int? _status(Object? error) =>
+      error is DioException ? error.response?.statusCode : null;
+
+  static Map<String, dynamic>? _body(Object? error) {
+    if (error is! DioException) return null;
+    final data = error.response?.data;
+    return data is Map ? Map<String, dynamic>.from(data) : null;
   }
 
   static List<Map<String, dynamic>> _asMaps(List raw) => raw
       .whereType<Map>()
       .map((e) => Map<String, dynamic>.from(e))
       .toList(growable: false);
-
-  static String _bodyText(Object? data) {
-    if (data == null) return '';
-    if (data is String) return data;
-    return data.toString();
-  }
 }

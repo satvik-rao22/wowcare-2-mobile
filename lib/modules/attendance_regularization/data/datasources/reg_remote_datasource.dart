@@ -1,54 +1,79 @@
-/// The seam that makes this module buildable before the API exists.
+import 'package:dio/dio.dart';
+import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/core/utils/api_paths.dart';
+
+import 'reg_api_paths.dart';
+
+/// The seven endpoints over the host's Dio, so auth and the tenant headers
+/// apply automatically.
 ///
-/// Two implementations — `RegHttpDataSource` (real Dio) and
-/// `RegMockDataSource` (stateful, in-memory) — and **one line** in
-/// `regularization_di.dart` chooses between them. Nothing above this interface
-/// knows which is behind it, so the cutover touches no other file and the mock
-/// can then be deleted outright.
-///
-/// Methods return the **raw response body**, not entities, deliberately: the
-/// mock therefore produces the same JSON the server will, which means
-/// `RegMappers` is exercised on the mock path too. Mapping bugs surface during
-/// development rather than on cutover day.
-///
-/// There are 8 methods for 9 operations because §9.3 (staff list) and §9.5
-/// (admin list) are the same endpoint with different query parameters.
-abstract class RegRemoteDataSource {
-  /// §9.1 — `GET /open-sessions?staffCode=`
-  Future<Map<String, dynamic>> getOpenSessions({required String staffCode});
+/// Returns raw response bodies; shaping lives in `RegMappers`.
+class RegRemoteDataSource {
+  RegRemoteDataSource(this._client);
 
-  /// §9.1b — `POST /open-sessions/batch`
-  Future<Map<String, dynamic>> getOpenSessionsBatch({
-    required Map<String, dynamic> body,
-  });
+  final Dio _client;
 
-  /// §9.2 — `POST /`
-  Future<Map<String, dynamic>> raise({required Map<String, dynamic> body});
+  String _url(String path) =>
+      ApiPaths.urlWithBase(path, ApiConstants.attendanceBaseUrl);
 
-  /// §9.2b — `POST /raise-batch`
-  Future<Map<String, dynamic>> raiseBatch({
-    required Map<String, dynamic> body,
-  });
+  Map<String, dynamic> _asMap(Response<dynamic> response) {
+    final data = response.data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is List) return <String, dynamic>{'data': data};
+    return const <String, dynamic>{};
+  }
 
-  /// §9.4 — `PATCH /{code}`. Throws on `409` once the request is approved.
-  Future<Map<String, dynamic>> edit({
-    required String code,
-    required Map<String, dynamic> body,
-  });
+  /// `{}` checks the caller; `{staffCodes:[…]}` checks a roster.
+  Future<Map<String, dynamic>> checkGate(Map<String, dynamic> body) async {
+    return _asMap(await _client.post<dynamic>(
+      _url(RegApiPaths.openSessionsCheck),
+      data: body,
+    ));
+  }
 
-  /// §9.3 / §9.5 — `GET /` with `staffCode` or `schoolCode` plus filters.
-  Future<Map<String, dynamic>> list({
-    required Map<String, dynamic> query,
-  });
+  Future<Map<String, dynamic>> raise(Map<String, dynamic> body) async {
+    return _asMap(
+        await _client.post<dynamic>(_url(RegApiPaths.raise), data: body));
+  }
 
-  /// §9.6 — `POST /{code}/approve`
-  Future<Map<String, dynamic>> approve({
-    required String code,
-    required Map<String, dynamic> body,
-  });
+  Future<Map<String, dynamic>> raiseBatch(Map<String, dynamic> body) async {
+    return _asMap(
+        await _client.post<dynamic>(_url(RegApiPaths.raiseBatch), data: body));
+  }
 
-  /// §9.7 — `POST /approve-selected`
-  Future<Map<String, dynamic>> approveSelected({
-    required Map<String, dynamic> body,
-  });
+  Future<Map<String, dynamic>> list(Map<String, dynamic> query) async {
+    return _asMap(await _client.get<dynamic>(
+      _url(RegApiPaths.list),
+      queryParameters: query,
+    ));
+  }
+
+  Future<Map<String, dynamic>> approve(
+    String code,
+    Map<String, dynamic> body,
+  ) async {
+    return _asMap(await _client.post<dynamic>(
+      _url(RegApiPaths.approve(code)),
+      data: body,
+    ));
+  }
+
+  Future<Map<String, dynamic>> approveSelected(
+    Map<String, dynamic> body,
+  ) async {
+    return _asMap(await _client.post<dynamic>(
+      _url(RegApiPaths.approveSelected),
+      data: body,
+    ));
+  }
+
+  Future<Map<String, dynamic>> edit(
+    String code,
+    Map<String, dynamic> body,
+  ) async {
+    return _asMap(await _client.patch<dynamic>(
+      _url(RegApiPaths.edit(code)),
+      data: body,
+    ));
+  }
 }

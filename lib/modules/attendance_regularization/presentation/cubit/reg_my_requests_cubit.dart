@@ -3,10 +3,9 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import '../../core/config/reg_config.dart';
 import '../../core/errors/reg_exceptions.dart';
-import '../../data/reg_context.dart';
 import '../../domain/entities/reg_edit_input.dart';
 import '../../domain/usecases/edit_regularization_usecase.dart';
-import '../../domain/usecases/get_my_requests_usecase.dart';
+import '../../domain/usecases/get_requests_usecase.dart';
 import '../gate/reg_gate_coordinator.dart';
 import 'reg_my_requests_state.dart';
 
@@ -16,28 +15,17 @@ import 'reg_my_requests_state.dart';
 /// (§8.4, §9.4). That is why [edit] exists and `cancel` does not.
 class RegMyRequestsCubit extends Cubit<RegMyRequestsState> {
   RegMyRequestsCubit({
-    required GetMyRequestsUseCase getMyRequests,
+    required GetRequestsUseCase getRequests,
     required EditRegularizationUseCase editRequest,
     required RegGateCoordinator gate,
-    required RegContext context,
-  })  : _getMyRequests = getMyRequests,
+  })  : _getRequests = getRequests,
         _editRequest = editRequest,
         _gate = gate,
-        _context = context,
         super(const RegMyRequestsState());
 
-  final GetMyRequestsUseCase _getMyRequests;
+  final GetRequestsUseCase _getRequests;
   final EditRegularizationUseCase _editRequest;
   final RegGateCoordinator _gate;
-  final RegContext _context;
-
-  String _staffCode = '';
-
-  Future<String> _resolveStaffCode() async {
-    if (_staffCode.isNotEmpty) return _staffCode;
-    _staffCode = await _context.staffCode();
-    return _staffCode;
-  }
 
   /// First load: the list and the gate banner together, so the screen settles
   /// once rather than flickering in two stages.
@@ -51,23 +39,11 @@ class RegMyRequestsCubit extends Cubit<RegMyRequestsState> {
       message: keepMessage ? null : '',
     ));
     try {
-      final staffCode = await _resolveStaffCode();
-      if (staffCode.isEmpty) {
-        emit(state.copyWith(
-          status: RegListStatus.error,
-          message: 'Could not identify your staff profile.',
-        ));
-        return;
-      }
-
       // Started together, awaited separately: parallel without losing the
       // static types that `Future.wait` on mixed futures would erase.
-      final pageFuture = _getMyRequests(
-        staffCode: staffCode,
-        page: 0,
-        size: RegConfig.myRequestsPageSize,
-      );
-      final gateFuture = _gate.peek(staffCode);
+      final pageFuture =
+          _getRequests(page: 0, size: RegConfig.myRequestsPageSize);
+      final gateFuture = _gate.peek();
       final page = await pageFuture;
       final gate = await gateFuture;
 
@@ -93,8 +69,7 @@ class RegMyRequestsCubit extends Cubit<RegMyRequestsState> {
     if (state.loadingMore || !state.hasMore) return;
     emit(state.copyWith(loadingMore: true));
     try {
-      final next = await _getMyRequests(
-        staffCode: await _resolveStaffCode(),
+      final next = await _getRequests(
         page: state.page + 1,
         size: RegConfig.myRequestsPageSize,
       );
@@ -119,12 +94,8 @@ class RegMyRequestsCubit extends Cubit<RegMyRequestsState> {
   Future<void> resolveGate() async {
     final gate = state.gate;
     if (gate == null) return;
-    final outcome = await _gate.resolve(
-      gate,
-      byAdmin: false,
-      mandatory: false,
-      fallbackStaffCode: await _resolveStaffCode(),
-    );
+    final outcome =
+        await _gate.resolve(gate, byAdmin: false, mandatory: false);
     if (outcome.isProceed) await load();
   }
 

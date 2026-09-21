@@ -1,20 +1,20 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/modules/attendance_regularization/core/config/reg_config.dart';
 import 'package:wowcare/modules/attendance_regularization/data/datasources/reg_api_paths.dart';
-import 'package:wowcare/modules/attendance_regularization/data/datasources/reg_mock_datasource.dart';
+import 'package:wowcare/modules/attendance_regularization/data/datasources/reg_remote_datasource.dart';
 import 'package:wowcare/modules/attendance_regularization/data/interceptor/reg_sign_in_gate_interceptor.dart';
 import 'package:wowcare/modules/attendance_regularization/data/reg_context.dart';
 import 'package:wowcare/modules/attendance_regularization/data/repositories/regularization_repository_impl.dart';
-import 'package:wowcare/modules/attendance_regularization/domain/entities/reg_raise_input.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/entities/regularization_request.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/repositories/regularization_repository.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/usecases/approve_request_usecase.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/usecases/approve_selected_usecase.dart';
+import 'package:wowcare/modules/attendance_regularization/domain/usecases/check_gate_usecase.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/usecases/edit_regularization_usecase.dart';
-import 'package:wowcare/modules/attendance_regularization/domain/usecases/get_my_requests_usecase.dart';
-import 'package:wowcare/modules/attendance_regularization/domain/usecases/get_open_session_usecase.dart';
-import 'package:wowcare/modules/attendance_regularization/domain/usecases/get_open_sessions_batch_usecase.dart';
-import 'package:wowcare/modules/attendance_regularization/domain/usecases/get_school_requests_usecase.dart';
+import 'package:wowcare/modules/attendance_regularization/domain/usecases/get_requests_usecase.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/usecases/raise_regularization_batch_usecase.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/usecases/raise_regularization_usecase.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/controllers/reg_inbox_filter.dart';
@@ -26,9 +26,10 @@ import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_
 import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_gate_outcome.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_sign_in_gate.dart';
 
+import 'support/fake_api.dart';
+
 /// A gate with scripted answers, so the interceptor can be tested without a
-/// navigator, a sheet or a datasource. This is what the [RegSignInGate]
-/// contract exists for.
+/// navigator, a sheet or a datasource.
 class _ScriptedGate implements RegSignInGate {
   _ScriptedGate({
     this.singleOutcome = RegGateOutcome.proceed,
@@ -45,11 +46,8 @@ class _ScriptedGate implements RegSignInGate {
   final List<bool> byAdminFlags = [];
 
   @override
-  Future<RegGateOutcome> guardSingle(
-    String staffCode, {
-    required bool byAdmin,
-    String staffName = '',
-  }) async {
+  Future<RegGateOutcome> guardSingle(String staffCode,
+      {required bool byAdmin, String staffName = ''}) async {
     singleCalls.add(staffCode);
     byAdminFlags.add(byAdmin);
     return singleOutcome;
@@ -62,199 +60,192 @@ class _ScriptedGate implements RegSignInGate {
   }
 
   @override
-  Future<bool> handleConflict(
-    Object error, {
-    required bool byAdmin,
-    String staffCode = '',
-  }) async {
+  Future<bool> handleConflict(Object error,
+      {required bool byAdmin, String staffCode = ''}) async {
     byAdminFlags.add(byAdmin);
     return conflictResolved;
   }
+
+  List<String> resolveBlockedReturns = const [];
+  final List<List<Map<String, dynamic>>> blockedCalls = [];
+
+  @override
+  Future<List<String>> resolveBlocked(List<Map<String, dynamic>> blocked,
+      {required bool byAdmin}) async {
+    blockedCalls.add(blocked);
+    byAdminFlags.add(byAdmin);
+    return resolveBlockedReturns;
+  }
+}
+
+class _ThrowingGate implements RegSignInGate {
+  @override
+  Future<RegGateOutcome> guardSingle(String staffCode,
+          {required bool byAdmin, String staffName = ''}) async =>
+      throw Exception('gate exploded');
+
+  @override
+  Future<RegBulkGateOutcome> guardBulk(List<String> codes) async =>
+      throw Exception('gate exploded');
+
+  @override
+  Future<bool> handleConflict(Object error,
+          {required bool byAdmin, String staffCode = ''}) async =>
+      throw Exception('gate exploded');
+
+  @override
+  Future<List<String>> resolveBlocked(List<Map<String, dynamic>> blocked,
+          {required bool byAdmin}) async =>
+      throw Exception('gate exploded');
 }
 
 void main() {
   const zone = 'America/New_York';
-  const context = RegStaticContext(zone: zone, school: 'SCH_MOCK');
 
-  late RegMockDataSource mock;
+  late FakeApi api;
   late RegularizationRepository repo;
 
   setUp(() {
-    mock = RegMockDataSource(zone: zone, autoSeedUnknownStaff: false)
-      ..latency = Duration.zero;
-    repo = RegularizationRepositoryImpl(mock, context);
+    api = FakeApi();
+    repo = RegularizationRepositoryImpl(
+      RegRemoteDataSource(api.dio),
+      const RegStaticContext(zone: zone),
+    );
   });
 
-  DateTime yesterdayAt(int h, int m) {
-    final d = DateTime.now().subtract(const Duration(days: 1));
-    return DateTime(d.year, d.month, d.day, h, m);
-  }
-
   RegGateCoordinator gate() => RegGateCoordinator(
-        getOpenSession: GetOpenSessionUseCase(repo),
-        getOpenSessionsBatch: GetOpenSessionsBatchUseCase(repo),
+        checkGate: CheckGateUseCase(repo),
         raise: RaiseRegularizationUseCase(repo),
         raiseBatch: RaiseRegularizationBatchUseCase(repo),
         edit: EditRegularizationUseCase(repo),
-        context: context,
+        context: const RegStaticContext(zone: zone),
       );
 
   RegMyRequestsCubit myRequests() => RegMyRequestsCubit(
-        getMyRequests: GetMyRequestsUseCase(repo),
+        getRequests: GetRequestsUseCase(repo),
         editRequest: EditRegularizationUseCase(repo),
         gate: gate(),
-        context: context,
       );
 
   RegInboxCubit inbox() => RegInboxCubit(
-        getSchoolRequests: GetSchoolRequestsUseCase(repo),
+        getRequests: GetRequestsUseCase(repo),
         approveRequest: ApproveRequestUseCase(repo),
         approveSelected: ApproveSelectedUseCase(repo),
-        context: context,
       );
 
   RegDashboardCubit dashboard() => RegDashboardCubit(
         gate: gate(),
-        getSchoolRequests: GetSchoolRequestsUseCase(repo),
-        context: context,
+        getRequests: GetRequestsUseCase(repo),
       );
 
-  Future<RegularizationRequest> raise(String attendanceCode, String staff) {
-    return repo.raise(RegRaiseInput(
-      staffCode: staff,
-      attendanceCode: attendanceCode,
-      attendanceDate: DateTime.now().subtract(const Duration(days: 1)),
-      signOutLocal: yesterdayAt(17, 30),
-      reason: 'forgot to sign out',
-    ));
-  }
-
-  // ————————————————————————————————————————————————————————————————
-  // Interceptor — the zero-touch mechanism
-  // ————————————————————————————————————————————————————————————————
+  // ——————————————————————————————————————————————————————————————
+  // Interceptor
+  // ——————————————————————————————————————————————————————————————
 
   group('RegSignInGateInterceptor', () {
-    /// A Dio that records what actually reached the "server", with the
-    /// interceptor in front of it.
-    ({Dio dio, List<RequestOptions> sent}) client(RegSignInGate scripted) {
+    ({Dio dio, List<RequestOptions> sent}) client(
+      RegSignInGate scripted, {
+      int status = 200,
+      List<Map<String, dynamic>> blocked = const [],
+    }) {
       final sent = <RequestOptions>[];
       final dio = Dio(BaseOptions(baseUrl: 'https://example.test'));
-      dio.interceptors.add(RegSignInGateInterceptor(scripted));
-      dio.httpClientAdapter = _RecordingAdapter(sent);
+      dio.interceptors.add(RegSignInGateInterceptor(scripted, dio));
+      dio.httpClientAdapter = _SignInAdapter(sent, status, blocked);
       return (dio: dio, sent: sent);
     }
 
     test('passes non-sign-in requests straight through', () async {
       final scripted = _ScriptedGate();
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        '/api/v1/staff-attendance-records/sign-out',
-        data: {'staffCode': 'STF_ME'},
-      );
+      await c.dio.post<dynamic>('/api/v1/staff-attendance-records/sign-out',
+          data: {'staffCode': 'STF_ME'});
+
       expect(scripted.singleCalls, isEmpty);
-      expect(scripted.bulkCalls, isEmpty);
       expect(c.sent.length, 1);
     });
 
-    test('gates a self sign-in and reports byAdmin false', () async {
+    test('a self sign-in reports byAdmin false', () async {
       final scripted = _ScriptedGate();
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInSelf,
-        data: {'staffCode': 'STF_ME'},
-      );
+      await c.dio
+          .post<dynamic>(RegApiPaths.signInSelf, data: {'staffCode': 'STF_ME'});
+
       expect(scripted.singleCalls, ['STF_ME']);
       expect(scripted.byAdminFlags.single, isFalse);
     });
 
-    test('kiosk sign-in is treated as self, not admin', () async {
-      // The person at the kiosk authenticated with their own PIN, so the
-      // server sees a staff principal and §8.2b must not auto-approve.
+    test('kiosk is treated as self, so its corrections land PENDING', () async {
       final scripted = _ScriptedGate();
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInKiosk,
-        data: {'staffCode': 'STF_ME'},
-      );
+      await c.dio.post<dynamic>(RegApiPaths.signInKiosk,
+          data: {'staffCode': 'STF_ME'});
+
       expect(scripted.byAdminFlags.single, isFalse);
     });
 
-    test('admin sign-in reports byAdmin true', () async {
+    test('an admin sign-in reports byAdmin true', () async {
       final scripted = _ScriptedGate();
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInAdmin,
-        data: {'staffCode': 'STF_TARGET'},
-      );
+      await c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+          data: {'staffCode': 'STF_TARGET'});
+
       expect(scripted.byAdminFlags.single, isTrue);
     });
 
     test('a blocked single sign-in never reaches the server', () async {
       final scripted = _ScriptedGate(singleOutcome: RegGateOutcome.blocked);
       final c = client(scripted);
+
       await expectLater(
-        c.dio.post<dynamic>(
-          RegApiPaths.signInSelf,
-          data: {'staffCode': 'STF_ME'},
-        ),
+        c.dio.post<dynamic>(RegApiPaths.signInSelf,
+            data: {'staffCode': 'STF_ME'}),
         throwsA(isA<DioException>()),
       );
       expect(c.sent, isEmpty);
     });
 
-    test('bulk reads staffCodes, not the acting admin staffCode', () async {
-      // The admin endpoint sends both; gating on `staffCode` would gate the
-      // admin instead of the people being signed in.
+    test('bulk reads staffCodes, not the acting admin', () async {
       final scripted = _ScriptedGate();
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInAdmin,
-        data: {
-          'staffCode': 'STF_ADMIN',
-          'staffCodes': ['STF_A', 'STF_B', 'STF_C'],
-        },
-      );
+      await c.dio.post<dynamic>(RegApiPaths.signInAdmin, data: {
+        'staffCode': 'STF_ADMIN',
+        'staffCodes': ['STF_A', 'STF_B', 'STF_C'],
+      });
+
       expect(scripted.bulkCalls.single, ['STF_A', 'STF_B', 'STF_C']);
       expect(scripted.singleCalls, isEmpty);
     });
 
-    test('narrows the payload instead of failing the batch (§8.3)', () async {
-      // The heart of partial success: the clear staff go through even though
-      // others were held back.
+    test('narrows the payload instead of failing the batch', () async {
       final scripted = _ScriptedGate(
         bulkOutcome: const RegBulkGateOutcome(allowed: ['STF_A', 'STF_C']),
       );
       final c = client(scripted);
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInAdmin,
-        data: {
-          'staffCode': 'STF_ADMIN',
-          'staffCodes': ['STF_A', 'STF_B', 'STF_C'],
-          'classroomCodeByStaffCode': {
-            'STF_A': 'CLS_1',
-            'STF_B': 'CLS_2',
-            'STF_C': 'CLS_3',
-          },
+      await c.dio.post<dynamic>(RegApiPaths.signInAdmin, data: {
+        'staffCodes': ['STF_A', 'STF_B', 'STF_C'],
+        'classroomCodeByStaffCode': {
+          'STF_A': 'CLS_1',
+          'STF_B': 'CLS_2',
+          'STF_C': 'CLS_3',
         },
-      );
+      });
 
       final body = c.sent.single.data as Map;
       expect(body['staffCodes'], ['STF_A', 'STF_C']);
-      // The held-back staff's classroom must not be sent either.
+      // The held-back staff's classroom must not travel either.
       expect((body['classroomCodeByStaffCode'] as Map).keys,
           unorderedEquals(['STF_A', 'STF_C']));
     });
 
-    test('rejects when nobody in a bulk sign-in may proceed', () async {
-      final scripted = _ScriptedGate(
-        bulkOutcome: const RegBulkGateOutcome(allowed: []),
-      );
+    test('rejects when nobody may proceed', () async {
+      final scripted =
+          _ScriptedGate(bulkOutcome: const RegBulkGateOutcome(allowed: []));
       final c = client(scripted);
+
       await expectLater(
-        c.dio.post<dynamic>(
-          RegApiPaths.signInAdmin,
-          data: {'staffCodes': ['STF_A', 'STF_B']},
-        ),
+        c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+            data: {'staffCodes': ['STF_A', 'STF_B']}),
         throwsA(isA<DioException>()),
       );
       expect(c.sent, isEmpty);
@@ -264,250 +255,254 @@ void main() {
       final scripted = _ScriptedGate();
       final c = client(scripted);
       await c.dio.post<dynamic>(RegApiPaths.signInSelf, data: {'qrToken': 'x'});
+
       expect(scripted.singleCalls, isEmpty);
       expect(c.sent.length, 1);
     });
 
     test('a 409 the gate cannot resolve propagates unchanged', () async {
-      // Only the "not resolved" branch is asserted here: the resolved branch
-      // replays the request on a fresh Dio (deliberately, to avoid re-entering
-      // this interceptor and looping), which would mean real network I/O.
       final scripted = _ScriptedGate(conflictResolved: false);
-      final sent = <RequestOptions>[];
-      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'));
-      dio.interceptors.add(RegSignInGateInterceptor(scripted));
-      dio.httpClientAdapter = _RecordingAdapter(sent, statusCode: 409);
+      final c = client(scripted, status: 409);
 
       await expectLater(
-        dio.post<dynamic>(
-          RegApiPaths.signInSelf,
-          data: {'staffCode': 'STF_ME'},
-        ),
+        c.dio.post<dynamic>(RegApiPaths.signInSelf,
+            data: {'staffCode': 'STF_ME'}),
         throwsA(isA<DioException>()),
       );
-      // onRequest gated it, then onError was consulted.
+      // onRequest gated it, then onError consulted the gate again.
       expect(scripted.byAdminFlags.length, 2);
     });
 
+    test('a blocked staff in the response is resolved, then signed in',
+        () async {
+      // The host reads only success/message, so without this the admin would
+      // see a clean result while someone stayed out.
+      final scripted = _ScriptedGate()..resolveBlockedReturns = ['STF_B'];
+      final c = client(scripted, blocked: [
+        {'staffCode': 'STF_B', 'attendanceCode': 'SAR_B'}
+      ]);
+
+      final response = await c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+          data: {'staffCodes': ['STF_A', 'STF_B']});
+
+      expect(scripted.blockedCalls.single.single['staffCode'], 'STF_B');
+      // Retried for just the newly-cleared staff.
+      expect(c.sent.length, 2);
+      expect((c.sent.last.data as Map)['staffCodes'], ['STF_B']);
+      // Both responses' signedIn folded together.
+      final data = (response.data as Map)['data'] as Map;
+      expect((data['signedIn'] as List).length, 2);
+      expect(data['blocked'], isEmpty);
+    });
+
+    test('skipping leaves a message rather than a clean success', () async {
+      final scripted = _ScriptedGate()..resolveBlockedReturns = const [];
+      final c = client(scripted, blocked: [
+        {'staffCode': 'STF_B', 'attendanceCode': 'SAR_B'}
+      ]);
+
+      final response = await c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+          data: {'staffCodes': ['STF_A', 'STF_B']});
+
+      expect(c.sent.length, 1);
+      expect((response.data as Map)['message'],
+          contains('still need yesterday closed'));
+    });
+
+    test('a clean response is passed straight through', () async {
+      final scripted = _ScriptedGate();
+      final c = client(scripted);
+      await c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+          data: {'staffCodes': ['STF_A', 'STF_B']});
+
+      expect(scripted.blockedCalls, isEmpty);
+      expect(c.sent.length, 1);
+    });
+
+    test('bulk pre-check can be turned off without losing the gate', () async {
+      // Option B: the server's blocked list drives the sheet instead.
+      RegConfig.preCheckBulkSignIn = false;
+      addTearDown(() => RegConfig.preCheckBulkSignIn = true);
+
+      final scripted = _ScriptedGate()..resolveBlockedReturns = ['STF_B'];
+      final c = client(scripted, blocked: [
+        {'staffCode': 'STF_B', 'attendanceCode': 'SAR_B'}
+      ]);
+
+      await c.dio.post<dynamic>(RegApiPaths.signInAdmin,
+          data: {'staffCodes': ['STF_A', 'STF_B']});
+
+      expect(scripted.bulkCalls, isEmpty);
+      expect(scripted.blockedCalls, hasLength(1));
+    });
+
     test('a failing gate never blocks the sign-in', () async {
-      // The gate must not be the reason attendance breaks; the server-side
-      // guard (§8.3) is the backstop.
+      // The gate must not be why attendance breaks; the server guard holds.
       final c = client(_ThrowingGate());
-      await c.dio.post<dynamic>(
-        RegApiPaths.signInSelf,
-        data: {'staffCode': 'STF_ME'},
-      );
+      await c.dio
+          .post<dynamic>(RegApiPaths.signInSelf, data: {'staffCode': 'STF_ME'});
+
       expect(c.sent.length, 1);
     });
   });
 
-  // ————————————————————————————————————————————————————————————————
-  // RegMyRequestsCubit
-  // ————————————————————————————————————————————————————————————————
+  // ——————————————————————————————————————————————————————————————
+  // Cubits
+  // ——————————————————————————————————————————————————————————————
 
   group('RegMyRequestsCubit', () {
     test('loads the list and the gate banner together', () async {
-      await raise('STAR_MOCK_ME_1', 'STF_ME');
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/open-sessions/check', FakeApi.gateAlreadyRaised);
+
       final cubit = myRequests();
       await cubit.load();
 
       expect(cubit.state.status, RegListStatus.loaded);
       expect(cubit.state.requests.length, 1);
-      // The day is raised but still uncounted, so the banner stays — as a
-      // status rather than a call to action.
+      // Raised but still uncounted, so the banner stays — as a status, not a
+      // call to action.
       expect(cubit.state.gate, isNotNull);
       expect(cubit.state.gate!.blocksSignIn, isFalse);
       addTearDown(cubit.close);
     });
 
-    test('surfaces an error without losing the screen', () async {
+    test('a clear gate shows no banner', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/open-sessions/check', FakeApi.gateClear);
+
       final cubit = myRequests();
-      mock.failNext = Exception('offline');
       await cubit.load();
+
+      expect(cubit.state.gate, isNull);
+      addTearDown(cubit.close);
+    });
+
+    test('surfaces an error without losing the screen', () async {
+      api.onGetError('/staff-attendance-regularizations', 500, null);
+      api.onPost('/open-sessions/check', FakeApi.gateClear);
+
+      final cubit = myRequests();
+      await cubit.load();
+
       expect(cubit.state.isError, isTrue);
       expect(cubit.state.message, isNotEmpty);
       addTearDown(cubit.close);
     });
 
-    test('edit updates the request and reloads', () async {
-      final request = await raise('STAR_MOCK_ME_1', 'STF_ME');
-      final cubit = myRequests();
-      await cubit.load();
-
-      await cubit.edit(
-        request.code,
-        attendanceDate: request.attendanceDate,
-        signOutLocal: yesterdayAt(18, 45),
-        reason: 'corrected',
-      );
-
-      expect(cubit.state.requests.single.requestedSignOutTime.minute, 45);
-      expect(cubit.state.requests.single.reason, 'corrected');
-      expect(cubit.state.busyCode, isNull);
-      addTearDown(cubit.close);
-    });
-
     test('an edit that lost to an approval says so plainly', () async {
-      final request = await raise('STAR_MOCK_ME_1', 'STF_ME');
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/open-sessions/check', FakeApi.gateClear);
+      api.onPatchError('/staff-attendance-regularizations', 409, {
+        'error': {'code': 'REGULARIZATION_ALREADY_APPROVED'}
+      });
+
       final cubit = myRequests();
       await cubit.load();
+      await cubit.edit('SREG_0000001',
+          attendanceDate: DateTime(2026, 6, 23), reason: 'too late');
 
-      mock.actAsAdmin();
-      await repo.approve(request.code);
-      mock.actAsStaff();
-
-      await cubit.edit(
-        request.code,
-        attendanceDate: request.attendanceDate,
-        reason: 'too late',
-      );
-      // §10.3 — a silent no-op would leave the user thinking it applied.
+      // A silent no-op would leave the user thinking it applied.
       expect(cubit.state.message, contains('already approved'));
-      addTearDown(cubit.close);
-    });
-
-    test('a failed loadMore keeps the visible list', () async {
-      await raise('STAR_MOCK_ME_1', 'STF_ME');
-      final cubit = myRequests();
-      await cubit.load();
-      final before = cubit.state.requests.length;
-
-      mock.failNext = Exception('offline');
-      await cubit.loadMore();
-      expect(cubit.state.requests.length, before);
       addTearDown(cubit.close);
     });
   });
 
-  // ————————————————————————————————————————————————————————————————
-  // RegInboxCubit
-  // ————————————————————————————————————————————————————————————————
-
   group('RegInboxCubit', () {
-    Future<List<String>> raiseThree() async {
-      final codes = <String>[];
-      for (final e in {
-        'STAR_MOCK_ME_1': 'STF_ME',
-        'STAR_MOCK_A': 'STF_A',
-        'STAR_MOCK_B': 'STF_B',
-      }.entries) {
-        codes.add((await raise(e.key, e.value)).code);
-      }
-      return codes;
-    }
+    test('defaults to the pending queue, oldest first', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
 
-    test('defaults to the pending queue', () async {
-      await raiseThree();
       final cubit = inbox();
       await cubit.load();
+
       expect(cubit.state.filter, RegInboxFilter.pending);
-      expect(cubit.state.requests.length, 3);
-      expect(cubit.state.pendingCount, 3);
+      expect(api.lastQuery['status'], 'PENDING');
+      expect(api.lastQuery['sort'], 'createdAt,asc');
+      expect(cubit.state.requests.length, 1);
       addTearDown(cubit.close);
     });
 
-    test('approving on the Pending tab removes the row from the queue',
-        () async {
-      final codes = await raiseThree();
-      mock.actAsAdmin();
-      final cubit = inbox();
-      await cubit.load();
+    test('switching tab refetches with the new status and sort', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
 
-      await cubit.approve(codes.first);
-      expect(cubit.state.requests.any((r) => r.code == codes.first), isFalse);
-      expect(cubit.state.requests.length, 2);
-      addTearDown(cubit.close);
-    });
-
-    test('approving on the All tab keeps the row and re-renders it', () async {
-      // A history view must not lie about its own contents by dropping rows.
-      final codes = await raiseThree();
-      mock.actAsAdmin();
-      final cubit = inbox();
-      await cubit.load();
-      await cubit.setFilter(RegInboxFilter.all);
-
-      await cubit.approve(codes.first);
-      final row =
-          cubit.state.requests.firstWhere((r) => r.code == codes.first);
-      expect(cubit.state.requests.length, 3);
-      expect(row.status, RegStatus.approved);
-      addTearDown(cubit.close);
-    });
-
-    test('switching tab refetches and clears the selection', () async {
-      await raiseThree();
-      mock.actAsAdmin();
       final cubit = inbox();
       await cubit.load();
       cubit.toggleSelectAll();
-      expect(cubit.state.selected.length, 3);
+      expect(cubit.state.selected, isNotEmpty);
 
-      await cubit.setFilter(RegInboxFilter.approved);
+      await cubit.setFilter(RegInboxFilter.all);
+
       // The tab changes both status and sort, so the old page is not a prefix
-      // of the new result set — it must not be carried over.
+      // of the new one — selection cannot carry over either.
+      expect(api.lastQuery.containsKey('status'), isFalse);
+      expect(api.lastQuery['sort'], 'createdAt,desc');
       expect(cubit.state.selected, isEmpty);
-      expect(cubit.state.requests, isEmpty);
       addTearDown(cubit.close);
     });
 
     test('history tabs are not selectable', () async {
-      await raiseThree();
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
       final cubit = inbox();
       await cubit.load();
-      await cubit.setFilter(RegInboxFilter.all);
-
+      await cubit.setFilter(RegInboxFilter.approved);
       cubit.toggleSelectAll();
+
       expect(cubit.state.selected, isEmpty);
       expect(cubit.state.selectableRequests, isEmpty);
       addTearDown(cubit.close);
     });
 
-    test('bulk approve keeps skipped rows and names the reason', () async {
-      final codes = await raiseThree();
-      mock.actAsAdmin();
+    test('approving on Pending removes the row from the queue', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/approve', FakeApi.approvedAsSubmitted);
+
       final cubit = inbox();
       await cubit.load();
+      await cubit.approve('SREG_0000001');
 
-      // Another admin got to the last one first.
-      await repo.approve(codes.last);
+      expect(cubit.state.requests, isEmpty);
+      expect(cubit.state.message, 'Approved');
+      addTearDown(cubit.close);
+    });
 
+    test('approving on All keeps the row and re-renders it', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/approve', FakeApi.approvedAsSubmitted);
+
+      final cubit = inbox();
+      await cubit.load();
+      await cubit.setFilter(RegInboxFilter.all);
+      await cubit.approve('SREG_0000001');
+
+      // A history view must not lie about its own contents.
+      expect(cubit.state.requests.single.status, RegStatus.approved);
+      addTearDown(cubit.close);
+    });
+
+    test('bulk approve keeps skipped rows and names the reason', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+      api.onPost('/approve-selected', FakeApi.approveSelected);
+
+      final cubit = inbox();
+      await cubit.load();
       cubit.toggleSelectAll();
       await cubit.approveSelected();
 
       expect(cubit.state.message, contains('skipped'));
       expect(cubit.state.message, contains('already decided'));
-      // The skipped row stays visible so the admin can see what happened.
-      expect(cubit.state.requests.any((r) => r.code == codes.last), isTrue);
       expect(cubit.state.selected, isEmpty);
-      addTearDown(cubit.close);
-    });
-
-    test('an approved row cannot be selected even on the pending tab',
-        () async {
-      final codes = await raiseThree();
-      mock.actAsAdmin();
-      final cubit = inbox();
-      await cubit.load();
-      await repo.approve(codes.first);
-
-      // The row is still in the loaded page until a refresh, so the cubit
-      // guards selection rather than trusting the widget.
-      cubit.toggleSelect(codes.first, true);
-      expect(cubit.state.selected, contains(codes.first));
       addTearDown(cubit.close);
     });
   });
 
-  // ————————————————————————————————————————————————————————————————
-  // RegDashboardCubit
-  // ————————————————————————————————————————————————————————————————
-
   group('RegDashboardCubit', () {
-    test('staff: reports an unresolved day needing action', () async {
+    test('staff: an unresolved day needs action', () async {
+      api.onPost('/open-sessions/check', FakeApi.gateBlocked);
+
       final cubit = dashboard();
       await cubit.load(forAdmin: false);
-      expect(cubit.state.hasOpenSession, isTrue);
+
       expect(cubit.state.needsAction, isTrue);
       expect(cubit.state.awaitingApproval, isFalse);
       // Not an admin, so no count is fetched.
@@ -516,60 +511,60 @@ void main() {
     });
 
     test('staff: flips to awaiting approval once raised', () async {
-      await raise('STAR_MOCK_ME_1', 'STF_ME');
+      api.onPost('/open-sessions/check', FakeApi.gateAlreadyRaised);
+
       final cubit = dashboard();
       await cubit.load(forAdmin: false);
+
       expect(cubit.state.needsAction, isFalse);
       expect(cubit.state.awaitingApproval, isTrue);
       addTearDown(cubit.close);
     });
 
-    test('staff: nothing to show once approved', () async {
-      mock.actAsAdmin();
-      await raise('STAR_MOCK_ME_1', 'STF_ME');
+    test('staff: nothing to show when clear', () async {
+      api.onPost('/open-sessions/check', FakeApi.gateClear);
+
       final cubit = dashboard();
       await cubit.load(forAdmin: false);
+
       expect(cubit.state.hasOpenSession, isFalse);
       addTearDown(cubit.close);
     });
 
-    test('admin: counts pending requests for the badge', () async {
-      await raise('STAR_MOCK_A', 'STF_A');
-      await raise('STAR_MOCK_B', 'STF_B');
+    test('admin: the badge reads total from a size-1 page', () async {
+      api.onPost('/open-sessions/check', FakeApi.gateClear);
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
       final cubit = dashboard();
       await cubit.load(forAdmin: true);
+
+      expect(api.lastQuery['size'], 1);
+      expect(api.lastQuery['status'], 'PENDING');
       expect(cubit.state.pendingCount, 2);
       expect(cubit.state.hasPendingForAdmin, isTrue);
       addTearDown(cubit.close);
     });
 
     test('the auto-open fires at most once per session', () async {
+      api.onPost('/open-sessions/check', FakeApi.gateBlocked);
+
       final cubit = dashboard();
       await cubit.load(forAdmin: false);
-      expect(cubit.state.autoSheetShown, isFalse);
       cubit.markAutoSheetShown();
-      expect(cubit.state.autoSheetShown, isTrue);
-      // A reload must not re-arm it, or the sheet would reappear on every
-      // dashboard refresh.
       await cubit.load(forAdmin: false);
+
+      // A reload must not re-arm it, or the sheet reappears on every refresh.
       expect(cubit.state.autoSheetShown, isTrue);
       addTearDown(cubit.close);
     });
   });
 
-  // ————————————————————————————————————————————————————————————————
-  // RegInboxFilter
-  // ————————————————————————————————————————————————————————————————
-
   group('RegInboxFilter', () {
     test('pairs each tab with the right status and sort', () {
       expect(RegInboxFilter.pending.status, RegStatus.pending);
       expect(RegInboxFilter.pending.sort, RegSortOrder.oldestFirst);
-
       expect(RegInboxFilter.approved.status, RegStatus.approved);
       expect(RegInboxFilter.approved.sort, RegSortOrder.newestFirst);
-
-      // All = no status param, newest first.
       expect(RegInboxFilter.all.status, isNull);
       expect(RegInboxFilter.all.sort, RegSortOrder.newestFirst);
     });
@@ -582,29 +577,15 @@ void main() {
   });
 }
 
-/// Always throws, to prove the interceptor fails open.
-class _ThrowingGate implements RegSignInGate {
-  @override
-  Future<RegGateOutcome> guardSingle(String staffCode,
-          {required bool byAdmin, String staffName = ''}) async =>
-      throw Exception('gate exploded');
-
-  @override
-  Future<RegBulkGateOutcome> guardBulk(List<String> staffCodes) async =>
-      throw Exception('gate exploded');
-
-  @override
-  Future<bool> handleConflict(Object error,
-          {required bool byAdmin, String staffCode = ''}) async =>
-      throw Exception('gate exploded');
-}
-
-/// Captures requests that get past the interceptor and answers 200.
-class _RecordingAdapter implements HttpClientAdapter {
-  _RecordingAdapter(this.sent, {this.statusCode = 200});
+/// Records sign-in requests that got past the interceptor.
+class _SignInAdapter implements HttpClientAdapter {
+  _SignInAdapter(this.sent, this.status, [this.blocked = const []]);
 
   final List<RequestOptions> sent;
-  final int statusCode;
+  final int status;
+
+  /// Returned on the FIRST call only, so a retry comes back clean.
+  final List<Map<String, dynamic>> blocked;
 
   @override
   Future<ResponseBody> fetch(
@@ -612,12 +593,22 @@ class _RecordingAdapter implements HttpClientAdapter {
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    final isFirst = sent.isEmpty;
     sent.add(options);
+    final body = status == 409
+        ? '{"success":false,"error":{"code":"REGULARIZATION_REQUIRED"}}'
+        : jsonEncode({
+            'success': true,
+            'data': {
+              'signedIn': [
+                {'code': 'SAR_1', 'staffCode': 'STF_CLEAR'}
+              ],
+              'blocked': isFirst ? blocked : const [],
+            },
+          });
     return ResponseBody.fromString(
-      statusCode == 409
-          ? '{"success":false,"code":"REGULARIZATION_REQUIRED"}'
-          : '{"success":true,"data":{}}',
-      statusCode,
+      body,
+      status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },

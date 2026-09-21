@@ -1,11 +1,8 @@
 import '../entities/regularization_request.dart';
 import '../repositories/regularization_repository.dart';
 
-/// Approves one request, optionally modifying the time (§9.6).
-///
-/// [signOutLocal] `null` approves as submitted; supplying it becomes the
-/// approved time while the original stays on the request (§7.4). There is no
-/// reject (§8.4).
+/// Omitting [signOutLocal] approves as submitted; supplying it keeps both the
+/// requested and the approved time on the record.
 class ApproveRequestUseCase {
   ApproveRequestUseCase(this._repository);
 

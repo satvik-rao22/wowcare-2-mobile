@@ -1,10 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../data/reg_context.dart';
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/entities/regularization_request.dart';
-import '../../domain/usecases/get_school_requests_usecase.dart';
+import '../../domain/usecases/get_requests_usecase.dart';
 import '../gate/reg_gate_coordinator.dart';
 
 /// State behind the dashboard entry point.
@@ -75,24 +74,20 @@ class RegDashboardState extends Equatable {
 class RegDashboardCubit extends Cubit<RegDashboardState> {
   RegDashboardCubit({
     required RegGateCoordinator gate,
-    required GetSchoolRequestsUseCase getSchoolRequests,
-    required RegContext context,
+    required GetRequestsUseCase getRequests,
   })  : _gate = gate,
-        _getSchoolRequests = getSchoolRequests,
-        _context = context,
+        _getRequests = getRequests,
         super(const RegDashboardState());
 
   final RegGateCoordinator _gate;
-  final GetSchoolRequestsUseCase _getSchoolRequests;
-  final RegContext _context;
+  final GetRequestsUseCase _getRequests;
 
   /// [forAdmin] also loads the approval count. Both reads are best-effort:
   /// a dashboard card must never break the dashboard.
   Future<void> load({required bool forAdmin}) async {
     emit(state.copyWith(loading: true));
 
-    final staffCode = await _context.staffCode();
-    final sessionFuture = _gate.peek(staffCode);
+    final sessionFuture = _gate.peek();
     final countFuture = forAdmin ? _pendingCount() : Future.value(0);
 
     final session = await sessionFuture;
@@ -110,14 +105,8 @@ class RegDashboardCubit extends Cubit<RegDashboardState> {
   /// pulling the whole queue — the badge only needs the number.
   Future<int> _pendingCount() async {
     try {
-      final schoolCode = await _context.schoolCode();
-      if (schoolCode.isEmpty) return 0;
-      final page = await _getSchoolRequests(
-        schoolCode: schoolCode,
-        status: RegStatus.pending,
-        page: 0,
-        size: 1,
-      );
+      final page =
+          await _getRequests(status: RegStatus.pending, page: 0, size: 1);
       return page.total;
     } catch (_) {
       return 0;
@@ -130,12 +119,8 @@ class RegDashboardCubit extends Cubit<RegDashboardState> {
     if (session == null) return;
     if (markAuto) emit(state.copyWith(autoSheetShown: true));
 
-    final outcome = await _gate.resolve(
-      session,
-      byAdmin: false,
-      mandatory: false,
-      fallbackStaffCode: await _context.staffCode(),
-    );
+    final outcome =
+        await _gate.resolve(session, byAdmin: false, mandatory: false);
     if (outcome.isProceed) await load(forAdmin: state.pendingCount > 0);
   }
 
