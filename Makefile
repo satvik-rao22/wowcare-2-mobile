@@ -22,19 +22,19 @@ FLUTTER ?= flutter
 export JAVA_TOOL_OPTIONS := $(JAVA_TOOL_OPTIONS) -Djava.net.preferIPv6Addresses=true
 
 .PHONY: help help-optimization clean get upgrade doctor fix analyze test format \
-	local-run qa-run uat-run prod-run \
-	local-run-profile qa-run-profile uat-run-profile prod-run-profile \
-	local-run-release qa-run-release uat-run-release prod-run-release \
-	local-apk-debug qa-apk-debug uat-apk-debug prod-apk-debug \
-	local-apk-profile qa-apk-profile uat-apk-profile prod-apk-profile \
-	local-apk-release qa-apk-release uat-apk-release prod-apk-release \
-	local-appbundle qa-appbundle uat-appbundle prod-appbundle \
-	local-ios-debug qa-ios-debug uat-ios-debug prod-ios-debug \
-	local-ios-profile qa-ios-profile uat-ios-profile prod-ios-profile \
-	local-ios-release qa-ios-release uat-ios-release prod-ios-release \
-	local-ipa qa-ipa uat-ipa prod-ipa \
-	local-build qa-build uat-build prod-build \
-	prod-apk-optimized prod-appbundle-optimized prod-ios-optimized prod-build-optimized \
+	local-run dev-run qa-run uat-run prod-run \
+	local-run-profile dev-run-profile qa-run-profile uat-run-profile prod-run-profile \
+	local-run-release dev-run-release qa-run-release uat-run-release prod-run-release \
+	local-apk-debug dev-apk-debug qa-apk-debug uat-apk-debug prod-apk-debug \
+	local-apk-profile dev-apk-profile qa-apk-profile uat-apk-profile prod-apk-profile \
+	local-apk-release dev-apk-release qa-apk-release uat-apk-release prod-apk-release \
+	local-appbundle dev-appbundle qa-appbundle uat-appbundle prod-appbundle \
+	local-ios-debug dev-ios-debug qa-ios-debug uat-ios-debug prod-ios-debug \
+	local-ios-profile dev-ios-profile qa-ios-profile uat-ios-profile prod-ios-profile \
+	local-ios-release dev-ios-release qa-ios-release uat-ios-release prod-ios-release \
+	local-ipa dev-ipa qa-ipa uat-ipa prod-ipa \
+	local-build dev-build qa-build uat-build prod-build \
+	dev-apk-optimized prod-apk-optimized prod-appbundle-optimized prod-ios-optimized prod-build-optimized \
 	check-apk-size check-ipa-size check-size analyze-apk \
 	optimize-assets convert-png-webp compress-images
 
@@ -58,40 +58,40 @@ help:
 	@echo "  make format"
 	@echo ""
 	@echo "Run (debug):"
-	@echo "  make local-run   make qa-run   make uat-run   make prod-run"
+	@echo "  make local-run   make dev-run   make qa-run   make uat-run   make prod-run"
 	@echo ""
 	@echo "Run Profile:"
-	@echo "  make local-run-profile   make qa-run-profile   make uat-run-profile   make prod-run-profile"
+	@echo "  make local-run-profile   make dev-run-profile   make qa-run-profile   make uat-run-profile   make prod-run-profile"
 	@echo ""
 	@echo "Run Release:"
-	@echo "  make local-run-release   make qa-run-release   make uat-run-release   make prod-run-release"
+	@echo "  make local-run-release   make dev-run-release   make qa-run-release   make uat-run-release   make prod-run-release"
 	@echo ""
 	@echo "APK Debug:"
-	@echo "  make local-apk-debug   make qa-apk-debug   make uat-apk-debug   make prod-apk-debug"
+	@echo "  make local-apk-debug   make dev-apk-debug   make qa-apk-debug   make uat-apk-debug   make prod-apk-debug"
 	@echo ""
 	@echo "APK Profile:"
-	@echo "  make local-apk-profile   make qa-apk-profile   make uat-apk-profile   make prod-apk-profile"
+	@echo "  make local-apk-profile   make dev-apk-profile   make qa-apk-profile   make uat-apk-profile   make prod-apk-profile"
 	@echo ""
 	@echo "APK Release:"
-	@echo "  make local-apk-release   make qa-apk-release   make uat-apk-release   make prod-apk-release"
+	@echo "  make local-apk-release   make dev-apk-release   make qa-apk-release   make uat-apk-release   make prod-apk-release"
 	@echo ""
 	@echo "Android AppBundle:"
-	@echo "  make local-appbundle   make qa-appbundle   make uat-appbundle   make prod-appbundle"
+	@echo "  make local-appbundle   make dev-appbundle   make qa-appbundle   make uat-appbundle   make prod-appbundle"
 	@echo ""
 	@echo "iOS Debug:"
-	@echo "  make local-ios-debug   make qa-ios-debug   make uat-ios-debug   make prod-ios-debug"
+	@echo "  make local-ios-debug   make dev-ios-debug   make qa-ios-debug   make uat-ios-debug   make prod-ios-debug"
 	@echo ""
 	@echo "iOS Profile:"
-	@echo "  make local-ios-profile   make qa-ios-profile   make uat-ios-profile   make prod-ios-profile"
+	@echo "  make local-ios-profile   make dev-ios-profile   make qa-ios-profile   make uat-ios-profile   make prod-ios-profile"
 	@echo ""
 	@echo "iOS Release:"
-	@echo "  make local-ios-release   make qa-ios-release   make uat-ios-release   make prod-ios-release"
+	@echo "  make local-ios-release   make dev-ios-release   make qa-ios-release   make uat-ios-release   make prod-ios-release"
 	@echo ""
 	@echo "IPA:"
-	@echo "  make local-ipa   make qa-ipa   make uat-ipa   make prod-ipa"
+	@echo "  make local-ipa   make dev-ipa   make qa-ipa   make uat-ipa   make prod-ipa"
 	@echo ""
 	@echo "Generic Build (APK + iOS Release):"
-	@echo "  make local-build   make qa-build   make uat-build   make prod-build"
+	@echo "  make local-build   make dev-build   make qa-build   make uat-build   make prod-build"
 	@echo ""
 	@echo "Optimization Commands:"
 	@echo "  make help-optimization"
@@ -132,6 +132,9 @@ format:
 local-run:
 	$(FLUTTER) run --dart-define=ENVIRONMENT=LOCAL
 
+dev-run:
+	$(FLUTTER) run --dart-define=ENVIRONMENT=DEV
+
 qa-run:
 	$(FLUTTER) run --dart-define=ENVIRONMENT=QA
 
@@ -147,6 +150,9 @@ prod-run:
 
 local-run-profile:
 	$(FLUTTER) run --profile --dart-define=ENVIRONMENT=LOCAL
+
+dev-run-profile:
+	$(FLUTTER) run --profile --dart-define=ENVIRONMENT=DEV
 
 qa-run-profile:
 	$(FLUTTER) run --profile --dart-define=ENVIRONMENT=QA
@@ -164,6 +170,9 @@ prod-run-profile:
 local-run-release:
 	$(FLUTTER) run --release --dart-define=ENVIRONMENT=LOCAL
 
+dev-run-release:
+	$(FLUTTER) run --release --dart-define=ENVIRONMENT=DEV
+
 qa-run-release:
 	$(FLUTTER) run --release --dart-define=ENVIRONMENT=QA
 
@@ -179,6 +188,9 @@ prod-run-release:
 
 local-apk-debug:
 	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=LOCAL
+
+dev-apk-debug:
+	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=DEV
 
 qa-apk-debug:
 	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=QA
@@ -196,6 +208,9 @@ prod-apk-debug:
 local-apk-profile:
 	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=LOCAL
 
+dev-apk-profile:
+	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=DEV
+
 qa-apk-profile:
 	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=QA
 
@@ -211,6 +226,9 @@ prod-apk-profile:
 
 local-apk-release:
 	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=LOCAL
+
+dev-apk-release:
+	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=DEV
 
 qa-apk-release:
 	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=QA
@@ -228,6 +246,9 @@ prod-apk-release:
 local-appbundle:
 	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=LOCAL
 
+dev-appbundle:
+	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=DEV
+
 qa-appbundle:
 	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=QA
 
@@ -243,6 +264,9 @@ prod-appbundle:
 
 local-ios-debug:
 	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=LOCAL
+
+dev-ios-debug:
+	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=DEV
 
 qa-ios-debug:
 	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=QA
@@ -260,6 +284,9 @@ prod-ios-debug:
 local-ios-profile:
 	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=LOCAL
 
+dev-ios-profile:
+	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=DEV
+
 qa-ios-profile:
 	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA
 
@@ -275,6 +302,9 @@ prod-ios-profile:
 
 local-ios-release:
 	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=LOCAL
+
+dev-ios-release:
+	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=DEV
 
 qa-ios-release:
 	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA
@@ -292,6 +322,9 @@ prod-ios-release:
 local-ipa:
 	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=LOCAL
 
+dev-ipa:
+	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=DEV
+
 qa-ipa:
 	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA
 
@@ -306,6 +339,8 @@ prod-ipa:
 # -----------------------------------------------------------------------------
 
 local-build: local-apk-release local-ios-release
+
+dev-build: dev-apk-release dev-ios-release
 
 qa-build: qa-apk-release qa-ios-release
 
@@ -323,6 +358,7 @@ help-optimization:
 	@echo "======================================"
 	@echo ""
 	@echo "OPTIMIZED PRODUCTION BUILDS (with obfuscation + size reduction):"
+	@echo "  make dev-apk-optimized         Build optimized DEV APK, arm64 only"
 	@echo "  make prod-apk-optimized        Build optimized APK (~150-160 MB)"
 	@echo "  make prod-appbundle-optimized  Build optimized AAB (~40-50 MB)"
 	@echo "  make prod-ios-optimized        Build optimized iOS (~optimized size)"
@@ -349,6 +385,28 @@ help-optimization:
 # =============================================================================
 # OPTIMIZED RELEASE BUILDS
 # =============================================================================
+
+dev-apk-optimized:
+	@echo "🔨 Building optimized DEV APK..."
+	@echo "   - Obfuscation enabled"
+	@echo "   - Debug info split"
+	@echo "   - Icon tree-shaking enabled"
+	@echo "   - One APK per ABI, so each is ~48 MB instead of one 62 MB fat one"
+	@echo ""
+	@echo "   --split-per-abi, not --target-platform: the latter only filters"
+	@echo "   Flutter's own libs, leaving every ABI of pdfium and isar (which"
+	@echo "   arrive as AARs) in the APK. Splitting drops those too."
+	$(FLUTTER) build apk \
+		--release \
+		--obfuscate \
+		--split-debug-info=build/app/profiles \
+		--tree-shake-icons \
+		--split-per-abi \
+		--dart-define=ENVIRONMENT=DEV
+	@echo ""
+	@echo "✅ Optimized DEV APKs ready. Install the one matching your device:"
+	@ls -lh build/app/outputs/flutter-apk/app-*-release.apk \
+		| awk '{printf "   %-52s %s\n", $$9, $$5}'
 
 prod-apk-optimized:
 	@echo "🔨 Building optimized production APK..."
