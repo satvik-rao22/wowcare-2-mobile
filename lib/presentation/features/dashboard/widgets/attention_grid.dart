@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_attention_cubit.dart';
@@ -22,6 +24,7 @@ enum _AttentionTone { danger, warning }
 // ── Card routing types ─────────────────────────────────────────────────────────
 
 enum _AttentionCardRoute {
+  totalOutstanding,
   incidentApproval,
   classroomRatio,
   classroomShifts,
@@ -187,6 +190,9 @@ class _AttentionGridState extends State<AttentionGrid> {
 
   void _handleCardTap(_AttentionCardRoute route) {
     switch (route) {
+      case _AttentionCardRoute.totalOutstanding:
+        context.go(BillingScreen.routeName);
+
       case _AttentionCardRoute.incidentApproval:
         if (widget.onIncidentCardTap != null) {
           widget.onIncidentCardTap!();
@@ -315,6 +321,16 @@ class _AttentionGridState extends State<AttentionGrid> {
         : 0;
 
     return [
+      // Total Outstanding — currency card, all-time balance (no date range).
+      AttentionCardModel(
+        label: 'Total Outstanding',
+        count: attentionState.outstandingAmount > 0 ? 1 : 0,
+        route: _AttentionCardRoute.totalOutstanding,
+        isCurrency: true,
+        valueText: attentionState.outstandingAmount > 0
+            ? billingAmount(attentionState.outstandingAmount)
+            : null,
+      ),
       // Incidents — single count, pill badge
       AttentionCardModel(
         label: 'Incidents',

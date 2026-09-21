@@ -17,7 +17,9 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.d
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
@@ -33,7 +35,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -742,18 +744,21 @@ class _ClassroomStaffTabCardViewState
       return;
     }
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StaffProfileScreen(
-          staffCode: staff.staffCode.trim(),
-          userCode: staff.userCode,
-          name: staff.name,
-          classroom: widget.selectedRoom?.name ?? '',
-          designation: staff.designation,
-          phoneNumber: '',
-          employmentStatus: _employmentStatusForProfile(staff),
-        ),
+    // Routed via `context.push`, not `Navigator.push`, so the destination
+    // picks up the `_staffProfileScope` MultiBlocProvider that the route
+    // builder wraps it in (StaffProfileCubit, StaffClassroomNameCubit, etc.).
+    // Pushing `StaffProfileScreen` directly here left those providers missing
+    // and the screen failed to build (blank screen on tap).
+    await context.push(
+      StaffRoutes.profile,
+      extra: StaffProfileArgs(
+        staffCode: staff.staffCode.trim(),
+        userCode: staff.userCode,
+        name: staff.name,
+        classroom: widget.selectedRoom?.name ?? '',
+        designation: staff.designation,
+        phoneNumber: '',
+        employmentStatus: _employmentStatusForProfile(staff),
       ),
     );
     if (!mounted) return;

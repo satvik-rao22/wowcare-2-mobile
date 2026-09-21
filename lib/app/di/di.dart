@@ -2406,6 +2406,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       studentRepository: serviceLocator(),
       storageService: serviceLocator(),
+      getInvoiceOverview: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<RatioMonitoringCubit>(
