@@ -223,6 +223,12 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                           },
                         ),
                       ],
+                      // Parents never filter by staff/student active status,
+                      // so the notice would be meaningless noise for them.
+                      if (!isParent) ...[
+                        SizedBox(height: responsive.verticalSpacing),
+                        const _InactiveUnreadNotice(),
+                      ],
                     ],
                   );
                 },
@@ -230,6 +236,46 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Info note explaining that unread badges above still count messages for
+/// Students/Staff who have since been made inactive — the messaging screens
+/// filter to active participants by default, so those unread threads would
+/// otherwise look like they've vanished.
+class _InactiveUnreadNotice extends StatelessWidget {
+  const _InactiveUnreadNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.studentInfoBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: AppColors.studentInfoColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              AppStrings.messagingInactiveUnreadNotice,
+              style: AppTextStyles.size16.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
