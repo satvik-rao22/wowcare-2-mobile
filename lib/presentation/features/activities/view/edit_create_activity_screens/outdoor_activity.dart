@@ -292,6 +292,7 @@ class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       setState(() {
         _liveActivity = item;

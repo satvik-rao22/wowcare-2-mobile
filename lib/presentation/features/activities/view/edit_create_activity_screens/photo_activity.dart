@@ -353,6 +353,7 @@ class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       setState(() {
         _liveActivity = item;

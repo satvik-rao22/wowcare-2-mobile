@@ -228,6 +228,7 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: state.staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       _staffPresentCode = _pickStaffPresentCode(detail.parameterValues);
       final nextIso = item.activityDateIso;

@@ -291,6 +291,7 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       setState(() {
         _liveActivity = item;

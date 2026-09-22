@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/data/features/activity/mappers/activity_patch_attachments.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
@@ -170,7 +171,19 @@ ActivityItem activityItemFromFeedRow(
   DateTime dt;
   try {
     final parsed = DateTime.parse(row.activityDateIso);
-    final iana = (schoolIana ?? '').trim();
+    var iana = (schoolIana ?? '').trim();
+    if (iana.isEmpty) {
+      // Caller hasn't resolved the school zone for this row yet — prefer the
+      // zone ServerTimeService already knows (set by the last successful
+      // /time sync) over silently falling back to the DEVICE's zone. This
+      // app must never display device-local time to the user (see
+      // SchoolZoneDateTime's class doc); a stale-but-correct school zone
+      // beats a wrong device zone every time.
+      final synced = ServerTimeService.instance.schoolTimeZone.trim();
+      if (synced.isNotEmpty && synced.toUpperCase() != 'UTC') {
+        iana = synced;
+      }
+    }
     dt = iana.isEmpty
         ? parsed.toLocal()
         : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);

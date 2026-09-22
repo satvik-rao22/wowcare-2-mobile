@@ -258,6 +258,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       setState(() {
         _liveActivity = item;

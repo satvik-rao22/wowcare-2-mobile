@@ -276,6 +276,7 @@ class _NotesActivityViewState extends State<_NotesActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       setState(() {
         _liveActivity = item;
