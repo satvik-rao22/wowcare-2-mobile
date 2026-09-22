@@ -64,6 +64,7 @@ class ApiPathsUat {
       'staff-attendance',
       'staff-absence-records',
       'staff-attendance-records',
+      'staff-overtime-records',
       'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
       'kiosk', // Kiosk PIN verification: /api/v1/kiosk/verify-pin
     },
@@ -170,6 +171,10 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      // Attendance V2 (staff overtime). Missing here meant every overtime
+      // call fell through to the default `user` host — the whole screen was
+      // dead on any gateway environment, which is all of them.
+      case 'staff-overtime-records':
       case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':
