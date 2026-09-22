@@ -83,6 +83,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
   /// Whether the user picked the "Until" date themselves — manual picks
   /// are clamped (not replaced) when the unit or start date changes.
   bool _recurEndManual = false;
+
+  /// True while `GET /events/{code}` is still in flight for a series edit.
+  ///
+  /// The occurrence row this form prefills from carries no recurrence rule, so
+  /// until that response lands the recurrence fields hold placeholder values.
+  /// Saving then would overwrite the real series rule with the placeholder, so
+  /// the Save button stays disabled — visibly, with its own label — rather than
+  /// letting a half-loaded form be submitted.
+  bool _loadingSeries = false;
   bool _includeParents = false;
 
   /// Files picked on this form, uploaded inside [_save] — so an abandoned form
@@ -114,6 +123,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   /// before the Save button is enabled — mirrors [_validateAudienceAndTime],
   /// which still runs on submit as a safety net.
   bool get _isFormValid =>
+      !_loadingSeries &&
       _nameController.text.trim().isNotEmpty &&
       _validateAudienceAndTime() == null;
 
@@ -140,7 +150,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
       if (row != null) _prefill(row);
       // Occurrence mode edits the row's own values — the series detail
       // (rrule, selectors) isn't needed and would overwrite them.
-      if (!_isOccurrenceEdit) unawaited(_loadFullEvent(code));
+      if (!_isOccurrenceEdit) {
+        _loadingSeries = true;
+        unawaited(_loadFullEvent(code));
+      }
     }
     _nameController.addListener(_onFieldChanged);
   }
@@ -149,10 +162,26 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   Future<void> _loadFullEvent(String code) async {
     final full = await context.read<EventsCubit>().loadEventForEdit(code);
-    if (!mounted || full == null) return;
-    setState(
-      () => _prefill(EventAttendeeNames.resolve(context, full, listen: false)),
-    );
+    if (!mounted) return;
+    setState(() {
+      _loadingSeries = false;
+      if (full != null) {
+        _prefill(EventAttendeeNames.resolve(context, full, listen: false));
+      }
+      // A recurring series whose rule never arrived — the read failed, the API
+      // omitted the rrule, or it didn't parse — would otherwise leave "Until"
+      // empty, and an empty Until blocks Save with no way to recover: the field
+      // the user would have to fill is the one that failed to load. Seed the
+      // policy default instead, so the form stays editable and the date is
+      // visible in the panel before anything is saved.
+      if (_recurring && _recurringEndDate == null) {
+        _recurringEndDate = RecurrenceEndPolicy.defaultEnd(
+          _recurFrequency,
+          _date,
+        );
+        _recurEndManual = false;
+      }
+    });
   }
 
   void _prefill(Event event) {
@@ -164,7 +193,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
     _allDay = event.allDay;
     _startTime = _parseTime(event.startTime) ?? _startTime;
     _endTime = _parseTime(event.endTime) ?? _endTime;
-    _recurring = event.recurring;
+    // An occurrence edit changes only this occurrence's name, description,
+    // date and times — the series rule is neither shown nor sent. Carrying the
+    // row's `recurring` flag in anyway made the form demand an "Until" date
+    // from a panel this mode deliberately hides, which left Save disabled with
+    // nothing on screen to fix.
+    _recurring = _isOccurrenceEdit ? false : event.recurring;
     final rule = event.recurrence;
     if (rule != null) {
       _recurFrequency = rule.frequency;
@@ -1173,7 +1207,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       ],
                     )
                   : Text(
-                      _isEditing ? 'Save Changes' : 'Create Event',
+                      // A disabled button with the usual label reads as broken.
+                      // Say what it is waiting for while the series loads.
+                      _loadingSeries
+                          ? 'Loading event…'
+                          : _isEditing
+                              ? 'Save Changes'
+                              : 'Create Event',
                       style: TextStyle(
                         color: keyInk,
                         fontSize: 14,
