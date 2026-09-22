@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
+import 'package:wowcare/presentation/features/events/utils/holiday_year_window.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
 
 /// Bottom sheet for creating or editing a SCHOOL holiday (federal holidays
@@ -100,16 +101,19 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   bool get _isEditing => widget.holiday != null;
 
   /// Name is mandatory and within the length cap; description (optional) must
-  /// also fit the cap; both dates must be valid DD-MM-YYYY calendar dates and
-  /// a range can never end before it starts — whether picked or typed
-  /// (FR §7/8).
+  /// also fit the cap; both dates must be valid DD-MM-YYYY calendar dates
+  /// inside the supported year window, and a range can never end before it
+  /// starts — whether picked or typed (FR §7/8).
   bool get _isFormValid =>
       _nameController.text.trim().isNotEmpty &&
       _nameController.text.characters.length <= _kNameMaxLength &&
       _descriptionController.text.characters.length <= _kDescriptionMaxLength &&
       _startDate != null &&
+      HolidayYearWindow.contains(_startDate!.year) &&
       (!_isRange ||
-          (_endDate != null && !_endDate!.isBefore(_startDate!)));
+          (_endDate != null &&
+              !_endDate!.isBefore(_startDate!) &&
+              HolidayYearWindow.contains(_endDate!.year)));
 
   @override
   void initState() {
@@ -473,13 +477,27 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   }
 
   Future<DateTime?> _showPicker({DateTime? initial, DateTime? minDate}) async {
-    final firstDate = minDate ?? DateTime(DateTime.now().year - 1);
+    // Bounded by the supported year window rather than an ad-hoc span, so the
+    // picker can no longer offer a year the list could never show.
+    final windowFirst = HolidayYearWindow.firstDate();
+    final lastDate = HolidayYearWindow.lastDate();
+    var firstDate = (minDate != null && minDate.isAfter(windowFirst))
+        ? minDate
+        : windowFirst;
+    // A start date typed outside the window would otherwise push firstDate
+    // past lastDate, which showDatePicker asserts on.
+    if (firstDate.isAfter(lastDate)) firstDate = windowFirst;
     final base = initial ?? _dateOnly(DateTime.now());
+    final initialDate = base.isBefore(firstDate)
+        ? firstDate
+        : base.isAfter(lastDate)
+            ? lastDate
+            : base;
     final picked = await showDatePicker(
       context: context,
-      initialDate: base.isBefore(firstDate) ? firstDate : base,
+      initialDate: initialDate,
       firstDate: firstDate,
-      lastDate: DateTime(DateTime.now().year + 3),
+      lastDate: lastDate,
     );
     return picked == null ? null : _dateOnly(picked);
   }
@@ -487,6 +505,10 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   String? _dateError(String text, DateTime? parsed) {
     if (text.isEmpty) return 'Required';
     if (parsed == null) return 'Use DD-MM-YYYY';
+    // The picker cannot leave the window, but the field is also typed into.
+    if (!HolidayYearWindow.contains(parsed.year)) {
+      return 'Year must be ${HolidayYearWindow.label()}';
+    }
     return null;
   }
 

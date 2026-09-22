@@ -21,4 +21,22 @@ class HolidayYearWindow {
 
   static bool contains(int year, [DateTime? now]) =>
       options(now).contains(year);
+
+  /// First selectable day — 1 January of the earliest offered year.
+  ///
+  /// Holidays are only ever listed through the year selector, so one created
+  /// outside this window is invisible in the app the moment it is saved. The
+  /// API accepts any year (a 2035 holiday was accepted on DEV), so the window
+  /// is enforced here, on both the picker's bounds and the typed date.
+  static DateTime firstDate([DateTime? now]) => DateTime(options(now).first);
+
+  /// Last selectable day — 31 December of the latest offered year.
+  static DateTime lastDate([DateTime? now]) =>
+      DateTime(options(now).last, 12, 31);
+
+  /// Human-readable range for validation messages, e.g. "2024–2028".
+  static String label([DateTime? now]) {
+    final years = options(now);
+    return '${years.first}–${years.last}';
+  }
 }

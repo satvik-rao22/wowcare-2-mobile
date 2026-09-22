@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/events/usecases/set_holiday_status_useca
 import 'package:wowcare/domain/features/events/usecases/update_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/upload_event_attachments_usecase.dart';
+import 'package:wowcare/presentation/features/events/utils/holiday_year_window.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
@@ -350,6 +351,74 @@ void main() {
     await tester.enterText(endField, '11-05-2026');
     await tester.pump();
     expect(saveEnabled(tester), isTrue);
+  });
+
+  testWidgets('rejects a typed year outside the supported window', (
+    tester,
+  ) async {
+    await openSheet(tester);
+    await tester.enterText(nameField(), 'Founders Day');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+
+    // The API accepts any year, so this window is the only thing stopping a
+    // holiday the year selector could never list.
+    final dateField = find.byType(TextField).at(1);
+    final beyond = HolidayYearWindow.options().last + 1;
+    await tester.enterText(dateField, '02-04-$beyond');
+    await tester.pump();
+
+    expect(saveEnabled(tester), isFalse);
+    expect(
+      find.text('Year must be ${HolidayYearWindow.label()}'),
+      findsOneWidget,
+    );
+
+    final before = HolidayYearWindow.options().first - 1;
+    await tester.enterText(dateField, '02-04-$before');
+    await tester.pump();
+    expect(saveEnabled(tester), isFalse);
+
+    final inside = HolidayYearWindow.options().last;
+    await tester.enterText(dateField, '02-04-$inside');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+  });
+
+  testWidgets('rejects a range whose end year leaves the window', (
+    tester,
+  ) async {
+    await openSheet(tester);
+    await tester.enterText(nameField(), 'Winter Shutdown');
+    await tester.tap(find.text('Date Range'));
+    await tester.pump();
+
+    final startField = find.byType(TextField).at(1);
+    final endField = find.byType(TextField).at(2);
+    final last = HolidayYearWindow.options().last;
+
+    await tester.enterText(startField, '28-12-$last');
+    await tester.enterText(endField, '03-01-${last + 1}');
+    await tester.pump();
+
+    expect(saveEnabled(tester), isFalse);
+
+    await tester.enterText(endField, '31-12-$last');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+  });
+
+  testWidgets('date picker is bounded by the supported window', (tester) async {
+    await openSheet(tester);
+
+    await tester.tap(find.byIcon(Icons.calendar_today_outlined).first);
+    await tester.pumpAndSettle();
+
+    final dialog = tester.widget<DatePickerDialog>(
+      find.byType(DatePickerDialog),
+    );
+    expect(dialog.firstDate, HolidayYearWindow.firstDate());
+    expect(dialog.lastDate, HolidayYearWindow.lastDate());
   });
 
   testWidgets('trailing calendar icon opens the date picker', (tester) async {

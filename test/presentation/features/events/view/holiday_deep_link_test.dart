@@ -47,6 +47,17 @@ void main() {
       expect(HolidayYearWindow.contains(2029, now), isFalse);
       expect(HolidayYearWindow.contains(2023, now), isFalse);
     });
+
+    test('spans whole years, so the bounds cover every selectable day', () {
+      // The holiday form clamps its date picker to these, so an off-by-one
+      // here would silently make 1 January or 31 December unpickable.
+      expect(HolidayYearWindow.firstDate(now), DateTime(2024));
+      expect(HolidayYearWindow.lastDate(now), DateTime(2028, 12, 31));
+    });
+
+    test('labels the range for validation messages', () {
+      expect(HolidayYearWindow.label(now), '2024\u20132028');
+    });
   });
 
   /// End-to-end over the whole deep link: notification payload → resolver →
