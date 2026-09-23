@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
@@ -28,6 +29,13 @@ class GradientAddButton extends StatelessWidget {
     this.wantedButtonSize,
     this.isDisabled = false,
   }) : super(key: key);
+
+  void _handleTap() {
+    // A disabled button still reports the tap so the caller can explain why,
+    // but nothing was added, so it gets no press feedback.
+    if (!isDisabled) AppHaptics.tap();
+    onTap?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +79,7 @@ class GradientAddButton extends StatelessWidget {
             ),
           )
         : GestureDetector(
-            onTap: onTap,
+            onTap: _handleTap,
             child: Container(
               width: wantedButtonSize ?? buttonSize,
               height: wantedButtonSize ?? buttonSize,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -55,6 +56,7 @@ class _CustomToggleState extends State<CustomToggle> {
 
   void _handleToggle() {
     if (!widget.enabled) return;
+    AppHaptics.select();
     setState(() {
       _internalToggle = !_internalToggle;
     });

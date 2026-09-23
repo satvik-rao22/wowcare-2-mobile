@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
@@ -34,7 +35,10 @@ class CustomCancelButton extends StatelessWidget {
       height: 48,
       padding: const EdgeInsets.all(1),
       child: TextButton(
-        onPressed: onPressedCancel ?? () => Navigator.pop(context),
+        onPressed: () {
+          AppHaptics.tap();
+          (onPressedCancel ?? () => Navigator.pop(context))();
+        },
         style: TextButton.styleFrom(
           backgroundColor: AppColors.transparentColor,
           padding: const EdgeInsets.symmetric(vertical: 10),

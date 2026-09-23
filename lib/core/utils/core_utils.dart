@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -170,6 +171,9 @@ class CoreUtils {
     required Color contentColor,
     required IconData icon,
     Duration duration = const Duration(seconds: 2),
+    // Played once the banner is actually on screen, so a banner that finds
+    // no overlay stays silent too.
+    VoidCallback? haptic,
   }) {
     if (context is Element && !context.mounted) return;
 
@@ -274,6 +278,7 @@ class CoreUtils {
 
     overlay.insert(overlayEntry);
     _activeTopBannerEntry = overlayEntry;
+    haptic?.call();
 
     Future.delayed(duration, () {
       // Always try to remove the entry
@@ -389,6 +394,13 @@ class CoreUtils {
       contentColor: contentColor,
       icon: icon,
       duration: duration,
+      // Only red and orange banners buzz; AppHaptics says why green ones
+      // stay silent.
+      haptic: isError
+          ? AppHaptics.error
+          : isWarning
+          ? AppHaptics.warning
+          : null,
     );
   }
 

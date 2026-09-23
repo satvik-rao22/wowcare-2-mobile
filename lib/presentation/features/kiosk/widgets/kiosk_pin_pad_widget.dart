@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
@@ -54,6 +55,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
 
   void _addDigit(String digit) {
     if (_pin.length < widget.maxPinLength) {
+      AppHaptics.tap();
       setState(() {
         _pin += digit;
       });
@@ -73,6 +75,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
 
   void _removeDigit() {
     if (_pin.isNotEmpty) {
+      AppHaptics.tap();
       setState(() {
         _pin = _pin.substring(0, _pin.length - 1);
       });

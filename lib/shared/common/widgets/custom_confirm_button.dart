@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
@@ -26,6 +27,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
 
   Future<void> _handlePress() async {
     if (widget.onPressed == null || _isLoading) return;
+    AppHaptics.tap();
 
     setState(() {
       _isLoading = true;

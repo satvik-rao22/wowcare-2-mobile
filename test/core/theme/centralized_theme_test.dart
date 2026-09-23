@@ -355,6 +355,32 @@ void main() {
     });
   });
 
+  group('haptics are centralised', () {
+    test('no file plays a haptic without going through AppHaptics', () {
+      // One vocabulary for how the app feels. A direct call is also how
+      // HapticFeedback.vibrate() gets in, and on iOS that is the long
+      // notification buzz, not a tap. The chat bubble's swipe-to-reply and
+      // reaction haptics predate AppHaptics and stay exactly as built.
+      const String chatBubble =
+          'lib/presentation/features/communication/shared/widgets/'
+          'message_bubble_widget.dart';
+      final List<String> found = <String>[
+        for (final String hit in offenders(
+          RegExp(r'(?<![A-Za-z0-9_])HapticFeedback\.'),
+        ))
+          if (!hit.startsWith('$chatBubble:')) hit,
+      ];
+      expect(
+        found,
+        isEmpty,
+        reason:
+            'Haptics go through AppHaptics (tap, select, success, warning, '
+            'error) in lib/core/theme/app_haptics.dart, at:\n'
+            '${found.join('\n')}',
+      );
+    });
+  });
+
   group('colour literals live in app_theme_config.dart', () {
     test('no file outside the token file declares a colour', () {
       // This started as an allowlist of 58 files and ratcheted to zero.
