@@ -205,7 +205,7 @@ class _StaffDashboardCardList extends StatelessWidget {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                        child: Regularization.dashboardEntry(),
+                        child: Regularization.gateWatcher(),
                       ),
                     ),
                     SliverPadding(

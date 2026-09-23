@@ -83,9 +83,8 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
   /// The list mixes statuses on the history tabs, so selection, "Select all"
   /// and the header count all work off this rather than the whole page — an
   /// already-approved row must never be selectable.
-  List<RegularizationRequest> get _selectable => widget.filter.supportsSelection
-      ? widget.requests.where((r) => r.status.isPending).toList()
-      : const [];
+  List<RegularizationRequest> get _selectable =>
+      widget.requests.where((r) => r.status.isPending).toList();
 
   void _toggle(String code, bool on) {
     if (widget.onSelectChanged != null) {
@@ -163,8 +162,7 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
           final r = widget.requests[i];
           // A checkbox appears only when `onSelectChanged` is non-null, so
           // passing null here is what makes approved rows unselectable.
-          final selectable =
-              widget.filter.supportsSelection && r.status.isPending;
+          final selectable = r.status.isPending;
           return RegAdminNotificationTile(
             request: r,
             selected: _selected.contains(r.code),
@@ -191,7 +189,7 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
 
   Widget _header() {
     final selectable = _selectable;
-    final label = widget.filter.supportsSelection
+    final label = selectable.isNotEmpty
         ? '${selectable.length} pending'
         : '${widget.requests.length} '
             'request${widget.requests.length == 1 ? '' : 's'}';

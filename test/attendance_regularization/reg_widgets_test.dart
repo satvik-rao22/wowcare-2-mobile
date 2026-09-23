@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
+import 'package:wowcare/modules/attendance_regularization/domain/entities/regularization_request.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/entry/reg_requests_list.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_screen.dart';
-import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_staff_list_screen.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_resolve_sheet.dart';
 
@@ -32,26 +33,65 @@ void main() {
     });
   }
 
-  testWidgets('staff list shows needs-attention + requests', (tester) async {
+  testWidgets('the raiser gets edit, and nothing else', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(MaterialApp(
-      home: RegStaffListScreen(
-        requests: RegularizationFixtures.myRequests,
-        pendingGate: RegularizationFixtures.pendingGate,
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: RegRequestsList(
+            requests: RegularizationFixtures.myRequests,
+            currentUserCode: 'STF_1',
+            onSelectChanged: (_, __) {},
+          ),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Missed sign-out on'), findsWidgets);
     expect(find.text('Approved'), findsNWidgets(2));
+    // Not an admin, so no checkbox and no bulk bar however the callbacks are
+    // wired — the list decides from the viewer, not from what it is handed.
+    expect(find.byType(Checkbox), findsNothing);
+    expect(find.textContaining('Approve selected'), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsWidgets);
     // `status` has exactly two values (§6). Neither of the removed states may
     // reappear: there is no reject, and cancel was replaced by edit (§8.4).
     expect(find.text('Rejected'), findsNothing);
     expect(find.text('Cancelled'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an admin gets a checkbox on pending rows only', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final requests = RegularizationFixtures.myRequests;
+    final pending = requests.where((r) => r.status.isPending).length;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: RegRequestsList(
+            requests: requests,
+            currentUserCode: 'USR_ADMIN',
+            isAdmin: true,
+            onSelectChanged: (_, __) {},
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Checkbox), findsNWidgets(pending));
+    // An admin is not the raiser, so review replaces edit.
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    expect(find.text('$pending pending'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import '../../core/responsive/av2_breakpoints.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/utils/av2_date_formatter.dart';
@@ -234,7 +235,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         profile: _profile,
         periodLabel: widget.period.label,
         onPickRange: _pickPeriod,
-        onTapNeedsAttention: () => _setFilter(Av2DayFilter.needsAttention),
+        onTapNeedsAttention: () => _setFilter(Av2DayFilter.requests),
       );
 
   Widget _mobileBody(BuildContext context) {
@@ -258,14 +259,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               Av2FilterChips(selected: _filter, onSelected: _setFilter),
               const SizedBox(height: Av2Spacing.sm),
-              Av2DayTimeline(
-                days: filtered,
-                loadDetail: widget.loadDetail,
-                reloadId: widget.reloadId,
-                emptyMessage: _emptyMessage(),
-                onSessionAction: widget.canEdit ? _onSessionAction : null,
-                onAbsentAction: widget.canEdit ? _onAbsentAction : null,
-              ),
+              if (_filter == Av2DayFilter.requests)
+                Regularization.requestsList(staffCode: _profile.staffCode)
+              else
+                Av2DayTimeline(
+                  days: filtered,
+                  loadDetail: widget.loadDetail,
+                  reloadId: widget.reloadId,
+                  emptyMessage: _emptyMessage(),
+                  onSessionAction: widget.canEdit ? _onSessionAction : null,
+                  onAbsentAction: widget.canEdit ? _onAbsentAction : null,
+                ),
             ],
           ),
         ),
@@ -292,7 +296,9 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               Av2FilterChips(selected: _filter, onSelected: _setFilter),
               const SizedBox(height: Av2Spacing.sm),
-              if (filtered.isEmpty)
+              if (_filter == Av2DayFilter.requests)
+                Regularization.requestsList(staffCode: _profile.staffCode)
+              else if (filtered.isEmpty)
                 Av2DayTimeline(
                   days: filtered,
                   loadDetail: widget.loadDetail,
@@ -318,8 +324,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         return 'No overtime in this range';
       case Av2DayFilter.absent:
         return 'No absences in this range';
-      case Av2DayFilter.needsAttention:
-        return 'Nothing needs attention';
+      case Av2DayFilter.requests:
+        return 'No regularization requests';
       case Av2DayFilter.all:
         return 'No attendance records for this range';
     }

@@ -16,7 +16,6 @@ import '../domain/usecases/raise_regularization_batch_usecase.dart';
 import '../domain/usecases/raise_regularization_usecase.dart';
 import '../presentation/cubit/reg_dashboard_cubit.dart';
 import '../presentation/cubit/reg_inbox_cubit.dart';
-import '../presentation/cubit/reg_my_requests_cubit.dart';
 import '../presentation/gate/reg_gate_coordinator.dart';
 
 /// Call once at startup, beside `registerAttendanceV2`.
@@ -59,15 +58,12 @@ void registerRegularization(GetIt sl) {
     ),
   );
 
-  sl.registerFactory(() => RegMyRequestsCubit(
-        getRequests: sl<GetRequestsUseCase>(),
-        editRequest: sl<EditRegularizationUseCase>(),
-        gate: sl<RegGateCoordinator>(),
-      ));
   sl.registerFactory(() => RegInboxCubit(
         getRequests: sl<GetRequestsUseCase>(),
         approveRequest: sl<ApproveRequestUseCase>(),
         approveSelected: sl<ApproveSelectedUseCase>(),
+        editRequest: sl<EditRegularizationUseCase>(),
+        context: sl<RegContext>(),
       ));
   sl.registerFactory(() => RegDashboardCubit(
         gate: sl<RegGateCoordinator>(),

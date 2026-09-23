@@ -20,8 +20,7 @@ import 'package:wowcare/modules/attendance_regularization/domain/usecases/raise_
 import 'package:wowcare/modules/attendance_regularization/presentation/controllers/reg_inbox_filter.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/cubit/reg_dashboard_cubit.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/cubit/reg_inbox_cubit.dart';
-import 'package:wowcare/modules/attendance_regularization/presentation/cubit/reg_my_requests_cubit.dart';
-import 'package:wowcare/modules/attendance_regularization/presentation/cubit/reg_my_requests_state.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/cubit/reg_inbox_state.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_gate_coordinator.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_gate_outcome.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/gate/reg_sign_in_gate.dart';
@@ -121,16 +120,12 @@ void main() {
         context: const RegStaticContext(zone: zone),
       );
 
-  RegMyRequestsCubit myRequests() => RegMyRequestsCubit(
-        getRequests: GetRequestsUseCase(repo),
-        editRequest: EditRegularizationUseCase(repo),
-        gate: gate(),
-      );
-
   RegInboxCubit inbox() => RegInboxCubit(
         getRequests: GetRequestsUseCase(repo),
         approveRequest: ApproveRequestUseCase(repo),
         approveSelected: ApproveSelectedUseCase(repo),
+        editRequest: EditRegularizationUseCase(repo),
+        context: const RegStaticContext(zone: zone),
       );
 
   RegDashboardCubit dashboard() => RegDashboardCubit(
@@ -350,39 +345,35 @@ void main() {
   // Cubits
   // ——————————————————————————————————————————————————————————————
 
-  group('RegMyRequestsCubit', () {
-    test('loads the list and the gate banner together', () async {
+  group('RegInboxCubit, scoped to one staff member', () {
+    test('narrows the query and opens on the full history', () async {
       api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
-      api.onPost('/open-sessions/check', FakeApi.gateAlreadyRaised);
 
-      final cubit = myRequests();
+      final cubit = inbox()..scopeTo('STF_1');
       await cubit.load();
 
       expect(cubit.state.status, RegListStatus.loaded);
-      expect(cubit.state.requests.length, 1);
-      // Raised but still uncounted, so the banner stays — as a status, not a
-      // call to action.
-      expect(cubit.state.gate, isNotNull);
-      expect(cubit.state.gate!.blocksSignIn, isFalse);
+      expect(cubit.state.filter, RegInboxFilter.all);
+      expect(api.lastQuery['staffCode'], 'STF_1');
+      // No `status` param: a profile shows pending and approved together.
+      expect(api.lastQuery.containsKey('status'), isFalse);
       addTearDown(cubit.close);
     });
 
-    test('a clear gate shows no banner', () async {
+    test('unscoped stays school-wide', () async {
       api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
-      api.onPost('/open-sessions/check', FakeApi.gateClear);
 
-      final cubit = myRequests();
+      final cubit = inbox();
       await cubit.load();
 
-      expect(cubit.state.gate, isNull);
+      expect(api.lastQuery.containsKey('staffCode'), isFalse);
       addTearDown(cubit.close);
     });
 
     test('surfaces an error without losing the screen', () async {
       api.onGetError('/staff-attendance-regularizations', 500, null);
-      api.onPost('/open-sessions/check', FakeApi.gateClear);
 
-      final cubit = myRequests();
+      final cubit = inbox()..scopeTo('STF_1');
       await cubit.load();
 
       expect(cubit.state.isError, isTrue);
@@ -390,14 +381,24 @@ void main() {
       addTearDown(cubit.close);
     });
 
+    test('loads the signed-in user, so only the raiser is offered edit',
+        () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
+      final cubit = inbox()..scopeTo('STF_1');
+      await cubit.load();
+
+      expect(cubit.state.currentUserCode, 'USR_ME');
+      addTearDown(cubit.close);
+    });
+
     test('an edit that lost to an approval says so plainly', () async {
       api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
-      api.onPost('/open-sessions/check', FakeApi.gateClear);
       api.onPatchError('/staff-attendance-regularizations', 409, {
         'error': {'code': 'REGULARIZATION_ALREADY_APPROVED'}
       });
 
-      final cubit = myRequests();
+      final cubit = inbox()..scopeTo('STF_1');
       await cubit.load();
       await cubit.edit('SREG_0000001',
           attendanceDate: DateTime(2026, 6, 23), reason: 'too late');
@@ -437,19 +438,6 @@ void main() {
       expect(api.lastQuery.containsKey('status'), isFalse);
       expect(api.lastQuery['sort'], 'createdAt,desc');
       expect(cubit.state.selected, isEmpty);
-      addTearDown(cubit.close);
-    });
-
-    test('history tabs are not selectable', () async {
-      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
-
-      final cubit = inbox();
-      await cubit.load();
-      await cubit.setFilter(RegInboxFilter.approved);
-      cubit.toggleSelectAll();
-
-      expect(cubit.state.selected, isEmpty);
-      expect(cubit.state.selectableRequests, isEmpty);
       addTearDown(cubit.close);
     });
 
@@ -569,10 +557,30 @@ void main() {
       expect(RegInboxFilter.all.sort, RegSortOrder.newestFirst);
     });
 
-    test('only the pending queue supports selection', () {
-      expect(RegInboxFilter.pending.supportsSelection, isTrue);
-      expect(RegInboxFilter.approved.supportsSelection, isFalse);
-      expect(RegInboxFilter.all.supportsSelection, isFalse);
+    test('selection follows the row, not the tab', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
+      // The All tab mixes statuses, and a pending row there is as approvable
+      // as one in the queue — gating on the tab would hide that.
+      final cubit = inbox()..scopeTo('STF_1');
+      await cubit.load();
+      cubit.toggleSelect('SREG_0000001', true);
+
+      expect(cubit.state.selected, contains('SREG_0000001'));
+      addTearDown(cubit.close);
+    });
+
+    test('an approved row can never be ticked', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.approvedListPage);
+
+      final cubit = inbox()..scopeTo('STF_1');
+      await cubit.load();
+      cubit.toggleSelect(cubit.state.requests.first.code, true);
+      cubit.toggleSelectAll();
+
+      expect(cubit.state.selectableRequests, isEmpty);
+      expect(cubit.state.selected, isEmpty);
+      addTearDown(cubit.close);
     });
   });
 }

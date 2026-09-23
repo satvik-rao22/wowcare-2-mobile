@@ -50,7 +50,7 @@ void main() {
     });
   });
 
-  group('RegTimePolicy — §8.5 day window', () {
+  group('RegTimePolicy — sign-out window', () {
     test('sign-out must be after sign-in', () {
       expect(
         RegTimePolicy.validateSignOut(
@@ -73,50 +73,25 @@ void main() {
       );
     });
 
-    test('past the 19:00 fallback cap is rejected', () {
-      expect(
-        RegTimePolicy.validateSignOut(
-          signOutLocal: DateTime(2026, 6, 23, 19, 1),
-          attendanceDate: date,
-          signedInAt: signedIn,
-        ),
-        'Time is outside the school day.',
-      );
-    });
-
-    test('the cap itself is allowed', () {
-      expect(
-        RegTimePolicy.validateSignOut(
-          signOutLocal: DateTime(2026, 6, 23, 19, 0),
-          attendanceDate: date,
-          signedInAt: signedIn,
-        ),
-        isNull,
-      );
-    });
-
-    test('a real school cap overrides the fallback', () {
-      final cap = DateTime(2026, 6, 23, 17, 30);
-      expect(
-        RegTimePolicy.validateSignOut(
-          signOutLocal: DateTime(2026, 6, 23, 18, 0),
-          attendanceDate: date,
-          signedInAt: signedIn,
-          cap: cap,
-        ),
-        isNotNull,
-      );
-    });
-
-    test('a corrected time may not cross midnight', () {
-      expect(
-        RegTimePolicy.validateSignOut(
-          signOutLocal: DateTime(2026, 6, 24, 1, 0),
-          attendanceDate: date,
-          signedInAt: signedIn,
-        ),
-        isNotNull,
-      );
+    test('there is no closing-time bound', () {
+      // Staff stay late — clean-up, a parent meeting, a late pick-up — and
+      // those are exactly the days a sign-out is forgotten. A cap would
+      // reject the requests this module exists to capture.
+      for (final late in [
+        DateTime(2026, 6, 23, 19, 1),
+        DateTime(2026, 6, 23, 21, 30),
+        DateTime(2026, 6, 23, 23, 59),
+      ]) {
+        expect(
+          RegTimePolicy.validateSignOut(
+            signOutLocal: late,
+            attendanceDate: date,
+            signedInAt: signedIn,
+          ),
+          isNull,
+          reason: '$late should be submittable',
+        );
+      }
     });
   });
 
@@ -136,14 +111,14 @@ void main() {
       );
     }
 
-    test('suggestedOrCap uses the server suggestion when present', () {
+    test('suggestedOrDefault uses the server suggestion when present', () {
       final at = DateTime(2026, 6, 23, 17, 30);
-      expect(build(suggested: at).suggestedOrCap, at);
+      expect(build(suggested: at).suggestedOrDefault, at);
     });
 
-    test('suggestedOrCap falls back to the 19:00 cap when absent (§8.5)', () {
-      final resolved = build().suggestedOrCap;
-      expect(resolved, DateTime(2026, 6, 23, 19, 0));
+    test('suggestedOrDefault opens the picker at 19:00 when absent', () {
+      // A starting point for the picker, not a limit on what may be picked.
+      expect(build().suggestedOrDefault, DateTime(2026, 6, 23, 19, 0));
     });
 
     test('blocksSignIn is false once a request exists (§8.3)', () {
@@ -276,12 +251,21 @@ void main() {
       expect(bad.validate(signedInAt: signedIn), 'Add a reason.');
     });
 
-    test('time rules still apply with a good reason', () {
+    test('a late sign-out with a good reason is submittable', () {
       expect(
         build(signOut: DateTime(2026, 6, 23, 23, 0)).validate(
           signedInAt: signedIn,
         ),
-        'Time is outside the school day.',
+        isNull,
+      );
+    });
+
+    test('but sign-out before sign-in is still rejected', () {
+      expect(
+        build(signOut: DateTime(2026, 6, 23, 6, 0)).validate(
+          signedInAt: signedIn,
+        ),
+        'Sign-out must be after sign-in.',
       );
     });
 
@@ -355,13 +339,23 @@ void main() {
       expect(input.validate(), 'Add a reason.');
     });
 
-    test('the day window is re-checked on edit (§8.5)', () {
+    test('a late sign-out is accepted on edit too', () {
       final input = RegEditInput(
         code: 'SREG_1',
         attendanceDate: date,
         signOutLocal: DateTime(2026, 6, 23, 22, 0),
       );
-      expect(input.validate(signedInAt: signedIn), isNotNull);
+      expect(input.validate(signedInAt: signedIn), isNull);
+    });
+
+    test('but "after sign-in" is still re-checked on edit', () {
+      final input = RegEditInput(
+        code: 'SREG_1',
+        attendanceDate: date,
+        signOutLocal: DateTime(2026, 6, 23, 6, 0),
+      );
+      expect(input.validate(signedInAt: signedIn),
+          'Sign-out must be after sign-in.');
     });
   });
 

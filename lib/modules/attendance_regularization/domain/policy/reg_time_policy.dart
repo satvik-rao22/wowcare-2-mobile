@@ -1,30 +1,33 @@
-/// The two rules every write must satisfy, shared by the sheets and the mock so
-/// the message shown locally matches what the server would reject for.
+/// The rules every write must satisfy, shared by the sheets so the message
+/// shown locally matches what the server would reject for.
+///
+/// There is deliberately **no upper bound** on the sign-out time. Staff
+/// routinely stay past closing — for clean-up, a parent meeting, a late
+/// pick-up — and those are exactly the days someone forgets to sign out, so
+/// capping the time would block the very requests this module exists to
+/// capture.
 abstract final class RegTimePolicy {
   const RegTimePolicy._();
 
-  /// Used when the school's closing time is unknown.
-  static const int fallbackCapHour = 19;
+  /// Where the time picker opens when the server sends no suggestion. A
+  /// starting point only — any later time is valid.
+  static const int defaultSignOutHour = 19;
 
-  static DateTime fallbackCapFor(DateTime attendanceDate) => DateTime(
+  static DateTime defaultSignOutFor(DateTime attendanceDate) => DateTime(
       attendanceDate.year, attendanceDate.month, attendanceDate.day,
-      fallbackCapHour);
+      defaultSignOutHour);
 
   static DateTime suggestedOr(DateTime? suggested, DateTime attendanceDate) =>
-      suggested ?? fallbackCapFor(attendanceDate);
+      suggested ?? defaultSignOutFor(attendanceDate);
 
   /// `null` when acceptable, else a message safe to show the user.
   static String? validateSignOut({
     required DateTime signOutLocal,
     required DateTime attendanceDate,
     DateTime? signedInAt,
-    DateTime? cap,
   }) {
     if (signedInAt != null && !signOutLocal.isAfter(signedInAt)) {
       return 'Sign-out must be after sign-in.';
-    }
-    if (signOutLocal.isAfter(cap ?? fallbackCapFor(attendanceDate))) {
-      return 'Time is outside the school day.';
     }
     return null;
   }

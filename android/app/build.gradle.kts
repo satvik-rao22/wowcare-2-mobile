@@ -107,12 +107,17 @@ val crashlyticsMappingUploadEnabled: Boolean by lazy {
 // reports implicit-dependency validation errors for every task that reads from
 // android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
 val copyGoogleServices by tasks.registering {
-    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
-    // build environments. `dartEnvironment` still drives the rest of the build;
-    // only the google-services.json is forced to the uat folder. To restore
-    // per-environment Firebase projects, change this back to
-    // "firebase/$dartEnvironment/google-services.json".
-    val firebaseConfigEnvironment = dartEnvironment
+    // Use the per-environment Firebase project when one exists, else fall back
+    // to UAT. Environments that share a backend but have no Firebase project of
+    // their own (DEV) then build without needing a config checked in; drop a
+    // real firebase/<env>/google-services.json in and it is picked up
+    // automatically.
+    val firebaseConfigEnvironment =
+        if (file("firebase/$dartEnvironment/google-services.json").exists()) {
+            dartEnvironment
+        } else {
+            "uat"
+        }
     println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config")
     val srcPath = "firebase/$firebaseConfigEnvironment/google-services.json"
     doLast {

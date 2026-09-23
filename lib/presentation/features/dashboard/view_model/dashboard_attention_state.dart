@@ -20,6 +20,7 @@ class DashboardAttentionState extends Equatable {
   const DashboardAttentionState({
     this.status = DashboardAttentionStatus.initial,
     this.pendingIncidents = 0,
+    this.pendingRegularizations = 0,
     this.pendingMovements = 0,
     this.overdueMovements = 0,
     this.expiredDocuments = 0,
@@ -35,6 +36,9 @@ class DashboardAttentionState extends Equatable {
 
   final DashboardAttentionStatus status;
   final int pendingIncidents;
+
+  /// Attendance corrections awaiting this admin's approval.
+  final int pendingRegularizations;
   final int pendingMovements;
   final int overdueMovements;
   final int expiredDocuments;
@@ -59,6 +63,7 @@ class DashboardAttentionState extends Equatable {
   DashboardAttentionState copyWith({
     DashboardAttentionStatus? status,
     int? pendingIncidents,
+    int? pendingRegularizations,
     int? pendingMovements,
     int? overdueMovements,
     int? expiredDocuments,
@@ -74,6 +79,8 @@ class DashboardAttentionState extends Equatable {
     return DashboardAttentionState(
       status: status ?? this.status,
       pendingIncidents: pendingIncidents ?? this.pendingIncidents,
+      pendingRegularizations:
+          pendingRegularizations ?? this.pendingRegularizations,
       pendingMovements: pendingMovements ?? this.pendingMovements,
       overdueMovements: overdueMovements ?? this.overdueMovements,
       expiredDocuments: expiredDocuments ?? this.expiredDocuments,
@@ -96,6 +103,7 @@ class DashboardAttentionState extends Equatable {
   List<Object?> get props => [
     status,
     pendingIncidents,
+    pendingRegularizations,
     pendingMovements,
     overdueMovements,
     expiredDocuments,

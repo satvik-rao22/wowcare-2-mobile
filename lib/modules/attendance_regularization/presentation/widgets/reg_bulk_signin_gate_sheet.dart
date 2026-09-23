@@ -91,7 +91,7 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
   }
 
   TimeOfDay _suggested(MissedSignout s) =>
-      TimeOfDay(hour: s.suggestedOrCap.hour, minute: s.suggestedOrCap.minute);
+      TimeOfDay(hour: s.suggestedOrDefault.hour, minute: s.suggestedOrDefault.minute);
 
   bool _isEdited(MissedSignout s) {
     final t = _times[s.attendanceCode]!;

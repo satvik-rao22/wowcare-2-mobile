@@ -112,8 +112,8 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
   /// Editing opens on what was actually requested; creating opens on the
   /// server's suggestion (§9.1).
   late TimeOfDay _time = TimeOfDay(
-    hour: (widget.initialSignOutLocal ?? widget.item.suggestedOrCap).hour,
-    minute: (widget.initialSignOutLocal ?? widget.item.suggestedOrCap).minute,
+    hour: (widget.initialSignOutLocal ?? widget.item.suggestedOrDefault).hour,
+    minute: (widget.initialSignOutLocal ?? widget.item.suggestedOrDefault).minute,
   );
   late final TextEditingController _reason =
       TextEditingController(text: widget.initialReason);
@@ -141,8 +141,9 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
     final signOutLocal =
         DateTime(d.year, d.month, d.day, _time.hour, _time.minute);
 
-    // §8.2 reason + §8.5 day window, both from the shared policy so the
-    // message here matches what the server would reject for.
+    // §8.2 reason + "after sign-in", from the shared policy so the message
+    // here matches what the server would reject for. No closing-time bound:
+    // staying late is the normal reason a sign-out was missed.
     final error = RegTimePolicy.validateReason(_reason.text) ??
         RegTimePolicy.validateSignOut(
           signOutLocal: signOutLocal,
@@ -166,7 +167,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final suggested = Av2DateFormatter.compactTime(item.suggestedOrCap);
+    final suggested = Av2DateFormatter.compactTime(item.suggestedOrDefault);
     final dateLabel = Av2DateFormatter.monthDay(item.attendanceDate);
     return PopScope(
       canPop: !widget.mandatory,

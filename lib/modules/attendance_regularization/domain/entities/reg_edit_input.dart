@@ -40,7 +40,7 @@ class RegEditInput {
   /// requires a reason, whereas an *edit* only validates the reason it was
   /// given — an edit that changes the time alone is legitimate and leaves the
   /// existing reason in place.
-  String? validate({DateTime? signedInAt, DateTime? cap}) {
+  String? validate({DateTime? signedInAt}) {
     if (!hasChange) return 'Change the time or the reason before saving.';
     if (reason != null) {
       final reasonError = RegTimePolicy.validateReason(reason);
@@ -51,7 +51,6 @@ class RegEditInput {
         signOutLocal: signOutLocal!,
         attendanceDate: attendanceDate,
         signedInAt: signedInAt,
-        cap: cap,
       );
     }
     return null;

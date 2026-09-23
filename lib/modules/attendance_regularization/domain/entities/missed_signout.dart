@@ -37,7 +37,7 @@ class MissedSignout {
   final String staffCode;
   final String staffName;
 
-  DateTime get suggestedOrCap =>
+  DateTime get suggestedOrDefault =>
       RegTimePolicy.suggestedOr(suggestedSignOutTime, attendanceDate);
 
   /// Open the sheet in edit mode rather than attempting a duplicate create.

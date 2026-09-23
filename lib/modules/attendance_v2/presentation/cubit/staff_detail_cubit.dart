@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../../domain/entities/day_detail.dart';
 import '../../domain/usecases/calculate_overtime_usecase.dart';
@@ -74,8 +74,13 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     // if calculate hiccups.
     try {
       await calculateOvertimeUseCase(staffCode: _staffCode, from: from, to: to);
-    } catch (e) {
-      debugPrint('Av2 calculate failed (continuing to overview): $e');
+    } catch (e, st) {
+      AppLogger.e(
+        'Av2 calculate failed (continuing to overview) '
+        'staff=$_staffCode range=$from..$to',
+        e,
+        st,
+      );
     }
     try {
       _detailCache.clear();
@@ -93,7 +98,16 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
           reloadId: state.reloadId + 1,
         ));
       }
-    } catch (e) {
+    } catch (e, st) {
+      // The user only ever sees a sanitized message, so the raw cause MUST be
+      // logged here — a client-side mapping/type error on a 200 response is
+      // otherwise completely invisible (no API error log, generic message).
+      AppLogger.e(
+        'Av2 overview load failed (${e.runtimeType}) '
+        'staff=$_staffCode range=$from..$to',
+        e,
+        st,
+      );
       if (isClosed) return;
       if (emitError) {
         emit(state.copyWith(

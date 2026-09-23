@@ -2,7 +2,7 @@ import '../../domain/entities/attendance_day.dart';
 
 /// The single segmented filter that replaces the old Summarised/Separate +
 /// Show-Absent toggles.
-enum Av2DayFilter { all, overtime, absent, needsAttention }
+enum Av2DayFilter { all, overtime, absent, requests }
 
 extension Av2DayFilterX on Av2DayFilter {
   String get label {
@@ -13,8 +13,8 @@ extension Av2DayFilterX on Av2DayFilter {
         return 'Overtime';
       case Av2DayFilter.absent:
         return 'Absent';
-      case Av2DayFilter.needsAttention:
-        return 'Needs attention';
+      case Av2DayFilter.requests:
+        return 'Requests';
     }
   }
 
@@ -26,8 +26,9 @@ extension Av2DayFilterX on Av2DayFilter {
         return !day.isAbsent && day.hasOvertime;
       case Av2DayFilter.absent:
         return day.isAbsent;
-      case Av2DayFilter.needsAttention:
-        return day.needsAttention;
+      // Not a day filter: the tab renders the regularization list instead.
+      case Av2DayFilter.requests:
+        return false;
     }
   }
 

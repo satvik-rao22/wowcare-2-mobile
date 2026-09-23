@@ -1,30 +1,54 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/attendance_events.dart';
 
 import '../../core/config/reg_config.dart';
+import '../../core/errors/reg_exceptions.dart';
+import '../../data/reg_context.dart';
+import '../../domain/entities/reg_edit_input.dart';
 import '../../domain/entities/regularization_request.dart';
 import '../../domain/usecases/approve_request_usecase.dart';
 import '../../domain/usecases/approve_selected_usecase.dart';
+import '../../domain/usecases/edit_regularization_usecase.dart';
 import '../../domain/usecases/get_requests_usecase.dart';
 import '../controllers/reg_inbox_filter.dart';
 import 'reg_inbox_state.dart';
-import 'reg_my_requests_state.dart' show RegListStatus;
 
-/// Drives the admin's regularization list — the pending queue **and** the
-/// approved history, from the one §9.5 endpoint.
+/// Drives a regularization list — the pending queue **and** the approved
+/// history, from the one §9.5 endpoint.
+///
+/// [scopeTo] is what makes it serve both the school-wide admin inbox and one
+/// staff member's profile list, so there is a single set of list, paging,
+/// selection and approve rules rather than one per screen.
 class RegInboxCubit extends Cubit<RegInboxState> {
   RegInboxCubit({
     required GetRequestsUseCase getRequests,
     required ApproveRequestUseCase approveRequest,
     required ApproveSelectedUseCase approveSelected,
+    required EditRegularizationUseCase editRequest,
+    required RegContext context,
   })  : _getRequests = getRequests,
         _approveRequest = approveRequest,
         _approveSelected = approveSelected,
+        _editRequest = editRequest,
+        _context = context,
         super(const RegInboxState());
 
   final GetRequestsUseCase _getRequests;
   final ApproveRequestUseCase _approveRequest;
   final ApproveSelectedUseCase _approveSelected;
+  final EditRegularizationUseCase _editRequest;
+  final RegContext _context;
+
+  /// Whose requests to list. Empty is the whole school (the admin inbox); a
+  /// staff code narrows it to one person's profile.
+  String _staffCode = '';
+
+  /// Narrows the list to one staff member, and opens on [filter].
+  void scopeTo(String staffCode, {RegInboxFilter filter = RegInboxFilter.all}) {
+    _staffCode = staffCode.trim();
+    emit(state.copyWith(filter: filter));
+  }
 
   /// [keepMessage] is set by actions that reload right after reporting their
   /// outcome, so the reload does not wipe the message being shown.
@@ -34,7 +58,9 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       message: keepMessage ? null : '',
     ));
     try {
+      final user = await _context.currentUserCode();
       final page = await _getRequests(
+        staffCode: _staffCode.isEmpty ? null : _staffCode,
         status: state.filter.status,
         sort: state.filter.sort,
         page: 0,
@@ -46,6 +72,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
         hasMore: page.hasMore,
         page: 0,
         selected: const {},
+        currentUserCode: user,
       ));
     } catch (error) {
       emit(state.copyWith(
@@ -80,6 +107,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     emit(state.copyWith(loadingMore: true));
     try {
       final next = await _getRequests(
+        staffCode: _staffCode.isEmpty ? null : _staffCode,
         status: state.filter.status,
         sort: state.filter.sort,
         page: state.page + 1,
@@ -104,9 +132,8 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   // ——————————————————————————————————————————————————————————————
 
   void toggleSelect(String code, bool on) {
-    // Guard at the cubit as well as the widget: only a pending row on the
-    // pending tab is ever selectable.
-    if (!state.filter.supportsSelection) return;
+    // Guard at the cubit as well as the widget: only a pending row is ever
+    // selectable.
     final selectable = state.selectableRequests.map((r) => r.code).toSet();
     if (!selectable.contains(code)) return;
 
@@ -120,9 +147,8 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   }
 
   void toggleSelectAll() {
-    if (!state.filter.supportsSelection) return;
-    final selectable =
-        state.selectableRequests.map((r) => r.code).toSet();
+    final selectable = state.selectableRequests.map((r) => r.code).toSet();
+    if (selectable.isEmpty) return;
     emit(state.copyWith(
       selected: state.selected.length == selectable.length
           ? const {}
@@ -149,6 +175,9 @@ class RegInboxCubit extends Cubit<RegInboxState> {
         signOutLocal: signOutLocal,
         note: note,
       );
+      // Approval writes signed_out_at onto the attendance row and recomputes
+      // the day, so anything showing attendance needs to re-read it.
+      AttendanceEvents.notifyChanged();
       emit(state.copyWith(
         busy: false,
         requests: _applyDecision(updated),
@@ -179,6 +208,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       final approvedCodes =
           codes.where((c) => !result.skippedKeys.contains(c)).toSet();
 
+      if (result.applied > 0) AttendanceEvents.notifyChanged();
       emit(state.copyWith(
         busy: false,
         requests: _removeOrMark(approvedCodes),
@@ -223,6 +253,36 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     // rather than a locally-invented copy. The summary message survives it.
     Future.microtask(() => load(keepMessage: true));
     return state.requests;
+  }
+
+  /// The raiser revising their own pending request.
+  Future<void> edit(
+    String code, {
+    required DateTime attendanceDate,
+    DateTime? signOutLocal,
+    String? reason,
+  }) async {
+    emit(state.copyWith(busyCode: code, message: ''));
+    try {
+      await _editRequest(RegEditInput(
+        code: code,
+        attendanceDate: attendanceDate,
+        signOutLocal: signOutLocal,
+        reason: reason,
+      ));
+      emit(state.copyWith(clearBusyCode: true, message: 'Request updated'));
+      await load(keepMessage: true);
+    } on RegAlreadyApprovedException catch (error) {
+      // An edit that lost to an approval must say so — a silent no-op would
+      // leave the user believing their change applied.
+      emit(state.copyWith(clearBusyCode: true, message: error.message));
+      await load(keepMessage: true);
+    } catch (error) {
+      emit(state.copyWith(
+        clearBusyCode: true,
+        message: ApiErrorHandler.extractErrorMessage(error),
+      ));
+    }
   }
 
   void clearMessage() {

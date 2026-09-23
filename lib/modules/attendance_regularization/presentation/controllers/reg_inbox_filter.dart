@@ -49,10 +49,6 @@ enum RegInboxFilter {
     }
   }
 
-  /// True when rows in this tab can be selected for bulk approve. Only the
-  /// pending queue is actionable; a history tab is read-only.
-  bool get supportsSelection => this == RegInboxFilter.pending;
-
   String get emptyMessage {
     switch (this) {
       case RegInboxFilter.pending:

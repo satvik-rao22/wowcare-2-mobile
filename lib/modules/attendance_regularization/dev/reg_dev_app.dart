@@ -5,7 +5,8 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 
 import '../data/fixtures/regularization_fixtures.dart';
 import '../presentation/screens/reg_admin_inbox_screen.dart';
-import '../presentation/screens/reg_staff_list_screen.dart';
+import '../presentation/entry/reg_requests_list.dart';
+import '../presentation/widgets/reg_scaffold.dart';
 import '../presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import '../presentation/widgets/reg_resolve_sheet.dart';
 
@@ -80,9 +81,15 @@ class _DevMenu extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => RegStaffListScreen(
-                      requests: RegularizationFixtures.myRequests,
-                      pendingGate: RegularizationFixtures.pendingGate,
+                    builder: (_) => RegScaffold(
+                      title: 'My regularizations',
+                      body: SingleChildScrollView(
+                        padding: const EdgeInsets.all(Av2Spacing.md),
+                        child: RegRequestsList(
+                          requests: RegularizationFixtures.myRequests,
+                          currentUserCode: 'STF_1',
+                        ),
+                      ),
                     ),
                   ),
                 );

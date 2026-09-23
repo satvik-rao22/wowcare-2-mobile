@@ -3,6 +3,8 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -146,6 +148,9 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
           .onError((_, __) => null),
     ], eagerError: false);
 
+    final regularizationCount =
+        await Regularization.pendingApprovalCount(serviceLocator);
+
     final incidentResult = results[0] as int?;
     final movementResult =
         results[1] as ({int pendingCount, int overdueCount})?;
@@ -183,6 +188,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
             ? DashboardAttentionStatus.partialFailure
             : DashboardAttentionStatus.loaded,
         pendingIncidents: incidentResult ?? state.pendingIncidents,
+        pendingRegularizations: regularizationCount,
         pendingMovements:
             movementResult?.pendingCount ?? state.pendingMovements,
         overdueMovements:

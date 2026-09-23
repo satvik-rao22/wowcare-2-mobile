@@ -2,9 +2,11 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/regularization_request.dart';
 import '../controllers/reg_inbox_filter.dart';
-import 'reg_my_requests_state.dart' show RegListStatus;
 
-/// State of the admin's regularization list.
+enum RegListStatus { initial, loading, loaded, error }
+
+/// State of a regularization list — the admin inbox, or one staff member's
+/// requests on their attendance profile.
 class RegInboxState extends Equatable {
   const RegInboxState({
     this.status = RegListStatus.initial,
@@ -15,6 +17,8 @@ class RegInboxState extends Equatable {
     this.page = 0,
     this.loadingMore = false,
     this.busy = false,
+    this.busyCode,
+    this.currentUserCode = '',
     this.message = '',
   });
 
@@ -33,6 +37,12 @@ class RegInboxState extends Equatable {
   /// An approve or bulk-approve is in flight.
   final bool busy;
 
+  /// The row whose edit is in flight, so only that card shows a spinner.
+  final String? busyCode;
+
+  /// Signed-in user. Only the raiser may edit, so rows compare against this.
+  final String currentUserCode;
+
   final String message;
 
   bool get isLoading => status == RegListStatus.loading;
@@ -41,13 +51,12 @@ class RegInboxState extends Equatable {
 
   /// The rows that can actually be selected.
   ///
-  /// The list may mix statuses on the Approved / All tabs, so "select all" and
-  /// the header count must both work off this rather than the whole page —
-  /// otherwise an admin could tick an already-approved row.
+  /// Selectability is a property of the **row**, not the tab: the All tab
+  /// mixes statuses, and a pending row there is as approvable as one in the
+  /// queue. "Select all" and the header count work off this so an
+  /// already-approved row can never be ticked.
   List<RegularizationRequest> get selectableRequests =>
-      filter.supportsSelection
-          ? requests.where((r) => r.status.isPending).toList(growable: false)
-          : const [];
+      requests.where((r) => r.status.isPending).toList(growable: false);
 
   int get pendingCount => selectableRequests.length;
 
@@ -66,6 +75,9 @@ class RegInboxState extends Equatable {
     int? page,
     bool? loadingMore,
     bool? busy,
+    String? busyCode,
+    bool clearBusyCode = false,
+    String? currentUserCode,
     String? message,
   }) {
     return RegInboxState(
@@ -77,6 +89,8 @@ class RegInboxState extends Equatable {
       page: page ?? this.page,
       loadingMore: loadingMore ?? this.loadingMore,
       busy: busy ?? this.busy,
+      busyCode: clearBusyCode ? null : (busyCode ?? this.busyCode),
+      currentUserCode: currentUserCode ?? this.currentUserCode,
       message: message ?? this.message,
     );
   }
@@ -91,6 +105,8 @@ class RegInboxState extends Equatable {
         page,
         loadingMore,
         busy,
+        busyCode,
+        currentUserCode,
         message,
       ];
 }

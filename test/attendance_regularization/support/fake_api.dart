@@ -173,6 +173,24 @@ class FakeApi {
     }
   };
 
+  /// History only, so nothing on the page is approvable.
+  static Object approvedListPage = {
+    'data': {
+      'content': [
+        {
+          ...rawRequest('APPROVED'),
+          'approvedSignOutTime': '2026-06-23T13:30:00Z',
+          'approvalByCode': 'USR_0001',
+          'approvalAt': '2026-06-24T04:11:02Z',
+        }
+      ],
+      'page': 0,
+      'size': 20,
+      'totalElements': 1,
+      'hasNext': false,
+    }
+  };
+
   static Object listNoStaffName = {
     'data': {
       'content': [

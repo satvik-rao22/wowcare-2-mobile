@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
@@ -16,11 +17,12 @@ import 'package:wowcare/presentation/features/scheduling/model/scheduling_models
 
 // ── Tone ─────────────────────────────────────────────────────────────────────
 
-enum _AttentionTone { danger, warning }
+enum _AttentionTone { danger, warning, neutral }
 
 // ── Card routing types ─────────────────────────────────────────────────────────
 
 enum _AttentionCardRoute {
+  regularizationApproval,
   incidentApproval,
   classroomRatio,
   classroomShifts,
@@ -59,6 +61,7 @@ class AttentionCardModel {
     required this.route,
     this.pillText,
     this.tone = _AttentionTone.danger,
+    this.alwaysShow = false,
     this.showThumbDown = false,
     this.isCurrency = false,
     this.valueText,
@@ -89,8 +92,13 @@ class AttentionCardModel {
   /// When non-null, shows bullet sub-item rows instead of the pill badge.
   final List<AttentionCardSubItem>? subItems;
 
+  /// Keeps the card visible at zero — for a card that doubles as the route to
+  /// its own history.
+  final bool alwaysShow;
+
   bool get shouldShow =>
-      isCurrency ? (valueText != null && valueText!.isNotEmpty) : count > 0;
+      alwaysShow ||
+      (isCurrency ? (valueText != null && valueText!.isNotEmpty) : count > 0);
 }
 
 // ── Attention Grid ─────────────────────────────────────────────────────────────
@@ -186,6 +194,13 @@ class _AttentionGridState extends State<AttentionGrid> {
 
   void _handleCardTap(_AttentionCardRoute route) {
     switch (route) {
+      case _AttentionCardRoute.regularizationApproval:
+        // Approving mutates the queue, so re-read the count on the way back
+        // rather than leaving a stale number on the card.
+        Regularization.openAdminInbox(context).then((_) {
+          if (mounted) context.read<DashboardAttentionCubit>().refresh();
+        });
+
       case _AttentionCardRoute.incidentApproval:
         if (widget.onIncidentCardTap != null) {
           widget.onIncidentCardTap!();
@@ -314,6 +329,21 @@ class _AttentionGridState extends State<AttentionGrid> {
         : 0;
 
     return [
+      // Attendance corrections. Unlike the other cards this one stays visible
+      // at zero: it is also the only route to the approved history, and an
+      // admin should not lose it by clearing the queue.
+      AttentionCardModel(
+        label: 'Attendance Requests',
+        count: attentionState.pendingRegularizations,
+        pillText: attentionState.pendingRegularizations > 0
+            ? 'Pending Approval'
+            : 'View history',
+        tone: attentionState.pendingRegularizations > 0
+            ? _AttentionTone.warning
+            : _AttentionTone.neutral,
+        alwaysShow: true,
+        route: _AttentionCardRoute.regularizationApproval,
+      ),
       // Incidents — single count, pill badge
       AttentionCardModel(
         label: 'Incidents',
@@ -688,9 +718,11 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color base = tone == _AttentionTone.warning
-        ? AppColors.accentColor
-        : AppColors.errorColor;
+    final Color base = switch (tone) {
+      _AttentionTone.warning => AppColors.accentColor,
+      _AttentionTone.neutral => AppColors.lightBlueProgressBar,
+      _AttentionTone.danger => AppColors.errorColor,
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -318,7 +318,7 @@ class _AdminDashboardCardList extends StatelessWidget {
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 0),
                       sliver: SliverToBoxAdapter(
-                        child: Regularization.dashboardEntry(),
+                        child: Regularization.gateWatcher(),
                       ),
                     ),
                     SliverPadding(

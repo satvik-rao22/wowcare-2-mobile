@@ -47,17 +47,16 @@ class RegRaiseInput {
   /// Mandatory, non-blank (§8.2).
   final String reason;
 
-  /// First failing rule (§8.2, §8.5), or `null` when the input is submittable.
+  /// First failing rule (§8.2), or `null` when the input is submittable.
   ///
-  /// Pass [signedInAt] to enforce "after sign-in", and [cap] when the school's
-  /// real working-hours end is known.
-  String? validate({DateTime? signedInAt, DateTime? cap}) {
+  /// Pass [signedInAt] to enforce "after sign-in". There is no late bound —
+  /// staying past closing is precisely when a sign-out gets forgotten.
+  String? validate({DateTime? signedInAt}) {
     return RegTimePolicy.validateReason(reason) ??
         RegTimePolicy.validateSignOut(
           signOutLocal: signOutLocal,
           attendanceDate: attendanceDate,
           signedInAt: signedInAt,
-          cap: cap,
         );
   }
 
