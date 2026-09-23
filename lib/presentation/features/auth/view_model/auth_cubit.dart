@@ -23,7 +23,7 @@ import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
@@ -713,16 +713,16 @@ class AuthCubit extends Cubit<AuthState> {
         // storage. Clear both storage and static cache before any navigation
         // so the router never sees a stale kiosk flag for this user.
         try {
-          final kioskAccess = _kioskAccessControl;
-          await kioskAccess.deactivateKioskMode();
+          await _kioskAccessControl.deactivateKioskMode();
           AppLogger.d(
             '[AUTH ROLE CHECK] Non-kiosk login — kiosk state cleared. '
             'Role(s): ${response.roles.map((r) => r.role).join(', ')}. '
             'IsKiosk: false.',
           );
         } catch (_) {
-          // Fallback: force static cache clear even if DI lookup fails.
-          KioskAccessControl.clearCacheForNonKioskLogin();
+          // Storage clear failed; still drop the in-memory session so the
+          // router's synchronous check can't see a stale kiosk flag.
+          _kioskAccessControl.clearCacheForNonKioskLogin();
         }
 
         // Persist latest login response (tokens, user, roles) for future app launches.
@@ -910,14 +910,11 @@ class AuthCubit extends Cubit<AuthState> {
                   );
                 } catch (_) {}
 
-                try {
-                  final pin = await staffRepository.getStaffSignInPin(
-                    staffCode: trimmed,
-                  );
-                  if (pin.trim().isNotEmpty) {
-                    await storage.saveString(StorageKeys.staffPin, pin.trim());
-                  }
-                } catch (_) {}
+                // The sign-in PIN is deliberately NOT prefetched here any
+                // more. Storing it made login's value the only one the app
+                // ever showed, so a PIN changed on the web stayed wrong until
+                // the next logout. The My Day card and the app bar menu now
+                // fetch it themselves, so there is nothing to cache.
               }
             }
           } catch (_) {
@@ -1476,15 +1473,8 @@ class AuthCubit extends Cubit<AuthState> {
           StorageKeys.staffAllowedClassroomCodes,
           jsonEncode(profile.allowedClassroomCodes),
         );
-        // Also prefetch PIN whenever we prefetch profile for a new org/school.
-        try {
-          final pin = await staffRepository.getStaffSignInPin(
-            staffCode: trimmed,
-          );
-          if (pin.trim().isNotEmpty) {
-            await storage.saveString(StorageKeys.staffPin, pin.trim());
-          }
-        } catch (_) {}
+        // No PIN prefetch: it is fetched live wherever it is shown, so there
+        // is no stored copy to keep in step with an org/school switch.
       } catch (_) {
         // Non-blocking
       }

@@ -14,7 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shi
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/day_classroom_section.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 

@@ -509,6 +509,16 @@ class ApiPaths {
       '$studentList/$studentCode/profile-photo/finalize';
   static const String studentProfilePhotoAssetCodes =
       '/api/v1/student/profile-photo/asset-codes';
+
+  /// POST `/api/v1/student/delete-profile-photo/{studentCode}` (empty `{}` body).
+  ///
+  /// Direct-MS form, like the sibling photo paths above; UAT re-inserts the
+  /// gateway segment to reach the live route
+  /// `/api/v1/student/student/delete-profile-photo/{studentCode}`. Writing that
+  /// doubled form here would 404 in LOCAL — see the note on
+  /// [studentPhysicalCheckupCount].
+  static String studentDeleteProfilePhotoPath(String studentCode) =>
+      '$studentList/delete-profile-photo/$studentCode';
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
@@ -572,6 +582,15 @@ class ApiPaths {
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
   static String guardianProfilePhotoFinalizePath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
+
+  /// POST `/api/v1/guardian/delete-profile-photo/{guardianCode}` (empty `{}` body).
+  ///
+  /// `guardian` routes to the STUDENT microservice (see
+  /// [microserviceKeyFromPath]), so UAT rewrites this to the live route
+  /// `/api/v1/student/guardian/delete-profile-photo/{guardianCode}`. Takes the
+  /// `GUA_*` guardian code, same as the upload paths above.
+  static String guardianDeleteProfilePhotoPath(String guardianCode) =>
+      '$guardian/delete-profile-photo/${Uri.encodeComponent(guardianCode.trim())}';
   static const String pickup = '/api/v1/pickup';
   static const String individualMovements = '/api/v1/individual-movements';
   static const String individualMovementsStatusCounts =

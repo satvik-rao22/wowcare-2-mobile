@@ -26,6 +26,8 @@ import 'package:wowcare/src/app_router.dart'
     show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/guardian_clock_pin_resolver.dart';
+import 'package:wowcare/core/utils/sign_in_pin_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -472,6 +474,30 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
     }
   }
 
+  /// The PIN to show in the kebab menu for the persona the user is in.
+  ///
+  /// A guardian has no staff record, so the staff PIN endpoint has nothing to
+  /// return for them and the row used to render as a bare "Sign-in pin" with no
+  /// number — even though the parent dashboard shows one. Their PIN is the
+  /// guardian `clockPin` on the selected child, which is what the parent
+  /// dashboard reads too, so both surfaces now show the same value.
+  Future<String?> _resolveMenuSignInPin(
+    BuildContext context, {
+    required bool isParentPersona,
+  }) {
+    if (!isParentPersona) return fetchSignInPinForLoggedInUser();
+
+    String studentCode = '';
+    try {
+      studentCode =
+          (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
+    } catch (_) {
+      // No ParentChildCubit above this app bar — fall through to the empty
+      // code, which resolves to "no PIN to show" rather than throwing.
+    }
+    return fetchGuardianSignInPinForLoggedInUser(studentCode: studentCode);
+  }
+
   @override
   Widget build(BuildContext context) {
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
@@ -585,8 +611,13 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               ),
               const SizedBox(width: 12),
               FutureBuilder<String?>(
-                future: serviceLocator<StorageService>().getString(
-                  StorageKeys.staffPin,
+                // Straight from the API, never from storage. The stored
+                // `staffPin` this replaced was written once at login, so a PIN
+                // changed on the web showed its old value here forever. This
+                // runs when the menu is opened, not on every screen build.
+                future: _resolveMenuSignInPin(
+                  context,
+                  isParentPersona: isParentPersona,
                 ),
                 builder: (context, snapshot) {
                   final pin = (snapshot.data ?? '').trim();

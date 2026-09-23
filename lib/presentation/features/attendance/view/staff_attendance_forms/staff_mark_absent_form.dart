@@ -18,10 +18,21 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_t
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_redirect.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
-  const StaffMarkAbsentForm({super.key, this.staff, this.staffList});
+  const StaffMarkAbsentForm({
+    super.key,
+    this.staff,
+    this.staffList,
+    this.popOnSuccess = false,
+  });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
+
+  /// When true, pops back to the caller after a successful submission instead
+  /// of redirecting to the Attendance daily tab. Set by callers that live
+  /// outside the Attendance tab (e.g. the Staff attendance profile) so the
+  /// user stays on the screen they started from.
+  final bool popOnSuccess;
 
   static const String routeName = '/staff-mark-absent-form';
 
@@ -73,11 +84,12 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      if (outcome.returnToTabbedView) {
+      if (outcome.returnToTabbedView && !widget.popOnSuccess) {
         redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
       } else if (mounted) {
-        // Teacher/staff persona: no forced navigation — stay on whatever
-        // screen this action was started from.
+        // Teacher/staff persona, or a caller that owns its own screen: no
+        // forced navigation — stay on whatever screen this action was
+        // started from.
         Navigator.of(context).maybePop();
       }
     } else {

@@ -5,6 +5,7 @@ import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_avatar_source.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Reusable horizontal scrollable participant chips component.
@@ -52,6 +53,12 @@ class ParticipantChips extends StatelessWidget {
               ? p.userName
               : _roleFallbackName(roleStr);
           final color = _roleColor(roleStr);
+          final avatar = ParticipantAvatarSource.of(
+            avatarUrl: p.avatarUrl,
+            staffCode: p.staffCode,
+            userCode: p.userCode,
+            role: roleStr,
+          );
 
           return Container(
             padding: const EdgeInsets.symmetric(
@@ -69,17 +76,10 @@ class ParticipantChips extends StatelessWidget {
                 DocumentImageWidget(
                   disableAttendanceStatusLookup: true,
                   fileUuid: '',
-                  imageUrl: (p.avatarUrl ?? '').startsWith('http')
-                      ? p.avatarUrl
-                      : null,
-                  mediaAssetCode:
-                      (p.avatarUrl ?? '').isNotEmpty &&
-                          !(p.avatarUrl ?? '').startsWith('http')
-                      ? p.avatarUrl
-                      : null,
-                  staffCode: (p.staffCode ?? '').trim().isNotEmpty
-                      ? p.staffCode
-                      : null,
+                  imageUrl: avatar.imageUrl,
+                  mediaAssetCode: avatar.mediaAssetCode,
+                  staffCode: avatar.staffCode,
+                  userCode: avatar.userCode,
                   name: name,
                   size: 16,
                   fontSize: 9,

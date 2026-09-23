@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -22,6 +24,7 @@ import 'package:wowcare/presentation/features/billing/view/transactions/transact
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/shared/common/view/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -63,6 +66,40 @@ class TransactionsSection extends StatefulWidget {
 
 class _TransactionsSectionState extends State<TransactionsSection> {
   late final TransactionsCubit _cubit = serviceLocator<TransactionsCubit>();
+
+  /// Row kinds offered by the funnel sheet. Sent verbatim as the `type` query
+  /// param (`type=Payment`), matching what the web client sends.
+  static const List<String> _typeOptions = <String>[
+    BillingStrings.invoice,
+    BillingStrings.payment,
+    BillingStrings.refund,
+    BillingStrings.credit,
+  ];
+
+  /// Student-enrollment statuses offered by the funnel sheet's Status facet.
+  static const List<String> _studentStatusOptions = <String>[
+    BillingStrings.active,
+    BillingStrings.upcoming,
+    BillingStrings.inactive,
+  ];
+
+  /// Payment modes offered by the funnel sheet. Sent verbatim as the `mode`
+  /// query param (`mode=Check`), matching what the web client sends.
+  static const List<String> _modeOptions = <String>[
+    BillingStrings.cash,
+    BillingStrings.check,
+    BillingStrings.online,
+    BillingStrings.other,
+  ];
+
+  /// Payment outcomes offered by the funnel sheet's Payment Status facet —
+  /// distinct from the invoice-lifecycle values the `status` query param
+  /// takes (that's legend-only now). Sent as the `paymentStatus` query param.
+  static const List<String> _paymentStatusOptions = <String>[
+    BillingStrings.paid,
+    BillingStrings.inProgress,
+    BillingStrings.failed,
+  ];
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -76,6 +113,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     } else {
       _cubit.loadTransactions();
     }
+    unawaited(_cubit.loadFilterOptions());
     widget.onRegisterRefresh?.call(_refresh);
     widget.onRegisterLoadNextPage?.call(_cubit.loadNextPage);
   }
@@ -147,7 +185,11 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 const SizedBox(height: 12),
                 _buildSearchBar(context),
                 const SizedBox(height: 16),
-                if (state.isLoading)
+                // isApplyingFilters covers the student-code lookup behind a
+                // classroom/tag pick, which runs alongside the list reload —
+                // without it, rows would briefly show unfiltered if that
+                // lookup finishes second.
+                if (state.isLoading || state.isApplyingFilters)
                   ...List.generate(
                     5,
                     (_) => const Padding(
@@ -242,12 +284,40 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () {},
+                        onTap: _openFilter,
                         child: Center(
-                          child: SvgPicture.asset(
-                            MediaRes.filterIcon,
-                            width: 20,
-                            height: 20,
+                          // Dot marks an applied filter, which is otherwise
+                          // invisible once the sheet closes.
+                          child: BlocSelector<TransactionsCubit,
+                              TransactionsState, bool>(
+                            selector: (s) => s.hasActiveFilters,
+                            builder: (context, hasActiveFilters) => Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                SvgPicture.asset(
+                                  MediaRes.filterIcon,
+                                  width: 20,
+                                  height: 20,
+                                ),
+                                if (hasActiveFilters)
+                                  Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.errorColor,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: AppColors.billingCardColor,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -282,7 +352,111 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void _clearSearch() {
     _searchController.clear();
     _cubit.clearSearch();
-    _cubit.applyFilter(null);
+    unawaited(_cubit.clearFilters());
+  }
+
+  /// Transactions-tab filter sheet. Separate from the Student(s) tab's sheet —
+  /// different list, different API, different facets — and backed by this
+  /// tab's own [TransactionsCubit].
+  ///
+  /// Type and Status go to the transactions endpoint as query params. Classroom
+  /// and Tags aren't supported by it, so they're resolved through the student
+  /// list API and matched against each row's studentCode.
+  Future<void> _openFilter() async {
+    final state = _cubit.state;
+    final classrooms = state.classroomNames;
+    final tags = state.tagNames;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => FilterScreen(
+          sections: [
+            if (classrooms.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.classroom,
+                items: classrooms,
+                initialSelected: state.selectedClassroomNames,
+              ),
+            if (tags.isNotEmpty)
+              FilerSection(
+                label: BillingStrings.tags,
+                items: tags,
+                initialSelected: state.selectedTagNames,
+              ),
+            // Student status (Active/Upcoming/Inactive) is a student-side
+            // facet, resolved through the student list API like Classroom/Tag
+            // above — not sent to the transactions endpoint directly.
+            FilerSection(
+              label: BillingStrings.status,
+              items: _studentStatusOptions,
+              initialSelected: [
+                if ((state.selectedStudentStatus ?? '').isNotEmpty)
+                  state.selectedStudentStatus!,
+              ],
+              isSingleSelect: true,
+            ),
+            // Type, Mode and Payment Status are all single-select: the
+            // endpoint takes one of each. Mode/Payment Status only make
+            // sense for a Payment-type row (a Cash/Check/Online/Other
+            // method and a Paid/In Progress/Failed outcome don't apply to
+            // an Invoice, Refund or Credit row), so once a Type is picked
+            // they're hidden rather than left showing an irrelevant filter.
+            FilerSection(
+              label: BillingStrings.type,
+              items: _typeOptions,
+              initialSelected: [
+                if ((state.selectedType ?? '').isNotEmpty) state.selectedType!,
+              ],
+              isSingleSelect: true,
+            ),
+            FilerSection(
+              label: BillingStrings.mode,
+              items: _modeOptions,
+              initialSelected: [
+                if ((state.selectedMode ?? '').isNotEmpty) state.selectedMode!,
+              ],
+              isSingleSelect: true,
+              visibleWhen: (current) =>
+                  (current[BillingStrings.type] ?? const []).isEmpty,
+            ),
+            FilerSection(
+              label: BillingStrings.paymentStatus,
+              items: _paymentStatusOptions,
+              initialSelected: [
+                if ((state.selectedPaymentStatus ?? '').isNotEmpty)
+                  state.selectedPaymentStatus!,
+              ],
+              isSingleSelect: true,
+              visibleWhen: (current) =>
+                  (current[BillingStrings.type] ?? const []).isEmpty,
+            ),
+          ],
+          onApply: (applied) {
+            final pickedStudentStatus =
+                applied[BillingStrings.status] ?? const <String>[];
+            final pickedType =
+                applied[BillingStrings.type] ?? const <String>[];
+            final pickedMode =
+                applied[BillingStrings.mode] ?? const <String>[];
+            final pickedPaymentStatus =
+                applied[BillingStrings.paymentStatus] ?? const <String>[];
+            unawaited(_cubit.applyTransactionFilters(
+              type: pickedType.isEmpty ? null : pickedType.first,
+              mode: pickedMode.isEmpty ? null : pickedMode.first,
+              paymentStatus: pickedPaymentStatus.isEmpty
+                  ? null
+                  : pickedPaymentStatus.first,
+              studentStatus: pickedStudentStatus.isEmpty
+                  ? null
+                  : pickedStudentStatus.first,
+              classroomNames:
+                  applied[BillingStrings.classroom] ?? const <String>[],
+              tagNames: applied[BillingStrings.tags] ?? const <String>[],
+            ));
+          },
+        ),
+      ),
+    );
   }
 
   void _showMessageUnavailable() {

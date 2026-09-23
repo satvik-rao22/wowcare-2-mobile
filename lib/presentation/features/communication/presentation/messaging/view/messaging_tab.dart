@@ -1,5 +1,5 @@
-import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
@@ -23,7 +23,6 @@ class MessagingTab extends StatefulWidget {
 
 class _MessagingTabState extends State<MessagingTab>
     with SingleTickerProviderStateMixin {
-  static const int _conversationPageSize = 50;
   late TabController _tabController;
 
   @override
@@ -146,16 +145,15 @@ class _MessagingTabState extends State<MessagingTab>
                               conversationType: 'STAFF_DIRECT',
                             ),
                           );
-                          if (context.mounted) {
-                            unawaited(
-                              context
-                                  .read<CommunicationCubit>()
-                                  .refreshConversations(
-                                    type: 'STAFF_DIRECT',
-                                    size: _conversationPageSize,
-                                  ),
-                            );
-                          }
+                          // Reload through the tab that owns the filter
+                          // selection rather than refetching here: this
+                          // screen doesn't know which Status/Classroom/
+                          // Designation filters are active, so refreshing
+                          // from here replaced the filtered list with an
+                          // unscoped one (active AND upcoming staff) while
+                          // the filter chips still claimed otherwise.
+                          MessagingEventService.instance
+                              .notifyConversationListChanged('STAFF_DIRECT');
                         } else {
                           await context.push(
                             CommunicationRoutes.recipientSelection,
@@ -164,16 +162,10 @@ class _MessagingTabState extends State<MessagingTab>
                               conversationType: 'ROOM_CHAT',
                             ),
                           );
-                          if (context.mounted) {
-                            unawaited(
-                              context
-                                  .read<CommunicationCubit>()
-                                  .refreshConversations(
-                                    type: 'ROOM_CHAT',
-                                    size: _conversationPageSize,
-                                  ),
-                            );
-                          }
+                          // Same as the staff branch above — the Room Chat
+                          // tab owns its own Classroom/Status/Tags filters.
+                          MessagingEventService.instance
+                              .notifyConversationListChanged('ROOM_CHAT');
                         }
                       },
                     ),

@@ -293,7 +293,11 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DocumentImageWidget(
-                      fileUuid: student.fullName, // UI-only seed
+                      fileUuid: '',
+                      studentCode: student.code,
+                      mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+                          ? student.photoAssetCode!.trim()
+                          : null,
                       name: student.fullName,
                       size: 50,
                     ),
@@ -445,7 +449,9 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 children: [
                   Expanded(
                     child: gradientButton(
-                      BillingStrings.save,
+                      // Invoice Preview wording: this saves the invoice as a
+                      // draft, as opposed to "Save and Send" beside it.
+                      BillingStrings.saveAsDraft,
                       (isProcessing || _students.isEmpty) ? null : _onSave,
                     ),
                   ),

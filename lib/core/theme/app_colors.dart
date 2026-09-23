@@ -33,6 +33,35 @@ class AppColors {
   static const Color redProgressBar = Color.fromRGBO(240, 111, 111, 1);
   static const Color refundLegendColor = Color(0xFFA8D8FF);
   static const Color paidLegendColor = Color(0xFF25AC7C);
+  // ── Staffing-ratio compliance (scheduling week/day views, dashboard) ──────
+  //
+  // Semantic tokens for ratio state. Mandate 4: these are compliance status,
+  // not decoration, so they are named for the state they mean and never
+  // re-declared at the call site. They previously lived as raw `Color(0x…)`
+  // literals inside
+  // `presentation/features/scheduling/utils/scheduling_block_status_style.dart`,
+  // duplicating the values of `colorBox`/`colorBox2`/`colorBox3` below.
+  //
+  // Colour alone must NOT carry the meaning — every surface using these also
+  // renders an icon or text label (see `SchedulingBlockStatusStyle.weekViewIcon`
+  // and `ratioBadgeLabel`).
+
+  /// Fewer staff scheduled than required.
+  static const Color ratioUnderStaffedColor = Color(0xFFF38D8D);
+
+  /// Scheduled staff exactly meets requirement.
+  static const Color ratioInRatioColor = Color(0xFFACF3AA);
+
+  /// More staff scheduled than required.
+  static const Color ratioExtraStaffColor = Color(0xFF5978F7);
+
+  /// No monitoring data for the block (outside the window, or all counts zero).
+  static const Color ratioEmptyColor = Color(0xFFE9ECEF);
+
+  /// Higher-contrast in-ratio fill used on badges, where the pale
+  /// [ratioInRatioColor] would not carry enough contrast against white text.
+  static const Color ratioInRatioBadgeColor = Color(0xFF3D9A4A);
+
   static const Color colorBox = Color(0xFFACF3AA);
   static const Color colorBox2 = Color(0xFFF38D8D);
   static const Color colorBox3 = Color(0xFF5978F7);
@@ -1094,6 +1123,7 @@ class AppColors {
   static const Color futureAvailabilityToggleTrackBg = Color.fromRGBO(246, 244, 248, 1);
   static const Color futureAvailabilityNegativeCountColor = Color.fromRGBO(236, 99, 99, 1);
   static const Color futureAvailabilityPositiveCountColor = Color.fromRGBO(0, 145, 94, 1);
+  static const Color futureAvailabilityZeroCountColor = Color.fromRGBO(234, 186, 0, 1);
 
   // ── Dashboard: geofence attendance state (SEMANTIC) ────────────────────────
   // Mandate 4: these encode whether GPS self-attendance is currently possible,

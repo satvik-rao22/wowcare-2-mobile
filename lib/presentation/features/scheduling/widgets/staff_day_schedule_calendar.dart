@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
+import 'package:wowcare/domain/features/classroom/services/classroom_name_resolver.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus

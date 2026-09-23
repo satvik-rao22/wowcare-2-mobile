@@ -29,9 +29,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs access to the camera to capture photos.</string>
+	<string>WowCare uses the camera to scan the QR code posted at your school when signing a child or staff member in or out, to let teachers photograph or record classroom activities for that child's parents, and to take a photo to attach to a message. Photos and videos you capture are uploaded only to your school's WowCare account.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
+	<string>WowCare uses Face ID to unlock the password you saved on this device so you can sign in without typing it.</string>
 	<!-- Recording a video with UIImagePickerController (image_picker's
 	     pickVideo(source: camera), reached from the activity "Record Video"
 	     option) captures audio, so iOS performs a microphone TCC check when the
@@ -39,11 +39,11 @@
 	     process instead of prompting - the app appeared to "crash while
 	     uploading a video" on iPhone. -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to the microphone to record audio with videos you capture.</string>
+	<string>WowCare uses the microphone to record sound when a teacher films a classroom activity, so parents hear the moment as well as see it.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app needs permission to save photos to your photo library.</string>
+	<string>WowCare saves a photo or video to your library when you tap download on an activity, a message, or a document.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to your photo library to upload images.</string>
+	<string>WowCare uses your photo library so you can choose a photo or video you already took to share in a child's activity feed, attach to a message, or set as your profile picture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -74,11 +74,17 @@
 	<dict>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>5.78.83.44</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
+			<!-- Commented out for App Store submission: PROD talks to
+			     https://api.childcarewow.app, so this cleartext exception is
+			     unused in release builds. A cleartext exception for a bare IP
+			     in a children's app draws App Review scrutiny. Uncomment only
+			     for local DEV work against the plain-HTTP backend.
+     			<key>5.78.83.44</key>
+     			<dict>
+     				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+     				<true/>
+     			</dict>
+			-->
 		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
@@ -94,9 +100,16 @@
 	     the app can only ever hold When-In-Use — geofencing runs foreground
 	     only. Do NOT re-add them without a user-facing feature Apple accepts
 	     as needing background location; they must be restored together with
-	     the `location` UIBackgroundMode below to have any effect. -->
+	     the `location` UIBackgroundMode below to have any effect.
+
+	     Omitting them makes App Store upload validation warn ITMS-90683
+	     ("Missing purpose string"), because that check scans the compiled
+	     binary for requestAlwaysAuthorization rather than reading our code.
+	     The fix is in ios/Podfile, which strips that selector out of
+	     geolocator_apple and permission_handler_apple — see the preprocessor
+	     flag comment there before touching either side. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>WowCare uses your location to enable attendance within the school premises.</string>
+	<string>WowCare uses your location while the app is open to confirm you are at the school when signing a child or staff member in or out, and never tracks it in the background.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<!-- `audio` is Xcode's "Audio, AirPlay, and Picture in Picture"
@@ -128,7 +141,7 @@
 		     requires "Always", which this app can no longer be granted.
 		     Do NOT re-add either without a user-facing feature that Apple
 		     accepts as needing background location. -->
-		<string>fetch</string>
+		<!-- <string>fetch</string> -->
 		<string>remote-notification</string>
 	</array>
 	<key>UIMainStoryboardFile</key>
@@ -146,5 +159,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Android testing confirmed Flutter's own engine forwards an incoming
+	     Universal Link's raw URI straight into GoRouter's navigation channel,
+	     racing against and corrupting the correct destination our own
+	     AppLinks().uriLinkStream / getInitialLink() pipeline
+	     (notification_launch_handler.dart / push_notification_cubit.dart)
+	     already resolves via NotificationRouteResolver. Disabling this stops
+	     the same conflict on iOS. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>

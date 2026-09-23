@@ -26,5 +26,6 @@ Map<String, dynamic> _$StaffSchedulingRequestBodyToJson(
   writeNotNull('schoolCode', instance.schoolCode);
   writeNotNull('organizationCode', instance.organizationCode);
   writeNotNull('generatedBy', instance.generatedBy);
+  writeNotNull('schoolTimeZone', instance.schoolTimeZone);
   return val;
 }

@@ -43,6 +43,7 @@ import 'package:wowcare/presentation/features/communication/bulk_messaging/utils
 
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
@@ -471,6 +472,64 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     super.dispose();
   }
 
+  Future<void> _deleteProfileImage() async {
+    // Re-checked here, not just at the tap target: mirrors _pickProfileImage,
+    // so the write gate holds even if a caller ever reaches this directly.
+    final role = context.read<RoleCubit>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    final studentCode = (_activeStudentCode ?? '').trim();
+    if (studentCode.isEmpty) return;
+
+    try {
+      await serviceLocator<ImageUploadService>().deleteProfilePhoto(
+        owner: ProfilePhotoOwner.student,
+        code: studentCode,
+      );
+
+      // Clear the field the avatar reads FIRST — that is what visually removes
+      // the image — then forget the cached URL for every other mounted avatar.
+      if (!mounted) return;
+      setState(() => _profilePhotoUrl = null);
+      DocumentImageWidget.forgetProfilePhoto(studentCode: studentCode);
+
+      // The profile blob is persisted (see the upload path below), and it still
+      // holds the old photo URL. Re-read and re-save it, or the deleted photo
+      // returns the next time this screen loads from cache.
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final refreshed = await dataSource.getStudentProfile(studentCode);
+      await _cacheManager.saveCache(
+        CacheManager.buildCacheKey(
+          feature: 'student',
+          resource: 'profile',
+          identifier: studentCode,
+        ),
+        refreshed.toJson(),
+      );
+
+      if (!mounted) return;
+      setState(
+        () => _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isEmpty
+            ? null
+            : refreshed.profilePhotoUrl!.trim(),
+      );
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: StudentStrings.profilePhotoDeletedSuccessfully,
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: '${StudentStrings.failedToDeleteProfilePhoto} $e',
+        isError: true,
+      );
+    }
+  }
+
   Future<void> _pickProfileImage() async {
     final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
@@ -768,7 +827,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _pickProfileImage,
+                  onTap: () => ProfilePhotoActionSheet.show(
+                    context,
+                    hasPhoto:
+                        (_profilePhotoUrl ?? '').trim().isNotEmpty &&
+                        !_isUploadingProfilePhoto,
+                    subjectName: _displayName,
+                    onChangePhoto: _pickProfileImage,
+                    onDelete: _deleteProfileImage,
+                  ),
                   child: Opacity(
                     opacity: canChangePhoto ? 1 : 0.55,
                     child: Stack(

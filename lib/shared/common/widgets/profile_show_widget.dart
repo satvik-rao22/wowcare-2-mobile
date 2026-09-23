@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -12,6 +11,7 @@ import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
@@ -22,6 +22,17 @@ class DocumentImageWidget extends StatefulWidget {
 
   /// Optional staff code for attendance status dot.
   final String? staffCode;
+
+  /// Account code (`USR_*`) of the person this avatar belongs to.
+  ///
+  /// Messaging surfaces only ever know their counterpart by this code — the
+  /// conversation participant payload carries no `staffCode` and, for most
+  /// staff, no photo field either — so without this the whole staff-messaging
+  /// inbox fell back to initials. Mapped to a `staffCode` once per account
+  /// (cached for the session) and then resolved exactly like [staffCode].
+  /// Only consulted when no [imageUrl]/[mediaAssetCode]/[studentCode]/
+  /// [classroomCode]/[staffCode] is given.
+  final String? userCode;
 
   /// Employment/list status (e.g. `UPCOMING`) — shows amber dot, takes precedence over attendance API.
   final String? staffEmploymentStatus;
@@ -68,6 +79,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.mediaAssetCode,
     this.name,
     this.staffCode,
+    this.userCode,
     this.staffEmploymentStatus,
     this.studentEnrollmentStatus,
     this.studentCode,
@@ -138,6 +150,47 @@ class DocumentImageWidget extends StatefulWidget {
     _profilePhotoRefreshTick.value++;
   }
 
+  /// Marks the given owner's photo as DELETED and drops every trace of it.
+  ///
+  /// [clearProfilePhotoCache] alone is not enough after a delete. It evicts the
+  /// cache and wakes every mounted avatar, but the re-resolution that follows
+  /// comes back EMPTY — and [_resolveProfilePhotoIfNeeded] only ever assigns
+  /// `_resolvedImageUrl` on a non-empty result, so each avatar quietly keeps
+  /// the URL it resolved before the delete. The photo would stay on screen
+  /// until the app restarted.
+  ///
+  /// The tombstone recorded here is what lets that resolution distinguish
+  /// "came back empty because it was deleted" (clear the avatar) from "came
+  /// back empty because the lookup failed or raced" (keep what we have, which
+  /// is the behaviour every other caller depends on). It is deliberately
+  /// short-lived: once the backend is consistently reporting no photo, an
+  /// empty result is no longer surprising, and a stale tombstone would
+  /// suppress a photo the user re-uploads later.
+  static void forgetProfilePhoto({String? studentCode, String? staffCode}) {
+    final student = (studentCode ?? '').trim();
+    final staff = (staffCode ?? '').trim();
+
+    void forget(String key) {
+      // Evict the dead URL from Flutter's decoded-image cache before dropping
+      // it, or the bitmap keeps painting even once the URL 404s. Mirrors the
+      // eviction [primeProfilePhotoUrl] does for the opposite reason.
+      final cached = _DocumentImageWidgetState._profilePhotoUrlCache[key];
+      if (cached != null && cached.trim().isNotEmpty) {
+        try {
+          PaintingBinding.instance.imageCache.evict(NetworkImage(cached.trim()));
+        } catch (_) {}
+      }
+      _removeProfilePhotoKey(key);
+      _DocumentImageWidgetState._profilePhotoDeletedAt[key] = AppTime.nowUtc();
+    }
+
+    if (student.isNotEmpty) forget('student:$student');
+    if (staff.isNotEmpty) forget('staff:$staff');
+
+    // Wake every mounted avatar so the deletion is visible immediately.
+    _profilePhotoRefreshTick.value++;
+  }
+
   /// Seeds the freshly-resolved [url] into the cache for the given owner and
   /// wakes every mounted avatar, so a just-uploaded photo/logo shows
   /// immediately WITHOUT each avatar re-hitting the (eventually-consistent)
@@ -203,6 +256,38 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       <String, DateTime>{};
   static final Map<String, Future<String?>> _profilePhotoInFlight =
       <String, Future<String?>>{};
+
+  /// Owners whose photo was just deleted, and when. See
+  /// [DocumentImageWidget.forgetProfilePhoto] for why an empty resolve needs
+  /// this to be actionable. Entries expire after [_deletedTombstoneTtl].
+  static final Map<String, DateTime> _profilePhotoDeletedAt =
+      <String, DateTime>{};
+
+  /// Long enough to outlast the backend's eventual consistency right after a
+  /// delete, short enough that it cannot suppress a later re-upload.
+  static const Duration _deletedTombstoneTtl = Duration(minutes: 2);
+
+  /// True while [key]'s photo is known to have been deleted recently, so an
+  /// empty resolve should CLEAR the avatar rather than leave the old image up.
+  static bool _wasRecentlyDeleted(String key) {
+    final deletedAt = _profilePhotoDeletedAt[key];
+    if (deletedAt == null) return false;
+    if (AppTime.nowUtc().difference(deletedAt) > _deletedTombstoneTtl) {
+      _profilePhotoDeletedAt.remove(key);
+      return false;
+    }
+    return true;
+  }
+
+  /// `USR_*` → `STF_*` for avatars that only know the account code (see
+  /// [DocumentImageWidget.userCode]). Session-scoped and never invalidated:
+  /// the mapping itself doesn't change while the user stays signed into the
+  /// same org/school, unlike the photo URL it leads to (which keeps its own
+  /// TTL'd entry under the resolved `staff:` key). Empty values are cached
+  /// too, so a non-staff account isn't re-queried on every list rebuild.
+  static final Map<String, String> _staffCodeByUserCode = <String, String>{};
+  static final Map<String, Future<String>> _staffCodeByUserCodeInFlight =
+      <String, Future<String>>{};
 
   Color? _avatarColor;
   Color? _statusDotColor;
@@ -270,6 +355,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         oldWidget.mediaAssetCode != widget.mediaAssetCode ||
         oldWidget.studentCode != widget.studentCode ||
         oldWidget.staffCode != widget.staffCode ||
+        oldWidget.userCode != widget.userCode ||
         oldWidget.classroomCode != widget.classroomCode) {
       // A parent rebuild (e.g. a BlocConsumer firing on pull-to-refresh, or
       // this element getting reused at the same list position for a
@@ -321,6 +407,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     if (studentCode.isNotEmpty) return 'student:$studentCode';
     final staffCode = w.staffCode?.trim() ?? '';
     if (staffCode.isNotEmpty) return 'staff:$staffCode';
+    final userCode = w.userCode?.trim() ?? '';
+    if (userCode.isNotEmpty) return 'user:$userCode';
     return '';
   }
 
@@ -351,6 +439,18 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final cached = _cachedUrlIfFresh(key);
       if (cached != null && cached.isNotEmpty) return cached;
     }
+    // An account code whose staff mapping was already resolved earlier this
+    // session seeds from that staff member's own cache entry — so scrolling
+    // the messaging inbox back over a row repaints its photo immediately
+    // instead of flashing the initials while the async lookup re-runs.
+    final userCode = widget.userCode?.trim() ?? '';
+    if (userCode.isNotEmpty) {
+      final mappedStaffCode = _staffCodeByUserCode[userCode] ?? '';
+      if (mappedStaffCode.isNotEmpty) {
+        final cached = _cachedUrlIfFresh('staff:$mappedStaffCode');
+        if (cached != null && cached.isNotEmpty) return cached;
+      }
+    }
     return null;
   }
 
@@ -371,11 +471,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     if ((widget.imageUrl ?? '').trim().isNotEmpty) return;
 
     final studentCode = widget.studentCode?.trim() ?? '';
-    final staffCode = widget.staffCode?.trim() ?? '';
+    var staffCode = widget.staffCode?.trim() ?? '';
+    final userCode = widget.userCode?.trim() ?? '';
     final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
     final classroomCode = widget.classroomCode?.trim() ?? '';
     if (studentCode.isEmpty &&
         staffCode.isEmpty &&
+        userCode.isEmpty &&
         mediaAssetCode.isEmpty &&
         classroomCode.isEmpty) {
       return;
@@ -387,6 +489,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         mediaAssetCode.isEmpty &&
         classroomCode.isEmpty) {
       return;
+    }
+
+    // Account code only (a messaging participant): map it to the staff code
+    // BEFORE picking a cache key, so the resolved photo is stored under the
+    // same `staff:<code>` entry every other avatar of this person uses —
+    // which also keeps [clearProfilePhotoCache]/[primeProfilePhotoUrl]
+    // working after that staff member updates their photo.
+    if (staffCode.isEmpty &&
+        userCode.isNotEmpty &&
+        studentCode.isEmpty &&
+        mediaAssetCode.isEmpty &&
+        classroomCode.isEmpty) {
+      staffCode = await _resolveStaffCodeForUserCode(userCode);
+      if (!mounted || staffCode.isEmpty) return;
     }
 
     final cacheKey = mediaAssetCode.isNotEmpty
@@ -409,6 +525,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
+      } else if (_wasRecentlyDeleted(cacheKey)) {
+        setState(() => _resolvedImageUrl = null);
       }
       return;
     }
@@ -416,6 +534,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final future = _fetchProfilePhotoUrl(
       studentCode: studentCode,
       staffCode: staffCode,
+      userCode: userCode,
       mediaAssetCode: mediaAssetCode,
       classroomCode: classroomCode,
     );
@@ -429,6 +548,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
+      } else if (_wasRecentlyDeleted(cacheKey)) {
+        // Deleted, and the backend agrees. Drop the image we were showing —
+        // without this the avatar keeps the pre-delete photo until restart.
+        setState(() => _resolvedImageUrl = null);
       }
     } catch (_) {
       // Photo resolution failed (e.g. network / 404). Keep the initials
@@ -441,6 +564,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Future<String?> _fetchProfilePhotoUrl({
     required String studentCode,
     required String staffCode,
+    required String userCode,
     required String mediaAssetCode,
     required String classroomCode,
   }) async {
@@ -492,7 +616,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final documentUrl = await _fetchDocumentAssetUrl(assetCode);
       return documentUrl.isEmpty ? null : documentUrl;
     }
-    if (staffCode.isNotEmpty) {
+    // An avatar given only an account code (or one whose media-asset lookup
+    // above came up empty) resolves the staff code first, then follows the
+    // ordinary staff-photo path below.
+    var resolvedStaffCode = staffCode;
+    if (resolvedStaffCode.isEmpty && userCode.isNotEmpty) {
+      resolvedStaffCode = await _resolveStaffCodeForUserCode(userCode);
+    }
+    if (resolvedStaffCode.isNotEmpty) {
       String? directUrl;
       String assetCode = '';
       String schoolCode = '';
@@ -501,7 +632,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       // same way daily/custom views resolve the photo.
       try {
         final endpoint = ApiPaths.urlWithBase(
-          ApiPaths.staffProfileByCodePath(staffCode),
+          ApiPaths.staffProfileByCodePath(resolvedStaffCode),
           ApiConstants.staffBaseUrl,
         );
         final response = await apiClient.client.get<dynamic>(endpoint);
@@ -516,7 +647,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if (assetCode.isEmpty) {
         if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStaffProfilePhotoAssetCode(
-          staffCode: staffCode,
+          staffCode: resolvedStaffCode,
           schoolCode: schoolCode,
         );
       }
@@ -646,6 +777,78 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     } catch (_) {
       return '';
     }
+  }
+
+  Future<String> _currentOrganizationCode() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      return (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// `USR_*` → `STF_*`, memoised per account for the session and de-duped
+  /// across the many avatars that ask for the same person at once (a
+  /// conversation list renders one row per counterpart). Returns '' when the
+  /// account has no staff mapping (e.g. a guardian) — cached too, so such an
+  /// account isn't re-queried on every rebuild.
+  Future<String> _resolveStaffCodeForUserCode(String userCode) async {
+    final cached = _staffCodeByUserCode[userCode];
+    if (cached != null) return cached;
+
+    final inFlight = _staffCodeByUserCodeInFlight[userCode];
+    if (inFlight != null) return inFlight;
+
+    final future = _fetchStaffCodeForUserCode(userCode);
+    _staffCodeByUserCodeInFlight[userCode] = future;
+    try {
+      final resolved = await future;
+      _staffCodeByUserCode[userCode] = resolved;
+      return resolved;
+    } catch (_) {
+      return '';
+    } finally {
+      _staffCodeByUserCodeInFlight.remove(userCode);
+    }
+  }
+
+  /// Hits the same `/api/v1/staff/code` mapping the logged-in user's own
+  /// staff code is resolved with ([resolveStaffCodeForLoggedInUser]), for an
+  /// arbitrary account. Org admins are mapped org-level, where the backend
+  /// expects `'-'` and 404s on a real school code, so both scopes are tried.
+  Future<String> _fetchStaffCodeForUserCode(String userCode) async {
+    final organizationCode = await _currentOrganizationCode();
+    if (organizationCode.isEmpty) return '';
+    final schoolCode = await _currentSchoolCode();
+
+    final StaffRepository repository;
+    try {
+      repository = serviceLocator<StaffRepository>();
+    } catch (_) {
+      return '';
+    }
+
+    for (final candidateSchoolCode in <String>{
+      if (schoolCode.isNotEmpty) schoolCode,
+      '-',
+    }) {
+      try {
+        final resolved =
+            (await repository.getStaffCodeForUser(
+                      userCode: userCode,
+                      organizationCode: organizationCode,
+                      schoolCode: candidateSchoolCode,
+                    ) ??
+                    '')
+                .trim();
+        if (resolved.isNotEmpty) return resolved;
+      } catch (_) {
+        // 404 for this scope (or offline) — try the next candidate.
+      }
+    }
+    return '';
   }
 
   /// Resolves the classroom's logo asset code from
@@ -975,9 +1178,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
                 height: widget.size,
                 fit: widget.fit,
               )
+            // `MediaRes.userImageMale` was, despite its name, the retired
+            // owl/graduation-cap WowCare logo — so any avatar without a
+            // resolved photo or name (the async gap while a signed image URL
+            // is being fetched) briefly flashed old branding instead of a
+            // neutral no-photo placeholder. A plain person icon reads as
+            // "no photo yet" instead of as content.
             : CircleAvatar(
                 radius: widget.size / 2,
-                backgroundImage: const AssetImage(MediaRes.userImageMale),
+                backgroundColor: AppColors.shimmerBase,
+                child: Icon(
+                  Icons.person,
+                  size: widget.size * 0.6,
+                  color: AppColors.userProfileMutedIconColor,
+                ),
               ));
 
     // Fixed: Improved null safety checks

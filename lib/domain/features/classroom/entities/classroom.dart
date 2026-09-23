@@ -15,7 +15,8 @@ class Classroom extends Equatable {
   /// `GET /classroom/classroom/all`. 0 means that side is unset / not enforced.
   ///
   /// Used to warn (never to block) when a student's age falls outside the room
-  /// — see [classroomAgeRangeWarning].
+  /// — see `classroomAgeRangeWarning` in
+  /// `domain/features/classroom/services/classroom_age_rules.dart`.
   final int minAgeMonths;
   final int maxAgeMonths;
 

@@ -61,6 +61,7 @@ export 'post_add_staff_bottom_sheet.dart';
 export 'post_add_student_bottom_sheet.dart';
 export 'primary_circular_loader.dart';
 export 'profile_info_card.dart';
+export 'profile_photo_action_sheet.dart';
 export 'profile_show_widget.dart';
 export 'remove_student_tile.dart';
 export 'reusable_cancle_save_buttons.dart';

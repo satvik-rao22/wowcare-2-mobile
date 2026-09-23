@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -15,6 +16,8 @@ class BillingStudentCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.fileUuid,
+    this.studentCode,
+    this.mediaAssetCode,
     required this.amount,
     required this.paidOn,
     required this.paymentMethod,
@@ -36,6 +39,8 @@ class BillingStudentCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? fileUuid;
+  final String? studentCode;
+  final String? mediaAssetCode;
   final double amount;
   final String paidOn;
   final String paymentMethod;
@@ -209,14 +214,19 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                 ],
                                 DocumentImageWidget(
                                   fileUuid: widget.fileUuid ?? '',
+                                  studentCode: widget.studentCode,
+                                  mediaAssetCode: widget.mediaAssetCode,
                                   name: widget.name,
                                   size: 50,
                                   shape: BoxShape.circle,
                                   fit: BoxFit.cover,
-                                  // No status dot here — dots are reserved for
-                                  // attendance (present/absent) as elsewhere in
-                                  // the app, and a family has no single
-                                  // attendance status.
+                                  // studentCode is only ever passed to resolve
+                                  // a photo (single-child families) — no
+                                  // status dot here regardless, since dots are
+                                  // reserved for attendance (present/absent)
+                                  // as elsewhere in the app, and a family row
+                                  // has no single attendance status.
+                                  disableAttendanceStatusLookup: true,
                                 ),
                                 SizedBox(width: isTablet ? 16 : 9),
                                 Expanded(
@@ -352,7 +362,8 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                   _buildDetailRow(
                                     label: BillingStrings.lastInvoice,
                                     value: hasInvoice
-                                        ? '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}'
+                                        ? billingAmount(
+                                            widget.lastInvoiceAmount)
                                         : BillingStrings.noInvoice,
                                     note: hasInvoice
                                         ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
@@ -361,8 +372,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                   const SizedBox(height: 10),
                                   _buildDetailRow(
                                     label: BillingStrings.openBalance,
-                                    value:
-                                        '\$${widget.openBalance.toStringAsFixed(0)}',
+                                    value: billingAmount(widget.openBalance),
                                   ),
                                   if (widget.onBillingProfile != null) ...[
                                     const SizedBox(height: 16),

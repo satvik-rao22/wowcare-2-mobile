@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../core/utils/storage_keys.dart';
-import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/publish_staff_shifts_usecase.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/publish_staff_shifts_usecase.dart';
 
 part 'publish_shifts_state.dart';
 
@@ -30,16 +30,12 @@ class PublishShiftsCubit extends Cubit<PublishShiftsState> {
   final BootstrapSchedulingSchoolTimezoneUseCase
       _bootstrapSchedulingSchoolTimezoneUseCase;
 
-  void init({
-    List<String> initialStaffCodes = const <String>[],
-    DateTime? initialUntilDate,
-  }) {
-    emit(
-      state.copyWith(
-        selectedStaffCodes: initialStaffCodes,
-        untilDate: initialUntilDate,
-      ),
-    );
+  /// Seeds the form. The staff selection is intentionally NOT seeded — the
+  /// Publish screen always opens with no staff picked so the user makes that
+  /// choice explicitly (this cubit is registered as a factory, so each screen
+  /// entry starts from the empty [PublishShiftsState]).
+  void init({DateTime? initialUntilDate}) {
+    emit(state.copyWith(untilDate: initialUntilDate));
     // ignore: discarded_futures
     _bootstrapSchedulingSchoolTimezoneUseCase();
   }

@@ -6,13 +6,14 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
+import 'package:wowcare/core/utils/sign_in_pin_resolver.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
 part 'my_day_state.dart';
@@ -50,6 +51,9 @@ class MyDayCubit extends Cubit<MyDayState> {
   /// Carried over from the widget this state came from.
   int _profileGeneration = 0;
 
+  /// The same guard for the PIN fetch, which races independently of identity.
+  int _pinGeneration = 0;
+
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
@@ -79,11 +83,25 @@ class MyDayCubit extends Cubit<MyDayState> {
   // that discards stale responses after a persona switch.
   // ---------------------------------------------------------------------------
 
-  /// Reads the staff member's clock-in PIN from storage.
+  /// Fetches the staff member's clock-in PIN from the API.
+  ///
+  /// This used to read `StorageKeys.staffPin`, a snapshot written once at
+  /// login — so a PIN changed on the web kept showing its old value on the
+  /// card until the user logged out and back in. Nothing is stored now; every
+  /// load and every pull-to-refresh asks the API.
+  ///
+  /// A failed fetch leaves the current PIN on screen rather than blanking it.
   Future<void> loadClockPin() async {
-    final pin = (await _storageService.getString(StorageKeys.staffPin) ?? '')
-        .trim();
-    if (isClosed) return;
+    final generation = ++_pinGeneration;
+
+    final pin = await fetchSignInPinForLoggedInUser(
+      staffRepository: _staffRepository,
+      storageService: _storageService,
+    );
+
+    // Discard a slow response that lost its race with a persona switch, the
+    // same way [loadStaffIdentity] guards its own.
+    if (isClosed || generation != _pinGeneration || pin == null) return;
     emit(state.copyWith(clockInPin: pin));
   }
 
@@ -181,7 +199,10 @@ class MyDayCubit extends Cubit<MyDayState> {
   Future<void> refresh() async {
     if (_isFetching) return;
     _isFetching = true;
-    await _fetch();
+    // The PIN rides along with pull-to-refresh: it is fetched, never stored,
+    // so this is the user's way of picking up a PIN changed on the web. Both
+    // dashboard coordinators (staff and admin) reach it through here.
+    await Future.wait([_fetch(), loadClockPin()]);
     _isFetching = false;
   }
 

@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
@@ -27,6 +26,7 @@ class StudentImmunizationTabCard extends StatefulWidget {
     required this.scrollController,
     required this.name,
     required this.classroom,
+    required this.healthCubit,
     this.studentCode,
     this.canEdit = false,
     super.key,
@@ -36,6 +36,11 @@ class StudentImmunizationTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Owned by the parent health tab so the "exempt from all immunizations"
+  /// toggle rendered above the TabBar shares this list's state (and the cubit's
+  /// single-flight guard). The parent creates and closes it — not this card.
+  final StudentHealthCubit healthCubit;
 
   /// Whether the current persona may edit health records (from student-settings).
   final bool canEdit;
@@ -50,20 +55,14 @@ class _StudentImmunizationTabCardState
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
-  /// One cubit instance for this card so its single-flight guard spans taps
-  /// (serviceLocator registers it as a factory — a fresh call would not dedupe).
-  final StudentHealthCubit _healthCubit = serviceLocator<StudentHealthCubit>();
+  /// Single cubit instance shared with the parent health tab so its
+  /// single-flight guard spans taps and the bulk-exempt toggle sees this list.
+  StudentHealthCubit get _healthCubit => widget.healthCubit;
 
   @override
   void initState() {
     super.initState();
     _healthCubit.loadImmunizations(widget.studentCode ?? '');
-  }
-
-  @override
-  void dispose() {
-    _healthCubit.close();
-    super.dispose();
   }
 
   DateTime? _parseIsoDate(String? iso) {
@@ -121,7 +120,6 @@ class _StudentImmunizationTabCardState
         _parseIsoDate(model.administeredDate) ?? _parseIsoDate(model.dueDate);
     String statusUi = _statusUiFromApi(model.status);
     bool isSaving = false;
-    String exemptionReason = (model.exemptionReason ?? '').trim();
 
     await showModalBottomSheet<void>(
       context: context,
@@ -311,22 +309,6 @@ class _StudentImmunizationTabCardState
                               ),
                             ],
                           ),
-                        if (statusUi == 'Exempt') ...[
-                          AppSpacing.gapVMd,
-                          TextField(
-                            decoration: const InputDecoration(
-                              labelText: StudentStrings.exemptionReason,
-                              border: OutlineInputBorder(),
-                            ),
-                            controller: TextEditingController(
-                              text: exemptionReason,
-                            ),
-                            minLines: 1,
-                            maxLines: 3,
-                            onChanged: (v) =>
-                                setLocalState(() => exemptionReason = v.trim()),
-                          ),
-                        ],
                         SizedBox(height: verticalPadding),
                         CustomButtonLayout(
                           confirmButtonLabel: StudentStrings.save,
@@ -345,9 +327,6 @@ class _StudentImmunizationTabCardState
                                       record: model,
                                       date: selectedDate!,
                                       status: statusApi,
-                                      exemptionReason: statusApi == 'EXEMPT'
-                                          ? exemptionReason
-                                          : null,
                                     );
                                     if (!context.mounted) return;
                                     CoreUtils.showTopSnackBar(

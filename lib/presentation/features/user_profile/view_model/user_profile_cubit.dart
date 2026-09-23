@@ -20,8 +20,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_cached_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
-import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart'
-    as staff_code_resolver;
+import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -57,6 +56,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     required GetGuardianProfileUseCase getGuardianProfileUseCase,
     required ImageUploadService imageUploadService,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
+    required ResolveLoggedInStaffCodeUseCase resolveLoggedInStaffCodeUseCase,
   }) : _storage = storageService,
        _getStaffProfileUseCase = getStaffProfileUseCase,
        _getCachedStaffProfileUseCase = getCachedStaffProfileUseCase,
@@ -65,6 +65,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
        _getGuardianProfileUseCase = getGuardianProfileUseCase,
        _imageUploadService = imageUploadService,
        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _resolveLoggedInStaffCodeUseCase = resolveLoggedInStaffCodeUseCase,
        super(const UserProfileState.initial());
 
   final StorageService _storage;
@@ -75,6 +76,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   final GetGuardianProfileUseCase _getGuardianProfileUseCase;
   final ImageUploadService _imageUploadService;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
+  final ResolveLoggedInStaffCodeUseCase _resolveLoggedInStaffCodeUseCase;
 
   String _directStaffCode = '';
   bool _hasShownProfileLoadError = false;
@@ -207,8 +209,8 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   /// schools under different codes, so matching on user alone would serve the
   /// previously selected school's profile after an org/school switch.
   ///
-  /// Falls back to the shared [staff_code_resolver.resolveLoggedInStaffCode]
-  /// (already used by the activities/communication/students features) when
+  /// Falls back to the shared [ResolveLoggedInStaffCodeUseCase]
+  /// (used by the activities/communication/students features too) when
   /// that strict cache check misses — that resolver also tries a live
   /// `/api/v1/staff/code` lookup and persists the result, so a genuinely
   /// staff user whose cache just hasn't been (re)populated for the CURRENT
@@ -242,7 +244,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         return cachedStaffCode;
       }
       final resolved =
-          (await staff_code_resolver.resolveLoggedInStaffCode() ?? '').trim();
+          (await _resolveLoggedInStaffCodeUseCase() ?? '').trim();
       return resolved;
     } catch (_) {
       return '';
@@ -539,6 +541,92 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       return _uploadGuardianProfilePhoto(imagePath);
     }
     return _uploadStaffProfilePhoto(imagePath);
+  }
+
+  /// Deletes the current persona's profile photo. Branches staff vs guardian
+  /// the same way [uploadProfilePhoto] does, and returns the same result type
+  /// so the View surfaces it through its existing snackbar.
+  Future<UserProfilePhotoResult> deleteProfilePhoto({
+    required bool isParent,
+  }) async {
+    if (isParent) {
+      return _deleteGuardianProfilePhoto();
+    }
+    return _deleteStaffProfilePhoto();
+  }
+
+  Future<UserProfilePhotoResult> _deleteStaffProfilePhoto() async {
+    try {
+      var staffCode = effectiveStaffCode();
+      if (staffCode.isEmpty) {
+        staffCode = (await resolveLoggedInStaffCode()).trim();
+      }
+      if (staffCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Staff code is required to delete profile photo.',
+        );
+      }
+
+      await _imageUploadService.deleteProfilePhoto(
+        owner: ProfilePhotoOwner.staff,
+        code: staffCode,
+      );
+
+      DocumentImageWidget.forgetProfilePhoto(staffCode: staffCode);
+      await loadStaffProfile(staffCode);
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo deleted successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to delete profile photo: $e',
+      );
+    }
+  }
+
+  Future<UserProfilePhotoResult> _deleteGuardianProfilePhoto() async {
+    try {
+      final guardianCode = state.guardianCode.trim();
+      if (guardianCode.isEmpty) {
+        return const UserProfilePhotoResult(
+          UserProfilePhotoStatus.validationError,
+          'Guardian code is required to delete profile photo.',
+        );
+      }
+
+      await _imageUploadService.deleteProfilePhoto(
+        owner: ProfilePhotoOwner.guardian,
+        code: guardianCode,
+      );
+
+      // Clear state FIRST — this is what empties DocumentImageWidget.imageUrl
+      // and so what visually removes the photo.
+      if (!isClosed) emit(state.copyWith(clearGuardianPhoto: true));
+      DocumentImageWidget.clearProfilePhotoCache();
+
+      // The guardian photo is mirrored into storage and is deliberately never
+      // overwritten with an empty value on reload (see
+      // [loadGuardianProfileForParent]) — and the kebab-menu header reads
+      // those keys directly. Without REMOVING them the deleted photo comes
+      // straight back on the next launch.
+      try {
+        await _storage.remove(StorageKeys.guardianProfilePhotoUrl);
+        await _storage.remove(StorageKeys.guardianProfileAssetCode);
+      } catch (_) {}
+
+      return const UserProfilePhotoResult(
+        UserProfilePhotoStatus.success,
+        'Profile photo deleted successfully',
+      );
+    } catch (e) {
+      return UserProfilePhotoResult(
+        UserProfilePhotoStatus.uploadError,
+        'Failed to delete profile photo: $e',
+      );
+    }
   }
 
   Future<UserProfilePhotoResult> _uploadStaffProfilePhoto(

@@ -24,7 +24,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_f
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_feed_data_source.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_filter_metadata_cache.dart';
+import 'package:wowcare/data/features/activity/datasources/activity_filter_metadata_cache.dart';
 
 part 'activity_feed_scope_state.dart';
 

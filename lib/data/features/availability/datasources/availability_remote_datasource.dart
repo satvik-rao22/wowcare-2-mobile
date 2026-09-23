@@ -184,8 +184,11 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       'organizationCode': organizationCode,
       'studentCode': studentCode,
       'movementType': movementType.trim().toUpperCase(),
-      'fromClassroomCode': fromClassroomCode,
-      'toClassroomCode': toClassroomCode,
+      ..._classroomCodesFor(
+        movementType: movementType,
+        fromClassroomCode: fromClassroomCode,
+        toClassroomCode: toClassroomCode,
+      ),
       'movementDate': _formatDateOnly(movementDate),
       'comment': comment ?? '',
     };
@@ -221,8 +224,11 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
 
     final requestBody = <String, dynamic>{
       'movementType': movementType.trim().toUpperCase(),
-      'fromClassroomCode': fromClassroomCode,
-      'toClassroomCode': toClassroomCode,
+      ..._classroomCodesFor(
+        movementType: movementType,
+        fromClassroomCode: fromClassroomCode,
+        toClassroomCode: toClassroomCode,
+      ),
       'movementDate': _formatDateOnly(movementDate),
       'comment': comment ?? '',
     };
@@ -375,6 +381,36 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
 List<String>? _cleanList(List<String>? values) {
   if (values == null) return null;
   return values.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+}
+
+/// `from`/`to` classroom codes for a create/update request body.
+///
+/// A movement uses only one side of the pair unless it is a classroom
+/// promotion: START_SCHOOL has no origin classroom and LEAVE_SCHOOL has no
+/// destination. The backend stores the unused side as NULL and enforces that
+/// with check constraints (`chk_individual_movements_start_school` /
+/// `..._leave_school`) — and an empty string is not NULL, so sending `''` (the
+/// app's own stand-in for "no classroom", see `_toStringOrEmpty` in
+/// `IndividualMovementModel`) trips the constraint and surfaces as a raw SQL
+/// error. Send null for the unused side, and for any code left blank for some
+/// other reason.
+Map<String, String?> _classroomCodesFor({
+  required String movementType,
+  required String fromClassroomCode,
+  required String toClassroomCode,
+}) {
+  String? codeOrNull(String code) {
+    final trimmed = code.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  final type = movementType.trim().toUpperCase();
+  return <String, String?>{
+    'fromClassroomCode':
+        type == 'START_SCHOOL' ? null : codeOrNull(fromClassroomCode),
+    'toClassroomCode':
+        type == 'LEAVE_SCHOOL' ? null : codeOrNull(toClassroomCode),
+  };
 }
 
 String _formatDateOnly(DateTime date) {

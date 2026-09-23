@@ -1,8 +1,7 @@
 import 'package:wowcare/domain/features/activity/entities/activity_detail.dart';
 import 'package:wowcare/domain/features/activity/entities/activity_feed_row.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
-    show activityItemFromFeedRow, activityFeedOptionLabelsForType;
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item_from_feed_row.dart';
 
 /// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
 ActivityItem activityItemFromActivityDetail(

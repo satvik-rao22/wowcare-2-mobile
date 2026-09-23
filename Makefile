@@ -1,5 +1,26 @@
 FLUTTER ?= flutter
 
+# -----------------------------------------------------------------------------
+# Gradle JVM network preference
+#
+# :app:uploadCrashlyticsMappingFileRelease PUTs the ~6 MB gzipped R8 mapping as a
+# single non-resumable fixed-length body (firebase-crashlytics-buildtools 3.0.2 on
+# Apache HttpClient: no resume, no socket timeout, 3 transport retries). Java sorts
+# IPv4 ahead of IPv6 by default, and some NATs -- an iPhone Personal Hotspot
+# (172.20.10.0/28) is the one that bit us -- reset sustained IPv4 uploads after
+# ~128-256 KB. All 3 retries die the same way and the build fails with
+# `java.net.SocketException: Broken pipe`, before the APK is ever packaged.
+#
+# This MUST be an environment variable, not `org.gradle.jvmargs`. Gradle classifies
+# arbitrary -D properties as mutable, so it reuses a running daemon and applies them
+# with System.setProperty() after startup -- but InetAddress caches the preference at
+# class-init, so the property reads "true" while resolution stays IPv4-first.
+# JAVA_TOOL_OPTIONS is read by the JVM before that, so it actually takes effect.
+#
+# Only a preference: IPv4 is still used when a network has no IPv6 route.
+# -----------------------------------------------------------------------------
+export JAVA_TOOL_OPTIONS := $(JAVA_TOOL_OPTIONS) -Djava.net.preferIPv6Addresses=true
+
 .PHONY: help help-optimization clean get upgrade doctor fix analyze test format \
 	local-run qa-run uat-run prod-run \
 	local-run-profile qa-run-profile uat-run-profile prod-run-profile \
@@ -233,52 +254,73 @@ prod-ios-debug:
 	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=PROD
 
 # -----------------------------------------------------------------------------
+# App Links host per environment
+#
+# Runner-Release.entitlements (used for Profile/Release/ipa builds — see
+# project.pbxproj CODE_SIGN_ENTITLEMENTS) is a tracked file with a single
+# committed default host (UAT). Xcode has no hook that lets a Flutter
+# --dart-define reach entitlements at codesign time, so instead of leaving
+# every PROD build silently ship the UAT Associated Domains host (the bug
+# this replaces), each recipe below backs the file up, points
+# set_app_link_host.sh at the right host for its environment, builds, then
+# restores the backup via `trap … EXIT` — so the tracked file is only ever
+# mutated for the duration of that one build, even if the build fails or is
+# interrupted, and this never depends on the file's committed git state.
+# -----------------------------------------------------------------------------
+define ios_release_build
+	@cp ios/Runner/Runner-Release.entitlements /tmp/wowcare-runner-release-entitlements.bak && \
+	trap 'cp /tmp/wowcare-runner-release-entitlements.bak ios/Runner/Runner-Release.entitlements && rm -f /tmp/wowcare-runner-release-entitlements.bak' EXIT && \
+	ios/scripts/set_app_link_host.sh $(1) && \
+	$(2)
+endef
+
+# -----------------------------------------------------------------------------
 # IOS PROFILE
 # -----------------------------------------------------------------------------
 
 local-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=LOCAL)
 
 qa-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA)
 
 uat-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT)
 
 prod-ios-profile:
-	$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # IOS RELEASE
 # -----------------------------------------------------------------------------
 
 local-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=LOCAL)
 
 qa-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA)
 
 uat-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT)
 
 prod-ios-release:
-	$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # IPA BUILD
 # -----------------------------------------------------------------------------
 
 local-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=LOCAL
+	$(call ios_release_build,local,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=LOCAL)
 
 qa-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA
+	$(call ios_release_build,qa,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA)
 
 uat-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT
+	$(call ios_release_build,uat,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT)
 
 prod-ipa:
-	$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD
+	$(call ios_release_build,prod,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD)
 
 # -----------------------------------------------------------------------------
 # GENERIC BUILD COMMANDS

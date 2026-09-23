@@ -82,7 +82,7 @@ class _ViewInvoiceView extends StatelessWidget {
                 const SizedBox(height: 16),
                 _buildInvoiceMeta(state.invoiceDetail),
                 const SizedBox(height: 12),
-                _buildItemsTable(),
+                _buildItemsTable(state.invoiceDetail),
               ],
             ),
           ),
@@ -188,7 +188,13 @@ class _ViewInvoiceView extends StatelessWidget {
     );
   }
 
-  Widget _buildItemsTable() {
+  Widget _buildItemsTable(InvoiceListItemEntity? detail) {
+    // The transaction summary only ever carries the FIRST item's description
+    // flattened into one string — the fetched invoice [detail] (when it has
+    // resolved) carries every line item with its own amount, matching the
+    // web invoice modal's per-item breakdown instead of one combined row.
+    final List<InvoiceListLineItemEntity> lineItems = detail?.items ?? const [];
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.billingGreyLight,
@@ -220,29 +226,58 @@ class _ViewInvoiceView extends StatelessWidget {
             ],
           ),
           Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
-          Row(
-            children: [
-              Expanded(
-                flex: 4,
-                child: Text(
-                  transaction.displayDescription,
+          if (lineItems.isEmpty)
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: Text(
+                    transaction.displayDescription,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text(
+                  '\$${transaction.amount.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              Text(
-                '\$${transaction.amount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+              ],
+            )
+          else
+            for (final item in lineItems)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Text(
+                        item.description.isEmpty ? '-' : item.description,
+                        style: const TextStyle(
+                          color: AppColors.primaryColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '\$${item.totalPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

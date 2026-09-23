@@ -1,23 +1,34 @@
+import 'dart:async' show unawaited;
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_autopay_status_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_payment_methods_usecase.dart';
 
 part 'parent_billing_state.dart';
 
 class ParentBillingCubit extends Cubit<ParentBillingState> {
   ParentBillingCubit({
     required GetGuardianFamilyLedgerUseCase getGuardianFamilyLedger,
+    required GetAutoPayStatusUseCase getAutoPayStatus,
+    required GetPaymentMethodsUseCase getPaymentMethods,
     required StorageService storage,
   })  : _getGuardianFamilyLedger = getGuardianFamilyLedger,
+        _getAutoPayStatus = getAutoPayStatus,
+        _getPaymentMethods = getPaymentMethods,
         _storage = storage,
         super(const ParentBillingState.initial());
 
   final GetGuardianFamilyLedgerUseCase _getGuardianFamilyLedger;
+  final GetAutoPayStatusUseCase _getAutoPayStatus;
+  final GetPaymentMethodsUseCase _getPaymentMethods;
   final StorageService _storage;
 
   static const int _pageSize = 10;
@@ -49,6 +60,14 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
       );
       if (isClosed) return;
       emit(state.copyWith(isLoading: false, ledger: () => ledger));
+
+      // Non-fatal: a failure here just leaves the banner hidden rather than
+      // failing the whole screen load — the ledger itself already rendered.
+      unawaited(_refreshAutoPayBlocked(
+        organizationCode: org,
+        schoolCode: school,
+        guardianCode: guardianCode,
+      ));
     } catch (e) {
       if (isClosed) return;
       // On a failed background refresh keep the existing ledger visible.
@@ -64,6 +83,44 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
   }
 
   Future<void> refresh() => load(background: true);
+
+  /// Whether AutoPay is on but its method is no longer accepted by the
+  /// school — drives the "AutoPay isn't able to run" banner. Runs
+  /// alongside every [load] (initial load and pull-to-refresh) so the
+  /// banner reflects the current server state rather than what was true
+  /// when the screen first mounted.
+  Future<void> _refreshAutoPayBlocked({
+    required String organizationCode,
+    required String schoolCode,
+    required String guardianCode,
+  }) async {
+    try {
+      final scope = GuardianScopeParams(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        guardianCode: guardianCode,
+      );
+      final status = await _getAutoPayStatus(scope);
+      if (!status.autopayEnabled) {
+        if (!isClosed) emit(state.copyWith(autoPayBlocked: false));
+        return;
+      }
+      final methods = await _getPaymentMethods(scope);
+      PaymentMethodEntity? autopayMethod;
+      for (final m in methods) {
+        if (m.autopay) {
+          autopayMethod = m;
+          break;
+        }
+      }
+      if (isClosed) return;
+      emit(state.copyWith(
+        autoPayBlocked: autopayMethod?.acceptedByPolicy == false,
+      ));
+    } catch (_) {
+      // Leave the banner as-is — a transient failure here shouldn't flip it.
+    }
+  }
 
   /// Shows the next page of transactions (client-side pagination).
   void loadNextPage() {

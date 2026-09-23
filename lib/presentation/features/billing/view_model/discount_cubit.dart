@@ -34,6 +34,11 @@ class DiscountCubit extends Cubit<DiscountState> {
 
   String? _schoolCode;
 
+  /// Rows requested per page — matches the `size=200` the web client sends to
+  /// `/api/v1/accounts/discount`. Passed explicitly on every fetch so the
+  /// effective page size can't silently drift with a layer's default.
+  static const int _pageSize = 200;
+
   /// Monotonic load generation. Bumped on a fresh load / filter change so a
   /// superseded in-flight response is discarded; a load-MORE captures the
   /// current generation without bumping.
@@ -96,6 +101,7 @@ class DiscountCubit extends Cubit<DiscountState> {
         school: school,
         status: state.statusFilter,
         page: page,
+        size: _pageSize,
       );
       // Drop a superseded response (a newer load/filter change bumped the gen).
       if (isClosed || gen != _generation) return;

@@ -1,7 +1,7 @@
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 
 import 'scheduling_models.dart';
-import '../utils/forecast_slot_mapper.dart';
+import 'package:wowcare/presentation/features/scheduling/model/forecast_slot_mapper.dart';
 
 /// Builds staff-row Gantt slots from shift API times (work / break), not forecast.
 class StaffShiftSlotMapper {

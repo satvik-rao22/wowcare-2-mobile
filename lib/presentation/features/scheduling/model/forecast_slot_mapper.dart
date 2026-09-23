@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/domain/features/scheduling/entities/classroom_forecast_block.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 
-import '../model/scheduling_models.dart';
-import 'scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 
 /// Maps forecast API blocks to timeline slots and classroom ratio icons.
 class ForecastSlotMapper {

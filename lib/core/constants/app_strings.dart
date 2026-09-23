@@ -151,6 +151,12 @@ abstract final class AppStrings {
   /// Snackbar when a tapped link could not be launched. The URL is appended.
   static const String newsletterLinkOpenFailedPrefix = 'Unable to open link: ';
 
+  /// Snackbar when a tapped ATTACHMENT could not be handed to any app. Distinct
+  /// from [newsletterLinkOpenFailed] because the remedy differs: a link needs a
+  /// browser, a document needs an app that can open that file type.
+  static const String newsletterAttachmentOpenFailed =
+      'Unable to open this attachment.';
+
   // ── Recipients sheet and card meta ────────────────────────────────────────
 
   static const String newsletterRecipients = 'Recipients';

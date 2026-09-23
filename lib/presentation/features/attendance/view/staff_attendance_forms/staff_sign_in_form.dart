@@ -43,6 +43,7 @@ class StaffSignInForm extends StatefulWidget {
     this.staffCode,
     this.staffName,
     this.pin,
+    this.popOnSuccess = false,
   });
 
   final StaffEntity? staff;
@@ -52,6 +53,12 @@ class StaffSignInForm extends StatefulWidget {
   /// When true, always uses the self sign-in endpoint regardless of admin role.
   /// Set this when opening the form from a personal GPS sign-in button.
   final bool forceSelf;
+
+  /// When true, pops back to the caller after a successful submission instead
+  /// of redirecting to the Attendance daily tab. Set by callers that live
+  /// outside the Attendance tab (e.g. the Staff attendance profile) so the
+  /// user stays on the screen they started from.
+  final bool popOnSuccess;
 
   /// True when called from kiosk flow.
   final bool isKiosk;
@@ -539,7 +546,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       return;
     }
 
-    if (isSelfSignIn || !isStaffAdmin) {
+    if (widget.popOnSuccess || isSelfSignIn || !isStaffAdmin) {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       } else if (context.canPop()) {

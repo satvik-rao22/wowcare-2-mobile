@@ -28,6 +28,7 @@ import 'package:wowcare/presentation/features/billing/view/transactions/view_rec
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -168,14 +169,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   /// This family's students mapped to the [Student] shape that Create Invoice /
   /// Receive Payment consume — so they're pre-selected (no re-selection step).
+  /// Excludes inactive students: an invoice shouldn't be pre-created for a
+  /// child who's no longer enrolled.
   List<Student> _familyStudents() {
+    final inactive = _cubit.state.inactiveStudentCodes;
     return _familyChildren
         .map((c) => Student(
               code: (c.code ?? '').toString(),
               fullName: (c.fullName ?? '').toString(),
               photoUuid: c.photoUuid,
             ))
-        .where((s) => s.code.isNotEmpty)
+        .where((s) => s.code.isNotEmpty && !inactive.contains(s.code))
         .toList();
   }
 
@@ -868,8 +872,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                             padding: const EdgeInsets.only(right: 6),
                             child: _FamilyChip(
                               name: (c.fullName ?? '').toString(),
-                              photoUuid: c.photoUuid,
-                              backgroundColor: AppColors.warningColor,
+                              studentCode: c.code,
+                              isInactive: _cubit.state.inactiveStudentCodes
+                                  .contains((c.code ?? '').toString()),
                             ),
                           ))
                       .toList(),
@@ -919,54 +924,51 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
 class _FamilyChip extends StatelessWidget {
   final String name;
-  final dynamic photoUuid;
-  final Color backgroundColor;
+  final String? studentCode;
+  final bool isInactive;
 
   const _FamilyChip({
     required this.name,
-    this.photoUuid,
-    required this.backgroundColor,
+    this.studentCode,
+    this.isInactive = false,
   });
-
-  String get initials {
-    final parts = name.trim().split(RegExp(r"\s+"));
-    final first = parts.isNotEmpty ? parts.first : '';
-    final last = parts.length > 1 ? parts.last : '';
-    return ((first.isNotEmpty ? first[0] : '') + (last.isNotEmpty ? last[0] : '')).toUpperCase();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: backgroundColor,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: AppColors.billingCardColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+    return Opacity(
+      opacity: isInactive ? 0.45 : 1,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The family-ledger API carries no photo field — [studentCode] lets
+          // DocumentImageWidget self-resolve the real photo the same way
+          // select_students_screen.dart does, instead of always showing
+          // initials on a flat CircleAvatar.
+          DocumentImageWidget(
+            fileUuid: '',
+            studentCode: (studentCode ?? '').trim().isNotEmpty
+                ? studentCode
+                : null,
+            name: name,
+            size: 32,
+            fontSize: 12,
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.primaryColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 120),
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

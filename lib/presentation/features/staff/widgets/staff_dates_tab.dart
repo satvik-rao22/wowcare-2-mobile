@@ -20,21 +20,32 @@ import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 
 class StaffDatesTab extends StatelessWidget {
-  const StaffDatesTab({super.key, required this.staffCode});
+  const StaffDatesTab({
+    super.key,
+    required this.staffCode,
+    this.canEdit = false,
+  });
 
   final String staffCode;
+
+  /// Whether the current persona may edit this staff member's important dates
+  /// (resolved by the parent screen from STAFF module write access; a staff
+  /// persona is additionally scoped to their own profile). When false, no edit
+  /// affordance is rendered at all.
+  final bool canEdit;
 
   @override
   Widget build(BuildContext context) {
     // Cubits are created by the route builder (§1.6), not here.
-    return _StaffDatesTabView(staffCode: staffCode);
+    return _StaffDatesTabView(staffCode: staffCode, canEdit: canEdit);
   }
 }
 
 class _StaffDatesTabView extends StatefulWidget {
-  const _StaffDatesTabView({required this.staffCode});
+  const _StaffDatesTabView({required this.staffCode, this.canEdit = false});
 
   final String staffCode;
+  final bool canEdit;
 
   @override
   State<_StaffDatesTabView> createState() => _StaffDatesTabViewState();
@@ -171,7 +182,9 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
     final dueDate = physical.dueDate.trim();
     final completedDate = (physical.completedDate ?? '').trim();
     final bool isCompleted = statusUpper == 'COMPLETED';
-    final bool showMore = !isCompleted;
+    // The "more" action only opens the edit dialog, so it follows the same
+    // write gate as the Important Dates pencil.
+    final bool showMore = !isCompleted && widget.canEdit;
     final cards = <Widget>[];
 
     if (dueDate.isNotEmpty) {
@@ -796,53 +809,53 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: () {
-                        final hire = _getEntryByType('HIRE_DATE');
-                        final cda = _getEntryByType('CDA');
-                        final firstAid = _getEntryByType('FIRST_AID_CPR');
-                        final brc = _getEntryByType('BRC');
-                        final physical = _getEntryByType('PHYSICAL_CHECKUP');
-                        context
-                            .push(
-                              StaffRoutes.editImportantDates,
-                              extra: EditImportantDatesArgs(
-                                staffCode: widget.staffCode,
-                                initialHireDate: _parseIsoDate(hire?.dueDate),
-                                initialCdaExaminationDate: _parseIsoDate(
-                                  cda?.dueDate,
+                    if (widget.canEdit)
+                      GestureDetector(
+                        onTap: () {
+                          final hire = _getEntryByType('HIRE_DATE');
+                          final cda = _getEntryByType('CDA');
+                          final firstAid = _getEntryByType('FIRST_AID_CPR');
+                          final brc = _getEntryByType('BRC');
+                          final physical = _getEntryByType('PHYSICAL_CHECKUP');
+                          context
+                              .push(
+                                StaffRoutes.editImportantDates,
+                                extra: EditImportantDatesArgs(
+                                  staffCode: widget.staffCode,
+                                  initialHireDate: _parseIsoDate(hire?.dueDate),
+                                  initialCdaExaminationDate: _parseIsoDate(
+                                    cda?.dueDate,
+                                  ),
+                                  initialFirstAidCprExpirationDate:
+                                      _parseIsoDate(firstAid?.dueDate),
+                                  initialBackgroundRecordCheckExpirationDate:
+                                      _parseIsoDate(brc?.dueDate),
+                                  initialPhysicalCheckupDate: _parseIsoDate(
+                                    physical?.dueDate,
+                                  ),
+                                  initialPhysicalCheckupStatus:
+                                      _apiStatusToDropdown(physical?.status),
                                 ),
-                                initialFirstAidCprExpirationDate: _parseIsoDate(
-                                  firstAid?.dueDate,
-                                ),
-                                initialBackgroundRecordCheckExpirationDate:
-                                    _parseIsoDate(brc?.dueDate),
-                                initialPhysicalCheckupDate: _parseIsoDate(
-                                  physical?.dueDate,
-                                ),
-                                initialPhysicalCheckupStatus:
-                                    _apiStatusToDropdown(physical?.status),
-                              ),
-                            )
-                            .then((_) {
-                              if (mounted) _loadDates(useCache: false);
-                            });
-                      },
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildPrimaryGradient(),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.edit,
-                          size: 22,
-                          color: AppColors.cardColor,
+                              )
+                              .then((_) {
+                                if (mounted) _loadDates(useCache: false);
+                              });
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.buildPrimaryGradient(),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.edit,
+                            size: 22,
+                            color: AppColors.cardColor,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 16),

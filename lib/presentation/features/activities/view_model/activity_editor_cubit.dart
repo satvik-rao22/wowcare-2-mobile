@@ -12,7 +12,7 @@ import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_resolved_time.dart';
 import 'package:wowcare/presentation/features/activities/model/attendance_window_validation_result.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_selected_date_prefill.dart';
+import 'package:wowcare/domain/features/activity/services/activity_selected_date_prefill.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_staff_context.dart';

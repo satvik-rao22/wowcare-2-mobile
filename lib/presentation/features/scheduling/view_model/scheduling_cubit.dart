@@ -2,28 +2,29 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/api_error_handler.dart';
-import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
-import '../../../../domain/features/scheduling/entities/staff_shift.dart';
-import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
-import '../../../../domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
-import '../../../../domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
-import '../../../../domain/features/staff/entities/school_regular_schedule_day.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/domain/features/scheduling/entities/classroom_forecast_block.dart';
+import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
+import 'package:wowcare/domain/features/scheduling/entities/staff_shift_hours_entry.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/bootstrap_scheduling_school_timezone_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_classroom_forecast_range_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_by_code_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shift_hours_range_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import '../model/scheduling_models.dart';
-import '../utils/forecast_slot_mapper.dart';
-import '../utils/school_hours_resolver.dart';
-import '../../../../domain/features/scheduling/services/scheduling_school_time.dart';
+import 'package:wowcare/presentation/features/scheduling/model/forecast_slot_mapper.dart';
+import 'package:wowcare/domain/features/scheduling/services/school_hours_resolver.dart';
+import 'package:wowcare/core/extensions/schedule_time_ext.dart';
+import 'package:wowcare/domain/features/scheduling/services/scheduling_school_time.dart';
 import 'scheduling_school_scope_mixin.dart';
-import '../../../../domain/features/scheduling/services/staff_hours_aggregator.dart';
+import 'package:wowcare/domain/features/scheduling/services/staff_hours_aggregator.dart';
 import '../model/staff_shift_slot_mapper.dart';
 import 'scheduling_staff_list_cubit.dart';
 
@@ -327,13 +328,13 @@ class SchedulingCubit extends Cubit<SchedulingState>
       return base;
     }
 
-    final displayStart = schoolHours.startTimeOfDay;
-    final displayEnd = schoolHours.endTimeOfDay;
-    final forecastStart = schoolHours.scheduleMonitorStartTimeOfDay;
-    final forecastEnd = schoolHours.scheduleMonitorEndTimeOfDay;
+    final displayStart = schoolHours.openTime;
+    final displayEnd = schoolHours.closeTime;
+    final forecastStart = schoolHours.scheduleMonitorStart;
+    final forecastEnd = schoolHours.scheduleMonitorEnd;
     final blockMinutes = schoolHours.durationMinutes ?? 30;
-    final windowStart = ForecastSlotMapper.minutesOf(displayStart);
-    final windowEnd = ForecastSlotMapper.minutesOf(displayEnd);
+    final windowStart = displayStart.minutesOfDay;
+    final windowEnd = displayEnd.minutesOfDay;
 
     if (codes.isEmpty) {
       codes.addAll(base.map((c) => c.classroomCode).where((c) => c.isNotEmpty));
@@ -355,8 +356,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
           organizationCode: organizationCode,
           startDate: day,
           endDate: day,
-          startTime: forecastStart,
-          endTime: forecastEnd,
+          startTime: forecastStart.toTimeOfDay(),
+          endTime: forecastEnd.toTimeOfDay(),
           durationMinutes: blockMinutes,
           classroomCodes: codes,
         );
@@ -365,8 +366,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
           schoolCode: schoolCode,
           organizationCode: organizationCode,
           date: day,
-          startTime: forecastStart,
-          endTime: forecastEnd,
+          startTime: forecastStart.toTimeOfDay(),
+          endTime: forecastEnd.toTimeOfDay(),
           durationMinutes: blockMinutes,
           classroomCodes: codes,
         );
@@ -596,10 +597,8 @@ class SchedulingCubit extends Cubit<SchedulingState>
   }) {
     if (state.viewMode != SchedulingViewMode.day) return classrooms;
 
-    final windowStart = ForecastSlotMapper.minutesOf(
-      schoolHours.startTimeOfDay,
-    );
-    final windowEnd = ForecastSlotMapper.minutesOf(schoolHours.endTimeOfDay);
+    final windowStart = schoolHours.openTime.minutesOfDay;
+    final windowEnd = schoolHours.closeTime.minutesOfDay;
     final blockMinutes = schoolHours.durationMinutes ?? 30;
 
     return classrooms

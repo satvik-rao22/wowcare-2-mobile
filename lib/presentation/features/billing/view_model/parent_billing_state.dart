@@ -10,6 +10,7 @@ class ParentBillingState extends Equatable {
     this.errorMessage,
     this.startDate,
     this.endDate,
+    this.autoPayBlocked = false,
   });
 
   const ParentBillingState.initial()
@@ -20,11 +21,18 @@ class ParentBillingState extends Equatable {
         ledger = null,
         errorMessage = null,
         startDate = null,
-        endDate = null;
+        endDate = null,
+        autoPayBlocked = false;
 
   final bool isLoading;
   final bool isPaymentLoading;
   final bool isAutoPayLoading;
+
+  /// AutoPay is on but the school no longer accepts the method it's set up
+  /// to use — see [AutoPayMethodsState.autoPayBlocked] for the same check on
+  /// the AutoPay screen itself. Refreshed alongside the ledger (initial load
+  /// and pull-to-refresh) so this banner never goes stale.
+  final bool autoPayBlocked;
 
   /// How many transactions to show (client-side pagination).
   final int displayCount;
@@ -81,6 +89,7 @@ class ParentBillingState extends Equatable {
     String? Function()? errorMessage,
     DateTime? startDate,
     DateTime? endDate,
+    bool? autoPayBlocked,
   }) {
     return ParentBillingState(
       isLoading: isLoading ?? this.isLoading,
@@ -92,6 +101,7 @@ class ParentBillingState extends Equatable {
           errorMessage != null ? errorMessage() : this.errorMessage,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      autoPayBlocked: autoPayBlocked ?? this.autoPayBlocked,
     );
   }
 
@@ -105,5 +115,6 @@ class ParentBillingState extends Equatable {
         errorMessage,
         startDate,
         endDate,
+        autoPayBlocked,
       ];
 }

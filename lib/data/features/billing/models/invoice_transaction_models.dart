@@ -17,6 +17,7 @@ class InvoiceTransactionModel {
     required this.paidAmount,
     required this.refundedAmount,
     required this.invoiceCode,
+    this.gatewayPayment = false,
   });
 
   final String id;
@@ -30,6 +31,12 @@ class InvoiceTransactionModel {
   final String status;
   final String? method;
   final double amount;
+
+  /// Whether this transaction was processed through the payment gateway
+  /// (an "Online" card/ACH charge) rather than manually recorded (Cash,
+  /// Cheque, Other). Drives whether "Online" is offered as a refund method
+  /// — refunding a manually-recorded payment can't go through the gateway.
+  final bool gatewayPayment;
 
   /// Amount already paid against this invoice. Drives whether a Cancel action is
   /// offered — a partially/fully paid invoice can no longer be cancelled.
@@ -56,6 +63,7 @@ class InvoiceTransactionModel {
       paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
       refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0.0,
       invoiceCode: (json['invoiceCode'] ?? json['id'] ?? '').toString(),
+      gatewayPayment: json['gatewayPayment'] == true,
     );
   }
 
@@ -74,6 +82,7 @@ class InvoiceTransactionModel {
         paidAmount: paidAmount,
         refundedAmount: refundedAmount,
         invoiceCode: invoiceCode,
+        gatewayPayment: gatewayPayment,
       );
 }
 

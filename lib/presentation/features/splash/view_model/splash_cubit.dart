@@ -9,6 +9,7 @@ import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
@@ -16,7 +17,7 @@ import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -103,8 +104,15 @@ class SplashCubit extends Cubit<SplashState> {
     try {
       final launch = await FirebaseMessaging.instance.getInitialMessage();
       if (launch == null) return null;
+      // Persona comes from storage, not RoleCubit: this runs before the shell
+      // (and its RoleCubit) is up. Billing and newsletter destinations differ
+      // per persona, so guessing here would cold-start a parent onto the
+      // staff screen — e.g. a newsletter tap landing on room chat.
+      final persona = await resolvePersonaFamilyFromStorage(_storage);
       final dest = NotificationRouteResolver.resolve(
         PushNotificationModel.fromRemoteMessage(launch),
+        isGuardian: persona == 'parent',
+        isAdminPersona: persona == 'admin',
       );
       return dest?.location;
     } catch (_) {
@@ -274,12 +282,12 @@ class SplashCubit extends Cubit<SplashState> {
       }
 
       // Non-kiosk cached session: clear any stale kiosk flag from storage and
-      // the static in-memory cache so GoRouter never sees a false positive.
+      // the in-memory cache so GoRouter never sees a false positive.
       try {
         await _kioskAccessControl.deactivateKioskMode();
         AppLogger.d('[Splash] Non-kiosk cached session — kiosk state cleared');
       } catch (_) {
-        KioskAccessControl.clearCacheForNonKioskLogin();
+        _kioskAccessControl.clearCacheForNonKioskLogin();
       }
 
       await _roleCubit.refreshAccessFromServer(force: true);

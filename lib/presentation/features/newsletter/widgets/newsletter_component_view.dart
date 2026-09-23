@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_asset_url_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
+import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_html_normalizer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_rich_html_text.dart';
 
@@ -20,9 +21,43 @@ class NewsletterComponentList extends StatelessWidget {
   final List<NewsletterComponent> components;
   final String colorThemeKey;
 
+  /// True when at least one of [components] will paint something, so callers can
+  /// tell "has components" apart from "has components worth showing" and fall
+  /// through to their own empty state instead of rendering a blank card.
+  static bool hasRenderableContent(List<NewsletterComponent> components) =>
+      components.any(_rendersSomething);
+
+  /// True when [component] will actually paint something.
+  ///
+  /// A component whose only text is editor filler builds a zero-height box, and
+  /// the loop below would still put a full [AppSizes.md] gap on each side of it
+  /// — the same dead space [normalizeNewsletterHtml] strips inside a block,
+  /// reappearing one level up. Filtering first is what keeps an all-filler
+  /// component from costing 32px of nothing.
+  ///
+  /// `IMAGE` counts as renderable even with no usable part, because
+  /// [_ImageBlock] deliberately falls back to the default newsletter artwork
+  /// there — that placeholder is content, not filler.
+  static bool _rendersSomething(NewsletterComponent component) {
+    final String type = component.normalizedType;
+    if (type == 'DIVIDER' || type == 'IMAGE') return true;
+
+    for (final NewsletterContentPart part in component.parts) {
+      if (part.type == NewsletterPartType.image && part.hasImage) return true;
+      if (part.type == NewsletterPartType.text &&
+          part.hasText &&
+          normalizeNewsletterHtml(part.text).isNotEmpty) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (components.isEmpty) return const SizedBox.shrink();
+    final List<NewsletterComponent> visible =
+        components.where(_rendersSomething).toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
 
     final NewsletterThemeColors theme = NewsletterThemeColors.fromKey(
       colorThemeKey,
@@ -31,13 +66,13 @@ class NewsletterComponentList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < components.length; i++) ...[
+        for (int i = 0; i < visible.length; i++) ...[
           if (i > 0) const SizedBox(height: AppSizes.md),
           _NewsletterComponentTile(
             key: ValueKey<String>(
-              '${components[i].id}-${components[i].componentType}-${components[i].sortOrder}',
+              '${visible[i].id}-${visible[i].componentType}-${visible[i].sortOrder}',
             ),
-            component: components[i],
+            component: visible[i],
             theme: theme,
           ),
         ],

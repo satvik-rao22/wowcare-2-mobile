@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/presentation/features/reports/widgets/xlsx_sheet_view.dart';
 
 class ReportFileViewerScreen extends StatefulWidget {
   final Uint8List fileData;
@@ -159,35 +160,12 @@ class _FileViewerBody extends StatelessWidget {
     if (fileType.toLowerCase() == 'pdf') {
       return PDFView(pdfData: fileData);
     } else if (fileType.toLowerCase() == 'xlsx') {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.table_chart,
-              size: 64,
-              color: AppColors.reportsMutedColor,
-            ),
-            const SizedBox(height: AppSizes.md),
-            Text(
-              ReportsStrings.excelFilePreview,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: AppSizes.xs),
-            Text(
-              ReportsStrings.tapDownloadToSaveAndOpenThisExcelFile,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSizes.xl),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.download),
-              label: const Text(ReportsStrings.downloadFile),
-              onPressed: onDownload,
-            ),
-          ],
-        ),
-      );
+      // Was an icon and a Download button — no report content at all, which
+      // left Android users with nothing to look at whenever no spreadsheet app
+      // was installed to take the OS hand-off. [XlsxSheetView] reads the
+      // workbook itself, so the report is on screen the way iOS QuickLook
+      // shows it, and Download still hands the file to the OS.
+      return XlsxSheetView(fileData: fileData, onDownload: onDownload);
     } else {
       return Center(
         child: Column(

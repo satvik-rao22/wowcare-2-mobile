@@ -153,6 +153,13 @@ class CustomDropdown extends StatefulWidget {
     /// Shows a search box at the top of the popup that filters [items] as you
     /// type. Off by default — opt in per-usage (e.g. the existing-parent picker).
     this.enableSearch = false,
+
+    /// When non-null, shows a small "x" between the text and the chevron
+    /// that clears the current selection without opening the popup. Opt-in
+    /// (existing call sites are unaffected): pass a callback only where a
+    /// dedicated clear affordance is wanted (e.g. a filter sheet's
+    /// single-select fields) rather than relying on re-opening the popup.
+    this.onClear,
   });
 
   final String? label;
@@ -178,6 +185,9 @@ class CustomDropdown extends StatefulWidget {
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
   final bool enableSearch;
+
+  /// See the constructor doc — shows a clear "x" affordance when set.
+  final VoidCallback? onClear;
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
@@ -332,6 +342,33 @@ class _CustomDropdownState extends State<CustomDropdown> {
                               textAlign: TextAlign.left,
                             ),
                           ),
+                          if (widget.isEnabled &&
+                              widget.onClear != null &&
+                              selectedItem != null) ...[
+                            const SizedBox(width: 2),
+                            // A GestureDetector nested inside the
+                            // PopupMenuButton's own child claims its own
+                            // tap region first (standard Flutter hit-test
+                            // behavior), so tapping "x" clears the
+                            // selection instead of opening the popup.
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                setState(() => selectedItem = null);
+                                widget.onClear!();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.close,
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(width: 4),
                           if (widget.isEnabled)
                             const Icon(

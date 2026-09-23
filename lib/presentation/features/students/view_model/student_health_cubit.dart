@@ -182,4 +182,45 @@ class StudentHealthCubit extends Cubit<StudentHealthState> {
       }
     });
   }
+
+  /// Marks every loaded immunization record for [studentCode] as EXEMPT.
+  ///
+  /// Backs the "exempt student from all immunizations" toggle, which is a
+  /// one-way switch — so this only ever sets EXEMPT, never clears it. Records
+  /// already EXEMPT are skipped, and each record keeps the date it already had
+  /// (the backend rejects a null date). Requests run sequentially: on the first
+  /// failure the error is rethrown and the remaining records are left alone,
+  /// then the caller's reload shows exactly what did get through.
+  Future<void> exemptAllImmunizations({required String studentCode}) {
+    return _singleFlight<void>('immun-exempt-all:$studentCode', () async {
+      final pending = state.immunizations
+          .where((r) => r.status.trim().toUpperCase() != 'EXEMPT')
+          .toList(growable: false);
+      if (pending.isEmpty) return;
+      if (!isClosed) emit(state.copyWith(mutationInProgress: true));
+      try {
+        for (final record in pending) {
+          await _updateStudentImmunizationRecordUseCase(
+            studentCode: studentCode,
+            record: record,
+            date: _existingDateOf(record),
+            status: 'EXEMPT',
+          );
+        }
+      } finally {
+        if (!isClosed) emit(state.copyWith(mutationInProgress: false));
+        await loadImmunizations(studentCode, forceRefresh: true);
+      }
+    });
+  }
+
+  /// The date already on [record] (administered wins over due), falling back to
+  /// today when the record carries neither or an unparseable value.
+  static DateTime _existingDateOf(StudentImmunization record) {
+    for (final raw in [record.administeredDate, record.dueDate]) {
+      final parsed = DateTime.tryParse((raw ?? '').trim());
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
 }

@@ -448,51 +448,45 @@ class _StudentAttendanceSummaryCardState
           ),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(16),
-          splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-          highlightColor: AppColors.primaryColor.withValues(alpha: 0.05),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DashboardCardHeader(
-                  title: 'Attendance',
-                  minimized: _minimized,
-                  onToggle: () => setState(() => _minimized = !_minimized),
-                  showRedirect: true,
-                  onRedirect: () => _openStudentAttendanceProfile(context),
-                  trailing: Expanded(child: _buildSelectedChildName()),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DashboardCardHeader(
+                title: 'Attendance',
+                minimized: _minimized,
+                onToggle: () => setState(() => _minimized = !_minimized),
+                showRedirect: true,
+                onRedirect: () => _openStudentAttendanceProfile(context),
+                trailing: Expanded(child: _buildSelectedChildName()),
+              ),
+              if (!_minimized) ...[
+                const SizedBox(height: 16),
+                CustomDateTimeField(
+                  hasLabel: false,
+                  isRangePicker: true,
+                  initialDate: _fromDate,
+                  label: 'Date Range',
+                  onRangeSelected: _onDateRangeSelected,
                 ),
-                if (!_minimized) ...[
-                  const SizedBox(height: 16),
-                  CustomDateTimeField(
-                    hasLabel: false,
-                    isRangePicker: true,
-                    initialDate: _fromDate,
-                    label: 'Date Range',
-                    onRangeSelected: _onDateRangeSelected,
-                  ),
-                  const SizedBox(height: 20),
-                  BlocBuilder<
-                    StudentAttendanceProfileCubit,
-                    StudentAttendanceProfileState
-                  >(
-                    buildWhen: (prev, curr) =>
-                        prev.status != curr.status ||
-                        prev.attendedDays != curr.attendedDays ||
-                        prev.absentDays != curr.absentDays ||
-                        prev.attendedHours != curr.attendedHours ||
-                        prev.attendedMinutes != curr.attendedMinutes,
-                    builder: (context, state) {
-                      return _buildStats(state);
-                    },
-                  ),
-                ],
+                const SizedBox(height: 20),
+                BlocBuilder<
+                  StudentAttendanceProfileCubit,
+                  StudentAttendanceProfileState
+                >(
+                  buildWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.attendedDays != curr.attendedDays ||
+                      prev.absentDays != curr.absentDays ||
+                      prev.attendedHours != curr.attendedHours ||
+                      prev.attendedMinutes != curr.attendedMinutes,
+                  builder: (context, state) {
+                    return _buildStats(state);
+                  },
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

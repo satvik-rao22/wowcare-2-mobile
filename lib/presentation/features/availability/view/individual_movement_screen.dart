@@ -422,11 +422,14 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         isEditing: true,
         editingMovementId: resolvedMovement.id,
         disablePastDates: true,
+        // A Start School / Leave School movement is defined by the single
+        // classroom a student enters or exits from — changing it would make it
+        // a different movement, so only the date and comment stay editable.
+        // (This supersedes the old rule, which locked the classroom only once
+        // such a movement was confirmed.)
         lockClassroomSelection:
-            resolvedMovement.status ==
-                IndividualMovementWorkflowStatus.confirmed &&
             resolvedMovement.movementType !=
-                IndividualMovementType.moveToNextClassroom,
+            IndividualMovementType.moveToNextClassroom,
         movementType: editMovementType,
         studentNamesByCode: studentNamesByCode,
         classroomNamesByCode: classroomNamesByCode,
@@ -837,110 +840,121 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
           body: CustomRefreshIndicator(
             displacement: 28,
             onRefresh: _onPullRefreshBuckets,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: <Widget>[
-                        const Expanded(
-                          child: Text(
-                            'Overview',
-                            style: AppTextStyles.movementSectionHeading,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IndividualMovementFilterCard(
-                    students: studentOptions.items,
-                    classrooms: classroomOptions.items,
-                    selectedStudents: selectedStudentDisplays,
-                    fromClassrooms: selectedFromDisplays,
-                    toClassrooms: selectedToDisplays,
-                    filterRangeStart: _filterRangeStart,
-                    filterRangeEnd: _filterRangeEnd,
-                    onStudentsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => studentOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _selectedStudents = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onFromClassroomsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => classroomOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _fromClassrooms = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onToClassroomsChanged: (List<String> displays) {
-                      final codes = displays
-                          .map((d) => classroomOptions.displayToCode[d.trim()])
-                          .whereType<String>()
-                          .toList();
-                      setState(() => _toClassrooms = codes);
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onDateRangeChanged: (DateTime? start, DateTime? end) {
-                      setState(() {
-                        _filterRangeStart = start;
-                        _filterRangeEnd = end;
-                      });
-                      _persistFilters();
-                      _fetchMovements();
-                    },
-                    onClearAll: _clearFilters,
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.isLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: PrimaryCircularLoader(),
-                      ),
-                    )
-                  else if (state.errorMessage != null && state.board == null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      child: Center(
+            // The heading and filters stay pinned and the visible bucket's own
+            // list is the only vertical scrollable on the screen. This used to
+            // be a page-wide SingleChildScrollView wrapping a pager of fixed
+            // estimated height, each of whose cards had a ListView of its own —
+            // two nested scrollables competing for every drag, so a bucket
+            // taller than the estimate could neither be scrolled to its last
+            // card nor scrolled back up.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: <Widget>[
+                      const Expanded(
                         child: Text(
-                          state.errorMessage!,
-                          style: AppTextStyles.movementErrorText,
-                          textAlign: TextAlign.center,
+                          'Overview',
+                          style: AppTextStyles.movementSectionHeading,
                         ),
                       ),
-                    )
-                  else
-                    IndividualMovementPager(
-                      sections: sections,
-                      currentSectionIndex: _currentSectionIndex,
-                      sectionPageController: _sectionPageController,
-                      onPageChanged: (int index) =>
-                          setState(() => _currentSectionIndex = index),
-                      onPrevious: _goToPreviousSection,
-                      onNext: _goToNextSection,
-                      onActionSelected: _onMovementAction,
-                      onDropToBucket: _handleDropToBucket,
-                      isViewOnly: isViewOnly,
-                      canDragItem: _canDragItem,
-                      onDragStarted: _onCardDragStarted,
-                      onDragEnded: _onCardDragEnded,
-                      onDragGlobalUpdate: _onCardDragGlobalUpdate,
-                      highlightCode: widget.highlightCode,
-                      onStudentNameTap: _onStudentNameTap,
-                    ),
-                  const SizedBox(height: 20),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+                IndividualMovementFilterCard(
+                  students: studentOptions.items,
+                  classrooms: classroomOptions.items,
+                  selectedStudents: selectedStudentDisplays,
+                  fromClassrooms: selectedFromDisplays,
+                  toClassrooms: selectedToDisplays,
+                  filterRangeStart: _filterRangeStart,
+                  filterRangeEnd: _filterRangeEnd,
+                  onStudentsChanged: (List<String> displays) {
+                    final codes = displays
+                        .map((d) => studentOptions.displayToCode[d.trim()])
+                        .whereType<String>()
+                        .toList();
+                    setState(() => _selectedStudents = codes);
+                    _persistFilters();
+                    _fetchMovements();
+                  },
+                  onFromClassroomsChanged: (List<String> displays) {
+                    final codes = displays
+                        .map((d) => classroomOptions.displayToCode[d.trim()])
+                        .whereType<String>()
+                        .toList();
+                    setState(() => _fromClassrooms = codes);
+                    _persistFilters();
+                    _fetchMovements();
+                  },
+                  onToClassroomsChanged: (List<String> displays) {
+                    final codes = displays
+                        .map((d) => classroomOptions.displayToCode[d.trim()])
+                        .whereType<String>()
+                        .toList();
+                    setState(() => _toClassrooms = codes);
+                    _persistFilters();
+                    _fetchMovements();
+                  },
+                  onDateRangeChanged: (DateTime? start, DateTime? end) {
+                    setState(() {
+                      _filterRangeStart = start;
+                      _filterRangeEnd = end;
+                    });
+                    _persistFilters();
+                    _fetchMovements();
+                  },
+                  onClearAll: _clearFilters,
+                ),
+                const SizedBox(height: 12),
+                // The board takes every pixel left below the filters, so the
+                // bucket the user is looking at scrolls against a viewport that
+                // is actually on screen instead of one sized from a row-count
+                // guess.
+                Expanded(
+                  child: state.isLoading
+                      ? const _BoardPlaceholder(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: PrimaryCircularLoader(),
+                          ),
+                        )
+                      : (state.errorMessage != null && state.board == null)
+                      ? _BoardPlaceholder(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 18,
+                            ),
+                            child: Text(
+                              state.errorMessage!,
+                              style: AppTextStyles.movementErrorText,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : IndividualMovementPager(
+                          sections: sections,
+                          currentSectionIndex: _currentSectionIndex,
+                          sectionPageController: _sectionPageController,
+                          onPageChanged: (int index) =>
+                              setState(() => _currentSectionIndex = index),
+                          onPrevious: _goToPreviousSection,
+                          onNext: _goToNextSection,
+                          onActionSelected: _onMovementAction,
+                          onDropToBucket: _handleDropToBucket,
+                          isViewOnly: isViewOnly,
+                          canDragItem: _canDragItem,
+                          onDragStarted: _onCardDragStarted,
+                          onDragEnded: _onCardDragEnded,
+                          onDragGlobalUpdate: _onCardDragGlobalUpdate,
+                          highlightCode: widget.highlightCode,
+                          onStudentNameTap: _onStudentNameTap,
+                        ),
+                ),
+              ],
             ),
           ),
         );
@@ -995,5 +1009,29 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
     final list = values.toList()..sort();
     return list;
+  }
+}
+
+/// Centers the loader / error message in the board's slot while staying a
+/// scrollable, so pull-to-refresh still works when there is no bucket list to
+/// overscroll.
+class _BoardPlaceholder extends StatelessWidget {
+  const _BoardPlaceholder({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(child: child),
+          ),
+        );
+      },
+    );
   }
 }
