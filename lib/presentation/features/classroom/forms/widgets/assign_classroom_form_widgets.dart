@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Shared chrome for [AssignStudentToClassroomForm]/[AssignStaffToClassroomForm]
@@ -102,23 +103,7 @@ class AssignFormResultsArea extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: PrimaryCircularLoader());
     if (errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: AppFonts.body,
-                color: AppColors.classroomNegativeStatusColor,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      );
+      return AppErrorState(title: errorMessage!, onRetry: onRetry);
     }
     return content;
   }

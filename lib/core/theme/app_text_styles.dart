@@ -1292,8 +1292,9 @@ class AppTextStyles {
     color: AppColors.whiteColor,
   );
 
-  /// Label under each icon in the guardian action panel.
-  static const TextStyle guardianActionPanelLabel = TextStyle(
+  /// Label under each icon in a floating action panel (students, staff,
+  /// billing, guardians). Warm white, on `AppSurfaces.actionPanel`.
+  static const TextStyle actionPanelLabel = TextStyle(
     color: AppColors.textOnDarkColor,
     fontSize: 12,
   );

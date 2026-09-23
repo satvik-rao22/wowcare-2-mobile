@@ -1228,6 +1228,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       width: widget.size,
       height: widget.size,
       fit: widget.fit,
+      // Until the first bytes arrive, loadingProgress is still null, so the
+      // loadingBuilder alone hands back the empty image and the avatar is a
+      // blank gap on the card. Hold the shimmer until a frame has decoded.
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+          frame == null && !wasSynchronouslyLoaded ? _buildShimmer() : child,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return _buildShimmer();

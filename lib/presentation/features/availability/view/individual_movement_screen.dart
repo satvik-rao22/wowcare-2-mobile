@@ -20,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.d
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class IndividualMovementScreen extends StatefulWidget {
   const IndividualMovementScreen({
@@ -923,16 +924,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                         )
                       : (state.errorMessage != null && state.board == null)
                       ? _BoardPlaceholder(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 18,
-                            ),
-                            child: Text(
-                              state.errorMessage!,
-                              style: AppTextStyles.movementErrorText,
-                              textAlign: TextAlign.center,
-                            ),
+                          child: AppErrorState(
+                            title: state.errorMessage!,
+                            compact: true,
+                            onRetry: () => _fetchMovements(),
                           ),
                         )
                       : IndividualMovementPager(

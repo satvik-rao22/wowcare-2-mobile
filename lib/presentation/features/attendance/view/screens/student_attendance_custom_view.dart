@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -755,7 +756,11 @@ class _CustomContentSection extends StatelessWidget {
     }
 
     if (state.errorMessage != null) {
-      return _CustomErrorWidget(message: state.errorMessage!, onRetry: onRetry);
+      return AppErrorState(
+        title: 'Error loading attendance data',
+        message: state.errorMessage,
+        onRetry: onRetry,
+      );
     }
 
     if (filtered.isEmpty) {
@@ -791,65 +796,6 @@ class _CustomLoadingShimmer extends StatelessWidget {
         8,
         (index) => AttendanceCardShimmer(
           margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomErrorWidget extends StatelessWidget {
-  const _CustomErrorWidget({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.error_outline,
-              color: AppColors.errorColor,
-              size: 48,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AppText.title(
-              'Error loading attendance data',
-              style: AppTextStyles.title.copyWith(
-                color: AppColors.errorColor,
-                fontSize: 18,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            AppText.body(
-              message.isNotEmpty ? message : 'Please try again.',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.secondaryColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: AppText.body(
-                'Retry',
-                style: AppTextStyles.body.copyWith(color: AppColors.cardColor),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.themeColor,
-                foregroundColor: AppColors.cardColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.sm,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

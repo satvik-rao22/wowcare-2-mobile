@@ -63,6 +63,7 @@ import 'package:wowcare/domain/features/activity/services/activity_staff_display
 import 'activity_feed_card_permissions.dart';
 import '../model/activity_item.dart';
 import '../model/activity_feed_grouping.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 export '../model/activity_item.dart';
 export '../model/activity_feed_grouping.dart';
@@ -2870,11 +2871,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(8),
-                                              child: AppIcon(
-                                                MediaRes.filterIcon,
-                                                height: 20,
-                                                tone: IconTone.action,
-                                              ),
+                                              child: FilterGlyph(size: 20),
                                             ),
                                             Builder(
                                               builder: (context) {
@@ -3745,11 +3742,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                         children: [
                                           Padding(
                                             padding: const EdgeInsets.all(8),
-                                            child: AppIcon(
-                                              MediaRes.filterIcon,
-                                              height: 20,
-                                              tone: IconTone.action,
-                                            ),
+                                            child: FilterGlyph(size: 20),
                                           ),
                                           Builder(
                                             builder: (context) {

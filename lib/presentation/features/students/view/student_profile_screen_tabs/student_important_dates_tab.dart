@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -252,15 +253,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     if (_isLoading)
                       const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: AppColors.errorColor,
-                            fontSize: 14,
-                          ),
-                        ),
+                      AppErrorState(
+                        title: _errorMessage!,
+                        compact: true,
+                        onRetry: _loadDates,
                       )
                     else
                       ...List.generate(entries.length * 2 - 1, (i) {

@@ -325,7 +325,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 amount: '\$${overview.inProcess.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.inProcess, totalAllAmounts),
                 label: 'In Process',
-                percentageColor: MaterialHues.yellow,
+                percentageColor: AppPalette.statusWarningStrong,
               ),
             ),
             Expanded(

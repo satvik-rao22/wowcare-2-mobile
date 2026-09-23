@@ -472,8 +472,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void _showSnackOnRoot(String message, {bool isError = false}) {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: ctx,
+      snackBar: SnackBar(
         content: Text(message),
         backgroundColor: isError
             ? AppColors.errorColor
@@ -604,8 +605,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isEmpty) {
-        ScaffoldMessenger.of(navigator.context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: navigator.context,
+          snackBar: const SnackBar(
             content: Text(
               'Unable to resolve your staff profile. Please re-login.',
             ),
@@ -640,8 +642,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       );
     } catch (_) {
-      ScaffoldMessenger.of(navigator.context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: navigator.context,
+        snackBar: const SnackBar(
           content: Text('Unable to open your profile right now.'),
           backgroundColor: AppColors.errorColor,
         ),
@@ -655,8 +658,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isEmpty) {
-        ScaffoldMessenger.of(navigator.context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: navigator.context,
+          snackBar: const SnackBar(
             content: Text(
               'Unable to resolve your attendance profile. Please re-login.',
             ),
@@ -692,8 +696,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         },
       );
     } catch (_) {
-      ScaffoldMessenger.of(navigator.context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: navigator.context,
+        snackBar: const SnackBar(
           content: Text('Unable to open your attendance right now.'),
           backgroundColor: AppColors.errorColor,
         ),

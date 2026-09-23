@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 /// How the Tasks module lays out its content. Mobile Kanban uses status tabs
 /// over a single column (PRD FR-TK-14) rather than the desktop's 3 columns.
@@ -305,7 +306,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 ),
               ),
               child:
-                  const Icon(Icons.tune, size: 18, color: AppColors.themeColor),
+                  const FilterGlyph(size: 18),
             ),
           ),
         ),

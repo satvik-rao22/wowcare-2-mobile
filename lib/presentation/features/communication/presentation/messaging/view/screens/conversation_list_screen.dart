@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/communication/view_model/conversat
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_filter_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -453,45 +454,11 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     // Show error state with retry button
     if (state.hasStaffSearchError) {
       return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSizes.lg, AppSizes.md, AppSizes.lg, AppSizes.sm),
-          child: Container(
-            padding: const EdgeInsets.all(AppSizes.sm),
-            decoration: BoxDecoration(
-              color: AppColors.messagingErrorBannerBg,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.messagingErrorBannerBorder, width: 1),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  state.staffSearchErrorMessage ?? AppStrings.failedToSearchStaff,
-                  style: AppTextStyles.size14.copyWith(
-                    fontSize: 13,
-                    color: AppColors.messagingErrorBannerText,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: AppSizes.xs),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      context.read<ConversationListCubit>().retryStaffSearch(),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text(AppStrings.retry),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.messagingErrorBannerText,
-                    foregroundColor: AppColors.messagingOnAccent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.sm,
-                      vertical: AppSizes.xs,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        child: AppErrorState(
+          title: AppStrings.failedToSearchStaff,
+          message: state.staffSearchErrorMessage,
+          onRetry: () => context.read<ConversationListCubit>().retryStaffSearch(),
+          compact: true,
         ),
       );
     }

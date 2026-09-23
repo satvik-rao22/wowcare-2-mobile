@@ -130,7 +130,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                       horizontal: 8,
                       vertical: 12,
                     ),
-                    decoration: AppSurfaces.card(radius: AppRadius.r10),
+                    decoration: AppSurfaces.actionPanel(),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

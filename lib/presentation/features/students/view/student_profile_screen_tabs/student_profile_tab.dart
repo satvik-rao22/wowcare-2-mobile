@@ -8,10 +8,10 @@ import 'package:wowcare/presentation/features/students/view/student_profile_tab_
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
-import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
@@ -347,29 +347,11 @@ class _StudentProfileTabState extends State<StudentProfileTab>
           vertical: AppSpacing.xl,
         ),
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: AppDimensions.iconXl,
-            color: AppColors.errorColor,
-          ),
-          AppSpacing.gapVMd,
-          Text(
-            StudentStrings.failedToLoadStudentProfile,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          AppSpacing.gapVXs,
-          Text(
-            ApiErrorHandler.extractErrorMessage(error),
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-          AppSpacing.gapVMd,
-          Center(
-            child: ElevatedButton(
-              onPressed: _refreshProfile,
-              child: const Text(StudentStrings.retry),
-            ),
+          AppErrorState(
+            title: StudentStrings.failedToLoadStudentProfile,
+            message: ApiErrorHandler.extractErrorMessage(error),
+            retryLabel: StudentStrings.retry,
+            onRetry: _refreshProfile,
           ),
         ],
       ),

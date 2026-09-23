@@ -57,6 +57,7 @@ import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class ActivityCustomTab extends StatelessWidget {
   const ActivityCustomTab({
@@ -2656,11 +2657,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                   children: [
                                     Padding(
                                       padding: const EdgeInsets.all(8),
-                                      child: AppIcon(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                        tone: IconTone.action,
-                                      ),
+                                      child: FilterGlyph(size: 20),
                                     ),
                                     Builder(
                                       builder: (context) {

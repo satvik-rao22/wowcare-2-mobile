@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class AddEditIndividualMovementScreen extends StatefulWidget {
   const AddEditIndividualMovementScreen({
@@ -106,9 +107,10 @@ class _AddEditIndividualMovementScreenState
           excludeId: widget.editingMovementId,
         );
     if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(content: Text(error)),
+      );
       return;
     }
 

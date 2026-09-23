@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -122,15 +123,22 @@ class _NotificationBody extends StatelessWidget {
       );
     }
 
+    if (state.groups.isEmpty && state.errorMessage != null) {
+      return AppErrorState(
+        title: state.errorMessage!,
+        onRetry: () => context.read<NotificationPreferenceGroupsCubit>().load(),
+      );
+    }
+
     if (state.groups.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           children: [
-            Text(
-              state.errorMessage ?? 'No notification preferences available.',
+            const Text(
+              'No notification preferences available.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

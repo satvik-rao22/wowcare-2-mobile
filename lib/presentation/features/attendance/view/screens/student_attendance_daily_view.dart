@@ -14,7 +14,6 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -44,7 +43,7 @@ import 'package:wowcare/presentation/features/students/view/student_filter_scree
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StudentAttendanceDailyViewScreen extends StatefulWidget {
   const StudentAttendanceDailyViewScreen({
@@ -1580,11 +1579,7 @@ class _StudentDailyFilterCard extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: AppIcon(
-                          MediaRes.filterIcon,
-                          height: 20,
-                          tone: IconTone.action,
-                        ),
+                        child: FilterGlyph(size: 20),
                       ),
                       if (hasActiveFilters)
                         Positioned(

@@ -11,6 +11,7 @@ import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -331,32 +332,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ),
               )
             else if (state.errorMessage != null && state.ledger == null)
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: AppColors.primaryColor,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        state.errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.primaryColor.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _cubit.load,
-                        child: const Text(BillingStrings.retry),
-                      ),
-                    ],
-                  ),
-                ),
+              AppErrorState(
+                title: state.errorMessage!,
+                retryLabel: BillingStrings.retry,
+                onRetry: _cubit.load,
               )
             else if (state.filteredTransactions.isEmpty)
               Padding(

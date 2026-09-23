@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/presentation/features/newsletter/view_model/preview_newsletter_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_preview_content.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class PreviewNewsletterScreen extends StatefulWidget {
@@ -59,26 +60,11 @@ class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
             // The failure state had no way out but the back button — and this
             // screen is the landing point for the NEWSLETTER_SENT push
             // deep-link, i.e. exactly when connectivity is least reliable.
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      state.errorMessage ?? AppStrings.newsletterLoadFailed,
-                      style: AppTextStyles.newsletterPreviewError,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSizes.md),
-                    TextButton.icon(
-                      onPressed: _load,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text(AppStrings.newsletterRetry),
-                    ),
-                  ],
-                ),
-              ),
+            return AppErrorState(
+              title: AppStrings.newsletterLoadFailed,
+              message: state.errorMessage,
+              retryLabel: AppStrings.newsletterRetry,
+              onRetry: _load,
             );
           }
 

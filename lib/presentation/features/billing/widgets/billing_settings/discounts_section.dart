@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/billing/model/discount_account_mod
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discount_card.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_settings/edit_discount_screen.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -249,31 +250,10 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                 )
               // ── Error ─────────────────────────────────────────────
               else if (state.hasError && state.filteredDiscounts.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 56,
-                        color: AppColors.errorColor.withValues(alpha: 0.5),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        BillingStrings.failedToLoadDiscounts,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.title.copyWith(
-                          fontSize: 15,
-                          color: AppColors.billingTextColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _cubit.loadInitial,
-                        child: const Text(BillingStrings.retry),
-                      ),
-                    ],
-                  ),
+                AppErrorState(
+                  title: BillingStrings.failedToLoadDiscounts,
+                  retryLabel: BillingStrings.retry,
+                  onRetry: _cubit.loadInitial,
                 )
               // ── Empty ─────────────────────────────────────────────
               else if (state.filteredDiscounts.isEmpty)

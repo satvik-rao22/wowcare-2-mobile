@@ -2,14 +2,12 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/view_model/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
@@ -31,6 +29,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class TransactionsSection extends StatefulWidget {
   const TransactionsSection({
@@ -297,12 +296,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                             builder: (context, hasActiveFilters) => Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                AppIcon(
-                                  MediaRes.filterIcon,
-                                  width: 20,
-                                  height: 20,
-                                  tone: IconTone.action,
-                                ),
+                                FilterGlyph(size: 20),
                                 if (hasActiveFilters)
                                   Positioned(
                                     right: -2,

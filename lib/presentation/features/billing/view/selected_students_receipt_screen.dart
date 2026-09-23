@@ -11,6 +11,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class SelectedStudentsReceiptScreen extends StatefulWidget {
   const SelectedStudentsReceiptScreen({
@@ -381,8 +382,9 @@ class _SelectedStudentsReceiptScreenState
   Future<void> _submit(String mode) async {
     if (isProcessing) return;
     if (_students.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text(BillingStrings.addAtLeastOneStudentToInvoice),
         ),
       );
@@ -392,8 +394,9 @@ class _SelectedStudentsReceiptScreenState
     if (onSubmit == null) {
       // No submit wired (e.g. opened purely for preview) — just close.
       final total = _computeTotalAmount();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(
           content: Text(
             'Invoice total: \$${total.toStringAsFixed(2)} — preview only',
           ),

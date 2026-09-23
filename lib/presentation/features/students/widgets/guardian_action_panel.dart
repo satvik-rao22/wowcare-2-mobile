@@ -3,8 +3,8 @@ import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
-import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
@@ -108,18 +108,14 @@ class GuardianActionPanel extends StatelessWidget {
       children: [
         Material(
           borderRadius: BorderRadius.circular(AppRadius.r10),
-          elevation: 3,
+          elevation: 0,
+          color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
               vertical: AppSpacing.md,
             ),
-            // Flat skin: one brand face, no vertical ramp. The glyphs and
-            // labels on it are warm white (IconTone.onBrand).
-            decoration: BoxDecoration(
-              color: AppPalette.brand,
-              borderRadius: BorderRadius.circular(AppRadius.r10),
-            ),
+            decoration: AppSurfaces.actionPanel(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -236,7 +232,7 @@ class _GuardianActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.guardianActionPanelLabel,
+                style: AppTextStyles.actionPanelLabel,
               ),
             ],
           ),

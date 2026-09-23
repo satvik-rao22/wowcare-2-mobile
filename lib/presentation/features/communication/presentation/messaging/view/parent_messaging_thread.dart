@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/parent_participant_chips.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -3471,50 +3472,46 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   /// conversation was never actually created properly, so it offers "Go
   /// back" instead of a "Retry" that would just fail the same way again.
   Widget _buildErrorState(BuildContext context, String message) {
-    final isUnauthorized = _isUnauthorizedConversationError(message);
+    if (!_isUnauthorizedConversationError(message)) {
+      return AppErrorState(
+        title: AppStrings.unableToLoadMessages,
+        message: message,
+        onRetry: () {
+          final convCode = widget.parentInfo.code;
+          context.read<CommunicationCubit>().loadMessages(
+            convCode,
+            currentUserId: _currentUserCode,
+          );
+        },
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSizes.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isUnauthorized
-                  ? Icons.chat_bubble_outline_rounded
-                  : Icons.error_outline_rounded,
+            const Icon(
+              Icons.chat_bubble_outline_rounded,
               size: 48,
-              color: isUnauthorized
-                  ? AppColors.messagingIconMuted
-                  : AppColors.messagingErrorIcon,
+              color: AppColors.messagingIconMuted,
             ),
             const SizedBox(height: AppSizes.sm),
-            CustomTextWidget(
-              text: isUnauthorized
-                  ? AppStrings.chatNotCreatedYet
-                  : AppStrings.unableToLoadMessages,
+            const CustomTextWidget(
+              text: AppStrings.chatNotCreatedYet,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
             const SizedBox(height: 6),
-            CustomTextWidget(
-              text: isUnauthorized ? AppStrings.goBackStartNew : message,
+            const CustomTextWidget(
+              text: AppStrings.goBackStartNew,
               fontSize: 13,
               fontColor: AppColors.messagingTextMeta,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.lg),
             GestureDetector(
-              onTap: () {
-                if (isUnauthorized) {
-                  Navigator.of(context).pop();
-                  return;
-                }
-                final convCode = widget.parentInfo.code;
-                context.read<CommunicationCubit>().loadMessages(
-                  convCode,
-                  currentUserId: _currentUserCode,
-                );
-              },
+              onTap: () => Navigator.of(context).pop(),
               child: SkeuKeyBox(
                 variant: KeyVariant.primary,
                 radius: AppRadius.pill,
@@ -3522,8 +3519,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   horizontal: 28,
                   vertical: AppSizes.sm,
                 ),
-                child: CustomTextWidget(
-                  text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,
+                child: const CustomTextWidget(
+                  text: AppStrings.goBack,
                   fontColor: AppColors.messagingOnAccent,
                   fontWeight: FontWeight.w600,
                 ),

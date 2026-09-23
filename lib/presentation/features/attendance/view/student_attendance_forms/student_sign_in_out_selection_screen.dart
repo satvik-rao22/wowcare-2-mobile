@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class StudentSignInOutSelectionScreen extends StatelessWidget {
   static const String routeName = '/student-sign-in-out-selection';
@@ -76,8 +77,9 @@ class _StudentSignInOutSelectionView extends StatelessWidget {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: SnackBar(content: Text(message)),
     );
   }
 

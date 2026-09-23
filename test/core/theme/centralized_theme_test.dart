@@ -381,6 +381,30 @@ void main() {
     });
   });
 
+  group('the filter funnel is drawn in one place', () {
+    test('only FilterGlyph paints the filter asset', () {
+      // It was pink on some screens and ink on others, because every screen
+      // painted its own. FilterGlyph is the one funnel; restyle it there.
+      final List<String> found = <String>[
+        for (final String hit in offenders(
+          RegExp(r'MediaRes\.filterIcon|Icons\.tune\b'),
+        ))
+          if (!hit.startsWith(
+            'lib/shared/common/widgets/filter_icon_button.dart:',
+          ))
+            hit,
+      ];
+      expect(
+        found,
+        isEmpty,
+        reason:
+            'Draw the filter funnel with FilterGlyph from '
+            'lib/shared/common/widgets/filter_icon_button.dart, at:\n'
+            '${found.join('\n')}',
+      );
+    });
+  });
+
   group('colour literals live in app_theme_config.dart', () {
     test('no file outside the token file declares a colour', () {
       // This started as an allowlist of 58 files and ratcheted to zero.

@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -491,7 +492,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                   horizontal: AppSpacing.xs,
                   vertical: AppSpacing.sm,
                 ),
-                decoration: AppSurfaces.card(radius: AppRadius.r10),
+                decoration: AppSurfaces.actionPanel(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1060,12 +1061,12 @@ class _ActionButton extends StatelessWidget {
                 svgPath,
                 height: 24,
                 width: 24,
-                color: AppColors.whiteColor,
+                tone: IconTone.onBrand,
               ),
               AppSpacing.gapVXxs,
               Text(
                 label,
-                style: const TextStyle(color: AppColors.whiteColor, fontSize: 12),
+                style: AppTextStyles.actionPanelLabel,
               ),
             ],
           ),

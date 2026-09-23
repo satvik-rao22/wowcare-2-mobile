@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
@@ -1574,52 +1575,46 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// conversation was never actually created properly, so it offers "Go
   /// back" instead of a "Retry" that would just fail the same way again.
   Widget _buildErrorState(String message) {
-    final isUnauthorized = _isUnauthorizedConversationError(message);
+    if (!_isUnauthorizedConversationError(message)) {
+      return AppErrorState(
+        title: AppStrings.unableToLoadMessages,
+        message: message,
+        onRetry: () {
+          final threadId = widget.staffInfo.code;
+          context.read<CommunicationCubit>().loadMessages(
+            threadId,
+            currentUserId: _currentUserCode,
+          );
+        },
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSizes.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isUnauthorized
-                  ? Icons.chat_bubble_outline_rounded
-                  : Icons.error_outline_rounded,
+            const Icon(
+              Icons.chat_bubble_outline_rounded,
               size: 48,
-              color: isUnauthorized
-                  ? AppColors.messagingIconMuted
-                  : AppColors.messagingErrorIcon,
+              color: AppColors.messagingIconMuted,
             ),
             const SizedBox(height: AppSizes.sm),
-            CustomTextWidget(
-              text: isUnauthorized
-                  ? AppStrings.chatNotCreatedYet
-                  : AppStrings.unableToLoadMessages,
+            const CustomTextWidget(
+              text: AppStrings.chatNotCreatedYet,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
             const SizedBox(height: 6),
-            CustomTextWidget(
-              text: isUnauthorized
-                  ? AppStrings.goBackStartNewWithPerson
-                  : message,
+            const CustomTextWidget(
+              text: AppStrings.goBackStartNewWithPerson,
               fontSize: 13,
               fontColor: AppColors.messagingTextMeta,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.lg),
             GestureDetector(
-              onTap: () {
-                if (isUnauthorized) {
-                  Navigator.of(context).pop();
-                  return;
-                }
-                final threadId = widget.staffInfo.code;
-                context.read<CommunicationCubit>().loadMessages(
-                  threadId,
-                  currentUserId: _currentUserCode,
-                );
-              },
+              onTap: () => Navigator.of(context).pop(),
               child: SkeuKeyBox(
                 variant: KeyVariant.primary,
                 radius: AppRadius.pill,
@@ -1627,8 +1622,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   horizontal: 28,
                   vertical: AppSizes.sm,
                 ),
-                child: CustomTextWidget(
-                  text: isUnauthorized ? AppStrings.goBack : AppStrings.retry,
+                child: const CustomTextWidget(
+                  text: AppStrings.goBack,
                   fontColor: AppColors.messagingOnAccent,
                   fontWeight: FontWeight.w600,
                 ),

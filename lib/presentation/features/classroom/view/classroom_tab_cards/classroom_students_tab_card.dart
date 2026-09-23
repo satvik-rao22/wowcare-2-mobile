@@ -1224,7 +1224,6 @@ class _ClassroomStudentsTabCardViewState
                         ),
                         const SizedBox(width: 8),
                         FilterIconButton(
-                          iconAsset: MediaRes.filterIcon,
                           isActive: _isStudentFilterActive,
                           onPressed: _openClassroomStudentFilter,
                         ),

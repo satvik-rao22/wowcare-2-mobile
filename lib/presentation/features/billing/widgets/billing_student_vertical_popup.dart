@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
 
@@ -73,7 +74,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: AppSurfaces.card(radius: AppRadius.r10),
+            decoration: AppSurfaces.actionPanel(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -361,10 +362,7 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.billingCardOnColorText,
-                  fontSize: 12,
-                ),
+                style: AppTextStyles.actionPanelLabel,
               ),
             ],
           ),

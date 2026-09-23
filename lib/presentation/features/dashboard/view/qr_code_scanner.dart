@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/dashboard/view_model/qr_validation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class QrScanScreen extends StatelessWidget {
   const QrScanScreen({super.key});
@@ -120,8 +121,9 @@ class _QrScanViewState extends State<_QrScanView>
       if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
         context,
       )) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
             content: Text(
               'You must be inside geofence and signed in to manage student attendance.',
             ),
@@ -189,17 +191,19 @@ class _QrScanViewState extends State<_QrScanView>
               signedOutCodes: state.signedOutCodes,
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+            CoreUtils.showTopSnackBarFromSnackBar(
+              context: context,
+              snackBar: SnackBar(
                 content: Text(state.result.reason ?? 'QR code is not valid'),
               ),
             );
             _resetScan();
           }
         } else if (state is QrValidationFailure) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: SnackBar(content: Text(state.message)),
+          );
           _resetScan();
         }
       },
@@ -379,9 +383,10 @@ class _QrScanViewState extends State<_QrScanView>
       final token = _extractToken(raw);
       if (token == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invalid QR code')));
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(content: Text('Invalid QR code')),
+        );
         _resetScan();
         return;
       }
@@ -413,9 +418,10 @@ class _QrScanViewState extends State<_QrScanView>
 
   void _onPermissionSet(QRViewController ctrl, bool granted) {
     if (!granted && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Camera permission denied')));
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(content: Text('Camera permission denied')),
+      );
     }
   }
 

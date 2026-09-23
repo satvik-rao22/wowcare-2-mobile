@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
@@ -280,25 +281,10 @@ class _StaffSelectionTransferFormState
                       child: state.isLoading
                           ? const Center(child: PrimaryCircularLoader())
                           : state.errorMessage != null
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  AppText.body(
-                                    state.errorMessage ??
-                                        'Failed to load staff',
-                                    style: AppTextStyles.body.copyWith(
-                                      color: AppColors.errorColor,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: AppSpacing.xs),
-                                  TextButton(
-                                    onPressed: _loadStaff,
-                                    child: const AppText.body('Retry'),
-                                  ),
-                                ],
-                              ),
+                          ? AppErrorState(
+                              title: 'Failed to load staff',
+                              message: state.errorMessage,
+                              onRetry: _loadStaff,
                             )
                           : filteredStaff.isEmpty
                           ? const Center(child: AppText.body('No staff found'))

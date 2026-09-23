@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -14,7 +15,6 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
-import '../../core/theme/av2_text_styles.dart';
 import '../../core/utils/av2_csv_builder.dart';
 import '../../core/utils/av2_save_permission.dart';
 import '../../domain/entities/av2_staff_summary.dart';
@@ -245,7 +245,11 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
         bloc: _cubit,
         builder: (context, state) {
           if (state.isError) {
-            return _ErrorState(message: state.errorMessage, onRetry: _fetch);
+            return AppErrorState(
+              title: 'Unable to load attendance data.',
+              message: state.errorMessage,
+              onRetry: _fetch,
+            );
           }
           if (state.isLoaded) {
             // Edit is admin-only (org/school admin). RoleCubit is provided
@@ -307,55 +311,6 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String? message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(Av2Spacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off_outlined,
-              size: 34,
-              color: Av2Colors.textTertiary,
-            ),
-            const SizedBox(height: Av2Spacing.sm),
-            Text(
-              message?.trim().isNotEmpty == true
-                  ? message!
-                  : 'Unable to load attendance data.',
-              style: Av2Text.body,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: Av2Spacing.md),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18, color: Av2Colors.theme),
-              label: Text(
-                'Retry',
-                style: Av2Text.bodyMedium.copyWith(color: Av2Colors.theme),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Av2Colors.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

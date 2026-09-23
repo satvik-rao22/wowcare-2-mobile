@@ -169,6 +169,19 @@ class AppSurfaces {
     insets: AppElevation.bevelGloss,
   );
 
+  /// The floating column of actions that opens once rows are selected
+  /// (students, staff, billing, guardians). A brand face, so it reads as the
+  /// live control it is; its glyphs take [IconTone.onBrand] and its labels
+  /// `AppTextStyles.actionPanelLabel`. Every such panel reads this one
+  /// recipe, so restyling it here restyles all of them.
+  static SkeuDecoration actionPanel({double radius = AppRadius.r10}) =>
+      SkeuDecoration(
+        color: AppPalette.brand,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: AppElevation.panel,
+        insets: AppElevation.bevelColoured,
+      );
+
   /// A navy toast. Never a coloured slab: the tone is carried by a dot.
   static SkeuDecoration toast() => SkeuDecoration(
     color: AppPalette.surfaceInverse,
@@ -196,15 +209,17 @@ class AppSurfaces {
     borderRadius: BorderRadius.circular(radius),
   );
 
-  /// A docked bottom bar: the tray, a hairline along its top edge, and its
-  /// ambient shadow thrown upward onto the content it covers.
+  /// A docked bottom bar: the card face, so it reads as the same white object
+  /// as the cards it docks above rather than a strip of the tray, with a
+  /// hairline along its top edge and its ambient shadow thrown upward onto
+  /// the content it covers.
   ///
   /// Pass [topRadius] for a bar whose top corners are rounded. The hairline
   /// then runs the whole way round, because Flutter can only follow a corner
   /// radius with a uniform border — at 1px and 7% alpha the three edges you
   /// gain sit on the screen's own edges and do not read.
   static SkeuDecoration bar({double topRadius = 0}) => SkeuDecoration(
-    color: AppPalette.surfacePage,
+    color: AppPalette.surfaceCard,
     borderRadius: BorderRadius.vertical(top: Radius.circular(topRadius)),
     border: topRadius > 0 ? _hairline : _topHairline,
     boxShadow: AppElevation.bar,

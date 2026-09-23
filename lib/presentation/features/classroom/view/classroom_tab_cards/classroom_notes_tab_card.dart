@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -8,6 +7,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 /// Re-exported for backwards compatibility: reusable_modal_bottom_sheet.dart imports DataMap
 /// from this file.
@@ -190,34 +190,9 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
       return const ChatThreadShimmer();
     }
     if (_error != null || _conversation == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.forum_outlined,
-                size: 40,
-                color: AppColors.classroomMutedIconColor,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                _error ?? 'Classroom chat is not available',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.classroomMutedIconColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+      return AppErrorState(
+        title: _error ?? 'Classroom chat is not available',
+        onRetry: _load,
       );
     }
     // Embed the shared chat thread inline (no own scaffold/nav bar). When the

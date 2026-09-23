@@ -5,7 +5,6 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -861,7 +860,6 @@ class _ClassroomStaffTabCardViewState
                                 ),
                                 const SizedBox(width: 8),
                                 FilterIconButton(
-                                  iconAsset: MediaRes.filterIcon,
                                   isActive: _isStaffFilterActive,
                                   onPressed: _openFilterScreen,
                                 ),

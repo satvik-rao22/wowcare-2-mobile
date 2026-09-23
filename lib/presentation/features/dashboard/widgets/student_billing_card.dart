@@ -7,6 +7,7 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -490,28 +491,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                   }
 
                   if (state.errorMessage != null && state.ledger == null) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        children: [
-                          Text(
-                            state.errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.7,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () =>
-                                context.read<ParentBillingCubit>().refresh(),
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
+                    return AppErrorState(
+                      title: state.errorMessage!,
+                      onRetry: () =>
+                          context.read<ParentBillingCubit>().refresh(),
+                      compact: true,
                     );
                   }
 

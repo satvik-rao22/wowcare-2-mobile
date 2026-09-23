@@ -8,6 +8,7 @@ import 'package:wowcare/core/utils/active_school_switcher.dart';
 import 'package:wowcare/core/utils/notification_events.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -357,8 +358,8 @@ class _NotificationsListState extends State<_NotificationsList> {
         }
 
         if (state.errorMessage != null && state.items.isEmpty) {
-          return _ErrorView(
-            message: state.errorMessage!,
+          return AppErrorState(
+            title: 'Couldn’t load notifications',
             onRetry: () => context.read<NotificationCenterCubit>().refresh(),
           );
         }
@@ -433,44 +434,6 @@ class _EmptyView extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 48,
-              color: AppColors.redProgressBar,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Couldn’t load notifications',
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
     );
   }
 }

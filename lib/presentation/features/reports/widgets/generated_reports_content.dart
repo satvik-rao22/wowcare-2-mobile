@@ -9,6 +9,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
@@ -195,47 +196,12 @@ class GeneratedReportsContent extends StatelessWidget {
           // Show error state with retry button
           if (state.generatedReportsState ==
               GeneratedReportsLoadingState.error) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.xxl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.reportsRequiredFieldMarkerColor,
-                    ),
-                    const SizedBox(height: AppSizes.md),
-                    Text(
-                      ReportsStrings.failedToLoadReports,
-                      style: AppTextStyles.reportsHeading(fontSize: 16)
-                          .copyWith(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.8,
-                            ),
-                          ),
-                    ),
-                    const SizedBox(height: AppSizes.xs),
-                    Text(
-                      state.generatedReportsError ??
-                          ReportsStrings.unknownError,
-                      style: AppTextStyles.reportsFieldLabel(fontSize: 13)
-                          .copyWith(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.6,
-                            ),
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSizes.md),
-                    ElevatedButton(
-                      onPressed: () => onRefresh(isRefresh: true),
-                      child: const Text(ReportsStrings.retry),
-                    ),
-                  ],
-                ),
-              ),
+            return AppErrorState(
+              title: ReportsStrings.failedToLoadReports,
+              message:
+                  state.generatedReportsError ?? ReportsStrings.unknownError,
+              retryLabel: ReportsStrings.retry,
+              onRetry: () => onRefresh(isRefresh: true),
             );
           }
 

@@ -869,6 +869,12 @@ class AppMotion {
   /// 300 ms — a panel or sheet moving.
   static const Duration panel = Duration(milliseconds: 300);
 
+  /// 620 ms: the bottom bar's active droplet flying to another tab,
+  /// stretching on the way and settling with a splash when it lands. Long
+  /// for a transition, but the drop covers ground and the landing is the
+  /// part people notice.
+  static const Duration droplet = Duration(milliseconds: 620);
+
   /// How far a rimmed key sinks, in logical pixels. The rim collapses from
   /// [AppElevation.rimDepth] to [AppElevation.rimDepthPressed] over the same
   /// distance, so the face lands exactly on the rim.

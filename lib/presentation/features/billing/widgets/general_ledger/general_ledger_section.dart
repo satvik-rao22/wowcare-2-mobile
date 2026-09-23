@@ -20,6 +20,7 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/led
 import 'package:wowcare/presentation/features/billing/view/general_ledger/edit_ledger_screen.dart';
 import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -276,28 +277,10 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
 
               // ── Error ────────────────────────────────────────────────
               else if (state.hasError && state.allLedgers.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: Column(
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 56,
-                          color: AppColors.errorColor
-                              .withValues(alpha: 0.5)),
-                      const SizedBox(height: 12),
-                      Text(
-                        BillingStrings.failedToLoadLedgers,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.title.copyWith(
-                            fontSize: 15,
-                            color: AppColors.billingTextColor),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                          onPressed: _cubit.loadInitial,
-                          child: const Text(BillingStrings.retry)),
-                    ],
-                  ),
+                AppErrorState(
+                  title: BillingStrings.failedToLoadLedgers,
+                  retryLabel: BillingStrings.retry,
+                  onRetry: _cubit.loadInitial,
                 )
 
               // ── Empty ────────────────────────────────────────────────

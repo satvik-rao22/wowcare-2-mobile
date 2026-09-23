@@ -20,6 +20,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
@@ -159,19 +160,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : (state.errorMessage != null && filtered.isEmpty)
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  state.errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontFamily: AppFonts.body,
-                                    fontSize: 14,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                ),
-                              ),
+                          ? AppErrorState(
+                              title: state.errorMessage!,
+                              onRetry: _cubit.initialize,
                             )
                           : filtered.isEmpty
                               ? const Center(

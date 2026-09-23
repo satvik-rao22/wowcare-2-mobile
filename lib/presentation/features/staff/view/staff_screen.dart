@@ -8,8 +8,6 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -44,6 +42,7 @@ import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart'
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_attendance_action_targets_cubit.dart';
 import 'package:wowcare/presentation/features/staff/model/staff_attendance_action.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({
@@ -989,11 +988,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           children: [
                                             Padding(
                                               padding: const EdgeInsets.all(8),
-                                              child: AppIcon(
-                                                MediaRes.filterIcon,
-                                                height: 20,
-                                                tone: IconTone.action,
-                                              ),
+                                              child: FilterGlyph(size: 20),
                                             ),
                                             BlocBuilder<StaffCubit, StaffState>(
                                               builder: (context, staffState) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -873,36 +874,10 @@ class _StudentAttendanceAbsentViewState
                   ),
                 )
               else if (errorMessage != null)
-                CustomSectionCard(
-                  padding: EdgeInsets.all(responsive.horizontalSpacing),
-                  backgroundColor: AppColors.errorColor.withValues(alpha: 0.1),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: AppColors.errorColor,
-                        size: 48,
-                      ),
-                      SizedBox(height: responsive.verticalSpacing / 2),
-                      AppText.body(
-                        errorMessage ?? 'Unable to load absent students.',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.errorColor,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: responsive.verticalSpacing / 2),
-                      ElevatedButton(
-                        onPressed: () => _loadInitialData(reset: true),
-                        child: AppText.body(
-                          'Retry',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.cardColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                AppErrorState(
+                  title: 'Unable to load absent students.',
+                  message: errorMessage,
+                  onRetry: () => _loadInitialData(reset: true),
                 )
               else if (filtered.isEmpty)
                 Center(

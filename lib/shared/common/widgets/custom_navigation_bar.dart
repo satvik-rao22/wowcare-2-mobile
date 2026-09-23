@@ -1,16 +1,20 @@
+import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
-import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/shared/common/app/cubits/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 // ---------------------------------------------------------------------------
 // Responsive sizing — fixed for Bug 3 (iPad split-screen)
@@ -139,8 +143,18 @@ class CustomNavigationBar extends StatefulWidget {
   _CustomNavigationBarState createState() => _CustomNavigationBarState();
 }
 
-class _CustomNavigationBarState extends State<CustomNavigationBar> {
+class _CustomNavigationBarState extends State<CustomNavigationBar>
+    with SingleTickerProviderStateMixin {
   final GlobalKey _containerKey = GlobalKey();
+
+  // Drives repaints while the shared droplet flight is in the air. The
+  // position itself lives in [_DropletFlight], not here: see that class.
+  late final AnimationController _drop = AnimationController(
+    vsync: this,
+    duration: AppMotion.droplet,
+    value: 1,
+  );
+  _NavSizes? _dropSizes;
   double _navBarHeight = 0.0;
   GoRouteInformationProvider? _routeInfoProvider;
 
@@ -225,11 +239,21 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
+    // The repaint clock and the flight's clock can drift by a frame; keep
+    // ticking until the drop has actually landed.
+    _drop.addStatusListener((AnimationStatus status) {
+      if (status == AnimationStatus.completed &&
+          mounted &&
+          _DropletFlight.inFlight) {
+        _drop.forward(from: _DropletFlight.progress);
+      }
+    });
   }
 
   @override
   void dispose() {
     _routeInfoProvider?.removeListener(_onRouteChanged);
+    _drop.dispose();
     super.dispose();
   }
 
@@ -361,113 +385,176 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
+  /// One slot. The base row ([onDroplet] false) is the live, tappable one:
+  /// navy glyph, and a label that turns pink as the droplet covers the slot.
+  /// The droplet row ([onDroplet] true) is the same slot with a warm-white
+  /// glyph and no label; it is drawn clipped to the droplet, so a glyph turns
+  /// white exactly where the pink passes under it and nowhere else.
   Widget _buildNavItem({
     required BottomNavigationItem item,
     required BottomNavigationItem? activeItem,
     required bool isParent,
     required _NavSizes sizes,
+    required bool onDroplet,
+    double coverage = 0,
     int badgeCount = 0,
   }) {
-    final bool isActive = activeItem == item;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => context.read<BottomNavigationCubit>().selectItem(item),
-        borderRadius: BorderRadius.circular(sizes.activeRadius),
-        child: AnimatedContainer(
-          duration: AppMotion.base,
-          curve: AppMotion.easeInOut,
-          padding: EdgeInsets.symmetric(
-            horizontal: sizes.itemPaddingH,
-            vertical: sizes.itemPaddingV,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
+    final Widget slot = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: sizes.itemPaddingH,
+        vertical: sizes.itemPaddingV,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // The active slot is a solid pink squircle behind the glyph
-                  // alone, not behind the whole column: the label sits below
-                  // it and carries the colour itself.
-                  AnimatedContainer(
-                    duration: AppMotion.base,
-                    curve: AppMotion.easeInOut,
-                    width: sizes.activeTileSize,
-                    height: sizes.activeTileSize,
-                    alignment: Alignment.center,
-                    decoration: isActive
-                        ? AppSurfaces.navActive(radius: sizes.activeRadius)
-                        : const SkeuDecoration(),
-                    child: AppIcon(
-                      _iconFor(item),
-                      height: sizes.iconSize,
-                      tone: isActive ? IconTone.onBrand : IconTone.standard,
-                    ),
+              SizedBox(
+                width: sizes.activeTileSize,
+                height: sizes.activeTileSize,
+                child: Center(
+                  child: AppIcon(
+                    _iconFor(item),
+                    height: sizes.iconSize,
+                    tone: onDroplet ? IconTone.onBrand : IconTone.standard,
                   ),
-                  if (badgeCount > 0)
-                    Positioned(
-                      top: -5,
-                      right: -8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppPalette.brand,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppPalette.textOnDark,
-                            width: 1.2,
-                          ),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          badgeCount > 99 ? '99+' : '$badgeCount',
-                          style: const TextStyle(
-                            color: AppPalette.textOnDark,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  _labelFor(item, isParent),
-                  style: TextStyle(
-                    color: isActive
-                        ? AppPalette.brand
-                        : AppPalette.textSecondary,
-                    fontFamily: AppFonts.body,
-                    fontSize: sizes.fontSize,
-                    fontWeight: isActive
-                        ? AppTypeScale.bold
-                        : AppTypeScale.semiBold,
-                  ),
-                  maxLines: 1,
-                  softWrap: false,
                 ),
               ),
+              if (badgeCount > 0)
+                Positioned(
+                  top: -5,
+                  right: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppPalette.brand,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppPalette.textOnDark,
+                        width: 1.2,
+                      ),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: const TextStyle(
+                        color: AppPalette.textOnDark,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _labelFor(item, isParent),
+              style: TextStyle(
+                color: onDroplet
+                    ? AppColors.transparentColor
+                    : Color.lerp(
+                        AppPalette.textSecondary,
+                        AppPalette.brand,
+                        coverage,
+                      ),
+                fontFamily: AppFonts.body,
+                fontSize: sizes.fontSize,
+                fontWeight: coverage > 0.5
+                    ? AppTypeScale.bold
+                    : AppTypeScale.semiBold,
+              ),
+              maxLines: 1,
+              softWrap: false,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onDroplet) return Expanded(child: slot);
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          if (item != activeItem) AppHaptics.select();
+          context.read<BottomNavigationCubit>().selectItem(item);
+        },
+        // The droplet is the feedback; a grey splash under it only muddies it.
+        splashColor: AppColors.transparentColor,
+        highlightColor: AppColors.transparentColor,
+        child: slot,
       ),
     );
   }
 
   Widget _hiddenNavSlot() => const Expanded(child: SizedBox.shrink());
+
+  Widget _buildRow({
+    required List<BottomNavigationItem> slotOrder,
+    required BottomNavigationState navState,
+    required BottomNavigationItem? activeItem,
+    required _NavSizes sizes,
+    required bool onDroplet,
+    _Droplet? droplet,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        for (int i = 0; i < slotOrder.length; i++)
+          if (!navState.visibleItems.contains(slotOrder[i]))
+            _hiddenNavSlot()
+          else
+            _buildNavItem(
+              item: slotOrder[i],
+              activeItem: activeItem,
+              isParent: navState.isParent,
+              sizes: sizes,
+              onDroplet: onDroplet,
+              coverage: droplet?.coverage(i) ?? 0,
+              badgeCount: slotOrder[i] == BottomNavigationItem.communication
+                  ? navState.unreadBadgeCount
+                  : 0,
+            ),
+      ],
+    );
+  }
+
+  _Droplet _dropletNow(double slotWidth) => _Droplet(
+    t: _DropletFlight.progress,
+    from: _DropletFlight.from,
+    to: _DropletFlight.to,
+    slotWidth: slotWidth,
+    tile: _dropSizes!.activeTileSize,
+    top: _dropSizes!.itemPaddingV,
+    radius: _dropSizes!.activeRadius,
+  );
+
+  /// Points the shared droplet at this bar's active slot, if this bar is the
+  /// one on screen, and keeps this bar repainting until the flight lands.
+  void _syncDroplet(int? slot, {required bool visible}) {
+    if (!visible || _DropletFlight.slotWidth == 0) return;
+    _DropletFlight.flyTo(slot?.toDouble(), _dropletNow);
+    if (_DropletFlight.inFlight) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_DropletFlight.inFlight) return;
+        // Linear and in step with the flight's own clock, so a bar that
+        // appears mid-flight picks the animation up where it is.
+        _drop.forward(from: _DropletFlight.progress);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -480,6 +567,15 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final sizes = _NavSizes(context);
     final slotOrder = isParent ? _parentSlotOrder : _staffAdminSlotOrder;
+    _dropSizes = sizes;
+
+    final int index = activeItem == null ? -1 : slotOrder.indexOf(activeItem);
+    final int? activeSlot =
+        index >= 0 && navState.visibleItems.contains(activeItem) ? index : null;
+    // Depending on TickerMode also rebuilds this bar the moment it comes
+    // back on screen (a tab switch, or a route above it popping).
+    final bool onScreen = TickerMode.valuesOf(context).enabled;
+    _syncDroplet(activeSlot, visible: onScreen);
 
     // Bug 1 fix: SafeArea removed entirely. We handle bottom inset manually
     // via mq.viewPadding.bottom inside _NavSizes.barPadding, which works
@@ -501,25 +597,292 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           key: _containerKey,
           padding: sizes.barPadding,
           decoration: AppSurfaces.bar(topRadius: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: slotOrder.map((item) {
-              if (!navState.visibleItems.contains(item)) {
-                return _hiddenNavSlot();
-              }
-              return _buildNavItem(
-                item: item,
-                activeItem: activeItem,
-                isParent: isParent,
-                sizes: sizes,
-                badgeCount: item == BottomNavigationItem.communication
-                    ? navState.unreadBadgeCount
-                    : 0,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double slotWidth = constraints.maxWidth / slotOrder.length;
+              final bool firstLayout = _DropletFlight.slotWidth == 0;
+              _DropletFlight.slotWidth = slotWidth;
+              // The very first bar laid out could not aim the drop in build
+              // (there was no width to measure it against yet); aim it now.
+              if (firstLayout) _syncDroplet(activeSlot, visible: onScreen);
+              _Droplet droplet() => _dropletNow(slotWidth);
+              return Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: _drop,
+                    builder: (context, _) => _buildRow(
+                      slotOrder: slotOrder,
+                      navState: navState,
+                      activeItem: activeItem,
+                      sizes: sizes,
+                      onDroplet: false,
+                      droplet: droplet(),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _DropletPainter(droplet, repaint: _drop),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ClipPath(
+                        clipper: _DropletClipper(droplet, reclip: _drop),
+                        child: _buildRow(
+                          slotOrder: slotOrder,
+                          navState: navState,
+                          activeItem: activeItem,
+                          sizes: sizes,
+                          onDroplet: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               );
-            }).toList(),
+            },
           ),
         ),
       ),
     );
   }
+}
+
+/// The one droplet flight the whole app shares.
+///
+/// The shell keeps a bar alive per branch, and a pushed screen brings its
+/// own, so after a tab switch the bar on screen is usually a different
+/// instance from the bar that was tapped. If each bar owned its droplet, the
+/// new one would just appear, parked on its own slot. Instead every visible
+/// bar points this single flight at its active slot and paints it by the
+/// clock, so whichever bar is showing draws the same drop in the same place,
+/// and a switch reads as one drop moving across the screen.
+abstract final class _DropletFlight {
+  static double? from;
+  static double? to;
+  static Duration? _startedAt;
+  static bool _aimed = false;
+  static final Stopwatch _clock = Stopwatch()..start();
+
+  /// Every bar in the app is the same width, so the last one laid out
+  /// speaks for all of them.
+  static double slotWidth = 0;
+
+  static double get progress {
+    final Duration? start = _startedAt;
+    if (start == null) return 1;
+    final double t =
+        (_clock.elapsed - start).inMicroseconds /
+        AppMotion.droplet.inMicroseconds;
+    return t.clamp(0, 1);
+  }
+
+  static bool get inFlight => progress < 1;
+
+  /// Sends the drop to [target] (null: nothing active, so it evaporates),
+  /// starting from wherever it is now, mid-flight included.
+  static void flyTo(double? target, _Droplet Function(double) now) {
+    if (_aimed && target == to) return;
+    double? start = to;
+    if (_aimed && inFlight) {
+      final RRect? body = now(slotWidth).body;
+      start = body == null ? null : body.center.dx / slotWidth - 0.5;
+    }
+    _aimed = true;
+    from = start;
+    to = target;
+    _startedAt = _clock.elapsed;
+  }
+}
+
+/// The active tab's droplet: one pink squircle that travels between slots
+/// like a drop of liquid.
+///
+/// Its leading edge leaves first and its trailing edge catches up late and
+/// overshoots, so in flight it stretches into a capsule (and thins, keeping
+/// its volume) and on landing it squashes, bulges and settles. A ring
+/// splashes out of the slot it lands in. With no active slot the drop
+/// evaporates, and it falls back in with a wobble when one returns.
+///
+/// Positions are slot indices ([from], [to]); the drop's rest shape is the
+/// same [AppSurfaces.navActive] squircle a static active tab would show.
+class _Droplet {
+  const _Droplet({
+    required this.t,
+    required this.from,
+    required this.to,
+    required this.slotWidth,
+    required this.tile,
+    required this.top,
+    required this.radius,
+  });
+
+  final double t;
+  final double? from;
+  final double? to;
+  final double slotWidth;
+  final double tile;
+  final double top;
+  final double radius;
+
+  double _centreX(double slot) => (slot + 0.5) * slotWidth;
+
+  double get _centreY => top + tile / 2;
+
+  RRect _square(double cx, double size, double r) => RRect.fromRectAndRadius(
+    Rect.fromCenter(center: Offset(cx, _centreY), width: size, height: size),
+    Radius.circular(r),
+  );
+
+  /// The drop itself, or null when there is nothing to draw.
+  RRect? get body {
+    final double? from = this.from;
+    final double? to = this.to;
+    if (from == null && to == null) return null;
+
+    if (from == null || to == null) {
+      // Falling in, or evaporating, in place.
+      final double s = to != null
+          ? Curves.elasticOut.transform(t)
+          : 1 - Curves.easeInCubic.transform(t);
+      if (s <= 0.01) return null;
+      return _square(_centreX((to ?? from)!), tile * s, radius * s);
+    }
+
+    final double x0 = _centreX(from);
+    final double x1 = _centreX(to);
+    final double dir = (x1 - x0).sign;
+    if (dir == 0) return _square(x1, tile, radius);
+
+    final double half = tile / 2;
+    // The front leaves at once and arrives early; the back waits, then
+    // hurries after it. Between them the drop stretches into a capsule.
+    final double lead = Curves.easeOutCubic.transform((t / 0.62).clamp(0, 1));
+    final double trail = Curves.easeInOutCubic.transform(
+      ((t - 0.18) / 0.6).clamp(0, 1),
+    );
+    final double front = lerpDouble(x0, x1, lead)! + dir * half;
+    double back = lerpDouble(x0, x1, trail)! - dir * half;
+    // Never stretch past a slot and a bit, however far the jump.
+    final double maxLength = tile + slotWidth * 1.1;
+    if ((front - back).abs() > maxLength) back = front - dir * maxLength;
+
+    if (t >= 0.78) {
+      // Landed: a centred jelly wobble on the slot, damped to rest. Sized to
+      // the tile, not to the distance travelled, so a long jump lands no
+      // harder than a short one.
+      final double p = (t - 0.78) / 0.22;
+      final double wobble =
+          math.sin(p * math.pi * 2.5) * math.pow(1 - p, 2) * 0.16;
+      return RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(x1, _centreY),
+          width: tile * (1 - wobble),
+          height: tile * (1 + wobble * 0.8),
+        ),
+        Radius.circular(radius),
+      );
+    }
+
+    final double left = math.min(front, back);
+    final double right = math.max(front, back);
+    final double width = math.max(right - left, tile);
+    final double ratio = width / tile;
+    // Thin as it stretches: roughly constant volume.
+    final double height = (tile / math.sqrt(ratio)).clamp(tile * 0.72, tile);
+    // A stretched drop is a capsule; at rest it is the squircle again.
+    final double r = lerpDouble(
+      radius,
+      height / 2,
+      ((ratio - 1) / 0.5).clamp(0, 1),
+    )!;
+    return RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset((left + right) / 2, _centreY),
+        width: width,
+        height: height,
+      ),
+      Radius.circular(r),
+    );
+  }
+
+  /// The ring that splashes out of the landing slot, fading as it spreads.
+  ({RRect ring, double opacity, double stroke})? get splash {
+    final double? to = this.to;
+    if (to == null || from == to) return null;
+    final double p = (t - 0.66) / 0.34;
+    if (p <= 0 || p >= 1) return null;
+    final double grow = tile * 0.42 * Curves.easeOutCubic.transform(p);
+    return (
+      ring: _square(_centreX(to), tile, radius).inflate(grow),
+      opacity: 0.4 * (1 - p),
+      stroke: 2.4 * (1 - p) + 0.6,
+    );
+  }
+
+  /// How much of slot [i]'s glyph tile the drop covers, from 0 to 1. Only
+  /// the slot it left and the slot it is heading for count: a label it merely
+  /// passes over does not flash.
+  double coverage(int i) {
+    if (i != from?.round() && i != to?.round()) return 0;
+    final RRect? b = body;
+    if (b == null) return 0;
+    final double left = _centreX(i.toDouble()) - tile / 2;
+    final double overlap =
+        math.min(left + tile, b.right) - math.max(left, b.left);
+    return (overlap / tile).clamp(0, 1) * (b.height / tile).clamp(0, 1);
+  }
+}
+
+class _DropletPainter extends CustomPainter {
+  _DropletPainter(this.droplet, {required Listenable repaint})
+    : super(repaint: repaint);
+
+  final _Droplet Function() droplet;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final _Droplet d = droplet();
+    final splash = d.splash;
+    if (splash != null) {
+      canvas.drawRRect(
+        splash.ring,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = splash.stroke
+          ..color = AppPalette.brand.withValues(alpha: splash.opacity),
+      );
+    }
+    final RRect? body = d.body;
+    if (body == null) return;
+    // The drop is painted with the static active tab's own recipe, so its
+    // colour and bevel follow the skin like everything else.
+    final Rect rect = body.outerRect;
+    final BoxPainter painter = AppSurfaces.navActive(
+      radius: body.tlRadiusX,
+    ).createBoxPainter();
+    painter.paint(canvas, rect.topLeft, ImageConfiguration(size: rect.size));
+    painter.dispose();
+  }
+
+  @override
+  bool shouldRepaint(_DropletPainter oldDelegate) => true;
+}
+
+class _DropletClipper extends CustomClipper<Path> {
+  _DropletClipper(this.droplet, {required Listenable reclip})
+    : super(reclip: reclip);
+
+  final _Droplet Function() droplet;
+
+  @override
+  Path getClip(Size size) {
+    final RRect? body = droplet().body;
+    return body == null ? Path() : (Path()..addRRect(body));
+  }
+
+  @override
+  bool shouldReclip(_DropletClipper oldClipper) => true;
 }

@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/presentation/features/reports/view_model/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 
@@ -166,38 +167,13 @@ class _GeneratedReportsErrorState extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSizes.xl),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.reportsErrorIconColor,
-                    ),
-                    const SizedBox(height: AppSizes.md),
-                    Text(
-                      ReportsStrings.failedToLoadReports,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: AppSizes.xs),
-                    Text(
-                      error ?? ReportsStrings.unknownError,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: AppSizes.md),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<ReportsCubit>().loadRecentReports();
-                      },
-                      child: const Text(ReportsStrings.retry),
-                    ),
-                  ],
-                ),
-              ),
+            child: AppErrorState(
+              title: ReportsStrings.failedToLoadReports,
+              message: error ?? ReportsStrings.unknownError,
+              retryLabel: ReportsStrings.retry,
+              onRetry: () {
+                context.read<ReportsCubit>().loadRecentReports();
+              },
             ),
           ),
         ),

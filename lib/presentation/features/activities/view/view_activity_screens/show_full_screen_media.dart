@@ -13,6 +13,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
   static const String routeName = '/activity-fullscreen-media';
@@ -100,8 +101,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     final raw = (videoUrl ?? photoUrl ?? '').trim();
     if (raw.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text('Media is still processing. Please try again.'),
         ),
       );
@@ -117,8 +119,9 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       }
       if (!await Gal.hasAccess(toAlbum: true)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
             content: Text(
               'Photos permission is required to save media to your gallery.',
             ),
@@ -155,21 +158,24 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to your photo gallery.')),
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(content: Text('Saved to your photo gallery.')),
       );
     } on GalException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.type.message)));
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(content: Text(e.type.message)),
+      );
     } catch (e) {
       // Do not log the raw exception: a Dio/HTTP error stringifies the request
       // URI, which here is a pre-signed media URL. Log only the error type.
       AppLogger.e('Failed to download media', e);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text('Failed to download media. Please try again.'),
         ),
       );

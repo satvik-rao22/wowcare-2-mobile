@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
@@ -221,20 +222,9 @@ class ActionButton extends StatelessWidget {
           opacity: opacity,
           child: Column(
             children: [
-              AppIcon(
-                svgPath,
-                height: 24,
-                width: 24,
-                color: AppColors.cardColor,
-              ),
+              AppIcon(svgPath, height: 24, width: 24, tone: IconTone.onBrand),
               const SizedBox(height: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.cardColor,
-                  fontSize: 12,
-                ),
-              ),
+              Text(label, style: AppTextStyles.actionPanelLabel),
             ],
           ),
         ),

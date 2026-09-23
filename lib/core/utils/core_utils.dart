@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -126,7 +126,8 @@ class CoreUtils {
     );
   }
 
-  /// Same top overlay as [showTopSnackBar], themed with [ColorScheme.primary] by default.
+  /// Same top overlay as [showTopSnackBar]. [backgroundColor] now tints the
+  /// banner's tone dot; the banner itself is always the navy toast.
   /// [hasBottomNavigationBar] is ignored (kept for call-site compatibility).
   static void showSnackBar(
     BuildContext context,
@@ -135,16 +136,10 @@ class CoreUtils {
     bool hasBottomNavigationBar = false,
   }) {
     if (context is Element && !context.mounted) return;
-    final bg = backgroundColor ?? Theme.of(context).colorScheme.primary;
-    final onBg = ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
-        ? AppColors.whiteColor
-        : MaterialHues.black87;
     _showTopOverlayBanner(
       context: context,
       message: message,
-      backgroundColor: bg,
-      borderColor: bg.withValues(alpha: 0.85),
-      contentColor: onBg,
+      tone: backgroundColor ?? AppPalette.dataTeal,
       icon: Icons.info_outline_rounded,
       duration: const Duration(seconds: 2),
     );
@@ -166,9 +161,10 @@ class CoreUtils {
   static void _showTopOverlayBanner({
     required BuildContext context,
     required String message,
-    required Color backgroundColor,
-    required Color borderColor,
-    required Color contentColor,
+    // The banner is always the navy toast (AppSurfaces.toast); the tone rides
+    // on the dot behind [icon], never on the slab, so every banner in the app
+    // reads the same and only the dot says what kind of news it is.
+    required Color tone,
     required IconData icon,
     Duration duration = const Duration(seconds: 2),
     // Played once the banner is actually on screen, so a banner that finds
@@ -232,36 +228,40 @@ class CoreUtils {
                 color: Colors.transparent,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 14,
                     vertical: 12,
                   ),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.blackColor.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+                  decoration: AppSurfaces.toast(),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(icon, color: contentColor, size: 20),
-                      const SizedBox(width: 8),
+                      Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: tone,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          icon,
+                          color: AppPalette.textOnDark,
+                          size: 15,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: SingleChildScrollView(
                           // If the message is too large, allow scrolling inside
                           // the banner so it never goes under the screen.
-                          child: Text(
-                            message,
-                            style: TextStyle(
-                              color: contentColor,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: AppPalette.textOnDark,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -349,34 +349,19 @@ class CoreUtils {
   }) {
     if (context is Element && !context.mounted) return;
 
-    const Color successColor = AppPalette.statusSuccess;
-    const Color successBackgroundColor = AppPalette.statusSuccessSoft;
-
-    final backgroundColor = isError
-        ? MaterialHues.red50
+    final Color tone = isError
+        ? AppPalette.statusError
         : isWarning
-        ? MaterialHues.orange50
+        ? AppPalette.statusWarning
         : isSuccess
-        ? successBackgroundColor
-        : MaterialHues.grey200;
-    final contentColor = isError
-        ? MaterialHues.red
+        ? AppPalette.statusSuccess
+        : AppPalette.dataTeal;
+    final icon = isError
+        ? Icons.priority_high_rounded
         : isWarning
-        ? MaterialHues.orange
-        : isSuccess
-        ? successColor
-        : MaterialHues.black87;
-    final borderColor = isError
-        ? MaterialHues.red100
-        : isWarning
-        ? MaterialHues.orange100
-        : isSuccess
-        ? successBackgroundColor
-        : MaterialHues.grey400;
-    final icon = isError || isWarning
         ? Icons.error_outline_rounded
         : isSuccess
-        ? Icons.check_circle_outline_rounded
+        ? Icons.check_rounded
         : Icons.info_outline_rounded;
 
     // Error/warning banners get sanitized so a raw exception string passed
@@ -389,9 +374,7 @@ class CoreUtils {
     _showTopOverlayBanner(
       context: context,
       message: displayMessage,
-      backgroundColor: backgroundColor,
-      borderColor: borderColor,
-      contentColor: contentColor,
+      tone: tone,
       icon: icon,
       duration: duration,
       // Only red and orange banners buzz; AppHaptics says why green ones

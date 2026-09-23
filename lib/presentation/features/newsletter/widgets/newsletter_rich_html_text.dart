@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_html_normalizer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_link_launcher.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 /// Renders newsletter HTML from `contentJson` text parts.
 ///
@@ -62,8 +63,9 @@ class NewsletterRichHtmlText extends StatelessWidget {
     final bool opened = await openNewsletterHyperlink(url);
     if (opened || !context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: SnackBar(
         content: Text(
           url == null || url.trim().isEmpty
               ? AppStrings.newsletterLinkOpenFailed

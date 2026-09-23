@@ -78,10 +78,8 @@ class AppColors {
   static const Color mustardProgressBar = AppPalette.dataSun;
   static const Color lightGreenProgressBar = AppPalette.dataGreenSoft;
   static const Color redProgressBar = AppPalette.statusError;
-  static const Color refundLegendColor = AppPalette.dataTealSoft;
+  static const Color refundLegendColor = AppPalette.dataTeal;
   static const Color paidLegendColor = AppPalette.statusSuccess;
-  static const Color colorBox = AppPalette.dataGreenSoft;
-  static const Color colorBox2 = AppPalette.dataOrangeSoft;
   static const Color colorBox3 = AppPalette.dataPurple;
 
   // ── Staffing-ratio compliance (scheduling week/day views, dashboard) ──────
@@ -316,11 +314,11 @@ class AppColors {
 
   // Amount-invoiced stat bar legend — Mandate 4 sweep (own palette, distinct
   // from the sibling-cards legend above)
-  static const Color billingStatBarNetPaidColor = AppPalette.statusSuccessSoft;
+  static const Color billingStatBarNetPaidColor = AppPalette.dataGreen;
   static const Color billingStatBarOutstandingColor =
-      AppPalette.statusErrorSoft;
+      AppPalette.statusError;
   static const Color billingStatBarInProcessColor =
-      AppPalette.statusWarningSoft;
+      AppPalette.statusWarning;
 
   /// Popup drag-handle circle — same value as the second stop of
   /// [primaryGradientColors]/[secondaryGradientColors], kept as its own

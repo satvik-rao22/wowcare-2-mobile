@@ -15,10 +15,6 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
-/// Colours for the breakdown bar segments that have no exact theme constant.
-const Color _signedOutColor = AppPalette.statusInfo;
-const Color _notMarkedColor = AppPalette.statusWarningSoft;
-
 /// One labelled segment of a breakdown bar (name + count + colour + filter).
 class _Seg {
   const _Seg(this.name, this.count, this.color, this.filter);
@@ -246,25 +242,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                         _Seg(
                           'Signed-in',
                           state.studentPresent,
-                          AppColors.colorBox,
+                          AppColors.lightGreenProgressBar,
                           'Present',
                         ),
                         _Seg(
                           'Absent',
                           state.studentAbsent,
-                          AppColors.colorBox2,
+                          AppColors.redProgressBar,
                           'Absent',
                         ),
                         _Seg(
                           'Signed-out',
                           state.studentSignOut,
-                          _signedOutColor,
+                          AppColors.lightBlueProgressBar,
                           'Signed Out',
                         ),
                         _Seg(
                           'Not Marked',
                           state.studentNotMarked,
-                          _notMarkedColor,
+                          AppColors.mustardProgressBar,
                           'Not Marked',
                         ),
                       ],
@@ -298,25 +294,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                         _Seg(
                           'Signed-in',
                           state.staffPresent,
-                          AppColors.colorBox,
+                          AppColors.lightGreenProgressBar,
                           'Present',
                         ),
                         _Seg(
                           'Absent',
                           state.staffAbsent,
-                          AppColors.colorBox2,
+                          AppColors.redProgressBar,
                           'Absent',
                         ),
                         _Seg(
                           'Signed-out',
                           state.staffSignOut,
-                          _signedOutColor,
+                          AppColors.lightBlueProgressBar,
                           'Signed Out',
                         ),
                         _Seg(
                           'Not Marked',
                           state.staffNotMarked,
-                          _notMarkedColor,
+                          AppColors.mustardProgressBar,
                           'Not Marked',
                         ),
                       ],

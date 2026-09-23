@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/availability/entities/future_availabilit
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/availability/view_model/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -132,18 +133,20 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                                   );
 
                                   if (rows.isEmpty) {
-                                    final msg =
-                                        (state.errorMessage ?? '')
-                                            .trim()
-                                            .isNotEmpty
-                                        ? state.errorMessage!.trim()
-                                        : 'No availability data found for the selected date.';
-                                    return SizedBox.expand(
+                                    final error = (state.errorMessage ?? '')
+                                        .trim();
+                                    if (error.isNotEmpty) {
+                                      return SizedBox.expand(
+                                        child: AppErrorState(
+                                          title: error,
+                                          onRetry: _loadAvailability,
+                                        ),
+                                      );
+                                    }
+                                    return const SizedBox.expand(
                                       child: _StretchedMessage(
-                                        message: msg,
-                                        onRetry: state.errorMessage != null
-                                            ? _loadAvailability
-                                            : null,
+                                        message:
+                                            'No availability data found for the selected date.',
                                       ),
                                     );
                                   }
@@ -293,10 +296,9 @@ class _ShiftToggleRow extends StatelessWidget {
 }
 
 class _StretchedMessage extends StatelessWidget {
-  const _StretchedMessage({required this.message, this.onRetry});
+  const _StretchedMessage({required this.message});
 
   final String message;
-  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -309,19 +311,10 @@ class _StretchedMessage extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.futureAvailabilityEmptyMessage,
-              ),
-              if (onRetry != null) ...[
-                const SizedBox(height: 10),
-                TextButton(onPressed: onRetry, child: const Text('Retry')),
-              ],
-            ],
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.futureAvailabilityEmptyMessage,
           ),
         ),
       ),

@@ -3,9 +3,8 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 /// The filter-icon button (with active-filter dot) shared by
 /// [StaffAttendanceFilters] and [StudentAttendanceFilters] — was an
@@ -54,12 +53,7 @@ class AttendanceFilterButton extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                AppIcon(
-                  MediaRes.filterIcon,
-                  width: responsive.isTablet ? 26 : 24,
-                  height: responsive.isTablet ? 26 : 24,
-                  color: hasActiveFilters ? AppColors.themeColor : AppColors.secondaryColor.withValues(alpha: 0.6),
-                ),
+                FilterGlyph(size: responsive.isTablet ? 26 : 24),
                 if (hasActiveFilters)
                   Positioned(
                     top: -2,

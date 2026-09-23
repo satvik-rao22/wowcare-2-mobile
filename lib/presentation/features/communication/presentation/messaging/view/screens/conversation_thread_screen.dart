@@ -44,6 +44,7 @@ import 'package:wowcare/data/features/communication/mappers/message_entity_mappe
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -1535,7 +1536,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
     if (!state.hasMessages && state.errorMessage != null) {
       final errorMessage = state.errorMessage!;
-      final isUnauthorized = _isUnauthorizedConversationError(errorMessage);
+      if (!_isUnauthorizedConversationError(errorMessage)) {
+        return AppErrorState(
+          title: AppStrings.unableToLoadMessages,
+          message: errorMessage,
+          retryLabel: AppStrings.tryAgain,
+          onRetry: _cubit.loadMessages,
+        );
+      }
+      // Not a load failure: the chat was never created, so Retry would fail
+      // the same way again. Offer the way back instead.
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSizes.xl),
@@ -1543,26 +1553,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                isUnauthorized
-                    ? Icons.chat_bubble_outline_rounded
-                    : Icons.cloud_off_rounded,
+                Icons.chat_bubble_outline_rounded,
                 size: 48,
                 color: AppColors.primaryColor.withValues(alpha: 0.3),
               ),
               const SizedBox(height: AppSizes.sm),
-              Text(
-                isUnauthorized
-                    ? AppStrings.chatNotCreatedGoBack
-                    : errorMessage,
+              const Text(
+                AppStrings.chatNotCreatedGoBack,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.messagingTextSecondary),
+                style: TextStyle(color: AppColors.messagingTextSecondary),
               ),
               const SizedBox(height: AppSizes.md),
               OutlinedButton(
-                onPressed: isUnauthorized
-                    ? () => Navigator.of(context).pop()
-                    : _cubit.loadMessages,
-                child: Text(isUnauthorized ? AppStrings.goBack : AppStrings.tryAgain),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(AppStrings.goBack),
               ),
             ],
           ),

@@ -3,14 +3,13 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -58,6 +57,7 @@ import 'package:wowcare/shared/common/widgets/post_add_student_bottom_sheet.dart
 import 'package:wowcare/presentation/features/students/widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({
@@ -1493,11 +1493,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                           padding: const EdgeInsets.all(
                                             AppSpacing.xs,
                                           ),
-                                          child: AppIcon(
-                                            MediaRes.filterIcon,
-                                            height: 20,
-                                            tone: IconTone.action,
-                                          ),
+                                          child: FilterGlyph(size: 20),
                                         ),
                                         Builder(
                                           builder: (context) {
@@ -1683,24 +1679,11 @@ class _StudentScreenState extends State<StudentScreen> {
                       if (state.isLoading && students.isEmpty)
                         const StudentListShimmer()
                       else if (state.errorMessage != null && students.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xxl),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Text(
-                                  StudentStrings.errorLoadingStudents,
-                                  style: TextStyle(color: AppColors.errorColor),
-                                ),
-                                AppSpacing.gapVXs,
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      context.read<StudentCubit>().refresh(),
-                                  child: Text(StudentStrings.retry),
-                                ),
-                              ],
-                            ),
-                          ),
+                        AppErrorState(
+                          title: StudentStrings.errorLoadingStudents,
+                          message: state.errorMessage,
+                          retryLabel: StudentStrings.retry,
+                          onRetry: () => context.read<StudentCubit>().refresh(),
                         )
                       else if (students.isEmpty)
                         Padding(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -282,24 +283,10 @@ class _StudentSelectionMarkAbsentFormState
                 child: state.isLoadingStudents
                     ? const AttendanceSelectionShimmerGrid()
                     : state.studentsError != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              state.studentsError ?? 'Failed to load students',
-                              style: AppTextStyles.body.copyWith(
-                                color: AppColors.errorColor,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
-                        ),
+                    ? AppErrorState(
+                        title: 'Failed to load students',
+                        message: state.studentsError,
+                        onRetry: _loadStudents,
                       )
                     : visibleStudents.isEmpty
                     ? const Center(child: AppText.body('No students found'))

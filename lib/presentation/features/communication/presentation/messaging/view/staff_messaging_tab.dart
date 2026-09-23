@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -21,7 +20,6 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/contact_filter_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/contact_filter_state.dart';
@@ -38,6 +36,8 @@ import 'package:wowcare/data/features/communication/mappers/participant_mapper.d
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_list_tile.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class StaffMessagingTab extends StatefulWidget {
   const StaffMessagingTab({super.key, this.isStaffMessaging = true});
@@ -1023,11 +1023,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  AppIcon(
-                                    MediaRes.filterIcon,
-                                    height: 20,
-                                    tone: IconTone.action,
-                                  ),
+                                  FilterGlyph(size: 20),
                                   if (_hasActiveContactFilters)
                                     Positioned(
                                       top: -2,
@@ -1112,8 +1108,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 
                           if (communicationState is CommunicationError) {
                             return SliverFillRemaining(
-                              child: Center(
-                                child: Text(communicationState.message),
+                              hasScrollBody: false,
+                              child: AppErrorState(
+                                title: AppStrings.unableToLoadMessages,
+                                message: communicationState.message,
+                                onRetry: () => unawaited(
+                                  _refreshConversationsAndClassroomDefault(),
+                                ),
                               ),
                             );
                           }

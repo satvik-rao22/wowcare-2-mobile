@@ -39,6 +39,7 @@ import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 /// How the Events tab lays out its content, mirroring the web design's
 /// calendar / grid / list switcher.
@@ -565,11 +566,7 @@ class _EventsScreenState extends State<EventsScreen> {
                       : AppPalette.borderStrong,
                 ),
               ),
-              child: const Icon(
-                Icons.tune,
-                size: 18,
-                color: AppColors.themeColor,
-              ),
+              child: const FilterGlyph(size: 18),
             ),
           ),
         ),

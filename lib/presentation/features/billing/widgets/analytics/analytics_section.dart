@@ -9,6 +9,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/analytics_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -91,29 +92,10 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
         }
 
         if (state.errorMessage != null && state.analytics == null) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 48),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    state.errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppFonts.body,
-                      fontSize: isTablet ? 14 : 13,
-                      color: AppColors.billingTextColor.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => context.read<AnalyticsCubit>().load(),
-                    child: const Text(BillingStrings.retry),
-                  ),
-                ],
-              ),
-            ),
+          return AppErrorState(
+            title: state.errorMessage!,
+            retryLabel: BillingStrings.retry,
+            onRetry: () => context.read<AnalyticsCubit>().load(),
           );
         }
 
