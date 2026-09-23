@@ -62,5 +62,14 @@ String? _inferActionFromPath(Uri uri) {
   if (segments.contains('daily-activities')) {
     return NotificationAction.activityRecorded;
   }
+  // e.g. .../billing/family-billing/family-transaction?userCode=...&role=GUARDIAN
+  // — no `action` and no invoiceCode, so this previously returned null and the
+  // link did nothing at all when tapped (not just "no highlight" — no
+  // navigation either). Routes through the same persona-based billing
+  // destination (parentBilling for guardians) as a real PAYMENT_SUCCESS push.
+  if (segments.contains('family-transaction') ||
+      segments.contains('family-billing')) {
+    return NotificationAction.paymentSuccess;
+  }
   return null;
 }

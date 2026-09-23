@@ -100,13 +100,22 @@
                  See DeepLinkHandler for how the incoming URI is turned into an
                  in-app destination.
 
-                 The host comes from the ${appLinkHost} manifest placeholder set
-                 in app/build.gradle.kts from `dartEnvironment` (decoded from
-                 the ENVIRONMENT dart-define): release resolves to
-                 wowcare.childcarewow.app for PROD or wowcare-uat.childcarewow.app
-                 otherwise, and cannot be overridden; debug accepts
-                 -PappLinkHost=<tunnel> for local testing. Do not put a literal
-                 host back here. -->
+                 The first <data> host comes from the ${appLinkHost} manifest
+                 placeholder set in app/build.gradle.kts from `dartEnvironment`
+                 (decoded from the ENVIRONMENT dart-define): release resolves
+                 to wowcare.childcarewow.app for PROD or
+                 wowcare-uat.childcarewow.app otherwise; debug accepts
+                 -PappLinkHost=<tunnel> for local testing — keep that one
+                 templated, don't hardcode it.
+
+                 The two <data> entries below it are ADDITIONAL static hosts
+                 (both real domains, not templated) so a single APK recognizes
+                 either one regardless of which ENVIRONMENT it happened to be
+                 built with — testers installing a UAT-flavored build still
+                 get working links to the PROD domain and vice versa, instead
+                 of silently only supporting whichever host was baked in.
+                 Multiple <data> elements in one intent-filter are matched as
+                 OR, not narrowed to the last one. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -114,6 +123,12 @@
                 <data
                     android:scheme="https"
                     android:host="${appLinkHost}" />
+                <data
+                    android:scheme="https"
+                    android:host="wowcare.childcarewow.app" />
+                <data
+                    android:scheme="https"
+                    android:host="wowcare-uat.childcarewow.app" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
