@@ -754,6 +754,8 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
       iso: utcInstant.toIso8601String(),
       localTimeHms:
           '${two(localDateTime.hour)}:${two(localDateTime.minute)}:${two(localDateTime.second)}',
+      localDateYmd:
+          '${localDateTime.year}-${two(localDateTime.month)}-${two(localDateTime.day)}',
     );
   }
 

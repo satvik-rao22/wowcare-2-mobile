@@ -1127,6 +1127,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: _staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
 
       final activityTypeCode = detail.activityTypeCode.trim();
@@ -1754,9 +1755,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           notesParamCode != null &&
           whatParamCode.trim() == notesParamCode.trim();
 
-      String two(int v) => v.toString().padLeft(2, '0');
-      final localDate =
-          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
+      // Derived from the SAME resolved instant as `activityDateIso`/`localTime`
+      // (not the raw, non-live-ticking `_activityDate` field) so the
+      // submitted Date can never lag behind Time across a school-zone
+      // midnight boundary.
+      final localDate = resolvedActivityTime.localDateYmd;
       final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty
@@ -2143,9 +2146,11 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           notesParamCode != null &&
           whatParamCode.trim() == notesParamCode.trim();
 
-      String two(int v) => v.toString().padLeft(2, '0');
-      final localDate =
-          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
+      // Derived from the SAME resolved instant as `activityDateIso`/`localTime`
+      // (not the raw, non-live-ticking `_activityDate` field) so the
+      // submitted Date can never lag behind Time across a school-zone
+      // midnight boundary.
+      final localDate = resolvedActivityTime.localDateYmd;
       final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty

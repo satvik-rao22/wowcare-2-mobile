@@ -256,7 +256,16 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedDate = AppTime.now();
-  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
+  // Empty, NOT SchoolTimezoneResolver.fallbackTimeZone ('UTC') — the
+  // BlocBuilder in build() reads `_feedCubit` (and therefore this value)
+  // during the FIRST build, before _bootstrapSchoolZone()'s
+  // addPostFrameCallback has any chance to run, so this default is what
+  // ships in that first frame's ActivityFeedPresentation despite the
+  // lazy-construction comment below claiming otherwise. Leaving it empty
+  // lets activityItemFromFeedRow's own empty-schoolIana fallback (which
+  // prefers ServerTimeService's already-synced zone over device-local)
+  // engage instead of silently treating a hardcoded 'UTC' as "resolved".
+  String _schoolIana = '';
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _selectedClassrooms = [];
