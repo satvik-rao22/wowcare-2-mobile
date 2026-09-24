@@ -7,7 +7,7 @@ import 'domain/entities/regularization_request.dart';
 import 'domain/usecases/get_requests_usecase.dart';
 import 'presentation/entry/reg_gate_watcher.dart';
 import 'presentation/entry/reg_requests_list.dart';
-import 'presentation/screens/reg_admin_inbox_screen.dart';
+import 'presentation/screens/reg_admin_inbox_view.dart';
 import 'presentation/screens/reg_my_requests_screen.dart';
 
 /// **The module's only public surface.**
@@ -37,22 +37,17 @@ abstract final class Regularization {
   const Regularization._();
 
   static const String myRequestsRoute = '/regularization/my-requests';
-  static const String adminInboxRoute = '/regularization/inbox';
 
   /// Registers the module and installs the sign-in gate. Call once at startup.
   static void register(GetIt sl) => registerRegularization(sl);
 
   /// Routes to spread into the app router's `routes` list.
   static List<RouteBase> routes() => <RouteBase>[
-        GoRoute(
-          path: myRequestsRoute,
-          builder: (context, state) => const RegMyRequestsScreen(),
-        ),
-        GoRoute(
-          path: adminInboxRoute,
-          builder: (context, state) => RegAdminInboxScreen.connected(),
-        ),
-      ];
+    GoRoute(
+      path: myRequestsRoute,
+      builder: (context, state) => const RegMyRequestsScreen(),
+    ),
+  ];
 
   /// Invisible. Opens the gate sheet once per app session when the signed-in
   /// staff has an unresolved day — the sign-in gate covers the rest, so there
@@ -85,11 +80,13 @@ abstract final class Regularization {
   static Future<void> openMyRequests(BuildContext context) =>
       GoRouter.of(context).push(myRequestsRoute);
 
-  /// The admin approval list.
-  /// Completes when the inbox is popped, so callers can refresh a count that
-  /// approving may have changed.
-  static Future<void> openAdminInbox(BuildContext context) =>
-      GoRouter.of(context).push(adminInboxRoute);
+  /// The admin approval list, for the Staff Attendance screen's **Request**
+  /// tab. Brings no chrome — the tab supplies the app bar and title.
+  ///
+  /// There is deliberately no standalone route for it: one list, one place.
+  /// The host decides how it is reached (the dashboard's attention card and
+  /// the approval notification both open that tab).
+  static Widget adminInbox() => RegAdminInboxView.connected();
 
   /// Routes a notification tap. Returns false when the notification is not
   /// ours, so the host's resolver can carry on to its other cases.
@@ -97,9 +94,14 @@ abstract final class Regularization {
   /// Staff go to their own list rather than straight into the sheet: arriving
   /// from a notification into a non-dismissible sheet is disorienting, and an
   /// unresolved day is raised by the gate at the next sign-in anyway.
+  ///
+  /// [onAdminRequests] is called for the approver notifications, because their
+  /// destination is the host's Staff Attendance **Request** tab. Passing it in
+  /// keeps the module from having to know that screen or its tab order.
   static bool handleNotification(
     BuildContext context,
     String action, {
+    required VoidCallback onAdminRequests,
     Map<String, dynamic> data = const {},
   }) {
     switch (action.trim().toUpperCase()) {
@@ -109,7 +111,7 @@ abstract final class Regularization {
         return true;
       case 'STAFF_REGULARIZATION_PENDING':
       case 'STAFF_REGULARIZATION_NEEDS_APPROVAL':
-        openAdminInbox(context);
+        onAdminRequests();
         return true;
       default:
         return false;

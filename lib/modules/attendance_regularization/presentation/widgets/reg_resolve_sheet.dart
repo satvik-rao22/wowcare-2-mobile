@@ -15,10 +15,7 @@ import '../../domain/policy/reg_time_policy.dart';
 /// distinguish "kept the pre-filled time" from "typed the same time
 /// deliberately" — which is why §8.2 makes [reason] mandatory either way.
 class RegResolveResult {
-  const RegResolveResult({
-    required this.signOutLocal,
-    required this.reason,
-  });
+  const RegResolveResult({required this.signOutLocal, required this.reason});
   final DateTime signOutLocal;
   final String reason;
 }
@@ -71,8 +68,9 @@ Future<RegResolveResult?> showRegResolveSheet(
     enableDrag: !mandatory,
     backgroundColor: Av2Colors.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(Av2Spacing.radiusLg),
+      ),
     ),
     builder: (context) => _RegResolveSheet(
       item: item,
@@ -113,17 +111,20 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
   /// server's suggestion (§9.1).
   late TimeOfDay _time = TimeOfDay(
     hour: (widget.initialSignOutLocal ?? widget.item.suggestedOrDefault).hour,
-    minute: (widget.initialSignOutLocal ?? widget.item.suggestedOrDefault).minute,
+    minute:
+        (widget.initialSignOutLocal ?? widget.item.suggestedOrDefault).minute,
   );
-  late final TextEditingController _reason =
-      TextEditingController(text: widget.initialReason);
+  late final TextEditingController _reason = TextEditingController(
+    text: widget.initialReason,
+  );
   String? _error;
 
   bool get _isEdit => widget.mode == RegResolveMode.edit;
 
   /// Whose day it is, for admin-mode copy.
-  String get _who =>
-      widget.staffName.trim().isEmpty ? 'This staff member' : widget.staffName.trim();
+  String get _who => widget.staffName.trim().isEmpty
+      ? 'This staff member'
+      : widget.staffName.trim();
 
   @override
   void dispose() {
@@ -138,13 +139,19 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
 
   void _submit() {
     final d = widget.item.attendanceDate;
-    final signOutLocal =
-        DateTime(d.year, d.month, d.day, _time.hour, _time.minute);
+    final signOutLocal = DateTime(
+      d.year,
+      d.month,
+      d.day,
+      _time.hour,
+      _time.minute,
+    );
 
     // §8.2 reason + "after sign-in", from the shared policy so the message
     // here matches what the server would reject for. No closing-time bound:
     // staying late is the normal reason a sign-out was missed.
-    final error = RegTimePolicy.validateReason(_reason.text) ??
+    final error =
+        RegTimePolicy.validateReason(_reason.text) ??
         RegTimePolicy.validateSignOut(
           signOutLocal: signOutLocal,
           attendanceDate: d,
@@ -157,10 +164,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
 
     Navigator.pop(
       context,
-      RegResolveResult(
-        signOutLocal: signOutLocal,
-        reason: _reason.text.trim(),
-      ),
+      RegResolveResult(signOutLocal: signOutLocal, reason: _reason.text.trim()),
     );
   }
 
@@ -172,12 +176,18 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
     return PopScope(
       canPop: !widget.mandatory,
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
-                Av2Spacing.md, Av2Spacing.sm, Av2Spacing.md, Av2Spacing.md),
+              Av2Spacing.md,
+              Av2Spacing.sm,
+              Av2Spacing.md,
+              Av2Spacing.md,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +198,9 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: Av2Colors.border,
-                      borderRadius: BorderRadius.circular(Av2Spacing.radiusPill),
+                      borderRadius: BorderRadius.circular(
+                        Av2Spacing.radiusPill,
+                      ),
                     ),
                   ),
                 ),
@@ -203,8 +215,11 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                         color: Av2Colors.overtimeFill,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.error_outline,
-                          size: 20, color: Av2Colors.overtime),
+                      child: const Icon(
+                        Icons.error_outline,
+                        size: 20,
+                        color: Av2Colors.overtime,
+                      ),
                     ),
                     const SizedBox(width: Av2Spacing.sm),
                     Expanded(
@@ -213,14 +228,17 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                              _isEdit
-                                  ? 'Update your request'
-                                  : (widget.byAdmin
+                            _isEdit
+                                ? 'Update your request'
+                                : (widget.byAdmin
                                       ? 'Sign-out missing'
                                       : 'Finish yesterday first'),
-                              style: Av2Text.title),
-                          Text('$dateLabel · missed sign-out',
-                              style: Av2Text.label),
+                            style: Av2Text.title,
+                          ),
+                          Text(
+                            '$dateLabel · missed sign-out',
+                            style: Av2Text.label,
+                          ),
                         ],
                       ),
                     ),
@@ -230,12 +248,12 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                 Text(
                   _isEdit
                       ? 'This request is still waiting for approval, so you '
-                          'can change the time or the reason.'
+                            'can change the time or the reason.'
                       : (widget.byAdmin
-                          ? '$_who never signed out on $dateLabel. Add the '
-                              'sign-out before signing them in again.'
-                          : "You didn't sign out on $dateLabel, so that day "
-                              'is still open.'),
+                            ? '$_who never signed out on $dateLabel. Add the '
+                                  'sign-out before signing them in again.'
+                            : "You didn't sign out on $dateLabel, so that day "
+                                  'is still open.'),
                   style: Av2Text.body.copyWith(color: Av2Colors.textSecondary),
                 ),
                 const SizedBox(height: Av2Spacing.sm),
@@ -248,43 +266,55 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                 Text(
                   _isEdit
                       ? 'Showing what you asked for. The school end time was '
-                          '$suggested.'
+                            '$suggested.'
                       : (widget.byAdmin
-                          ? 'Pre-filled with $suggested — change it if they '
-                              'left at a different time.'
-                          : 'Pre-filled with $suggested — change it if you '
-                              'left at a different time.'),
-                  style: Av2Text.caption.copyWith(color: Av2Colors.textSecondary),
+                            ? 'Pre-filled with $suggested — change it if they '
+                                  'left at a different time.'
+                            : 'Pre-filled with $suggested — change it if you '
+                                  'left at a different time.'),
+                  style: Av2Text.caption.copyWith(
+                    color: Av2Colors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: Av2Spacing.md),
                 Row(
                   children: [
                     Text('Reason', style: Av2Text.bodyMedium),
                     const SizedBox(width: 6),
-                    Text('(required)',
-                        style: Av2Text.caption
-                            .copyWith(color: Av2Colors.textTertiary)),
+                    Text(
+                      '(required)',
+                      style: Av2Text.caption.copyWith(
+                        color: Av2Colors.textTertiary,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: Av2Spacing.xs),
                 _reasonField(),
                 if (_error != null) ...[
                   const SizedBox(height: Av2Spacing.xs),
-                  Text(_error!,
-                      style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
+                  Text(
+                    _error!,
+                    style: Av2Text.caption.copyWith(color: Av2Colors.danger),
+                  ),
                 ],
                 const SizedBox(height: Av2Spacing.lg),
-                _primary(_isEdit
-                    ? 'Save changes'
-                    : (widget.byAdmin ? 'Save sign-out' : 'Confirm & submit')),
+                _primary(
+                  _isEdit
+                      ? 'Save changes'
+                      : (widget.byAdmin ? 'Save sign-out' : 'Confirm & submit'),
+                ),
                 if (!widget.mandatory) ...[
                   const SizedBox(height: Av2Spacing.xs),
                   Center(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text('Later',
-                          style: Av2Text.label
-                              .copyWith(color: Av2Colors.textSecondary)),
+                      child: Text(
+                        'Later',
+                        style: Av2Text.label.copyWith(
+                          color: Av2Colors.textSecondary,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -313,15 +343,15 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
             child: Text(
               _isEdit
                   ? 'Editing keeps the request pending, so you stay unblocked '
-                      "— but the day still won't be counted until an admin "
-                      'approves it.'
+                        "— but the day still won't be counted until an admin "
+                        'approves it.'
                   : (widget.byAdmin
-                      ? 'As an admin your correction is approved '
-                          'automatically — the day is counted as soon as you '
-                          'save.'
-                      : "Until this is approved, that day's sign-out — and "
-                          "any hours after it — won't be counted in your "
-                          'attendance.'),
+                        ? 'As an admin your correction is approved '
+                              'automatically — the day is counted as soon as you '
+                              'save.'
+                        : "Until this is approved, that day's sign-out — and "
+                              "any hours after it — won't be counted in your "
+                              'attendance.'),
               style: Av2Text.caption.copyWith(color: Av2Colors.overtime),
             ),
           ),
@@ -343,12 +373,18 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.access_time, size: 16, color: Av2Colors.textSecondary),
+            const Icon(
+              Icons.access_time,
+              size: 16,
+              color: Av2Colors.textSecondary,
+            ),
             const SizedBox(width: 8),
             Text(_time.format(context), style: Av2Text.body),
             const Spacer(),
-            Text('Tap to change',
-                style: Av2Text.caption.copyWith(color: Av2Colors.theme)),
+            Text(
+              'Tap to change',
+              style: Av2Text.caption.copyWith(color: Av2Colors.theme),
+            ),
           ],
         ),
       ),
@@ -368,7 +404,10 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
         hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
         filled: true,
         fillColor: Av2Colors.surfaceMuted,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
           borderSide: const BorderSide(color: Av2Colors.border),
@@ -401,8 +440,10 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
               borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
             ),
             child: Center(
-              child: Text(label,
-                  style: Av2Text.bodyMedium.copyWith(color: Colors.white)),
+              child: Text(
+                label,
+                style: Av2Text.bodyMedium.copyWith(color: Colors.white),
+              ),
             ),
           ),
         ),

@@ -21,8 +21,8 @@ class RegHostContext implements RegContext {
   RegHostContext({
     required StorageService storage,
     required ApiClient apiClient,
-  })  : _storage = storage,
-        _apiClient = apiClient;
+  }) : _storage = storage,
+       _apiClient = apiClient;
 
   final StorageService _storage;
   final ApiClient _apiClient;

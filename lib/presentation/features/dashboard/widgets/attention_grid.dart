@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
@@ -12,7 +11,9 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_attention_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 
 // ── Tone ─────────────────────────────────────────────────────────────────────
@@ -197,9 +198,16 @@ class _AttentionGridState extends State<AttentionGrid> {
       case _AttentionCardRoute.regularizationApproval:
         // Approving mutates the queue, so re-read the count on the way back
         // rather than leaving a stale number on the card.
-        Regularization.openAdminInbox(context).then((_) {
-          if (mounted) context.read<DashboardAttentionCubit>().refresh();
-        });
+        context
+            .push(
+              StaffAttendanceTabbedView.routeName,
+              extra: const AttendanceTabbedViewArgs(
+                initialTabIndex: StaffAttendanceTabbedView.requestTabIndex,
+              ),
+            )
+            .then((_) {
+              if (mounted) context.read<DashboardAttentionCubit>().refresh();
+            });
 
       case _AttentionCardRoute.incidentApproval:
         if (widget.onIncidentCardTap != null) {

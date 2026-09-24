@@ -43,12 +43,15 @@ abstract final class RegMappers {
     final pendingCode = _str(m['pendingRequestCode']);
     return MissedSignout(
       attendanceCode: _str(m['attendanceCode']),
-      attendanceDate: RegTimeZone.dateOnly(_str(m['attendanceDate'])) ??
+      attendanceDate:
+          RegTimeZone.dateOnly(_str(m['attendanceDate'])) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       signedInAt: RegTimeZone.schoolLocal(_str(m['signedInAt']), zone),
       signedInByCode: _nullable(m['signedInByCode']),
-      suggestedSignOutTime:
-          RegTimeZone.schoolLocal(_str(m['suggestedSignOutTime']), zone),
+      suggestedSignOutTime: RegTimeZone.schoolLocal(
+        _str(m['suggestedSignOutTime']),
+        zone,
+      ),
       classroomCode: _nullable(m['classroomCode']),
       hasPendingRequest: _bool(m['hasPendingRequest']),
       pendingRequestCode: pendingCode.isEmpty ? null : pendingCode,
@@ -67,9 +70,9 @@ abstract final class RegMappers {
     final clear = data['clear'];
     return RegBatchGate(
       blocked: blocked is List
-          ? _asMaps(blocked)
-              .map((m) => toMissedSignout(m, zone: zone))
-              .toList(growable: false)
+          ? _asMaps(
+              blocked,
+            ).map((m) => toMissedSignout(m, zone: zone)).toList(growable: false)
           : const [],
       clear: clear is List
           ? clear.map(_str).where((s) => s.isNotEmpty).toList(growable: false)
@@ -86,10 +89,14 @@ abstract final class RegMappers {
   }) {
     final staffCode = _str(m['staffCode']);
     final name = _str(m['staffName']);
-    final requested =
-        RegTimeZone.schoolLocal(_str(m['requestedSignOutTime']), zone);
-    final approved =
-        RegTimeZone.schoolLocal(_str(m['approvedSignOutTime']), zone);
+    final requested = RegTimeZone.schoolLocal(
+      _str(m['requestedSignOutTime']),
+      zone,
+    );
+    final approved = RegTimeZone.schoolLocal(
+      _str(m['approvedSignOutTime']),
+      zone,
+    );
 
     return RegularizationRequest(
       code: _str(m['code']),
@@ -98,7 +105,8 @@ abstract final class RegMappers {
           ? name
           : (fallbackStaffName.isNotEmpty ? fallbackStaffName : staffCode),
       attendanceCode: _str(m['attendanceCode']),
-      attendanceDate: RegTimeZone.dateOnly(_str(m['attendanceDate'])) ??
+      attendanceDate:
+          RegTimeZone.dateOnly(_str(m['attendanceDate'])) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       requestedSignOutTime:
           requested ?? approved ?? DateTime.fromMillisecondsSinceEpoch(0),
@@ -107,7 +115,8 @@ abstract final class RegMappers {
       raisedByCode: _str(m['raisedByCode']),
       method: _str(m['method']),
       autoApproved: _bool(m['autoApproved']),
-      createdAt: RegTimeZone.schoolLocal(_str(m['createdAt']), zone) ??
+      createdAt:
+          RegTimeZone.schoolLocal(_str(m['createdAt']), zone) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: RegTimeZone.schoolLocal(_str(m['updatedAt']), zone),
       approvedSignOutTime: approved,
@@ -135,9 +144,9 @@ abstract final class RegMappers {
     required int page,
     required int size,
   }) {
-    final items = listOf(body)
-        .map((m) => toRequest(m, zone: zone))
-        .toList(growable: false);
+    final items = listOf(
+      body,
+    ).map((m) => toRequest(m, zone: zone)).toList(growable: false);
     final data = _mapOf(payload(body));
     final total = data == null
         ? items.length
@@ -150,7 +159,8 @@ abstract final class RegMappers {
       total: total == 0 ? items.length : total,
       // Trust the server's flag; fall back to page arithmetic, and never
       // report more on an empty page or "load more" would loop forever.
-      hasMore: items.isNotEmpty &&
+      hasMore:
+          items.isNotEmpty &&
           (data?['hasNext'] as bool? ?? (page + 1) * size < total),
     );
   }
@@ -163,14 +173,16 @@ abstract final class RegMappers {
       applied: _int(_first(data, ['applied', 'approved', 'count'])),
       skipped: skipped is List
           ? _asMaps(skipped)
-              .map((m) => RegSkipped(
+                .map(
+                  (m) => RegSkipped(
                     code: _str(m['code']),
                     attendanceCode: _str(m['attendanceCode']),
                     reason: _str(m['reason']).isEmpty
                         ? 'already decided'
                         : _str(m['reason']),
-                  ))
-              .toList(growable: false)
+                  ),
+                )
+                .toList(growable: false)
           : const <RegSkipped>[],
     );
   }
@@ -180,8 +192,8 @@ abstract final class RegMappers {
   /// `{}` checks the caller; `staffCodes` checks a roster.
   static Map<String, dynamic> gateBody(List<String>? staffCodes) =>
       (staffCodes == null || staffCodes.isEmpty)
-          ? const <String, dynamic>{}
-          : <String, dynamic>{'staffCodes': staffCodes};
+      ? const <String, dynamic>{}
+      : <String, dynamic>{'staffCodes': staffCodes};
 
   static Map<String, dynamic> raiseBody(
     RegRaiseInput input, {
@@ -212,8 +224,10 @@ abstract final class RegMappers {
             'staffCode': item.staffCode,
             'attendanceCode': item.attendanceCode,
             'attendanceDate': RegTimeZone.dateToWire(item.attendanceDate),
-            'requestedSignOutTime':
-                RegTimeZone.toUtcIso(item.signOutLocal, zone),
+            'requestedSignOutTime': RegTimeZone.toUtcIso(
+              item.signOutLocal,
+              zone,
+            ),
             // Only when it differs, so the shared value stays the default.
             if (item.reason.trim().isNotEmpty && item.reason.trim() != shared)
               'reason': item.reason.trim(),
@@ -229,8 +243,10 @@ abstract final class RegMappers {
   }) {
     final body = <String, dynamic>{};
     if (input.signOutLocal != null) {
-      body['requestedSignOutTime'] =
-          RegTimeZone.toUtcIso(input.signOutLocal!, zone);
+      body['requestedSignOutTime'] = RegTimeZone.toUtcIso(
+        input.signOutLocal!,
+        zone,
+      );
     }
     final reason = input.reason?.trim();
     if (reason != null && reason.isNotEmpty) body['reason'] = reason;

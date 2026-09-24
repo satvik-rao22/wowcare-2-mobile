@@ -42,8 +42,15 @@ abstract final class RegTimeZone {
     final local = tz.TZDateTime.from(instant.toUtc(), location);
     // Milliseconds kept: createdAt and updatedAt can land in the same second,
     // and truncating would make an edited request look untouched.
-    return DateTime(local.year, local.month, local.day, local.hour,
-        local.minute, local.second, local.millisecond);
+    return DateTime(
+      local.year,
+      local.month,
+      local.day,
+      local.hour,
+      local.minute,
+      local.second,
+      local.millisecond,
+    );
   }
 
   /// `attendanceDate` is a calendar date, so no conversion applies.

@@ -10,9 +10,8 @@ import '../entities/regularization_request.dart';
 enum RegSortOrder { oldestFirst, newestFirst }
 
 extension RegSortOrderX on RegSortOrder {
-  String get wireValue => this == RegSortOrder.oldestFirst
-      ? 'createdAt,asc'
-      : 'createdAt,desc';
+  String get wireValue =>
+      this == RegSortOrder.oldestFirst ? 'createdAt,asc' : 'createdAt,desc';
 }
 
 /// The seven endpoints. Three serve both personas through one call.

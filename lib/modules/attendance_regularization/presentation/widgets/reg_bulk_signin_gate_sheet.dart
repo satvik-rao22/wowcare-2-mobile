@@ -46,8 +46,9 @@ Future<List<RegBulkGateItem>?> showRegBulkSignInGateSheet(
     isScrollControlled: true,
     backgroundColor: Av2Colors.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(Av2Spacing.radiusLg),
+      ),
     ),
     builder: (context) =>
         _RegBulkSignInGateSheet(blocked: blocked, otherCount: otherCount),
@@ -74,7 +75,9 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
   String? _error;
 
   late final List<MissedSignout> _staff = [...widget.blocked]
-    ..sort((a, b) => a.staffName.toLowerCase().compareTo(b.staffName.toLowerCase()));
+    ..sort(
+      (a, b) => a.staffName.toLowerCase().compareTo(b.staffName.toLowerCase()),
+    );
 
   @override
   void initState() {
@@ -90,8 +93,10 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
     super.dispose();
   }
 
-  TimeOfDay _suggested(MissedSignout s) =>
-      TimeOfDay(hour: s.suggestedOrDefault.hour, minute: s.suggestedOrDefault.minute);
+  TimeOfDay _suggested(MissedSignout s) => TimeOfDay(
+    hour: s.suggestedOrDefault.hour,
+    minute: s.suggestedOrDefault.minute,
+  );
 
   bool _isEdited(MissedSignout s) {
     final t = _times[s.attendanceCode]!;
@@ -168,14 +173,22 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(Av2Spacing.md, Av2Spacing.md,
-                    Av2Spacing.md, Av2Spacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                  Av2Spacing.md,
+                  Av2Spacing.md,
+                  Av2Spacing.md,
+                  Av2Spacing.sm,
+                ),
                 child: _header(n),
               ),
               Flexible(child: _list()),
               Padding(
-                padding: const EdgeInsets.fromLTRB(Av2Spacing.md, Av2Spacing.sm,
-                    Av2Spacing.md, Av2Spacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  Av2Spacing.md,
+                  Av2Spacing.sm,
+                  Av2Spacing.md,
+                  Av2Spacing.md,
+                ),
                 child: _footer(n),
               ),
             ],
@@ -199,8 +212,11 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
                 color: Av2Colors.overtimeFill,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline,
-                  size: 20, color: Av2Colors.overtime),
+              child: const Icon(
+                Icons.error_outline,
+                size: 20,
+                color: Av2Colors.overtime,
+              ),
             ),
             const SizedBox(width: Av2Spacing.sm),
             Expanded(
@@ -209,13 +225,16 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                      n == 1
-                          ? '1 staff needs yesterday closed'
-                          : '$n staff need yesterday closed',
-                      style: Av2Text.title),
+                    n == 1
+                        ? '1 staff needs yesterday closed'
+                        : '$n staff need yesterday closed',
+                    style: Av2Text.title,
+                  ),
                   if (widget.otherCount > 0)
-                    Text('${widget.otherCount} others will sign in normally',
-                        style: Av2Text.label),
+                    Text(
+                      '${widget.otherCount} others will sign in normally',
+                      style: Av2Text.label,
+                    ),
                 ],
               ),
             ),
@@ -232,8 +251,11 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline,
-                  size: 16, color: Av2Colors.overtime),
+              const Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Av2Colors.overtime,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -284,12 +306,16 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
           children: [
             Text('Reason', style: Av2Text.bodyMedium),
             const SizedBox(width: 6),
-            Text('(required)',
-                style: Av2Text.caption.copyWith(color: Av2Colors.textTertiary)),
+            Text(
+              '(required)',
+              style: Av2Text.caption.copyWith(color: Av2Colors.textTertiary),
+            ),
             const Spacer(),
             if (edited > 0)
-              Text('$edited corrected',
-                  style: Av2Text.caption.copyWith(color: Av2Colors.theme)),
+              Text(
+                '$edited corrected',
+                style: Av2Text.caption.copyWith(color: Av2Colors.theme),
+              ),
           ],
         ),
         const SizedBox(height: Av2Spacing.xs),
@@ -305,8 +331,10 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
             hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
             filled: true,
             fillColor: Av2Colors.surfaceMuted,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
               borderSide: const BorderSide(color: Av2Colors.border),
@@ -323,8 +351,10 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
         ),
         if (_error != null) ...[
           const SizedBox(height: Av2Spacing.xs),
-          Text(_error!,
-              style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
+          Text(
+            _error!,
+            style: Av2Text.caption.copyWith(color: Av2Colors.danger),
+          ),
         ],
         const SizedBox(height: Av2Spacing.sm),
         SizedBox(
@@ -342,8 +372,10 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
                   borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
                 ),
                 child: Center(
-                  child: Text('Close all $n & sign them in',
-                      style: Av2Text.bodyMedium.copyWith(color: Colors.white)),
+                  child: Text(
+                    'Close all $n & sign them in',
+                    style: Av2Text.bodyMedium.copyWith(color: Colors.white),
+                  ),
                 ),
               ),
             ),

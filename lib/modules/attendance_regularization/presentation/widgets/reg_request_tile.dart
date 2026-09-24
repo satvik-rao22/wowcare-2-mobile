@@ -54,7 +54,8 @@ class RegRequestTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
             border: Border.all(
-                color: selected ? Av2Colors.theme : Av2Colors.border),
+              color: selected ? Av2Colors.theme : Av2Colors.border,
+            ),
           ),
           child: Row(
             children: [
@@ -98,8 +99,11 @@ class RegRequestTile extends StatelessWidget {
                 RegStatusPill(status: request.status),
               if (editable && onTap != null && !busy) ...[
                 const SizedBox(width: 6),
-                const Icon(Icons.edit_outlined,
-                    size: 15, color: Av2Colors.textTertiary),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 15,
+                  color: Av2Colors.textTertiary,
+                ),
               ],
             ],
           ),

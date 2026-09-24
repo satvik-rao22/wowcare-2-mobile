@@ -25,55 +25,61 @@ class RegRemoteDataSource {
 
   /// `{}` checks the caller; `{staffCodes:[…]}` checks a roster.
   Future<Map<String, dynamic>> checkGate(Map<String, dynamic> body) async {
-    return _asMap(await _client.post<dynamic>(
-      _url(RegApiPaths.openSessionsCheck),
-      data: body,
-    ));
+    return _asMap(
+      await _client.post<dynamic>(
+        _url(RegApiPaths.openSessionsCheck),
+        data: body,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> raise(Map<String, dynamic> body) async {
     return _asMap(
-        await _client.post<dynamic>(_url(RegApiPaths.raise), data: body));
+      await _client.post<dynamic>(_url(RegApiPaths.raise), data: body),
+    );
   }
 
   Future<Map<String, dynamic>> raiseBatch(Map<String, dynamic> body) async {
     return _asMap(
-        await _client.post<dynamic>(_url(RegApiPaths.raiseBatch), data: body));
+      await _client.post<dynamic>(_url(RegApiPaths.raiseBatch), data: body),
+    );
   }
 
   Future<Map<String, dynamic>> list(Map<String, dynamic> query) async {
-    return _asMap(await _client.get<dynamic>(
-      _url(RegApiPaths.list),
-      queryParameters: query,
-    ));
+    return _asMap(
+      await _client.get<dynamic>(
+        _url(RegApiPaths.list),
+        queryParameters: query,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> approve(
     String code,
     Map<String, dynamic> body,
   ) async {
-    return _asMap(await _client.post<dynamic>(
-      _url(RegApiPaths.approve(code)),
-      data: body,
-    ));
+    return _asMap(
+      await _client.post<dynamic>(_url(RegApiPaths.approve(code)), data: body),
+    );
   }
 
   Future<Map<String, dynamic>> approveSelected(
     Map<String, dynamic> body,
   ) async {
-    return _asMap(await _client.post<dynamic>(
-      _url(RegApiPaths.approveSelected),
-      data: body,
-    ));
+    return _asMap(
+      await _client.post<dynamic>(
+        _url(RegApiPaths.approveSelected),
+        data: body,
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> edit(
     String code,
     Map<String, dynamic> body,
   ) async {
-    return _asMap(await _client.patch<dynamic>(
-      _url(RegApiPaths.edit(code)),
-      data: body,
-    ));
+    return _asMap(
+      await _client.patch<dynamic>(_url(RegApiPaths.edit(code)), data: body),
+    );
   }
 }

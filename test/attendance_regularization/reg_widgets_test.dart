@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/entities/regularization_request.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/entry/reg_requests_list.dart';
-import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_screen.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_view.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_resolve_sheet.dart';
 
@@ -15,16 +15,23 @@ void main() {
   };
 
   for (final entry in sizes.entries) {
-    testWidgets('admin inbox renders without overflow at ${entry.key}',
-        (tester) async {
+    testWidgets('admin inbox renders without overflow at ${entry.key}', (
+      tester,
+    ) async {
       tester.view.physicalSize = entry.value;
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(MaterialApp(
-        home: RegAdminInboxScreen(requests: RegularizationFixtures.adminInbox),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RegAdminInboxView(
+              requests: RegularizationFixtures.adminInbox,
+            ),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -39,17 +46,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: RegRequestsList(
-            requests: RegularizationFixtures.myRequests,
-            currentUserCode: 'STF_1',
-            onSelectChanged: (_, __) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RegRequestsList(
+              requests: RegularizationFixtures.myRequests,
+              currentUserCode: 'STF_1',
+              onSelectChanged: (_, __) {},
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Approved'), findsNWidgets(2));
@@ -74,18 +83,20 @@ void main() {
     final requests = RegularizationFixtures.myRequests;
     final pending = requests.where((r) => r.status.isPending).length;
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: RegRequestsList(
-            requests: requests,
-            currentUserCode: 'USR_ADMIN',
-            isAdmin: true,
-            onSelectChanged: (_, __) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RegRequestsList(
+              requests: requests,
+              currentUserCode: 'USR_ADMIN',
+              isAdmin: true,
+              onSelectChanged: (_, __) {},
+            ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(Checkbox), findsNWidgets(pending));
@@ -95,15 +106,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('admin inbox lays out inside a TabBarView', (tester) async {
+    // Its only home is the Staff Attendance "Request" tab, so the Column +
+    // Expanded it returns has to survive a tab's box constraints.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              bottom: const TabBar(
+                tabs: [
+                  Tab(text: 'Daily'),
+                  Tab(text: 'Request'),
+                ],
+              ),
+            ),
+            body: TabBarView(
+              children: [
+                const SizedBox.shrink(),
+                RegAdminInboxView(requests: RegularizationFixtures.adminInbox),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Request'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mohan Sonone'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('admin tile opens the decision sheet', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(MaterialApp(
-      home: RegAdminInboxScreen(requests: RegularizationFixtures.adminInbox),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RegAdminInboxView(requests: RegularizationFixtures.adminInbox),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Mohan Sonone'));
@@ -115,16 +168,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('admin inbox multi-selects then approves the selected set',
-      (tester) async {
+  testWidgets('admin inbox multi-selects then approves the selected set', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(MaterialApp(
-      home: RegAdminInboxScreen(requests: RegularizationFixtures.adminInbox),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RegAdminInboxView(requests: RegularizationFixtures.adminInbox),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     // No action bar until something is selected.
@@ -144,29 +202,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('resolve sheet merges context + correction in one sheet',
-      (tester) async {
+  testWidgets('resolve sheet merges context + correction in one sheet', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () => showRegResolveSheet(
-                context,
-                item: RegularizationFixtures.pendingGate,
-                mandatory: true,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showRegResolveSheet(
+                  context,
+                  item: RegularizationFixtures.pendingGate,
+                  mandatory: true,
+                ),
+                child: const Text('open'),
               ),
-              child: const Text('open'),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -182,30 +243,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('resolve sheet blocks submit until a reason is given',
-      (tester) async {
+  testWidgets('resolve sheet blocks submit until a reason is given', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     RegResolveResult? result;
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () async => result = await showRegResolveSheet(
-                context,
-                item: RegularizationFixtures.pendingGate,
-                mandatory: true,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () async => result = await showRegResolveSheet(
+                  context,
+                  item: RegularizationFixtures.pendingGate,
+                  mandatory: true,
+                ),
+                child: const Text('open'),
               ),
-              child: const Text('open'),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -227,31 +291,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('admin-raised sheet promises auto-approval and names the staff',
-      (tester) async {
+  testWidgets('admin-raised sheet promises auto-approval and names the staff', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () => showRegResolveSheet(
-                context,
-                item: RegularizationFixtures.pendingGate,
-                mandatory: true,
-                byAdmin: true,
-                staffName: 'Mohan Sonone',
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => showRegResolveSheet(
+                  context,
+                  item: RegularizationFixtures.pendingGate,
+                  mandatory: true,
+                  byAdmin: true,
+                  staffName: 'Mohan Sonone',
+                ),
+                child: const Text('open'),
               ),
-              child: const Text('open'),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
@@ -288,8 +355,9 @@ void main() {
           ),
         );
 
-    testWidgets('lists the blocked staff and closes all in one tap',
-        (tester) async {
+    testWidgets('lists the blocked staff and closes all in one tap', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -316,7 +384,9 @@ void main() {
       expect(find.text('Add a reason.'), findsOneWidget);
 
       await tester.enterText(
-          find.byType(TextField).first, 'forgot to sign out');
+        find.byType(TextField).first,
+        'forgot to sign out',
+      );
       await tester.tap(find.text('Close all 10 & sign them in'));
       await tester.pumpAndSettle();
 
@@ -329,8 +399,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('skip returns nothing so the other staff still sign in',
-        (tester) async {
+    testWidgets('skip returns nothing so the other staff still sign in', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -338,10 +409,12 @@ void main() {
 
       List<RegBulkGateItem>? result;
       var called = false;
-      await tester.pumpWidget(harness((r) {
-        result = r;
-        called = true;
-      }));
+      await tester.pumpWidget(
+        harness((r) {
+          result = r;
+          called = true;
+        }),
+      );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 

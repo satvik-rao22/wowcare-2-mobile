@@ -19,6 +19,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_custom_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_out_form.dart';
@@ -48,7 +49,12 @@ class StaffAttendanceTabbedView extends StatefulWidget {
 
   static const String routeName = DashboardRoutes.staffAttendanceTabbedView;
 
-  final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
+  /// Index of the admin-only **Request** tab. Deep links (the dashboard's
+  /// attention card, the approval notification) pass this; for a non-admin the
+  /// tab does not exist and the index clamps back to Absent.
+  static const int requestTabIndex = 3;
+
+  final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent, 3: Request
   final String? dailyIncomingFilter; // forwarded to Daily screen
   final FilterData? classroomFilter; // classroom filter data
   final bool hasBackButton;
@@ -61,7 +67,17 @@ class StaffAttendanceTabbedView extends StatefulWidget {
 class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final UnreadBadgeCubit _unreadBadgeCubit;
-  late final TabController _tabController;
+  late TabController _tabController;
+
+  /// The Request tab is the admin approval queue, so only an admin gets it.
+  ///
+  /// `RoleState.role` defaults to `admin` before the persona resolves, so this
+  /// must gate on [RoleCubit.isPersonaResolved] too — otherwise every user
+  /// briefly sees an approver tab.
+  bool _showRequestTab = false;
+
+  /// Built once so switching tabs does not restart its cubit.
+  late final Widget _requestTab = Regularization.adminInbox();
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona;
   String _loggedInStaffCode = '';
@@ -100,13 +116,48 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // is idempotent, so re-calling it here on mount keeps badges fresh
     // without opening a second, duplicate set of Firestore listeners.
     _unreadBadgeCubit = context.read<UnreadBadgeCubit>()..startWatching();
-    _tabController = TabController(
-      length: 3,
-      vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, 2),
-    );
-    _tabController.addListener(_onTabChanged);
+    _showRequestTab = _resolveShowRequestTab();
+    _tabController = _newTabController(widget.initialTabIndex);
     _initPersonaFlags();
+  }
+
+  int get _tabCount => _showRequestTab ? 4 : 3;
+
+  bool _resolveShowRequestTab() {
+    try {
+      final role = context.read<RoleCubit>();
+      return role.isPersonaResolved && role.isTrueAdmin;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  TabController _newTabController(int index) {
+    return TabController(
+      length: _tabCount,
+      vsync: this,
+      initialIndex: index.clamp(0, _tabCount - 1),
+    )..addListener(_onTabChanged);
+  }
+
+  /// Rebuilds the controller when the persona resolves and the tab appears.
+  ///
+  /// `TabController.length` is fixed at construction, so a late-arriving role
+  /// means a new controller — keeping the tab the user is on where it still
+  /// exists.
+  void _syncRequestTab() {
+    final show = _resolveShowRequestTab();
+    if (show == _showRequestTab || !mounted) return;
+
+    final current = _tabController.index;
+    final old = _tabController..removeListener(_onTabChanged);
+    setState(() {
+      _showRequestTab = show;
+      _tabController = _newTabController(current);
+    });
+    // Deferred: TabBar and TabBarView still hold the old controller until this
+    // setState's frame is built, and disposing it before then throws.
+    WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
 
   Future<void> _initPersonaFlags() async {
@@ -120,6 +171,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       _loggedInStaffCode = '';
     }
     if (mounted) setState(() {});
+    _syncRequestTab();
   }
 
   Future<void> _loadStaffPersonaFlags() async {
@@ -154,11 +206,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      setState(() {
-        // This will rebuild the floating button with the new tab's staff
-      });
-    }
+    // Rebuild the floating button for the new tab — on the way there and on
+    // arrival, since a swipe settles without `indexIsChanging` ever being set.
+    if (mounted) setState(() {});
   }
 
   @override
@@ -195,135 +245,148 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
 
-    return BlocProvider<UnreadBadgeCubit>.value(
-      value: _unreadBadgeCubit,
-      child: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: AssetImage(MediaRes.wowcareMobileBg),
-                fit: BoxFit.cover,
-              ),
-            ),
-            child: Scaffold(
-              appBar: CustomAppBar(
-                hasBackButton: widget.hasBackButton,
-                tabController: _tabController,
-                tabBarStyle: TabBarStyle(
-                  indicator: const UnderlineTabIndicator(
-                    borderSide: BorderSide(color: AppColors.themeColor),
-                  ),
-                  dividerColor: AppColors.transparentColor,
-                  indicatorPadding: EdgeInsets.only(
-                    bottom: responsive.isTablet ? 10 : 8,
-                  ),
-                  tabAlignment: TabAlignment.start,
-                  isScrollable: true,
-                  labelStyle: AppTextStyles.attendanceTabLabelSelected(
-                    isTablet: responsive.isTablet,
-                  ),
-                  unselectedLabelStyle:
-                      AppTextStyles.attendanceTabLabelUnselected(
-                        isTablet: responsive.isTablet,
-                      ),
+    return BlocListener<RoleCubit, RoleState>(
+      // The persona can resolve after this screen mounts, which is when the
+      // Request tab has to appear.
+      listener: (_, __) => _syncRequestTab(),
+      child: BlocProvider<UnreadBadgeCubit>.value(
+        value: _unreadBadgeCubit,
+        child: Stack(
+          children: [
+            Container(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(MediaRes.wowcareMobileBg),
+                  fit: BoxFit.cover,
                 ),
-                tabs: const [
-                  Tab(text: 'Daily'),
-                  Tab(text: 'Custom'),
-                  Tab(text: 'Absent'),
-                ],
               ),
-              drawer: const CustomDrawer(),
-              drawerEnableOpenDragGesture: false,
-              onDrawerChanged: (isOpen) {
-                if (mounted) setState(() => _isDrawerOpen = isOpen);
-              },
-              body: NotificationListener<ScrollNotification>(
-                onNotification: _handleScrollNotification,
-                child: SafeArea(
-                  // Allow the tab contents to respect the device's bottom inset
-                  // so that the scrollable lists aren't clipped underneath
-                  // the bottom navigation bar and can scroll naturally.
-                  bottom: true,
-                  child: GradientBackground(
-                    child: Padding(
-                      padding: ResponsiveHelper(context).contentPadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: AppSpacing.xxs,
-                              bottom: AppSpacing.xs,
-                            ),
-                            child: Text(
-                              'Staff Attendance',
-                              style: AppTextStyles.attendanceScreenTitle(
-                                isTablet: responsive.isTablet,
+              child: Scaffold(
+                appBar: CustomAppBar(
+                  hasBackButton: widget.hasBackButton,
+                  tabController: _tabController,
+                  tabBarStyle: TabBarStyle(
+                    indicator: const UnderlineTabIndicator(
+                      borderSide: BorderSide(color: AppColors.themeColor),
+                    ),
+                    dividerColor: AppColors.transparentColor,
+                    indicatorPadding: EdgeInsets.only(
+                      bottom: responsive.isTablet ? 10 : 8,
+                    ),
+                    tabAlignment: TabAlignment.start,
+                    isScrollable: true,
+                    labelStyle: AppTextStyles.attendanceTabLabelSelected(
+                      isTablet: responsive.isTablet,
+                    ),
+                    unselectedLabelStyle:
+                        AppTextStyles.attendanceTabLabelUnselected(
+                          isTablet: responsive.isTablet,
+                        ),
+                  ),
+                  tabs: [
+                    const Tab(text: 'Daily'),
+                    const Tab(text: 'Custom'),
+                    const Tab(text: 'Absent'),
+                    if (_showRequestTab) const Tab(text: 'Request'),
+                  ],
+                ),
+                drawer: const CustomDrawer(),
+                drawerEnableOpenDragGesture: false,
+                onDrawerChanged: (isOpen) {
+                  if (mounted) setState(() => _isDrawerOpen = isOpen);
+                },
+                body: NotificationListener<ScrollNotification>(
+                  onNotification: _handleScrollNotification,
+                  child: SafeArea(
+                    // Allow the tab contents to respect the device's bottom inset
+                    // so that the scrollable lists aren't clipped underneath
+                    // the bottom navigation bar and can scroll naturally.
+                    bottom: true,
+                    child: GradientBackground(
+                      child: Padding(
+                        padding: ResponsiveHelper(context).contentPadding,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppSpacing.xxs,
+                                bottom: AppSpacing.xs,
+                              ),
+                              child: Text(
+                                'Staff Attendance',
+                                style: AppTextStyles.attendanceScreenTitle(
+                                  isTablet: responsive.isTablet,
+                                ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                StaffAttendanceDailyViewScreen(
-                                  key: _dailyViewKey,
-                                  incomingFilter: widget.dailyIncomingFilter,
-                                  contentOnly: true,
-                                  classroomFilter: widget.classroomFilter,
-                                  onAttendanceMutated: _refreshSecondaryTabs,
-                                ),
-                                StaffAttendanceCustomView(
-                                  key: _customViewKey,
-                                  contentOnly: true,
-                                ),
-                                StaffAttendanceAbsentView(
-                                  key: _absentViewKey,
-                                  contentOnly: true,
-                                ),
-                              ],
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  StaffAttendanceDailyViewScreen(
+                                    key: _dailyViewKey,
+                                    incomingFilter: widget.dailyIncomingFilter,
+                                    contentOnly: true,
+                                    classroomFilter: widget.classroomFilter,
+                                    onAttendanceMutated: _refreshSecondaryTabs,
+                                  ),
+                                  StaffAttendanceCustomView(
+                                    key: _customViewKey,
+                                    contentOnly: true,
+                                  ),
+                                  StaffAttendanceAbsentView(
+                                    key: _absentViewKey,
+                                    contentOnly: true,
+                                  ),
+                                  if (_showRequestTab) _requestTab,
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              extendBody: true,
-              // Attendance is the bottom-nav slot at index 1 (a popup slot with
-              // no branch), so highlight it explicitly while on this view.
-              // Animate the bar away while scrolling down, like GlobalScaffold.
-              bottomNavigationBar: AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: _showBars
-                    ? const CustomNavigationBar(
-                        activeItemOverride: BottomNavigationItem.attendance,
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          ),
-          // Floating button positioned over the tab bar. Hidden while the drawer
-          // is open so it doesn't sit above the drawer's dim scrim.
-          if (!_isDrawerOpen)
-            Positioned(
-              top: floatingButtonTop,
-              right: floatingButtonRight,
-              child: GradientAddButton(
-                onTap: () => _showActionMenu(context),
-                isTablet: isTablet,
-                isLargeTablet: isLargeTablet,
-                wantedButtonSize: floatingButtonSize,
+                extendBody: true,
+                // Attendance is the bottom-nav slot at index 1 (a popup slot with
+                // no branch), so highlight it explicitly while on this view.
+                // Animate the bar away while scrolling down, like GlobalScaffold.
+                bottomNavigationBar: AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: _showBars
+                      ? const CustomNavigationBar(
+                          activeItemOverride: BottomNavigationItem.attendance,
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ),
             ),
-        ],
+            // Floating button positioned over the tab bar. Hidden while the drawer
+            // is open so it doesn't sit above the drawer's dim scrim.
+            // Hidden on Request: its actions are sign-in/out/transfer/absent,
+            // none of which apply to the approval queue.
+            if (!_isDrawerOpen && !_isOnRequestTab)
+              Positioned(
+                top: floatingButtonTop,
+                right: floatingButtonRight,
+                child: GradientAddButton(
+                  onTap: () => _showActionMenu(context),
+                  isTablet: isTablet,
+                  isLargeTablet: isLargeTablet,
+                  wantedButtonSize: floatingButtonSize,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
+
+  bool get _isOnRequestTab =>
+      _showRequestTab &&
+      _tabController.index == StaffAttendanceTabbedView.requestTabIndex;
 
   @override
   bool get wantKeepAlive => true;

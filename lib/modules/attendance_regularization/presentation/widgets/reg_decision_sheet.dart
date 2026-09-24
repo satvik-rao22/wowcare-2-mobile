@@ -25,8 +25,9 @@ Future<RegDecision?> showRegDecisionSheet(
     isScrollControlled: true,
     backgroundColor: Av2Colors.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(Av2Spacing.radiusLg),
+      ),
     ),
     builder: (context) => _RegDecisionSheet(request: request),
   );
@@ -81,12 +82,12 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   }
 
   void _approve() => Navigator.pop(
-        context,
-        RegDecision(
-          signOutLocal: _timeChanged ? _combine(_outTime) : null,
-          note: _note.text.trim(),
-        ),
-      );
+    context,
+    RegDecision(
+      signOutLocal: _timeChanged ? _combine(_outTime) : null,
+      note: _note.text.trim(),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +98,11 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
         top: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
-              Av2Spacing.md, Av2Spacing.sm, Av2Spacing.md, Av2Spacing.md),
+            Av2Spacing.md,
+            Av2Spacing.sm,
+            Av2Spacing.md,
+            Av2Spacing.md,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,8 +119,10 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
               ),
               const SizedBox(height: Av2Spacing.md),
               Text(r.staffName, style: Av2Text.title),
-              Text('Missed sign-out · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
-                  style: Av2Text.label),
+              Text(
+                'Missed sign-out · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
+                style: Av2Text.label,
+              ),
               const SizedBox(height: Av2Spacing.sm),
               _reasonBox(r.reason),
               const SizedBox(height: Av2Spacing.md),
@@ -139,12 +146,17 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
                       height: 46,
                       decoration: BoxDecoration(
                         gradient: Av2Colors.primaryGradient,
-                        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+                        borderRadius: BorderRadius.circular(
+                          Av2Spacing.radiusSm,
+                        ),
                       ),
                       child: Center(
-                        child: Text('Approve',
-                            style: Av2Text.bodyMedium
-                                .copyWith(color: Colors.white)),
+                        child: Text(
+                          'Approve',
+                          style: Av2Text.bodyMedium.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -165,8 +177,10 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
         color: Av2Colors.surfaceMuted,
         borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
       ),
-      child: Text(reason.isEmpty ? 'No reason provided' : reason,
-          style: Av2Text.body.copyWith(color: Av2Colors.textSecondary)),
+      child: Text(
+        reason.isEmpty ? 'No reason provided' : reason,
+        style: Av2Text.body.copyWith(color: Av2Colors.textSecondary),
+      ),
     );
   }
 
@@ -183,12 +197,18 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.access_time, size: 16, color: Av2Colors.textSecondary),
+            const Icon(
+              Icons.access_time,
+              size: 16,
+              color: Av2Colors.textSecondary,
+            ),
             const SizedBox(width: 8),
             Text(t.format(context), style: Av2Text.body),
             const Spacer(),
-            Text('Tap to modify',
-                style: Av2Text.caption.copyWith(color: Av2Colors.theme)),
+            Text(
+              'Tap to modify',
+              style: Av2Text.caption.copyWith(color: Av2Colors.theme),
+            ),
           ],
         ),
       ),
@@ -205,7 +225,10 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
         hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
         filled: true,
         fillColor: Av2Colors.surfaceMuted,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
           borderSide: const BorderSide(color: Av2Colors.border),

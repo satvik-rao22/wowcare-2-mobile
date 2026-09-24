@@ -127,8 +127,8 @@ class RegRequestsList extends StatelessWidget {
             onTap: _canApprove(r)
                 ? () => onReview?.call(r)
                 : _canEdit(r)
-                    ? () => onEdit?.call(r)
-                    : null,
+                ? () => onEdit?.call(r)
+                : null,
           ),
         ],
         if (hasMore) ...[
@@ -140,7 +140,8 @@ class RegRequestsList extends StatelessWidget {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Text('Load more'),
             ),
           ),
@@ -192,7 +193,9 @@ class _Header extends StatelessWidget {
               child: Text(
                 selected == pending ? 'Clear' : 'Select all',
                 style: Av2Text.label.copyWith(
-                    color: Av2Colors.theme, fontWeight: FontWeight.w600),
+                  color: Av2Colors.theme,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
@@ -232,9 +235,14 @@ class _ApproveSelectedBar extends StatelessWidget {
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : Text('Approve selected ($count)',
-                    style: Av2Text.bodyMedium.copyWith(color: Colors.white)),
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'Approve selected ($count)',
+                    style: Av2Text.bodyMedium.copyWith(color: Colors.white),
+                  ),
           ),
         ),
       ),
@@ -258,9 +266,14 @@ class _RegRequestsListConnected extends StatelessWidget {
 
   /// Absent a [RoleCubit] — dev harness, isolated tests — assume the least
   /// privilege rather than handing out approve buttons.
+  ///
+  /// `RoleState.role` defaults to `admin` until the persona resolves, so the
+  /// resolution flag is checked first: without it a staff member would briefly
+  /// be offered approve on someone else's requests.
   bool _isAdmin(BuildContext context) {
     try {
-      return context.read<RoleCubit>().state.role.toLowerCase() == 'admin';
+      final role = context.read<RoleCubit>();
+      return role.isPersonaResolved && role.isTrueAdmin;
     } catch (_) {
       return false;
     }
@@ -273,8 +286,9 @@ class _RegRequestsListConnected extends StatelessWidget {
     return BlocConsumer<RegInboxCubit, RegInboxState>(
       listenWhen: (a, b) => a.message != b.message && b.message.isNotEmpty,
       listener: (context, state) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(state.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(state.message)));
         context.read<RegInboxCubit>().clearMessage();
       },
       builder: (context, state) {
@@ -316,7 +330,9 @@ class _RegRequestsListConnected extends StatelessWidget {
   }
 
   Future<void> _review(
-      BuildContext context, RegularizationRequest request) async {
+    BuildContext context,
+    RegularizationRequest request,
+  ) async {
     final cubit = context.read<RegInboxCubit>();
     final decision = await showRegDecisionSheet(context, request: request);
     if (decision == null) return;
@@ -328,7 +344,9 @@ class _RegRequestsListConnected extends StatelessWidget {
   }
 
   Future<void> _edit(
-      BuildContext context, RegularizationRequest request) async {
+    BuildContext context,
+    RegularizationRequest request,
+  ) async {
     final cubit = context.read<RegInboxCubit>();
     final result = await showRegResolveSheet(
       context,
@@ -369,9 +387,11 @@ class _Failed extends StatelessWidget {
         children: [
           const Icon(Icons.cloud_off, color: Av2Colors.textTertiary),
           const SizedBox(height: Av2Spacing.sm),
-          Text(text,
-              textAlign: TextAlign.center,
-              style: Av2Text.body.copyWith(color: Av2Colors.textSecondary)),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: Av2Text.body.copyWith(color: Av2Colors.textSecondary),
+          ),
           TextButton(onPressed: onRetry, child: const Text('Try again')),
         ],
       ),

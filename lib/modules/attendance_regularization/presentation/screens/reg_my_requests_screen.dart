@@ -18,7 +18,11 @@ class RegMyRequestsScreen extends StatelessWidget {
       title: 'My regularizations',
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
-            Av2Spacing.md, 0, Av2Spacing.md, Av2Spacing.lg),
+          Av2Spacing.md,
+          0,
+          Av2Spacing.md,
+          Av2Spacing.lg,
+        ),
         child: RegRequestsList.connected(),
       ),
     );

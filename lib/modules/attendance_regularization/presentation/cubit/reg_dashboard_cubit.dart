@@ -48,8 +48,7 @@ class RegDashboardState extends Equatable {
   }) {
     return RegDashboardState(
       loading: loading ?? this.loading,
-      openSession:
-          clearOpenSession ? null : (openSession ?? this.openSession),
+      openSession: clearOpenSession ? null : (openSession ?? this.openSession),
       pendingCount: pendingCount ?? this.pendingCount,
       autoSheetShown: autoSheetShown ?? this.autoSheetShown,
     );
@@ -57,12 +56,12 @@ class RegDashboardState extends Equatable {
 
   @override
   List<Object?> get props => [
-        loading,
-        openSession?.attendanceCode,
-        openSession?.hasPendingRequest,
-        pendingCount,
-        autoSheetShown,
-      ];
+    loading,
+    openSession?.attendanceCode,
+    openSession?.hasPendingRequest,
+    pendingCount,
+    autoSheetShown,
+  ];
 }
 
 /// Feeds the dashboard entry point for both personas.
@@ -75,9 +74,9 @@ class RegDashboardCubit extends Cubit<RegDashboardState> {
   RegDashboardCubit({
     required RegGateCoordinator gate,
     required GetRequestsUseCase getRequests,
-  })  : _gate = gate,
-        _getRequests = getRequests,
-        super(const RegDashboardState());
+  }) : _gate = gate,
+       _getRequests = getRequests,
+       super(const RegDashboardState());
 
   final RegGateCoordinator _gate;
   final GetRequestsUseCase _getRequests;
@@ -93,20 +92,25 @@ class RegDashboardCubit extends Cubit<RegDashboardState> {
     final session = await sessionFuture;
     final count = await countFuture;
 
-    emit(state.copyWith(
-      loading: false,
-      openSession: session,
-      clearOpenSession: session == null,
-      pendingCount: count,
-    ));
+    emit(
+      state.copyWith(
+        loading: false,
+        openSession: session,
+        clearOpenSession: session == null,
+        pendingCount: count,
+      ),
+    );
   }
 
   /// Reads the count from `totalElements` on a one-item page rather than
   /// pulling the whole queue — the badge only needs the number.
   Future<int> _pendingCount() async {
     try {
-      final page =
-          await _getRequests(status: RegStatus.pending, page: 0, size: 1);
+      final page = await _getRequests(
+        status: RegStatus.pending,
+        page: 0,
+        size: 1,
+      );
       return page.total;
     } catch (_) {
       return 0;
@@ -119,8 +123,11 @@ class RegDashboardCubit extends Cubit<RegDashboardState> {
     if (session == null) return;
     if (markAuto) emit(state.copyWith(autoSheetShown: true));
 
-    final outcome =
-        await _gate.resolve(session, byAdmin: false, mandatory: false);
+    final outcome = await _gate.resolve(
+      session,
+      byAdmin: false,
+      mandatory: false,
+    );
     if (outcome.isProceed) await load(forAdmin: state.pendingCount > 0);
   }
 

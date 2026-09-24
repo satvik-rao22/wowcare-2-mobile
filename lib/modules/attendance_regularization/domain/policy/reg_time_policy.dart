@@ -14,8 +14,11 @@ abstract final class RegTimePolicy {
   static const int defaultSignOutHour = 19;
 
   static DateTime defaultSignOutFor(DateTime attendanceDate) => DateTime(
-      attendanceDate.year, attendanceDate.month, attendanceDate.day,
-      defaultSignOutHour);
+    attendanceDate.year,
+    attendanceDate.month,
+    attendanceDate.day,
+    defaultSignOutHour,
+  );
 
   static DateTime suggestedOr(DateTime? suggested, DateTime attendanceDate) =>
       suggested ?? defaultSignOutFor(attendanceDate);

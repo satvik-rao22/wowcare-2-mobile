@@ -98,10 +98,12 @@ class RegSignInGateInterceptor extends Interceptor {
       );
       if (cleared.isEmpty) {
         // Skipped — say so rather than letting a clean "signed in" stand.
-        return handler.next(_withMessage(
-          response,
-          '${blocked.length} still need yesterday closed.',
-        ));
+        return handler.next(
+          _withMessage(
+            response,
+            '${blocked.length} still need yesterday closed.',
+          ),
+        );
       }
 
       final retried = await _retry(
@@ -152,8 +154,7 @@ class RegSignInGateInterceptor extends Interceptor {
     return _dio.fetch<dynamic>(replay);
   }
 
-  bool _isReplay(RequestOptions options) =>
-      options.extra[_replayFlag] == true;
+  bool _isReplay(RequestOptions options) => options.extra[_replayFlag] == true;
 
   DioException _rejection(RequestOptions options, String message) =>
       DioException(

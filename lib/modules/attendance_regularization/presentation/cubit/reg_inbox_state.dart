@@ -97,16 +97,16 @@ class RegInboxState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        filter,
-        requests,
-        selected,
-        hasMore,
-        page,
-        loadingMore,
-        busy,
-        busyCode,
-        currentUserCode,
-        message,
-      ];
+    status,
+    filter,
+    requests,
+    selected,
+    hasMore,
+    page,
+    loadingMore,
+    busy,
+    busyCode,
+    currentUserCode,
+    message,
+  ];
 }

@@ -17,16 +17,19 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
     show FilterData;
 
 /// Args for the attendance tabbed views opened from `RatioMonitoringCard`'s
-/// per-classroom student/staff cells.
+/// per-classroom student/staff cells, and from the dashboard's attention grid.
 @immutable
 class AttendanceTabbedViewArgs {
   const AttendanceTabbedViewArgs({
     required this.initialTabIndex,
-    required this.classroomFilter,
+    this.classroomFilter,
   });
 
   final int initialTabIndex;
-  final FilterData classroomFilter;
+
+  /// Optional: a caller that only wants to land on a tab (the Request tab, for
+  /// instance) has no classroom to filter by.
+  final FilterData? classroomFilter;
 }
 
 /// Args for the attendance tabbed views opened from `EnrollmentCard`'s

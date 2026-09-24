@@ -9,11 +9,11 @@ class RegPage<T> {
   });
 
   const RegPage.empty()
-      : items = const [],
-        page = 0,
-        size = 0,
-        total = 0,
-        hasMore = false;
+    : items = const [],
+      page = 0,
+      size = 0,
+      total = 0,
+      hasMore = false;
 
   final List<T> items;
   final int page;
@@ -29,18 +29,18 @@ class RegPage<T> {
   int get nextPage => page + 1;
 
   RegPage<T> append(RegPage<T> next) => RegPage<T>(
-        items: [...items, ...next.items],
-        page: next.page,
-        size: next.size,
-        total: next.total,
-        hasMore: next.hasMore,
-      );
+    items: [...items, ...next.items],
+    page: next.page,
+    size: next.size,
+    total: next.total,
+    hasMore: next.hasMore,
+  );
 
   RegPage<T> withItems(List<T> newItems) => RegPage<T>(
-        items: newItems,
-        page: page,
-        size: size,
-        total: total,
-        hasMore: hasMore,
-      );
+    items: newItems,
+    page: page,
+    size: size,
+    total: total,
+    hasMore: hasMore,
+  );
 }

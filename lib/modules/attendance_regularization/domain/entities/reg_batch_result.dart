@@ -25,9 +25,7 @@ class RegSkipped {
 class RegBatchResult {
   const RegBatchResult({required this.applied, required this.skipped});
 
-  const RegBatchResult.empty()
-      : applied = 0,
-        skipped = const <RegSkipped>[];
+  const RegBatchResult.empty() : applied = 0, skipped = const <RegSkipped>[];
 
   final int applied;
   final List<RegSkipped> skipped;

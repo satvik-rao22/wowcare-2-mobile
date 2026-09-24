@@ -25,10 +25,10 @@ class RegBulkGateOutcome {
   });
 
   const RegBulkGateOutcome.allowAll(List<String> staffCodes)
-      : allowed = staffCodes,
-        cleared = 0,
-        skipped = 0,
-        blockedRemaining = 0;
+    : allowed = staffCodes,
+      cleared = 0,
+      skipped = 0,
+      blockedRemaining = 0;
 
   /// Staff codes that may be signed in now.
   final List<String> allowed;

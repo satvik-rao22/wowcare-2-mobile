@@ -14,7 +14,6 @@ import '../cubit/reg_inbox_state.dart';
 import '../widgets/reg_admin_notification_tile.dart';
 import '../widgets/reg_decision_sheet.dart';
 import '../widgets/reg_filter_chips.dart';
-import '../widgets/reg_scaffold.dart';
 
 /// Admin approver list — the pending queue **and** the approved history, from
 /// the one §9.5 endpoint.
@@ -23,10 +22,13 @@ import '../widgets/reg_scaffold.dart';
 /// cancel (§8.4). Pending tiles are multi-select: pick a set and **Approve
 /// selected** in one action (§9.7).
 ///
-/// As with the staff screen, the default constructor is presentation-only for
-/// tests and previews, and [RegAdminInboxScreen.connected] wires the cubit.
-class RegAdminInboxScreen extends StatefulWidget {
-  const RegAdminInboxScreen({
+/// Brings no chrome of its own: it lives in the Staff Attendance screen's
+/// **Request** tab, which supplies the app bar and the title.
+///
+/// The default constructor is presentation-only for tests and previews, and
+/// [RegAdminInboxView.connected] wires the cubit.
+class RegAdminInboxView extends StatefulWidget {
+  const RegAdminInboxView({
     super.key,
     required this.requests,
     this.filter = RegInboxFilter.pending,
@@ -50,6 +52,9 @@ class RegAdminInboxScreen extends StatefulWidget {
     );
   }
 
+  /// Which tab the list opens on. Pending is the work queue.
+  static const RegInboxFilter initialFilter = RegInboxFilter.pending;
+
   final List<RegularizationRequest> requests;
   final RegInboxFilter filter;
   final Set<String> selected;
@@ -58,7 +63,7 @@ class RegAdminInboxScreen extends StatefulWidget {
   final void Function(String code, bool selected)? onSelectChanged;
   final VoidCallback? onSelectAll;
   final void Function(RegularizationRequest request, RegDecision decision)?
-      onApprove;
+  onApprove;
   final VoidCallback? onApproveSelected;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onLoadMore;
@@ -67,10 +72,10 @@ class RegAdminInboxScreen extends StatefulWidget {
   final bool busy;
 
   @override
-  State<RegAdminInboxScreen> createState() => _RegAdminInboxScreenState();
+  State<RegAdminInboxView> createState() => _RegAdminInboxViewState();
 }
 
-class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
+class _RegAdminInboxViewState extends State<RegAdminInboxView> {
   /// Local selection, used only when the screen is driven without a cubit
   /// (tests and previews). The connected path passes selection down instead.
   final Set<String> _localSelected = {};
@@ -114,30 +119,26 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
   @override
   Widget build(BuildContext context) {
     final showFilters = widget.onFilterChanged != null;
-    return RegScaffold(
-      title: 'Regularization requests',
-      body: Column(
-        children: [
-          if (showFilters)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  Av2Spacing.md, Av2Spacing.xs, Av2Spacing.md, 0),
-              child: RegFilterChips(
-                selected: widget.filter,
-                onSelected: widget.onFilterChanged!,
-              ),
+    return Column(
+      children: [
+        if (showFilters)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Av2Spacing.xs),
+            child: RegFilterChips(
+              selected: widget.filter,
+              onSelected: widget.onFilterChanged!,
             ),
-          Expanded(child: _body()),
-          if (_selected.isNotEmpty) _approveSelectedBar(),
-        ],
-      ),
+          ),
+        Expanded(child: _body()),
+        if (_selected.isNotEmpty) _approveSelectedBar(),
+      ],
     );
   }
 
   Widget _body() {
     if (widget.requests.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(Av2Spacing.md),
+        padding: const EdgeInsets.symmetric(vertical: Av2Spacing.md),
         child: Av2EmptyState(message: widget.filter.emptyMessage),
       );
     }
@@ -149,8 +150,7 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
         return false;
       },
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(
-            Av2Spacing.md, 0, Av2Spacing.md, Av2Spacing.md),
+        padding: const EdgeInsets.only(bottom: Av2Spacing.md),
         itemCount: widget.requests.length + (widget.loadingMore ? 1 : 0),
         itemBuilder: (context, i) {
           if (i >= widget.requests.length) {
@@ -166,8 +166,9 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
           return RegAdminNotificationTile(
             request: r,
             selected: _selected.contains(r.code),
-            onSelectChanged:
-                selectable ? (value) => _toggle(r.code, value) : null,
+            onSelectChanged: selectable
+                ? (value) => _toggle(r.code, value)
+                : null,
             onTap: () => _review(r),
           );
         },
@@ -192,10 +193,14 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
     final label = selectable.isNotEmpty
         ? '${selectable.length} pending'
         : '${widget.requests.length} '
-            'request${widget.requests.length == 1 ? '' : 's'}';
+              'request${widget.requests.length == 1 ? '' : 's'}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          Av2Spacing.md, Av2Spacing.sm, Av2Spacing.md, Av2Spacing.sm),
+        Av2Spacing.md,
+        Av2Spacing.sm,
+        Av2Spacing.md,
+        Av2Spacing.sm,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -210,7 +215,9 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
               child: Text(
                 _selected.length == selectable.length ? 'Clear' : 'Select all',
                 style: Av2Text.label.copyWith(
-                    color: Av2Colors.theme, fontWeight: FontWeight.w600),
+                  color: Av2Colors.theme,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
@@ -222,8 +229,7 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-            Av2Spacing.md, 0, Av2Spacing.md, Av2Spacing.sm),
+        padding: const EdgeInsets.only(bottom: Av2Spacing.sm),
         child: SizedBox(
           width: double.infinity,
           child: Material(
@@ -244,11 +250,16 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : Text('Approve selected (${_selected.length})',
-                          style: Av2Text.bodyMedium
-                              .copyWith(color: Colors.white)),
+                      : Text(
+                          'Approve selected (${_selected.length})',
+                          style: Av2Text.bodyMedium.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -263,7 +274,8 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
     final confirmed = await showAv2ConfirmDialog(
       context,
       title: 'Approve $count request${count == 1 ? '' : 's'}?',
-      message: 'Each will be approved as submitted, and those days will be '
+      message:
+          'Each will be approved as submitted, and those days will be '
           'counted.',
       confirmLabel: 'Approve',
     );
@@ -286,9 +298,11 @@ class _RegAdminInboxScreenState extends State<RegAdminInboxScreen> {
     // Preview / test path: report locally, no network.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(decision.signOutLocal != null
-            ? 'Approved with an adjusted time'
-            : 'Approved'),
+        content: Text(
+          decision.signOutLocal != null
+              ? 'Approved with an adjusted time'
+              : 'Approved',
+        ),
       ),
     );
   }
@@ -303,50 +317,47 @@ class _RegAdminInboxConnected extends StatelessWidget {
     return BlocConsumer<RegInboxCubit, RegInboxState>(
       listenWhen: (a, b) => a.message != b.message && b.message.isNotEmpty,
       listener: (context, state) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(state.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(state.message)));
         context.read<RegInboxCubit>().clearMessage();
       },
       builder: (context, state) {
         final cubit = context.read<RegInboxCubit>();
 
         if (state.isLoading && state.requests.isEmpty) {
-          return const RegScaffold(
-            title: 'Regularization requests',
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
         if (state.isError && state.requests.isEmpty) {
-          return RegScaffold(
-            title: 'Regularization requests',
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(Av2Spacing.md),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.cloud_off, color: Av2Colors.textTertiary),
-                    const SizedBox(height: Av2Spacing.sm),
-                    Text(
-                      state.message.isEmpty
-                          ? 'Could not load requests'
-                          : state.message,
-                      textAlign: TextAlign.center,
-                      style: Av2Text.body
-                          .copyWith(color: Av2Colors.textSecondary),
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(Av2Spacing.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off, color: Av2Colors.textTertiary),
+                  const SizedBox(height: Av2Spacing.sm),
+                  Text(
+                    state.message.isEmpty
+                        ? 'Could not load requests'
+                        : state.message,
+                    textAlign: TextAlign.center,
+                    style: Av2Text.body.copyWith(
+                      color: Av2Colors.textSecondary,
                     ),
-                    const SizedBox(height: Av2Spacing.sm),
-                    TextButton(
-                        onPressed: cubit.load,
-                        child: const Text('Try again')),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: Av2Spacing.sm),
+                  TextButton(
+                    onPressed: cubit.load,
+                    child: const Text('Try again'),
+                  ),
+                ],
               ),
             ),
           );
         }
 
-        return RegAdminInboxScreen(
+        return RegAdminInboxView(
           requests: state.requests,
           filter: state.filter,
           selected: state.selected,

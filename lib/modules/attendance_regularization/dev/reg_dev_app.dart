@@ -4,7 +4,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 
 import '../data/fixtures/regularization_fixtures.dart';
-import '../presentation/screens/reg_admin_inbox_screen.dart';
+import '../presentation/screens/reg_admin_inbox_view.dart';
 import '../presentation/entry/reg_requests_list.dart';
 import '../presentation/widgets/reg_scaffold.dart';
 import '../presentation/widgets/reg_bulk_signin_gate_sheet.dart';
@@ -58,24 +58,31 @@ class _DevMenu extends StatelessWidget {
                 );
               }),
               const SizedBox(height: Av2Spacing.sm),
-              _btn(context, 'Sign-out missing (admin, auto-approved)', () async {
-                await showRegResolveSheet(
-                  context,
-                  item: RegularizationFixtures.pendingGate,
-                  mandatory: true,
-                  byAdmin: true,
-                  staffName: 'Mohan Sonone',
-                );
-              }),
+              _btn(
+                context,
+                'Sign-out missing (admin, auto-approved)',
+                () async {
+                  await showRegResolveSheet(
+                    context,
+                    item: RegularizationFixtures.pendingGate,
+                    mandatory: true,
+                    byAdmin: true,
+                    staffName: 'Mohan Sonone',
+                  );
+                },
+              ),
               const SizedBox(height: Av2Spacing.sm),
-              _btn(context, 'Bulk sign-in gate — 10 of 50 blocked (admin)',
-                  () async {
-                await showRegBulkSignInGateSheet(
-                  context,
-                  blocked: RegularizationFixtures.bulkSignInGate,
-                  otherCount: 40,
-                );
-              }),
+              _btn(
+                context,
+                'Bulk sign-in gate — 10 of 50 blocked (admin)',
+                () async {
+                  await showRegBulkSignInGateSheet(
+                    context,
+                    blocked: RegularizationFixtures.bulkSignInGate,
+                    otherCount: 40,
+                  );
+                },
+              ),
               const SizedBox(height: Av2Spacing.sm),
               _btn(context, 'Staff: my regularizations', () {
                 Navigator.push(
@@ -99,8 +106,14 @@ class _DevMenu extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => RegAdminInboxScreen(
-                      requests: RegularizationFixtures.adminInbox,
+                    builder: (_) => RegScaffold(
+                      title: 'Regularization requests',
+                      body: Padding(
+                        padding: const EdgeInsets.all(Av2Spacing.md),
+                        child: RegAdminInboxView(
+                          requests: RegularizationFixtures.adminInbox,
+                        ),
+                      ),
                     ),
                   ),
                 );

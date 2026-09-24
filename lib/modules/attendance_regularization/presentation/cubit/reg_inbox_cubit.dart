@@ -27,12 +27,12 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     required ApproveSelectedUseCase approveSelected,
     required EditRegularizationUseCase editRequest,
     required RegContext context,
-  })  : _getRequests = getRequests,
-        _approveRequest = approveRequest,
-        _approveSelected = approveSelected,
-        _editRequest = editRequest,
-        _context = context,
-        super(const RegInboxState());
+  }) : _getRequests = getRequests,
+       _approveRequest = approveRequest,
+       _approveSelected = approveSelected,
+       _editRequest = editRequest,
+       _context = context,
+       super(const RegInboxState());
 
   final GetRequestsUseCase _getRequests;
   final ApproveRequestUseCase _approveRequest;
@@ -53,10 +53,12 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   /// [keepMessage] is set by actions that reload right after reporting their
   /// outcome, so the reload does not wipe the message being shown.
   Future<void> load({bool keepMessage = false}) async {
-    emit(state.copyWith(
-      status: RegListStatus.loading,
-      message: keepMessage ? null : '',
-    ));
+    emit(
+      state.copyWith(
+        status: RegListStatus.loading,
+        message: keepMessage ? null : '',
+      ),
+    );
     try {
       final user = await _context.currentUserCode();
       final page = await _getRequests(
@@ -66,19 +68,23 @@ class RegInboxCubit extends Cubit<RegInboxState> {
         page: 0,
         size: RegConfig.inboxPageSize,
       );
-      emit(state.copyWith(
-        status: RegListStatus.loaded,
-        requests: page.items,
-        hasMore: page.hasMore,
-        page: 0,
-        selected: const {},
-        currentUserCode: user,
-      ));
+      emit(
+        state.copyWith(
+          status: RegListStatus.loaded,
+          requests: page.items,
+          hasMore: page.hasMore,
+          page: 0,
+          selected: const {},
+          currentUserCode: user,
+        ),
+      );
     } catch (error) {
-      emit(state.copyWith(
-        status: RegListStatus.error,
-        message: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      emit(
+        state.copyWith(
+          status: RegListStatus.error,
+          message: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -92,13 +98,15 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   /// under the wrong heading. The selection is dropped for the same reason.
   Future<void> setFilter(RegInboxFilter filter) async {
     if (filter == state.filter) return;
-    emit(state.copyWith(
-      filter: filter,
-      selected: const {},
-      requests: const [],
-      page: 0,
-      hasMore: false,
-    ));
+    emit(
+      state.copyWith(
+        filter: filter,
+        selected: const {},
+        requests: const [],
+        page: 0,
+        hasMore: false,
+      ),
+    );
     await load();
   }
 
@@ -113,17 +121,21 @@ class RegInboxCubit extends Cubit<RegInboxState> {
         page: state.page + 1,
         size: RegConfig.inboxPageSize,
       );
-      emit(state.copyWith(
-        requests: [...state.requests, ...next.items],
-        page: next.page,
-        hasMore: next.hasMore,
-        loadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          requests: [...state.requests, ...next.items],
+          page: next.page,
+          hasMore: next.hasMore,
+          loadingMore: false,
+        ),
+      );
     } catch (error) {
-      emit(state.copyWith(
-        loadingMore: false,
-        message: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      emit(
+        state.copyWith(
+          loadingMore: false,
+          message: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -149,11 +161,13 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   void toggleSelectAll() {
     final selectable = state.selectableRequests.map((r) => r.code).toSet();
     if (selectable.isEmpty) return;
-    emit(state.copyWith(
-      selected: state.selected.length == selectable.length
-          ? const {}
-          : selectable,
-    ));
+    emit(
+      state.copyWith(
+        selected: state.selected.length == selectable.length
+            ? const {}
+            : selectable,
+      ),
+    );
   }
 
   void clearSelection() => emit(state.copyWith(selected: const {}));
@@ -178,19 +192,23 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       // Approval writes signed_out_at onto the attendance row and recomputes
       // the day, so anything showing attendance needs to re-read it.
       AttendanceEvents.notifyChanged();
-      emit(state.copyWith(
-        busy: false,
-        requests: _applyDecision(updated),
-        selected: Set<String>.from(state.selected)..remove(code),
-        message: updated.wasModified
-            ? 'Approved with your adjusted time'
-            : 'Approved',
-      ));
+      emit(
+        state.copyWith(
+          busy: false,
+          requests: _applyDecision(updated),
+          selected: Set<String>.from(state.selected)..remove(code),
+          message: updated.wasModified
+              ? 'Approved with your adjusted time'
+              : 'Approved',
+        ),
+      );
     } catch (error) {
-      emit(state.copyWith(
-        busy: false,
-        message: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      emit(
+        state.copyWith(
+          busy: false,
+          message: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -205,21 +223,26 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       // Only the codes that actually went through leave the queue. Skipped
       // items stay put with the reason, so the admin can see what another
       // admin had already handled (§9.7).
-      final approvedCodes =
-          codes.where((c) => !result.skippedKeys.contains(c)).toSet();
+      final approvedCodes = codes
+          .where((c) => !result.skippedKeys.contains(c))
+          .toSet();
 
       if (result.applied > 0) AttendanceEvents.notifyChanged();
-      emit(state.copyWith(
-        busy: false,
-        requests: _removeOrMark(approvedCodes),
-        selected: const {},
-        message: result.summary,
-      ));
+      emit(
+        state.copyWith(
+          busy: false,
+          requests: _removeOrMark(approvedCodes),
+          selected: const {},
+          message: result.summary,
+        ),
+      );
     } catch (error) {
-      emit(state.copyWith(
-        busy: false,
-        message: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      emit(
+        state.copyWith(
+          busy: false,
+          message: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 
@@ -264,12 +287,14 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   }) async {
     emit(state.copyWith(busyCode: code, message: ''));
     try {
-      await _editRequest(RegEditInput(
-        code: code,
-        attendanceDate: attendanceDate,
-        signOutLocal: signOutLocal,
-        reason: reason,
-      ));
+      await _editRequest(
+        RegEditInput(
+          code: code,
+          attendanceDate: attendanceDate,
+          signOutLocal: signOutLocal,
+          reason: reason,
+        ),
+      );
       emit(state.copyWith(clearBusyCode: true, message: 'Request updated'));
       await load(keepMessage: true);
     } on RegAlreadyApprovedException catch (error) {
@@ -278,10 +303,12 @@ class RegInboxCubit extends Cubit<RegInboxState> {
       emit(state.copyWith(clearBusyCode: true, message: error.message));
       await load(keepMessage: true);
     } catch (error) {
-      emit(state.copyWith(
-        clearBusyCode: true,
-        message: ApiErrorHandler.extractErrorMessage(error),
-      ));
+      emit(
+        state.copyWith(
+          clearBusyCode: true,
+          message: ApiErrorHandler.extractErrorMessage(error),
+        ),
+      );
     }
   }
 

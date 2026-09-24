@@ -41,7 +41,8 @@ class RegAdminNotificationTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
             border: Border.all(
-                color: selected ? Av2Colors.theme : Av2Colors.border),
+              color: selected ? Av2Colors.theme : Av2Colors.border,
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,9 +71,13 @@ class RegAdminNotificationTile extends StatelessWidget {
                   RegStatusPill(status: request.status),
                   const SizedBox(height: 6),
                   if (request.status.isPending)
-                    Text('Review',
-                        style: Av2Text.caption.copyWith(
-                            color: Av2Colors.theme, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Review',
+                      style: Av2Text.caption.copyWith(
+                        color: Av2Colors.theme,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -87,8 +92,12 @@ class RegAdminNotificationTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(r.staffName,
-            style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(
+          r.staffName,
+          style: Av2Text.bodyMedium,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         const SizedBox(height: 2),
         Text(
           'Missed sign-out · ${Av2DateFormatter.monthDay(r.attendanceDate)}',
@@ -113,8 +122,7 @@ class RegAdminNotificationTile extends StatelessWidget {
   String _changeLine(RegularizationRequest r) {
     final asked = Av2DateFormatter.compactTime(r.requestedSignOutTime);
     if (r.wasModified) {
-      final approved =
-          Av2DateFormatter.compactTime(r.approvedSignOutTime!);
+      final approved = Av2DateFormatter.compactTime(r.approvedSignOutTime!);
       return 'asked $asked · approved $approved';
     }
     return 'wants out $asked';

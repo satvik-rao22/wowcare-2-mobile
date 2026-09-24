@@ -32,8 +32,9 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
     String method = RegConfig.method,
   }) async {
     final zone = await _context.timeZone();
-    final body = await _source
-        .raise(RegMappers.raiseBody(input, zone: zone, method: method));
+    final body = await _source.raise(
+      RegMappers.raiseBody(input, zone: zone, method: method),
+    );
     return RegMappers.toSingleRequest(body, zone: zone);
   }
 
@@ -44,11 +45,9 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
   }) async {
     if (items.isEmpty) return const RegBatchResult.empty();
     final zone = await _context.timeZone();
-    final body = await _source.raiseBatch(RegMappers.raiseBatchBody(
-      items,
-      sharedReason: sharedReason,
-      zone: zone,
-    ));
+    final body = await _source.raiseBatch(
+      RegMappers.raiseBatchBody(items, sharedReason: sharedReason, zone: zone),
+    );
     return RegMappers.toBatchResult(body);
   }
 
@@ -92,8 +91,9 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
   @override
   Future<RegBatchResult> approveSelected(List<String> codes) async {
     if (codes.isEmpty) return const RegBatchResult.empty();
-    final body =
-        await _source.approveSelected(RegMappers.approveSelectedBody(codes));
+    final body = await _source.approveSelected(
+      RegMappers.approveSelectedBody(codes),
+    );
     return RegMappers.toBatchResult(body);
   }
 

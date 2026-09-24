@@ -34,11 +34,11 @@ class RegGateCoordinator implements RegSignInGate {
     required RaiseRegularizationBatchUseCase raiseBatch,
     required EditRegularizationUseCase edit,
     required RegContext context,
-  })  : _checkGate = checkGate,
-        _raise = raise,
-        _raiseBatch = raiseBatch,
-        _edit = edit,
-        _context = context;
+  }) : _checkGate = checkGate,
+       _raise = raise,
+       _raiseBatch = raiseBatch,
+       _edit = edit,
+       _context = context;
 
   final CheckGateUseCase _checkGate;
   final RaiseRegularizationUseCase _raise;
@@ -74,8 +74,9 @@ class RegGateCoordinator implements RegSignInGate {
     try {
       // An admin signing someone else in names them; a self sign-in never has
       // to know its own code.
-      final gate = await _checkGate(staffCodes: byAdmin ? [staffCode] : null)
-          .timeout(RegConfig.gateCheckTimeout);
+      final gate = await _checkGate(
+        staffCodes: byAdmin ? [staffCode] : null,
+      ).timeout(RegConfig.gateCheckTimeout);
       open = gate.blocked.isEmpty ? null : gate.blocked.first;
     } catch (error) {
       // The gate must never be why a sign-in fails; the server guard holds.
@@ -134,30 +135,37 @@ class RegGateCoordinator implements RegSignInGate {
 
     try {
       if (item.resolvesByEdit) {
-        await _edit(RegEditInput(
-          code: item.pendingRequestCode!,
-          attendanceDate: item.attendanceDate,
-          signOutLocal: result.signOutLocal,
-          reason: result.reason,
-        ));
+        await _edit(
+          RegEditInput(
+            code: item.pendingRequestCode!,
+            attendanceDate: item.attendanceDate,
+            signOutLocal: result.signOutLocal,
+            reason: result.reason,
+          ),
+        );
         _toast('Request updated');
         return RegGateOutcome.proceed;
       }
 
-      final request = await _raise(RegRaiseInput(
-        staffCode:
-            item.staffCode.isNotEmpty ? item.staffCode : fallbackStaffCode,
-        attendanceCode: item.attendanceCode,
-        attendanceDate: item.attendanceDate,
-        signOutLocal: result.signOutLocal,
-        reason: result.reason,
-      ));
+      final request = await _raise(
+        RegRaiseInput(
+          staffCode: item.staffCode.isNotEmpty
+              ? item.staffCode
+              : fallbackStaffCode,
+          attendanceCode: item.attendanceCode,
+          attendanceDate: item.attendanceDate,
+          signOutLocal: result.signOutLocal,
+          reason: result.reason,
+        ),
+      );
 
       // The server decides from the token, so read the status rather than
       // guessing from who we think is logged in.
-      _toast(request.status.isApproved
-          ? 'Sign-out applied · that day is now counted'
-          : 'Sent for approval');
+      _toast(
+        request.status.isApproved
+            ? 'Sign-out applied · that day is now counted'
+            : 'Sent for approval',
+      );
       return RegGateOutcome.proceed;
     } catch (error) {
       _toast(_messageFor(error), isError: true);
@@ -169,8 +177,10 @@ class RegGateCoordinator implements RegSignInGate {
 
   @override
   Future<RegBulkGateOutcome> guardBulk(List<String> staffCodes) async {
-    final codes =
-        staffCodes.map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+    final codes = staffCodes
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
     if (codes.isEmpty) return const RegBulkGateOutcome(allowed: []);
 
     if (codes.length == 1) {
@@ -185,8 +195,9 @@ class RegGateCoordinator implements RegSignInGate {
     final List<MissedSignout> blocked;
     final List<String> clear;
     try {
-      final gate = await _checkGate(staffCodes: codes)
-          .timeout(RegConfig.gateCheckTimeout);
+      final gate = await _checkGate(
+        staffCodes: codes,
+      ).timeout(RegConfig.gateCheckTimeout);
       blocked = gate.blocked;
       clear = gate.clear;
     } catch (error) {
@@ -231,9 +242,9 @@ class RegGateCoordinator implements RegSignInGate {
     required bool byAdmin,
   }) async {
     if (blocked.isEmpty) return const [];
-    final items = (await _toBlocked(blocked))
-        .where((i) => i.blocksSignIn)
-        .toList(growable: false);
+    final items = (await _toBlocked(
+      blocked,
+    )).where((i) => i.blocksSignIn).toList(growable: false);
     if (items.isEmpty) {
       // Already raised by someone else — they can be signed in as they are.
       return blocked
@@ -293,13 +304,15 @@ class RegGateCoordinator implements RegSignInGate {
     try {
       final result = await _raiseBatch(
         items
-            .map((i) => RegRaiseInput(
-                  staffCode: i.staffCode,
-                  attendanceCode: i.attendanceCode,
-                  attendanceDate: i.attendanceDate,
-                  signOutLocal: i.signOutLocal,
-                  reason: i.reason,
-                ))
+            .map(
+              (i) => RegRaiseInput(
+                staffCode: i.staffCode,
+                attendanceCode: i.attendanceCode,
+                attendanceDate: i.attendanceDate,
+                signOutLocal: i.signOutLocal,
+                reason: i.reason,
+              ),
+            )
             .toList(growable: false),
         sharedReason: items.first.reason,
       );
@@ -319,9 +332,7 @@ class RegGateCoordinator implements RegSignInGate {
     }
   }
 
-  Future<List<MissedSignout>> _toBlocked(
-    List<Map<String, dynamic>> raw,
-  ) async {
+  Future<List<MissedSignout>> _toBlocked(List<Map<String, dynamic>> raw) async {
     final zone = await _context.timeZone();
     return raw
         .map((m) => RegMappers.toMissedSignout(m, zone: zone))

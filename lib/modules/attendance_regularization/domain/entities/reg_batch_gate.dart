@@ -6,8 +6,8 @@ class RegBatchGate {
   const RegBatchGate({required this.blocked, required this.clear});
 
   const RegBatchGate.empty()
-      : blocked = const <MissedSignout>[],
-        clear = const <String>[];
+    : blocked = const <MissedSignout>[],
+      clear = const <String>[];
 
   final List<MissedSignout> blocked;
   final List<String> clear;

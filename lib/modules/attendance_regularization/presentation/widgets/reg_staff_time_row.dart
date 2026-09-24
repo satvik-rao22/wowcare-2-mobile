@@ -33,8 +33,9 @@ class RegStaffTimeRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Av2Colors.surface,
         borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-        border:
-            Border.all(color: isEdited ? Av2Colors.theme : Av2Colors.border),
+        border: Border.all(
+          color: isEdited ? Av2Colors.theme : Av2Colors.border,
+        ),
       ),
       child: Row(
         children: [
@@ -66,8 +67,11 @@ class RegStaffTimeRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(Av2Spacing.radiusPill),
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child:
-                    Icon(Icons.undo, size: 16, color: Av2Colors.textTertiary),
+                child: Icon(
+                  Icons.undo,
+                  size: 16,
+                  color: Av2Colors.textTertiary,
+                ),
               ),
             ),
           const SizedBox(width: 4),
@@ -80,21 +84,22 @@ class RegStaffTimeRow extends StatelessWidget {
                 color: isEdited ? Av2Colors.surface : Av2Colors.surfaceMuted,
                 borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
                 border: Border.all(
-                    color: isEdited ? Av2Colors.theme : Av2Colors.border),
+                  color: isEdited ? Av2Colors.theme : Av2Colors.border,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(isEdited ? Icons.edit_outlined : Icons.access_time,
-                      size: 14,
-                      color:
-                          isEdited ? Av2Colors.theme : Av2Colors.textSecondary),
+                  Icon(
+                    isEdited ? Icons.edit_outlined : Icons.access_time,
+                    size: 14,
+                    color: isEdited ? Av2Colors.theme : Av2Colors.textSecondary,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     signOutTime.format(context),
                     style: Av2Text.body.copyWith(
-                      color:
-                          isEdited ? Av2Colors.theme : Av2Colors.textPrimary,
+                      color: isEdited ? Av2Colors.theme : Av2Colors.textPrimary,
                     ),
                   ),
                 ],

@@ -58,17 +58,21 @@ void registerRegularization(GetIt sl) {
     ),
   );
 
-  sl.registerFactory(() => RegInboxCubit(
-        getRequests: sl<GetRequestsUseCase>(),
-        approveRequest: sl<ApproveRequestUseCase>(),
-        approveSelected: sl<ApproveSelectedUseCase>(),
-        editRequest: sl<EditRegularizationUseCase>(),
-        context: sl<RegContext>(),
-      ));
-  sl.registerFactory(() => RegDashboardCubit(
-        gate: sl<RegGateCoordinator>(),
-        getRequests: sl<GetRequestsUseCase>(),
-      ));
+  sl.registerFactory(
+    () => RegInboxCubit(
+      getRequests: sl<GetRequestsUseCase>(),
+      approveRequest: sl<ApproveRequestUseCase>(),
+      approveSelected: sl<ApproveSelectedUseCase>(),
+      editRequest: sl<EditRegularizationUseCase>(),
+      context: sl<RegContext>(),
+    ),
+  );
+  sl.registerFactory(
+    () => RegDashboardCubit(
+      gate: sl<RegGateCoordinator>(),
+      getRequests: sl<GetRequestsUseCase>(),
+    ),
+  );
 
   _installSignInGate(sl);
 }
