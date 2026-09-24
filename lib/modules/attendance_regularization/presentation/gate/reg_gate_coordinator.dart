@@ -68,14 +68,17 @@ class RegGateCoordinator implements RegSignInGate {
   Future<RegGateOutcome> guardSingle(
     String staffCode, {
     required bool byAdmin,
+    bool onBehalf = false,
     String staffName = '',
   }) async {
     final MissedSignout? open;
     try {
-      // An admin signing someone else in names them; a self sign-in never has
-      // to know its own code.
+      // Signing someone else in names them; a self sign-in never has to know
+      // its own code. Keyed on [onBehalf] rather than [byAdmin] because a
+      // kiosk is both "somebody else" and not an approver — asking `{}` there
+      // would check the device's own day, which does not exist.
       final gate = await _checkGate(
-        staffCodes: byAdmin ? [staffCode] : null,
+        staffCodes: onBehalf ? [staffCode] : null,
       ).timeout(RegConfig.gateCheckTimeout);
       open = gate.blocked.isEmpty ? null : gate.blocked.first;
     } catch (error) {
@@ -184,7 +187,11 @@ class RegGateCoordinator implements RegSignInGate {
     if (codes.isEmpty) return const RegBulkGateOutcome(allowed: []);
 
     if (codes.length == 1) {
-      final outcome = await guardSingle(codes.first, byAdmin: true);
+      final outcome = await guardSingle(
+        codes.first,
+        byAdmin: true,
+        onBehalf: true,
+      );
       return RegBulkGateOutcome(
         allowed: outcome.isProceed ? codes : const [],
         cleared: outcome.isProceed ? 1 : 0,

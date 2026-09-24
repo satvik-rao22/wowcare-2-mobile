@@ -37,54 +37,81 @@ void main() {
     });
 
     test('the remaining paths match the contract', () {
-      expect(RegApiPaths.raiseBatch,
-          '/api/v1/staff-attendance-regularizations/raise-batch');
-      expect(RegApiPaths.approveSelected,
-          '/api/v1/staff-attendance-regularizations/approve-selected');
-      expect(RegApiPaths.approve('SREG_0000001'),
-          '/api/v1/staff-attendance-regularizations/SREG_0000001/approve');
-      expect(RegApiPaths.edit('SREG_0000001'),
-          '/api/v1/staff-attendance-regularizations/SREG_0000001');
+      expect(
+        RegApiPaths.raiseBatch,
+        '/api/v1/staff-attendance-regularizations/raise-batch',
+      );
+      expect(
+        RegApiPaths.approveSelected,
+        '/api/v1/staff-attendance-regularizations/approve-selected',
+      );
+      expect(
+        RegApiPaths.approve('SREG_0000001'),
+        '/api/v1/staff-attendance-regularizations/SREG_0000001/approve',
+      );
+      expect(
+        RegApiPaths.edit('SREG_0000001'),
+        '/api/v1/staff-attendance-regularizations/SREG_0000001',
+      );
     });
   });
 
   group('RegApiPaths — sign-in matching', () {
+    // The gateway inserts a microservice segment that the local env does not.
+    // Every matcher must hold for both, because `ApiPaths.url` rewrites the
+    // path on the way out and the interceptor only ever sees the result.
+    const gwAdmin =
+        'https://dev.childcarewow.app/api/v1/attendance/staff-attendance-records/sign-in';
+    const gwSelf = '$gwAdmin/self';
+
     test('matches all three sign-in endpoints', () {
       expect(RegApiPaths.isStaffSignIn(RegApiPaths.signInAdmin), isTrue);
       expect(RegApiPaths.isStaffSignIn(RegApiPaths.signInSelf), isTrue);
       expect(RegApiPaths.isStaffSignIn(RegApiPaths.signInKiosk), isTrue);
     });
 
+    test('matches the gateway-prefixed URLs the app actually sends', () {
+      // Regression: these are what DEV/UAT send, and an exact `/api/v1/...`
+      // match missed them — leaving every self sign-in completely ungated.
+      expect(RegApiPaths.isStaffSignIn(gwAdmin), isTrue);
+      expect(RegApiPaths.isStaffSignIn(gwSelf), isTrue);
+    });
+
     test('matches fully-qualified URLs and ignores the query string', () {
-      expect(
-        RegApiPaths.isStaffSignIn(
-            'https://api.example.com/api/v1/staff-attendance-records/sign-in/self?x=1'),
-        isTrue,
-      );
+      expect(RegApiPaths.isStaffSignIn('$gwSelf?x=1'), isTrue);
     });
 
     test('does not match sign-out, transfer or the student endpoints', () {
-      expect(RegApiPaths.isStaffSignIn('/api/v1/staff-attendance-records/sign-out'),
-          isFalse);
-      expect(RegApiPaths.isStaffSignIn('/api/v1/staff-attendance-records/transfer'),
-          isFalse);
-      expect(RegApiPaths.isStaffSignIn('/api/v1/student-attendance-records/sign-in'),
-          isFalse);
+      for (final path in [
+        '/api/v1/staff-attendance-records/sign-out',
+        '/api/v1/staff-attendance-records/transfer',
+        '/api/v1/student-attendance-records/sign-in',
+        '/api/v1/attendance/staff-attendance-records/sign-out',
+        '/api/v1/attendance/student-attendance-records/sign-in',
+      ]) {
+        expect(RegApiPaths.isStaffSignIn(path), isFalse, reason: path);
+      }
     });
 
-    test('self and kiosk are self; the admin endpoint is not', () {
-      // The service treats a kiosk as isAdmin=false, so a kiosk-raised
-      // correction lands PENDING like any other self sign-in.
+    test('only the /self endpoint is a self sign-in, in either env', () {
       expect(RegApiPaths.isSelfSignIn(RegApiPaths.signInSelf), isTrue);
-      expect(RegApiPaths.isSelfSignIn(RegApiPaths.signInKiosk), isTrue);
+      expect(RegApiPaths.isSelfSignIn(gwSelf), isTrue);
       expect(RegApiPaths.isSelfSignIn(RegApiPaths.signInAdmin), isFalse);
+      expect(RegApiPaths.isSelfSignIn(gwAdmin), isFalse);
     });
 
-    test('only a kiosk must name whose gate it is asking about', () {
-      // A device has no staff record, so `{}` is a 400 for it.
-      expect(RegApiPaths.gateNeedsStaffCodes(RegApiPaths.signInKiosk), isTrue);
-      expect(RegApiPaths.gateNeedsStaffCodes(RegApiPaths.signInSelf), isFalse);
-      expect(RegApiPaths.gateNeedsStaffCodes(RegApiPaths.signInAdmin), isFalse);
+    test('a kiosk is told apart by its method, not its URL', () {
+      // Behind the gateway a kiosk and an admin post to the identical URL, so
+      // the URL cannot decide who the approver is.
+      expect(
+        RegApiPaths.signInKiosk,
+        gwAdmin.replaceFirst('https://dev.childcarewow.app', ''),
+      );
+      expect(RegApiPaths.isKioskSignIn({'method': 'KIOSK'}), isTrue);
+      expect(RegApiPaths.isKioskSignIn({'method': 'kiosk'}), isTrue);
+      expect(RegApiPaths.isKioskSignIn({'method': 'APP'}), isFalse);
+      expect(RegApiPaths.isKioskSignIn(null), isFalse);
+      expect(RegApiPaths.isKioskSignIn({}), isFalse);
     });
   });
 
@@ -101,7 +128,7 @@ void main() {
             'attendanceCode': 'SAR_10231',
             'attendanceDate': '2026-06-23',
             'suggestedSignOutTime': '2026-06-23T13:30:00Z',
-          }
+          },
         ],
       },
     };
@@ -113,7 +140,9 @@ void main() {
     });
 
     test('carries the blocked day, so the sheet opens with no second call', () {
-      final blocked = RegHttpErrors.blockedSessionsFrom(error(409, signInBlocked));
+      final blocked = RegHttpErrors.blockedSessionsFrom(
+        error(409, signInBlocked),
+      );
       expect(blocked.length, 1);
       expect(blocked.single['attendanceCode'], 'SAR_10231');
       expect(blocked.single['suggestedSignOutTime'], '2026-06-23T13:30:00Z');
@@ -145,12 +174,16 @@ void main() {
           'rejectedValue': {'attendanceCode': 'SAR_1'},
         },
       });
-      expect(RegHttpErrors.blockedSessionsFrom(e).single['attendanceCode'],
-          'SAR_1');
+      expect(
+        RegHttpErrors.blockedSessionsFrom(e).single['attendanceCode'],
+        'SAR_1',
+      );
     });
 
     test('no payload means fall back to a fresh gate check', () {
-      final e = error(409, {'error': {'code': 'REGULARIZATION_REQUIRED'}});
+      final e = error(409, {
+        'error': {'code': 'REGULARIZATION_REQUIRED'},
+      });
       expect(RegHttpErrors.isRegularizationRequired(e), isTrue);
       expect(RegHttpErrors.blockedSessionsFrom(e), isEmpty);
     });
@@ -166,8 +199,10 @@ void main() {
     };
 
     test('is recognised by its code', () {
-      expect(RegHttpErrors.isAlreadyApproved(error(409, alreadyApproved)),
-          isTrue);
+      expect(
+        RegHttpErrors.isAlreadyApproved(error(409, alreadyApproved)),
+        isTrue,
+      );
     });
 
     test('the rejected value names the request and its status', () {
@@ -178,7 +213,9 @@ void main() {
     });
 
     test('a different 409 code is not an already-approved edit', () {
-      final e = error(409, {'error': {'code': 'SOMETHING_ELSE'}});
+      final e = error(409, {
+        'error': {'code': 'SOMETHING_ELSE'},
+      });
       expect(RegHttpErrors.isAlreadyApproved(e), isFalse);
     });
 
@@ -193,7 +230,10 @@ void main() {
   group('RegHttpErrors — robustness', () {
     test('a non-Dio error classifies as nothing', () {
       expect(RegHttpErrors.codeOf(Exception('boom')), '');
-      expect(RegHttpErrors.isRegularizationRequired(Exception('boom')), isFalse);
+      expect(
+        RegHttpErrors.isRegularizationRequired(Exception('boom')),
+        isFalse,
+      );
       expect(RegHttpErrors.isAlreadyApproved(Exception('boom')), isFalse);
       expect(RegHttpErrors.blockedSessionsFrom(Exception('boom')), isEmpty);
     });

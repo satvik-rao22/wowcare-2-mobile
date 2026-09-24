@@ -97,11 +97,13 @@ class RegRequestTile extends StatelessWidget {
                 )
               else
                 RegStatusPill(status: request.status),
-              if (editable && onTap != null && !busy) ...[
+              // Pencil means "opens the edit sheet"; chevron means "opens
+              // read-only". A tappable row always shows one of the two.
+              if (onTap != null && !busy) ...[
                 const SizedBox(width: 6),
-                const Icon(
-                  Icons.edit_outlined,
-                  size: 15,
+                Icon(
+                  editable ? Icons.edit_outlined : Icons.chevron_right,
+                  size: editable ? 15 : 18,
                   color: Av2Colors.textTertiary,
                 ),
               ],

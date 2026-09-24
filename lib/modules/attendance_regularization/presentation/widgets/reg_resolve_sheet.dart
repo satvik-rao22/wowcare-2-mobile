@@ -4,6 +4,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
 
+import '../../core/config/reg_config.dart';
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/policy/reg_time_policy.dart';
 
@@ -395,6 +396,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
     return TextField(
       controller: _reason,
       maxLines: 2,
+      maxLength: RegConfig.reasonMaxLength,
       style: Av2Text.body,
       onChanged: (_) {
         if (_error != null) setState(() => _error = null);

@@ -38,7 +38,7 @@ class RegSignInGateInterceptor extends Interceptor {
     final codes = _staffCodesFrom(options.data);
     if (codes.isEmpty) return handler.next(options);
 
-    final byAdmin = !RegApiPaths.isSelfSignIn(options.path);
+    final self = RegApiPaths.isSelfSignIn(options.path);
 
     try {
       if (codes.length > 1) {
@@ -59,7 +59,12 @@ class RegSignInGateInterceptor extends Interceptor {
       }
 
       if (RegConfig.preCheckSingleSignIn) {
-        final outcome = await _gate.guardSingle(codes.first, byAdmin: byAdmin);
+        final outcome = await _gate.guardSingle(
+          codes.first,
+          byAdmin: _byAdmin(options),
+          // A self sign-in is the only one the token already identifies.
+          onBehalf: !self,
+        );
         if (outcome.isBlocked) {
           return handler.reject(_rejection(options, 'Sign-in cancelled.'));
         }
@@ -94,7 +99,7 @@ class RegSignInGateInterceptor extends Interceptor {
     try {
       final cleared = await _gate.resolveBlocked(
         blocked,
-        byAdmin: !RegApiPaths.isSelfSignIn(options.path),
+        byAdmin: _byAdmin(options),
       );
       if (cleared.isEmpty) {
         // Skipped — say so rather than letting a clean "signed in" stand.
@@ -132,7 +137,7 @@ class RegSignInGateInterceptor extends Interceptor {
     try {
       final resolved = await _gate.handleConflict(
         err,
-        byAdmin: !RegApiPaths.isSelfSignIn(options.path),
+        byAdmin: _byAdmin(options),
         staffCode: codes.length == 1 ? codes.first : '',
       );
       if (!resolved) return handler.next(err);
@@ -143,6 +148,15 @@ class RegSignInGateInterceptor extends Interceptor {
       return handler.next(err);
     }
   }
+
+  /// Who is *deciding* the correction, which sets whether it is auto-approved.
+  ///
+  /// Only a real admin is. A kiosk signs somebody else in but is not their
+  /// approver, and behind the gateway it posts to the very same URL an admin
+  /// does — so the method in the body is what separates them.
+  bool _byAdmin(RequestOptions options) =>
+      !RegApiPaths.isSelfSignIn(options.path) &&
+      !RegApiPaths.isKioskSignIn(options.data);
 
   /// Replayed through the attached client so auth refresh still applies, and
   /// flagged so this interceptor lets it past instead of gating it again.

@@ -3,6 +3,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 
+import '../../core/config/reg_config.dart';
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/policy/reg_time_policy.dart';
 import 'reg_staff_time_row.dart';
@@ -322,6 +323,7 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
         TextField(
           controller: _reason,
           maxLines: 2,
+          maxLength: RegConfig.reasonMaxLength,
           style: Av2Text.body,
           onChanged: (_) {
             if (_error != null) setState(() => _error = null);

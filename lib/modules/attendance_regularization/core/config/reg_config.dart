@@ -14,6 +14,14 @@ abstract final class RegConfig {
   static const int myRequestsPageSize = 20;
   static const String method = RegMethod.app;
 
+  /// Cap on every free-text reason: the raiser's reason and the approver's
+  /// "reason for change".
+  ///
+  /// The server stores both as unbounded `text`, so this is a product choice,
+  /// not a schema one — long enough for a real explanation, short enough that
+  /// a row stays scannable and nobody pastes a document into an audit field.
+  static const int reasonMaxLength = 250;
+
   /// Check before a single sign-in rather than relying on the server's
   /// `409 REGULARIZATION_REQUIRED` alone. Costs a round trip; puts the sheet in
   /// front of the user before anything is attempted.

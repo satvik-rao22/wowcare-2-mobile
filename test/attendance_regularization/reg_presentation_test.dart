@@ -43,12 +43,16 @@ class _ScriptedGate implements RegSignInGate {
   final List<String> singleCalls = [];
   final List<List<String>> bulkCalls = [];
   final List<bool> byAdminFlags = [];
+  final List<bool> onBehalfFlags = [];
 
   @override
   Future<RegGateOutcome> guardSingle(String staffCode,
-      {required bool byAdmin, String staffName = ''}) async {
+      {required bool byAdmin,
+      bool onBehalf = false,
+      String staffName = ''}) async {
     singleCalls.add(staffCode);
     byAdminFlags.add(byAdmin);
+    onBehalfFlags.add(onBehalf);
     return singleOutcome;
   }
 
@@ -80,7 +84,9 @@ class _ScriptedGate implements RegSignInGate {
 class _ThrowingGate implements RegSignInGate {
   @override
   Future<RegGateOutcome> guardSingle(String staffCode,
-          {required bool byAdmin, String staffName = ''}) async =>
+          {required bool byAdmin,
+          bool onBehalf = false,
+          String staffName = ''}) async =>
       throw Exception('gate exploded');
 
   @override
@@ -170,13 +176,18 @@ void main() {
       expect(scripted.byAdminFlags.single, isFalse);
     });
 
-    test('kiosk is treated as self, so its corrections land PENDING', () async {
+    test('kiosk is not an approver, so its corrections land PENDING', () async {
+      // Behind the gateway a kiosk posts to the identical URL an admin does,
+      // so `method` is the only thing that separates them.
       final scripted = _ScriptedGate();
       final c = client(scripted);
       await c.dio.post<dynamic>(RegApiPaths.signInKiosk,
-          data: {'staffCode': 'STF_ME'});
+          data: {'staffCode': 'STF_ME', 'method': 'KIOSK'});
 
       expect(scripted.byAdminFlags.single, isFalse);
+      // …but it is still signing somebody else in, so it must name them:
+      // asking `{}` would check the device's own day, which does not exist.
+      expect(scripted.onBehalfFlags.single, isTrue);
     });
 
     test('an admin sign-in reports byAdmin true', () async {
@@ -186,6 +197,40 @@ void main() {
           data: {'staffCode': 'STF_TARGET'});
 
       expect(scripted.byAdminFlags.single, isTrue);
+      expect(scripted.onBehalfFlags.single, isTrue);
+    });
+
+    test('a staff signing themselves in is gated in a gateway env', () async {
+      // Regression: the gateway inserts `/attendance/`, which the old exact
+      // match missed — so a staff member's own sign-in was never gated at all.
+      final scripted = _ScriptedGate();
+      final c = client(scripted);
+      await c.dio.post<dynamic>(
+        'https://dev.childcarewow.app/api/v1/attendance'
+        '/staff-attendance-records/sign-in/self',
+        data: {'staffCode': 'STF_ME'},
+      );
+
+      expect(scripted.singleCalls, ['STF_ME']);
+      expect(scripted.byAdminFlags.single, isFalse);
+      // The token already names them, so the check asks about the caller.
+      expect(scripted.onBehalfFlags.single, isFalse);
+    });
+
+    test('a blocked self sign-in in a gateway env never reaches the server',
+        () async {
+      final scripted = _ScriptedGate(singleOutcome: RegGateOutcome.blocked);
+      final c = client(scripted);
+
+      await expectLater(
+        c.dio.post<dynamic>(
+          'https://dev.childcarewow.app/api/v1/attendance'
+          '/staff-attendance-records/sign-in/self',
+          data: {'staffCode': 'STF_ME'},
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(c.sent, isEmpty);
     });
 
     test('a blocked single sign-in never reaches the server', () async {

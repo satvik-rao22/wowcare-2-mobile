@@ -70,9 +70,9 @@ class RegAdminNotificationTile extends StatelessWidget {
                 children: [
                   RegStatusPill(status: request.status),
                   const SizedBox(height: 6),
-                  if (request.status.isPending)
+                  if (onTap != null)
                     Text(
-                      'Review',
+                      request.status.isPending ? 'Review' : 'Details',
                       style: Av2Text.caption.copyWith(
                         color: Av2Colors.theme,
                         fontWeight: FontWeight.w600,

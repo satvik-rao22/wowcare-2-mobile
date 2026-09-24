@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/entities/regularization_request.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/entry/reg_requests_list.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_request_detail_sheet.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_request_tile.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_view.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_bulk_signin_gate_sheet.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_resolve_sheet.dart';
@@ -142,6 +144,99 @@ void main() {
 
     expect(find.text('Mohan Sonone'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  group('request detail sheet', () {
+    Future<void> pumpDetail(
+      WidgetTester tester,
+      RegularizationRequest r,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showRegRequestDetailSheet(context, request: r),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an approved request shows the approver note and both times', (
+      tester,
+    ) async {
+      // The bug this sheet exists for: an admin who adjusted a time and wrote
+      // why could never read that note back anywhere.
+      final approved = RegularizationFixtures.myRequests.firstWhere(
+        (r) => r.status.isApproved && r.wasModified,
+      );
+
+      await pumpDetail(tester, approved);
+
+      expect(find.text(approved.approvalNote!), findsOneWidget);
+      expect(find.textContaining('Chaitanya Bhave'), findsOneWidget);
+      // Both times, so the adjustment is visible rather than silently applied.
+      expect(find.textContaining('adjusted from'), findsOneWidget);
+      expect(find.text(approved.reason), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a pending request shows no approval section', (tester) async {
+      final pending = RegularizationFixtures.myRequests.firstWhere(
+        (r) => r.status.isPending,
+      );
+
+      await pumpDetail(tester, pending);
+
+      expect(find.text('Approved by'), findsNothing);
+      expect(find.text('Reason for change'), findsNothing);
+      expect(find.text(pending.reason), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('every row in the profile list is tappable', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final requests = RegularizationFixtures.myRequests;
+    final tapped = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: RegRequestsList(
+              requests: requests,
+              // Not the raiser and not an admin: every row is read-only, and
+              // read-only used to mean dead.
+              currentUserCode: 'USR_SOMEONE_ELSE',
+              onShowDetail: (r) => tapped.add(r.code),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.chevron_right), findsNWidgets(requests.length));
+    for (final r in requests) {
+      await tester.tap(find.byType(RegRequestTile).at(requests.indexOf(r)));
+      await tester.pumpAndSettle();
+    }
+    expect(tapped, requests.map((r) => r.code).toList());
   });
 
   testWidgets('admin tile opens the decision sheet', (tester) async {

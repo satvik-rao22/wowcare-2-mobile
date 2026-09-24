@@ -14,6 +14,7 @@ import '../cubit/reg_inbox_state.dart';
 import '../widgets/reg_admin_notification_tile.dart';
 import '../widgets/reg_decision_sheet.dart';
 import '../widgets/reg_filter_chips.dart';
+import '../widgets/reg_request_detail_sheet.dart';
 
 /// Admin approver list — the pending queue **and** the approved history, from
 /// the one §9.5 endpoint.
@@ -288,7 +289,17 @@ class _RegAdminInboxViewState extends State<RegAdminInboxView> {
     setState(_localSelected.clear);
   }
 
+  /// Pending opens the decision sheet; anything already approved opens
+  /// read-only.
+  ///
+  /// They used to share the approve sheet, which shows the raiser's reason and
+  /// says nothing about the decision — so an admin could never see the note
+  /// they themselves wrote when adjusting a time.
   Future<void> _review(RegularizationRequest r) async {
+    if (!r.status.isPending) {
+      await showRegRequestDetailSheet(context, request: r);
+      return;
+    }
     final decision = await showRegDecisionSheet(context, request: r);
     if (decision == null || !mounted) return;
     if (widget.onApprove != null) {

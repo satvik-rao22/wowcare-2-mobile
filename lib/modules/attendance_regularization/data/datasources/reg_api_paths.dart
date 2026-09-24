@@ -1,3 +1,5 @@
+import '../../core/config/reg_config.dart';
+
 /// The seven regularization endpoints, plus the sign-in URLs the gate watches.
 ///
 /// Three endpoints serve both personas through one call — the token decides
@@ -28,30 +30,45 @@ abstract final class RegApiPaths {
 
   // —— sign-in guard ——
 
-  /// Every staff sign-in in the app lands on one of these three, which is why
-  /// the gate is one interceptor rather than an edit in 11 widgets.
-  static const String signInAdmin = '/api/v1/staff-attendance-records/sign-in';
-  static const String signInSelf =
-      '/api/v1/staff-attendance-records/sign-in/self';
-  static const String signInKiosk =
-      '/api/v1/attendance/staff-attendance-records/sign-in';
+  /// The sign-in resource, without `/api/v1` and without the microservice
+  /// segment the gateway inserts.
+  ///
+  /// Matching on the tail is not a shortcut. The same sign-in is
+  /// `/api/v1/staff-attendance-records/sign-in` against a local service and
+  /// `/api/v1/attendance/staff-attendance-records/sign-in` behind the UAT/DEV
+  /// gateway, and `ApiPaths.url` rewrites it on the way out — so a full-path
+  /// match silently stops gating the moment the app points at a gateway env,
+  /// which is exactly what happened.
+  static const String _signIn = 'staff-attendance-records/sign-in';
+  static const String _signInSelf = '$_signIn/self';
 
-  /// Suffix match, so it holds for bare paths and absolute URLs alike.
+  /// Concrete examples of each shape, for callers and tests.
+  static const String signInAdmin = '/api/v1/$_signIn';
+  static const String signInSelf = '/api/v1/$_signInSelf';
+  static const String signInKiosk = '/api/v1/attendance/$_signIn';
+
+  /// Every staff sign-in in the app lands on one of these, which is why the
+  /// gate is one interceptor rather than an edit in 11 widgets.
   static bool isStaffSignIn(String path) {
-    final clean = path.split('?').first;
-    return clean.endsWith(signInSelf) ||
-        clean.endsWith(signInKiosk) ||
-        clean.endsWith(signInAdmin);
+    final clean = _pathOf(path);
+    return clean.endsWith(_signInSelf) || clean.endsWith(_signIn);
   }
 
+  /// True when the **token already names the subject**, so the gate asks about
+  /// the caller rather than about somebody else.
+  ///
   /// Read from the URL, not a client flag, so it cannot disagree with the role
-  /// the server infers. Kiosk counts as self: its corrections land `PENDING`.
-  static bool isSelfSignIn(String path) {
-    final clean = path.split('?').first;
-    return clean.endsWith(signInSelf) || clean.endsWith(signInKiosk);
-  }
+  /// the server infers.
+  static bool isSelfSignIn(String path) => _pathOf(path).endsWith(_signInSelf);
 
-  /// A kiosk has no staff record, so `{}` is a 400 for it.
-  static bool gateNeedsStaffCodes(String path) =>
-      path.split('?').first.endsWith(signInKiosk);
+  /// A kiosk posts to the same URL an admin does once the gateway prefix is
+  /// applied, so the method in the body is the only thing that separates them.
+  ///
+  /// It matters because a kiosk is not an approver: its corrections land
+  /// `PENDING`, like any staff member's.
+  static bool isKioskSignIn(Object? body) =>
+      body is Map &&
+      '${body['method'] ?? ''}'.trim().toUpperCase() == RegMethod.kiosk;
+
+  static String _pathOf(String path) => path.split('?').first;
 }

@@ -8,6 +8,7 @@ import '../presentation/screens/reg_admin_inbox_view.dart';
 import '../presentation/entry/reg_requests_list.dart';
 import '../presentation/widgets/reg_scaffold.dart';
 import '../presentation/widgets/reg_bulk_signin_gate_sheet.dart';
+import '../presentation/widgets/reg_request_detail_sheet.dart';
 import '../presentation/widgets/reg_resolve_sheet.dart';
 
 /// Standalone preview of the regularization screens/widgets (static data):
@@ -92,9 +93,13 @@ class _DevMenu extends StatelessWidget {
                       title: 'My regularizations',
                       body: SingleChildScrollView(
                         padding: const EdgeInsets.all(Av2Spacing.md),
-                        child: RegRequestsList(
-                          requests: RegularizationFixtures.myRequests,
-                          currentUserCode: 'STF_1',
+                        child: Builder(
+                          builder: (inner) => RegRequestsList(
+                            requests: RegularizationFixtures.myRequests,
+                            currentUserCode: 'STF_1',
+                            onShowDetail: (r) =>
+                                showRegRequestDetailSheet(inner, request: r),
+                          ),
                         ),
                       ),
                     ),

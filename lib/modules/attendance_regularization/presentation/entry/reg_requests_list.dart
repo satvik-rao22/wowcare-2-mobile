@@ -14,6 +14,7 @@ import '../controllers/reg_inbox_filter.dart';
 import '../cubit/reg_inbox_cubit.dart';
 import '../cubit/reg_inbox_state.dart';
 import '../widgets/reg_decision_sheet.dart';
+import '../widgets/reg_request_detail_sheet.dart';
 import '../widgets/reg_request_tile.dart';
 import '../widgets/reg_resolve_sheet.dart';
 
@@ -46,6 +47,7 @@ class RegRequestsList extends StatelessWidget {
     this.onApproveSelected,
     this.onReview,
     this.onEdit,
+    this.onShowDetail,
   });
 
   /// Live version. An empty [staffCode] lets the token decide whose requests
@@ -83,6 +85,9 @@ class RegRequestsList extends StatelessWidget {
   final VoidCallback? onApproveSelected;
   final void Function(RegularizationRequest request)? onReview;
   final void Function(RegularizationRequest request)? onEdit;
+
+  /// Opens the read-only sheet for a row that can no longer be acted on.
+  final void Function(RegularizationRequest request)? onShowDetail;
 
   bool _canEdit(RegularizationRequest r) =>
       r.isEditable &&
@@ -122,13 +127,16 @@ class RegRequestsList extends StatelessWidget {
             onSelectChanged: _canApprove(r) && onSelectChanged != null
                 ? (on) => onSelectChanged!(r.code, on)
                 : null,
-            // Admin review wins over edit: an admin looking at someone else's
-            // request is not its raiser, so only one of the two ever applies.
+            // Every row is tappable. Admin review wins over edit — an admin
+            // looking at someone else's request is not its raiser, so only one
+            // of the two ever applies — and a row nobody can act on still
+            // opens read-only, which is the only place the approver's note and
+            // adjusted time are visible.
             onTap: _canApprove(r)
                 ? () => onReview?.call(r)
                 : _canEdit(r)
                 ? () => onEdit?.call(r)
-                : null,
+                : () => onShowDetail?.call(r),
           ),
         ],
         if (hasMore) ...[
@@ -324,6 +332,7 @@ class _RegRequestsListConnected extends StatelessWidget {
           onApproveSelected: cubit.approveSelected,
           onReview: (r) => _review(context, r),
           onEdit: (r) => _edit(context, r),
+          onShowDetail: (r) => showRegRequestDetailSheet(context, request: r),
         );
       },
     );

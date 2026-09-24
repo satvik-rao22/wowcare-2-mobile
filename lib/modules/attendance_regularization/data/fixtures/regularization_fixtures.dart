@@ -116,10 +116,11 @@ class RegularizationFixtures {
       status: RegStatus.approved,
       raisedByCode: 'STF_1',
       createdAt: _at(19, 8, 0),
-      approvedSignOutTime: _at(18, 18, 15),
+      approvedSignOutTime: _at(18, 17, 45),
       approvalByCode: 'USR_ADMIN_1',
       approvalByName: 'Chaitanya Bhave',
       approvalAt: _at(19, 10, 30),
+      approvalNote: 'Gate log shows 5:45 PM.',
     ),
     RegularizationRequest(
       code: 'SREG_9999',

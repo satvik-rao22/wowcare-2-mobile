@@ -4,6 +4,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart';
 
+import '../../core/config/reg_config.dart';
 import '../../domain/entities/regularization_request.dart';
 
 class RegDecision {
@@ -219,6 +220,7 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
     return TextField(
       controller: _note,
       maxLines: 2,
+      maxLength: RegConfig.reasonMaxLength,
       style: Av2Text.body,
       decoration: InputDecoration(
         hintText: 'Optional · why you adjusted the time',

@@ -4,9 +4,16 @@ import 'reg_gate_outcome.dart';
 /// states the network layer's whole surface, and a fake needs no widgets,
 /// navigator or datasource.
 abstract class RegSignInGate {
+  /// [byAdmin] is who *decides* — an admin's correction is auto-approved, a
+  /// staff member's and a kiosk's land pending.
+  ///
+  /// [onBehalf] is *whose day* is being checked. They come apart at a kiosk:
+  /// the device signs somebody else in (so it must name them) without being
+  /// their approver.
   Future<RegGateOutcome> guardSingle(
     String staffCode, {
     required bool byAdmin,
+    bool onBehalf,
     String staffName,
   });
 
