@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/photo_upload_progress_overlay.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classroom/view/widgets/classroom_dropdown.dart';
+import 'package:wowcare/presentation/features/classroom/view/widgets/classroom_profile_toggle.dart';
 import 'package:wowcare/presentation/features/availability/view_model/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/movements_card.dart';
 // import 'package:wowcare/presentation/features/dashboard/widgets/events_card.dart';
@@ -43,7 +43,6 @@ import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom
 import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({
@@ -940,13 +939,9 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                                     },
                                   ),
                           ),
-                          IconButton(
+                          ClassroomProfileToggle(
                             tooltip: 'Back',
                             onPressed: () => Navigator.pop(context),
-                            icon: AppIcon(
-                              MediaRes.classroomInfoIcon,
-                              height: 32,
-                            ),
                           ),
                         ],
                       ),

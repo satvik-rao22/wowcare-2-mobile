@@ -3,7 +3,6 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/presentation/features/classroom/view/classroom_tab_cards
 import 'package:wowcare/presentation/features/classroom/view/classroom_tab_cards/classroom_notes_tab_card.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/classroom/view/widgets/classroom_dropdown.dart';
+import 'package:wowcare/presentation/features/classroom/view/widgets/classroom_profile_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classroom/forms/assign_student_to_classroom_form.dart';
@@ -26,7 +26,6 @@ import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
 
 /// One value at a time: which classroom + tab an ALREADY-alive
 /// [ClassroomScreen] should jump to right now.
@@ -504,7 +503,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                                   ),
                                 ),
                         ),
-                        IconButton(
+                        ClassroomProfileToggle(
                           tooltip: 'Class profile',
                           onPressed: classrooms.isEmpty
                               ? null
@@ -519,7 +518,6 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                                     ),
                                   );
                                 },
-                          icon: AppIcon(MediaRes.classroomInfoIcon, height: 32),
                         ),
                       ],
                     ),

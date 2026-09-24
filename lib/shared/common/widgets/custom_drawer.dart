@@ -911,7 +911,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         if (canViewEvents)
                           _CustomExpansionTile(
                             title: 'Events',
-                            icon: MediaRes.calenderClockIcon,
+                            icon: MediaRes.eventsDrawerIcon,
                             isCurrentRoute:
                                 _currentRoute == EventsScreen.routeName,
                             suppressRouteHighlight:
@@ -1158,7 +1158,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         if (canViewEvents)
                           _CustomExpansionTile(
                             title: 'Events',
-                            icon: MediaRes.calenderClockIcon,
+                            icon: MediaRes.eventsDrawerIcon,
                             isCurrentRoute:
                                 _currentRoute == EventsScreen.routeName,
                             suppressRouteHighlight:
@@ -1277,7 +1277,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         if (showSchedulingMenu)
                           _CustomExpansionTile(
                             title: 'Scheduling',
-                            icon: MediaRes.calenderClockIcon,
+                            icon: MediaRes.schedulingDrawerIcon,
                             isExpansionEnabled: true,
                             expandedOverride:
                                 _expandedDrawerSection == 'Scheduling',
