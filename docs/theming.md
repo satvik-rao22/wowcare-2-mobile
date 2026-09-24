@@ -76,6 +76,7 @@ Four more files sit on top of it, and they are what a widget actually calls:
 |---|---|
 | `app_elevation.dart` | `AppElevation`: the shadow, bevel, well and rim recipes, plus `AppInset`. |
 | `skeu_decoration.dart` | `SkeuDecoration`, a `Decoration` that can paint an *inset* shadow, which `BoxDecoration` cannot. |
+| `skeu_inset_paint.dart` | The inset drawing itself, shared by `SkeuDecoration` and `SkeuInnerShadow`. Blurred insets are rasterised once per recipe into a nine-slice tile and reused; drawing them from scratch per well per frame is what made the keyboard slow. |
 | `app_surfaces.dart` | **`AppSurfaces`**: one ready-made decoration per design specimen. **This is the one to call.** |
 | `skeu_press.dart` | `SkeuPressable`, the app's single press effect. |
 

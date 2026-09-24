@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 2.2.18+21
+version: 2.2.20+23
 
 environment:
   sdk: ^3.9.2
@@ -41,6 +41,9 @@ dependencies:
   pdf: ^3.12.0
   open_filex: ^4.7.0
   flutter_svg: ^2.0.17
+  # flutter_svg's renderer. Already resolved transitively; declared because
+  # AppIcon names its RenderingStrategy, which flutter_svg does not re-export.
+  vector_graphics: ^1.2.3
   font_awesome_flutter: ^10.7.0
   geolocator: ^14.0.2
   get_it: ^9.0.5

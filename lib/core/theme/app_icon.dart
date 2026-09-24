@@ -22,10 +22,24 @@
 /// logo, the activity-type cartoons — where the colours are the content.
 /// Those use [AppArtwork], which is the same call with the filter left off
 /// and a name that says why.
+///
+/// ## Why a glyph is drawn as a raster, not a picture
+///
+/// A colour-filtered picture is composited through a `saveLayer`: an
+/// offscreen render target per glyph, per frame, which under Impeller is not
+/// cached. A screen with a bottom bar, an app bar and a list of rows carries
+/// twenty or more glyphs, so that was twenty offscreen passes a frame, all
+/// to recolour icons that never change. [RenderingStrategy.raster] draws the
+/// glyph once into a small image and thereafter blits it with the filter on
+/// the paint, no layer. The image is sized to the glyph's device pixels, so
+/// it is as sharp as the picture was. Artwork keeps the picture strategy: it
+/// has no filter, so it never paid for a layer.
 library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:vector_graphics/vector_graphics_compat.dart'
+    show RenderingStrategy;
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// The voices a glyph can speak in. Each maps to one [AppPalette] role, so a
@@ -113,6 +127,7 @@ class AppIcon extends StatelessWidget {
     fit: fit,
     semanticsLabel: semanticsLabel,
     colorFilter: ColorFilter.mode(color ?? tone.color, BlendMode.srcIn),
+    renderingStrategy: RenderingStrategy.raster,
   );
 }
 

@@ -959,9 +959,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final isError =
-        context.watch<MyChildsDayCubit>().state.status ==
-        MyChildsDayStatus.error;
+    // select, not watch: the cubit re-emits every second for its clock, and
+    // a watch here rebuilt this whole card on each tick. Only the error flag
+    // is read at the root, so only a change in it should rebuild the root.
+    final isError = context.select<MyChildsDayCubit, bool>(
+      (cubit) => cubit.state.status == MyChildsDayStatus.error,
+    );
     return DashboardCardErrorOverlay(
       show: isError,
       onRetry: () => context.read<MyChildsDayCubit>().loadForChild(

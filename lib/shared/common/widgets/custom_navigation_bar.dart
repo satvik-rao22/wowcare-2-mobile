@@ -22,10 +22,12 @@ import 'package:wowcare/core/theme/app_haptics.dart';
 // ---------------------------------------------------------------------------
 class _NavSizes {
   _NavSizes(BuildContext context) {
-    final mq = MediaQuery.of(context);
+    // Aspect reads (sizeOf / viewPaddingOf), not MediaQuery.of: a full read
+    // subscribes to viewInsets too, which rebuilt this bar on every frame of
+    // a keyboard animation for nothing it uses.
     // shortestSide is always the physical short dimension even in landscape.
     // ≥600 on shortestSide = a genuine tablet, not an iPhone in landscape.
-    final shortest = mq.size.shortestSide;
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
     final isTablet = shortest >= 600;
     final isLargeTablet = shortest >= 900;
 
@@ -58,8 +60,8 @@ class _NavSizes {
     // viewPadding is the raw inset before system consumption; it reports the
     // correct bottom inset in every Android navigation mode (gesture, 2-button,
     // 3-button) AND on iOS home-bar devices.
-    // DO NOT use mq.padding.bottom — it can be 0 in gesture mode on Samsung.
-    final bottomInset = mq.viewPadding.bottom;
+    // DO NOT use padding.bottom — it can be 0 in gesture mode on Samsung.
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     barPadding = EdgeInsets.fromLTRB(
       isLargeTablet ? 16 : (isTablet ? 12 : 6),
       isLargeTablet ? 10 : (isTablet ? 8 : 6),

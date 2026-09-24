@@ -19,6 +19,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/skeu_inset_paint.dart';
 
 @immutable
 class SkeuDecoration extends Decoration {
@@ -160,34 +161,17 @@ class _SkeuPainter extends BoxPainter {
 
     if (d.color != null) canvas.drawRRect(rrect, Paint()..color = d.color!);
 
-    if (d.insets.isNotEmpty) {
-      canvas.save();
-      canvas.clipRRect(rrect);
-      for (final AppInset s in d.insets) {
-        if (s.blur == 0 && s.offset == Offset.zero && s.spread > 0) {
-          canvas.drawRRect(
-            rrect.deflate(s.spread / 2),
-            Paint()
-              ..color = s.color
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = s.spread,
-          );
-          continue;
-        }
-        final Paint p = Paint()..color = s.color;
-        if (s.blur > 0) {
-          p.maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, s.blur / 2);
-        }
-        final Path outer = Path()..addRect(rect.inflate(size.longestSide + 40));
-        final Path inner = Path()
-          ..addRRect(rrect.deflate(s.spread).shift(s.offset));
-        canvas.drawPath(
-          Path.combine(PathOperation.difference, outer, inner),
-          p,
-        );
-      }
-      canvas.restore();
-    }
+    // Shared with SkeuInnerShadow, and cached: see skeu_inset_paint.dart for
+    // why a blurred inset must not be drawn from scratch on every frame.
+    paintSkeuInsets(
+      canvas,
+      rrect,
+      d.insets,
+      devicePixelRatio:
+          configuration.devicePixelRatio ??
+          ui.PlatformDispatcher.instance.implicitView?.devicePixelRatio ??
+          1,
+    );
 
     d.border?.paint(
       canvas,

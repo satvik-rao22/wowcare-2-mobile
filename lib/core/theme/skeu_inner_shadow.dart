@@ -12,14 +12,17 @@
 /// Blurred insets are drawn by clipping to the shape and filling everything
 /// *outside* an offset copy of it with a blurred paint, so the blur bleeds
 /// inward from the edge. Zero-blur insets with a spread are drawn as an
-/// inside stroke, matching `inset 0 0 0 Npx <color>` exactly.
+/// inside stroke, matching `inset 0 0 0 Npx <color>` exactly. The drawing
+/// itself lives in `skeu_inset_paint.dart`, shared with `SkeuDecoration` and
+/// cached there, because a blur redrawn per well per frame is what made the
+/// keyboard slow.
 library;
 
-import 'dart:ui' as ui;
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_inset_paint.dart';
 
 /// Wraps [child] and paints [shadows] inside [borderRadius], over the child's
 /// own background but under its content — exactly where CSS orders them.
@@ -39,7 +42,15 @@ class SkeuInnerShadow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (shadows.isEmpty) return child;
     return CustomPaint(
-      foregroundPainter: SkeuInsetPainter(shadows, borderRadius),
+      foregroundPainter: SkeuInsetPainter(
+        shadows,
+        borderRadius,
+        // The cached tile is rasterised at this ratio; at any other it would
+        // be resampled and read soft.
+        devicePixelRatio:
+            MediaQuery.maybeDevicePixelRatioOf(context) ??
+            View.of(context).devicePixelRatio,
+      ),
       child: child,
     );
   }
@@ -48,54 +59,31 @@ class SkeuInnerShadow extends StatelessWidget {
 /// The painter behind [SkeuInnerShadow]. Exposed so a surface that stacks its
 /// own layers can slot the insets in at the right depth.
 class SkeuInsetPainter extends CustomPainter {
-  const SkeuInsetPainter(this.shadows, this.borderRadius);
+  const SkeuInsetPainter(
+    this.shadows,
+    this.borderRadius, {
+    this.devicePixelRatio = 1,
+  });
 
   final List<AppInset> shadows;
   final BorderRadius borderRadius;
+  final double devicePixelRatio;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final Rect rect = Offset.zero & size;
-    final RRect rrect = borderRadius.toRRect(rect);
+  void paint(Canvas canvas, Size size) => paintSkeuInsets(
+    canvas,
+    borderRadius.toRRect(Offset.zero & size),
+    shadows,
+    devicePixelRatio: devicePixelRatio,
+  );
 
-    canvas.save();
-    canvas.clipRRect(rrect);
-
-    for (final AppInset s in shadows) {
-      if (s.blur == 0 && s.offset == Offset.zero && s.spread > 0) {
-        // `inset 0 0 0 Npx <color>` — a hairline ring drawn inside the edge.
-        canvas.drawRRect(
-          rrect.deflate(s.spread / 2),
-          Paint()
-            ..color = s.color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = s.spread,
-        );
-        continue;
-      }
-
-      final Paint paint = Paint()..color = s.color;
-      if (s.blur > 0) {
-        // CSS blur-radius r is roughly 2 sigma.
-        paint.maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, s.blur / 2);
-      }
-
-      // Everything outside the shifted/deflated shape, so the blur spills in.
-      final Path outer = Path()..addRect(rect.inflate(size.longestSide + 40));
-      final Path inner = Path()
-        ..addRRect(rrect.deflate(s.spread).shift(s.offset));
-      canvas.drawPath(
-        Path.combine(PathOperation.difference, outer, inner),
-        paint,
-      );
-    }
-
-    canvas.restore();
-  }
-
+  /// By value, not identity: `AppElevation.well` builds a fresh list on every
+  /// call, so an identity check repainted every well on every rebuild.
   @override
   bool shouldRepaint(SkeuInsetPainter old) =>
-      old.shadows != shadows || old.borderRadius != borderRadius;
+      !listEquals(old.shadows, shadows) ||
+      old.borderRadius != borderRadius ||
+      old.devicePixelRatio != devicePixelRatio;
 }
 
 /// The recess a text field sits in.
