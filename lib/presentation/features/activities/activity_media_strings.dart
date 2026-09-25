@@ -86,7 +86,7 @@ class ActivityMediaStrings {
       'This video format is not supported on this device. Please use standard '
       'MP4 (H.264).';
 
-  static const String videoTooLong = 'Video must be ≤60 seconds.';
+  static const String videoTooLong = 'Video must be ≤30 seconds.';
 
   /// Interpolated with the measured size in MB.
   static String videoTooLarge(String sizeMb) => 'Video too large ($sizeMb MB).';

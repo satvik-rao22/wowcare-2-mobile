@@ -106,6 +106,30 @@ class _MediaUploaderState extends State<MediaUploader>
 
   static const List<String> _photoExt = FilePickerUtils.allowedImageExtensions;
 
+  /// Long-edge cap passed as maxWidth/maxHeight to every image_picker photo
+  /// call. imageQuality alone only adjusts JPEG compression, not pixel
+  /// dimensions — on a high-megapixel sensor that meant decoding/
+  /// re-encoding a full native-resolution image regardless of quality
+  /// setting, which was crashing/freezing capture on memory-constrained
+  /// devices. 1920px is generous for anything this app displays a photo
+  /// at (120px preview thumbnails, a fullscreen viewer that never exceeds
+  /// screen resolution).
+  static const double _photoCaptureMaxDimension = 1920;
+
+  /// Above this, [_generateVideoThumbnail] is skipped and the generic
+  /// play-icon placeholder is shown instead (already the fallback for
+  /// videos with no thumbnail — see `_buildVideoPreview`).
+  ///
+  /// The thumbnail decode runs immediately after a capture returns, which on
+  /// a memory-constrained device is exactly when the OS is already under
+  /// pressure from encoding/handing off a large recording — piling a second
+  /// full native video decode on top of that is a plausible contributor to
+  /// the "Files"/MediaProvider crashes seen after recording long/high-res
+  /// video (see the OOM note on `_generateVideoThumbnail`). Well under the
+  /// 200MB upload cap, so it only skips the videos actually big enough to
+  /// matter for memory pressure.
+  static const int _thumbnailSkipThresholdBytes = 50 * 1024 * 1024;
+
   bool get _hasMedia =>
       _newPhotos.isNotEmpty ||
       _newVideoFile != null ||
@@ -175,8 +199,10 @@ class _MediaUploaderState extends State<MediaUploader>
   /// Restores a camera capture that Android completed but could not deliver.
   ///
   /// When the OS destroys the host activity while the camera app is in the
-  /// foreground — routine on memory-constrained devices during a 60-second
-  /// recording — the capture still lands on disk but `pickVideo`/`pickImage`
+  /// foreground — routine on memory-constrained devices during a long
+  /// recording (was 60s; see VideoUploadLimits.maxDurationSeconds for why
+  /// that's now 30s) — the capture still lands on disk but
+  /// `pickVideo`/`pickImage`
   /// never returns, so the file was silently abandoned and the user saw the app
   /// restart with nothing to show for it. The platform caches that result;
   /// this claims it on the next build of this widget.
@@ -431,13 +457,23 @@ class _MediaUploaderState extends State<MediaUploader>
   }
 
   Future<void> _generateVideoThumbnail() async {
-    if (_newVideoFile == null) return;
+    final file = _newVideoFile;
+    if (file == null) return;
+
+    final sizeBytes = await file.length();
+    if (sizeBytes > _thumbnailSkipThresholdBytes) {
+      MediaUploadTrace.stageWithDetail(
+        MediaUploadStage.thumbnailFailed,
+        'skipped_large_file',
+      );
+      return;
+    }
 
     MediaUploadTrace.stage(MediaUploadStage.thumbnailStarted);
     try {
       final tempDir = await getTemporaryDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
-        video: _newVideoFile!.path,
+        video: file.path,
         thumbnailPath: tempDir.path,
         imageFormat: ImageFormat.JPEG,
         maxWidth: 512,
@@ -502,9 +538,22 @@ class _MediaUploaderState extends State<MediaUploader>
     _pickerInFlight = true;
     try {
       if (source == ImageSource.camera) {
+        // maxWidth/maxHeight added alongside imageQuality — quality alone
+        // only adjusts JPEG compression, it doesn't touch pixel dimensions.
+        // On a high-megapixel sensor (48MP/108MP+, common now) that meant
+        // decoding and re-encoding a full native-resolution image in
+        // memory regardless of the "85%" setting, which was crashing/
+        // freezing the camera on capture — same memory-pressure pattern as
+        // the video recording crash, different lever (there's no video
+        // equivalent of maxWidth/maxHeight in this plugin, only duration).
+        // 1920px is generous for anything shown in this app (preview
+        // thumbnails are 120px, cacheWidth-limited; the fullscreen viewer
+        // never needs more than screen resolution).
         final XFile? camera = await _picker.pickImage(
           source: source,
           imageQuality: 85,
+          maxWidth: _photoCaptureMaxDimension,
+          maxHeight: _photoCaptureMaxDimension,
         );
         AppLogger.d(
           '[MediaUploader] _pickPhotos: camera returned '
@@ -514,18 +563,33 @@ class _MediaUploaderState extends State<MediaUploader>
         if (!mounted) return;
         candidates = [File(camera.path)];
       } else {
-        final result = await FilePicker.pickFiles(
-          type: FileType.image,
-          allowMultiple: true,
+        // Android's system Photo Picker (ACTION_PICK_IMAGES, via
+        // image_picker_android's PickVisualMedia integration), not
+        // file_picker. Two things were already tried and ruled out for the
+        // "Files keeps stopping" crash on this code path: (1) file_picker's
+        // FileType.image has a genuinely buggy legacy intent (confirmed by
+        // reading its native source — see git history on this line), fixed
+        // by switching to FileType.custom; (2) that fix did NOT stop the
+        // crash on the reporting device, meaning the system "Files"/SAF
+        // picker itself is unstable there regardless of which intent flags
+        // we send it. The Photo Picker is a different OS component
+        // entirely, so it isn't exposed to whatever is crashing DocumentsUI
+        // here.
+        //
+        // Trade-off, accepted: the Photo Picker does not reliably surface
+        // GIFs or the other less-common formats this app declares support
+        // for (BMP, TIFF, AVIF, HEIC/HEIF "sequence" — see
+        // FilePickerUtils.allowedImageExtensions), since it's built for
+        // camera-roll browsing, not general file selection.
+        final images = await _picker.pickMultiImage(
+          imageQuality: 85,
+          maxWidth: _photoCaptureMaxDimension,
+          maxHeight: _photoCaptureMaxDimension,
+          limit: remaining > 0 ? remaining : null,
         );
         if (!mounted) return;
-        if (result == null || result.files.isEmpty) return;
-        candidates = result.files
-            .map((f) => f.path)
-            .whereType<String>()
-            .where((p) => p.trim().isNotEmpty)
-            .map((p) => File(p))
-            .toList();
+        if (images.isEmpty) return;
+        candidates = images.map((x) => File(x.path)).toList();
       }
     } catch (e, stackTrace) {
       // This `try` previously had a `finally` and NO `catch`, so a
@@ -543,6 +607,22 @@ class _MediaUploaderState extends State<MediaUploader>
       _pickerInFlight = false;
     }
 
+    await _applyPickedPhotos(
+      candidates,
+      remaining,
+      enforceSelectableLimit: source == ImageSource.gallery,
+    );
+  }
+
+  /// Validates and applies photo candidates already returned by whichever
+  /// picker gathered them (image_picker's camera/Photo Picker, or
+  /// file_picker's Files/SAF browser fallback below) — same
+  /// extension/size rules and selection-limit enforcement either way.
+  Future<void> _applyPickedPhotos(
+    List<File> candidates,
+    int remaining, {
+    required bool enforceSelectableLimit,
+  }) async {
     if (candidates.isEmpty) return;
 
     if (remaining <= 0 && widget.autoReplaceFirstPhotoWhenMaxReached) {
@@ -569,7 +649,7 @@ class _MediaUploaderState extends State<MediaUploader>
       return;
     }
 
-    if (source == ImageSource.gallery && candidates.length > remaining) {
+    if (enforceSelectableLimit && candidates.length > remaining) {
       _showWarning(ActivityMediaStrings.maxPhotosSelectable(maxPhotos));
       return;
     }
@@ -619,6 +699,55 @@ class _MediaUploaderState extends State<MediaUploader>
     }
   }
 
+  /// Fallback gallery picker for formats Android's Photo Picker doesn't
+  /// reliably surface — confirmed missing: GIF, HEIC. Also declared but
+  /// unverified: BMP, TIFF, AVIF, HEIC/HEIF "sequence" (see
+  /// FilePickerUtils.allowedImageExtensions). Routes through file_picker's
+  /// FileType.custom, which fixes the specific legacy-intent bug
+  /// FileType.image had (ACTION_GET_CONTENT + a raw external-storage data
+  /// URI + no CATEGORY_OPENABLE — see git history on this file). That fix
+  /// did not stop "Files keeps stopping" on the device that first reported
+  /// it, so the underlying system Files/SAF picker may still be unstable
+  /// there — kept as an explicit, opt-in fallback rather than the default
+  /// for exactly that reason: most users never need it, and the ones who
+  /// do are deliberately choosing it for a format Photo Picker won't show.
+  Future<void> _pickPhotosViaFileBrowser() async {
+    if (widget.readOnly) return;
+    if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
+      final replace = await _showReplaceConfirmation('photos');
+      if (!replace) return;
+      _clearVideo();
+    }
+
+    final totalCurrentPhotos = _newPhotos.length + _existingPhotoUrls.length;
+    final remaining = maxPhotos - totalCurrentPhotos;
+
+    List<File> candidates;
+    _pickerInFlight = true;
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        allowMultiple: true,
+      );
+      if (!mounted) return;
+      if (result == null || result.files.isEmpty) return;
+      candidates = result.files
+          .map((f) => f.path)
+          .whereType<String>()
+          .where((p) => p.trim().isNotEmpty)
+          .map((p) => File(p))
+          .toList();
+    } catch (e, stackTrace) {
+      _reportPickerFailure(e, stackTrace, isCamera: false, isVideo: false);
+      return;
+    } finally {
+      _pickerInFlight = false;
+    }
+
+    await _applyPickedPhotos(candidates, remaining, enforceSelectableLimit: true);
+  }
+
   Future<void> _pickVideo(ImageSource source) async {
     if (widget.readOnly) return;
     if (!widget.allowVideo) return;
@@ -653,33 +782,23 @@ class _MediaUploaderState extends State<MediaUploader>
     // Letting that escape kills the flow with no feedback at all, which reads
     // as a freeze/crash to the user - surface it as a warning instead.
     try {
-      if (source == ImageSource.camera) {
-        final XFile? picked = await _picker.pickVideo(
-          source: source,
-          maxDuration: const Duration(seconds: videoMaxDurationSec),
-        );
-        if (picked == null) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-        }
-        if (!mounted || picked == null) return;
-        file = File(picked.path);
-      } else {
-        final result = await FilePicker.pickFiles(
-          type: FileType.video,
-          allowMultiple: false,
-        );
-        if (!mounted) return;
-        if (result == null || result.files.isEmpty) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-          return;
-        }
-        final path = result.files.single.path;
-        if (path == null || path.trim().isEmpty) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-          return;
-        }
-        file = File(path);
+      // Camera AND gallery both go through image_picker's pickVideo here —
+      // for gallery that means Android's system Photo Picker rather than
+      // file_picker's Files/SAF document browser. See the detailed note on
+      // _pickPhotosViaFileBrowser: that browser is what crashes with
+      // "Files keeps stopping", confirmed to persist even after fixing
+      // file_picker's own buggy FileType.image intent, so the instability
+      // is in the system picker itself on the reporting device.
+      final XFile? picked = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: videoMaxDurationSec),
+      );
+      if (picked == null) {
+        MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+        return;
       }
+      if (!mounted) return;
+      file = File(picked.path);
       MediaUploadTrace.stage(MediaUploadStage.pickerReturned);
     } catch (e, stackTrace) {
       _reportPickerFailure(
@@ -695,6 +814,14 @@ class _MediaUploaderState extends State<MediaUploader>
       _pickerInFlight = false;
     }
 
+    await _applyPickedVideo(file);
+  }
+
+  /// Validates and applies a video file already returned by whichever
+  /// picker obtained it (image_picker above, or the file_picker fallback
+  /// below) — same staging, validation and thumbnail steps either way.
+  Future<void> _applyPickedVideo(File pickedFile) async {
+    var file = pickedFile;
     // Everything past the picker is filesystem and decoder work, and every
     // step of it can throw on a file the OS reclaimed underneath us. This
     // method is invoked as an unawaited VoidCallback, so an escape here lands
@@ -750,6 +877,55 @@ class _MediaUploaderState extends State<MediaUploader>
       if (!mounted) return;
       _showWarning(ActivityMediaStrings.videoUnreadable);
     }
+  }
+
+  /// Fallback gallery picker for video formats Android's Photo Picker
+  /// doesn't reliably surface — see the matching note on
+  /// _pickPhotosViaFileBrowser. Explicit, opt-in only, for the same reason.
+  Future<void> _pickVideoViaFileBrowser() async {
+    if (widget.readOnly) return;
+    if (!widget.allowVideo) return;
+
+    if (_hasMedia &&
+        _currentType == MediaType.photos &&
+        !_keepPhotoAndVideoTogether) {
+      final replace = await _showReplaceConfirmation('video');
+      if (!replace) return;
+      if (!mounted) return;
+    }
+
+    MediaUploadTrace.platform();
+    MediaUploadTrace.source(MediaCaptureSource.gallery);
+    MediaUploadTrace.stage(MediaUploadStage.pickerOpened);
+
+    _pickerInFlight = true;
+    File file;
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: FilePickerUtils.allowedVideoExtensions,
+        allowMultiple: false,
+      );
+      if (!mounted) return;
+      if (result == null || result.files.isEmpty) {
+        MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+        return;
+      }
+      final path = result.files.single.path;
+      if (path == null || path.trim().isEmpty) {
+        MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
+        return;
+      }
+      file = File(path);
+      MediaUploadTrace.stage(MediaUploadStage.pickerReturned);
+    } catch (e, stackTrace) {
+      _reportPickerFailure(e, stackTrace, isCamera: false, isVideo: true);
+      return;
+    } finally {
+      _pickerInFlight = false;
+    }
+
+    await _applyPickedVideo(file);
   }
 
   /// Runs every pre-upload rule against [file] and reports the verdict.
@@ -1050,6 +1226,15 @@ class _MediaUploaderState extends State<MediaUploader>
                   'Photo Gallery',
                   () => _pickPhotos(ImageSource.gallery),
                 ),
+                // Fallback for formats the Photo Picker above doesn't show
+                // (GIF, HEIC confirmed missing) — see
+                // _pickPhotosViaFileBrowser's doc comment.
+                _option(
+                  dialogContext,
+                  Icons.folder_open,
+                  'Browse Files',
+                  _pickPhotosViaFileBrowser,
+                ),
               ],
               if (widget.allowVideo) ...[
                 _option(
@@ -1063,6 +1248,12 @@ class _MediaUploaderState extends State<MediaUploader>
                   Icons.video_library,
                   'Video Gallery',
                   () => _pickVideo(ImageSource.gallery),
+                ),
+                _option(
+                  dialogContext,
+                  Icons.folder_open,
+                  'Browse Files',
+                  _pickVideoViaFileBrowser,
                 ),
               ],
             ],
@@ -1221,8 +1412,21 @@ class _MediaUploaderState extends State<MediaUploader>
   }
 
   Widget _buildPhotoPreviewFile(File file, int index) {
+    // cacheWidth/cacheHeight decode straight to this box's on-screen size
+    // instead of full resolution. A multi-select pick can drop several
+    // full-size camera photos (10-15MB+ each) into this row at once, and
+    // without this every one of them gets fully decoded into memory just to
+    // be shown at 120x120 — the same kind of avoidable memory spike right
+    // after the system picker returns that the video-thumbnail skip above
+    // addresses for large videos.
+    final cachePx = (120 * MediaQuery.of(context).devicePixelRatio).round();
     return _previewItem(
-      child: Image.file(file, fit: BoxFit.cover),
+      child: Image.file(
+        file,
+        fit: BoxFit.cover,
+        cacheWidth: cachePx,
+        cacheHeight: cachePx,
+      ),
       onRemove: () => _removeNewPhoto(index),
       onTap: () => _showImageFullscreen(
         Image.file(

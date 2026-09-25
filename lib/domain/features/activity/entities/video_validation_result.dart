@@ -91,9 +91,20 @@ abstract final class VideoUploadLimits {
   /// 200 MB. Client-side; see the provenance note above.
   static const int maxSizeBytes = 200 * 1024 * 1024;
 
-  /// 60 seconds. Client-side; also passed to `pickVideo(maxDuration:)` so the
-  /// camera stops at it. See the provenance note above.
-  static const int maxDurationSeconds = 60;
+  /// 30 seconds (lowered from 60 — see below). Client-side; also passed to
+  /// `pickVideo(maxDuration:)` so the camera stops at it. See the provenance
+  /// note above.
+  ///
+  /// Lowered because `image_picker` gives no control over the camera's
+  /// recording resolution/bitrate (no equivalent of `imageQuality` exists
+  /// for video capture — confirmed by reading its native Android source),
+  /// so a long recording at whatever quality the OEM camera defaults to
+  /// (often 1080p/4K) was crashing/freezing the device while the camera
+  /// app finalized and saved it. Duration is the only capture-time lever
+  /// this app has to bound the resulting file size; halving it directly
+  /// halves the worst case. Still a mitigation, not a guarantee — a true
+  /// fix needs native control over `EXTRA_VIDEO_QUALITY`.
+  static const int maxDurationSeconds = 30;
 
   /// Server-enforced set, mirrored from the document service's accepted types.
   static const Set<String> acceptedMimeTypes = <String>{
