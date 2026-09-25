@@ -175,6 +175,42 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   Future<String> resolveStaffDisplayName({String? staffCode}) =>
       _resolveStaffDisplayNameUseCase(staffCode: staffCode);
 
+  /// Resolves display names for arbitrary staff codes (e.g. the "staff
+  /// present" on an activity being viewed/edited — NOT the logged-in staff
+  /// [resolveStaffDisplayName] above is for) via a direct per-code profile
+  /// fetch. Deliberately independent of [loadActiveStaffDirectory]'s bulk
+  /// "ACTIVE" page: that page is scoped/paginated and won't contain every
+  /// staff code an activity can reference (inactive staff, a staff member
+  /// outside the current page/filter, …), which is why callers that only
+  /// depended on the bulk directory (see [StaffPresentWidget]) could be left
+  /// showing a raw `STF_…` code with no error and no way to recover — ported
+  /// from `IncidentActivityCubit.resolveStaffDisplayNames`, the one screen
+  /// that already resolved this correctly. A code that fails to resolve
+  /// (network error, unknown code) is simply omitted — best-effort.
+  Future<Map<String, String>> resolveStaffDisplayNamesByCode(
+    Iterable<String> staffCodes,
+  ) async {
+    final result = <String, String>{};
+    await Future.wait(
+      staffCodes.map((code) async {
+        try {
+          final profile = await _staffRepository.getStaffProfile(
+            staffCode: code,
+          );
+          final full = profile.fullName.trim();
+          final composed = '${profile.firstName} ${profile.lastName}'.trim();
+          final resolved = full.isNotEmpty ? full : composed;
+          if (resolved.isNotEmpty) result[code] = resolved;
+        } catch (e) {
+          AppLogger.d(
+            'resolveStaffDisplayNamesByCode: profile lookup failed for $code: $e',
+          );
+        }
+      }),
+    );
+    return result;
+  }
+
   /// Keyed single-flight for the non-idempotent mutations. A second identical
   /// submission that arrives while the first is still in flight (double-tap,
   /// a re-fired callback, an upload-completion racing the submit) is coalesced

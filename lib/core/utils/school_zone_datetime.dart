@@ -19,6 +19,33 @@ abstract final class SchoolZoneDateTime {
     }
   }
 
+  static final RegExp _hasZoneMarker = RegExp(r'(?:[Zz]|[+-]\d\d:?\d\d)$');
+
+  /// Parses a UTC-instant string from the backend (e.g. `activityDate`,
+  /// `signedInAt`) as an actual UTC instant, regardless of whether the
+  /// string carries an explicit `Z`/offset suffix.
+  ///
+  /// Plain `DateTime.parse` is platform-dependent for a string with NO zone
+  /// marker: on Android/VM it's read as DEVICE-local time; on iOS the AOT
+  /// runtime's `DateTime.parse` has been observed to resolve the same
+  /// marker-less string differently, so the exact same backend payload
+  /// yields a different absolute instant per platform — no amount of
+  /// correct IANA-zone math downstream fixes an instant that was wrong
+  /// before that conversion even started. Every backend instant field this
+  /// app parses is documented UTC, so normalize by appending `Z` when no
+  /// zone marker is present, then always read the result `.toUtc()`.
+  ///
+  /// Only for a full date+time instant string. A bare `yyyy-MM-dd` date
+  /// (e.g. `attendanceDate`, `absenceDate`, a query's `dateStr`) is
+  /// unambiguous under plain `DateTime.parse` already (no time-of-day for a
+  /// platform to disagree about) — use `DateTime.parse` directly for those,
+  /// since appending `Z` to a date-only string throws a [FormatException].
+  static DateTime parseUtcInstant(String raw) {
+    final s = raw.trim();
+    final normalized = _hasZoneMarker.hasMatch(s) ? s : '${s}Z';
+    return DateTime.parse(normalized).toUtc();
+  }
+
   /// "Now" as a UTC instant, sourced from the server clock (see
   /// [ServerTimeService]) rather than the raw device clock. The zone argument is
   /// irrelevant to a UTC instant and kept only for call-site compatibility.

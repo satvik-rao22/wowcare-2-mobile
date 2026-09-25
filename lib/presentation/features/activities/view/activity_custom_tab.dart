@@ -932,7 +932,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       // instead of once. Falls through to the display-string parse below.
       try {
         return SchoolZoneDateTime.dateTimeFromInstantInSchool(
-          DateTime.parse(iso),
+          SchoolZoneDateTime.parseUtcInstant(iso),
           _schoolIana,
         );
       } catch (_) {}
