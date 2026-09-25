@@ -4023,6 +4023,13 @@ StatefulNavigationShell? appNavigationShell(BuildContext context) =>
 /// top of it.
 void goToDashboardRoot(BuildContext context) {
   final shell = appNavigationShell(context);
+  // `goBranch` alone (unlike CustomNavigationBar._performNavigation's tap
+  // handler) never signals TabVisibilityEvents, so the Dashboard branch — kept
+  // alive in the IndexedStack — would not know it just became visible again.
+  // Callers of this function (persona/school switch flows) rely on exactly
+  // that signal to reload data such as the welcome header's per-org/school
+  // display name; see AdminDashboard's TabBecameVisibleMixin usage.
+  TabVisibilityEvents.notifyBranchActivated(0);
   if (shell != null && shell.currentIndex != 0) {
     shell.goBranch(0);
   } else {

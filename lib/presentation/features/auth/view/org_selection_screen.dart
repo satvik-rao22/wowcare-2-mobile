@@ -45,10 +45,16 @@ class _OrganizationSelectionScreenState
     if (_hasTriggeredOrgNamesLoad) return;
     final authCubit = context.read<AuthCubit>();
     if (authCubit.state is! AuthLoaded) return;
+    // Trim before deduping: the backend sometimes returns the same org's
+    // code with inconsistent whitespace across role rows (see the
+    // organizationCode.trim() pattern used throughout auth_cubit.dart). An
+    // untrimmed .toSet() would treat "ORG123" and "ORG123 " as two different
+    // organizations, showing the same org twice in the picker with the same
+    // resolved name.
     final orgCodes = (authCubit.state as AuthLoaded)
         .loginResponse
         .roles
-        .map((r) => r.organizationCode)
+        .map((r) => r.organizationCode.trim())
         .where((c) => c.isNotEmpty)
         .toSet()
         .toList();
@@ -104,9 +110,13 @@ class _OrganizationSelectionScreenState
               login.roles.isNotEmpty ? login.roles.first.role : '';
           final userRole = rawRole.toDisplayRole;
 
-          // Always use roles for org codes; org names from API (no cache)
+          // Always use roles for org codes; org names from API (no cache).
+          // Trimmed for the same reason as didChangeDependencies above — must
+          // dedupe identically to the codes that were actually sent to
+          // loadOrganizationNames, or orgNames.length == orgCodes.length
+          // below never matches and the dropdown falls back to raw codes.
           final orgCodes = state.loginResponse.roles
-              .map((r) => r.organizationCode)
+              .map((r) => r.organizationCode.trim())
               .where((c) => c.isNotEmpty)
               .toSet()
               .toList();
@@ -333,6 +343,21 @@ class _OrganizationSelectionScreenState
                             onPressedConfirm: isNextEnabled
                                 ? () async {
                                     final authCubit = context.read<AuthCubit>();
+                                    // Commit the new org (clearing any stale
+                                    // school left from the previous org)
+                                    // BEFORE the school-selection screen's
+                                    // school-list/users-details calls fire —
+                                    // those are scoped by the
+                                    // x-organization-code/x-school-code
+                                    // headers read from storage on every
+                                    // request, not by the URL path, so
+                                    // without this they'd keep returning the
+                                    // PREVIOUS org's data under a URL that
+                                    // already asks for the new one.
+                                    await authCubit.setSelectedOrganizationOnly(
+                                      selectedOrgCode,
+                                    );
+                                    if (!context.mounted) return;
                                     await authCubit.updateLoginContext(
                                       lastLoginOrganizationCode: selectedOrgCode,
                                       lastLoginSchoolCode: null,
