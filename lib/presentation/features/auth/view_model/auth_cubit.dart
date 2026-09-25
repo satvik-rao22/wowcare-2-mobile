@@ -312,6 +312,28 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Commits ONLY the newly selected organization to local storage — no
+  /// school yet (the user is on the org picker, about to be routed to school
+  /// selection next). Clears any previously selected school rather than
+  /// leaving it in storage paired with the new org: every request's
+  /// `x-organization-code`/`x-school-code` headers are read from storage on
+  /// every request (see [AuthInterceptor]), so an org change with a stale
+  /// school left behind sends a mismatched org+school pair to every request
+  /// made before a school is (re)selected — e.g. `GET schools/names-by-org`
+  /// scoped by the header ends up returning the OLD org's school list even
+  /// though the URL path already asks for the new org, because the backend
+  /// resolves scope from the header, not the path.
+  ///
+  /// Deliberately lighter than [setSelectedOrgAndSchool]: no Firebase
+  /// re-sign-in / FCM re-registration here, since those are meaningful once
+  /// a school is actually selected, not for this intermediate org-only step.
+  Future<void> setSelectedOrganizationOnly(String organizationCode) async {
+    await _localDataSource.setSelectedOrgAndSchool(
+      organizationCode: organizationCode,
+      schoolCode: '',
+    );
+  }
+
   /// Updates backend login-context (last org/school) via PATCH. Call when user
   /// selects org (schoolCode null) or school. Sends null for empty values.
   /// Non-blocking: failures are ignored so navigation is not blocked.
@@ -1473,6 +1495,18 @@ class AuthCubit extends Cubit<AuthState> {
           StorageKeys.staffAllowedClassroomCodes,
           jsonEncode(profile.allowedClassroomCodes),
         );
+        // The login response's displayName is account-global, but the same
+        // email can be a staff member under a different name in a different
+        // organization/school (e.g. "Admin Production" in org A, "Divya
+        // Patil" in org B). The staff profile just resolved above IS scoped
+        // to this org/school, so its fullName is the name that should
+        // actually greet the user here — overwrite the cached displayName
+        // with it so every "Welcome {name}" surface stays correct after a
+        // switch instead of showing whichever org happened to log in first.
+        final profileFullName = profile.fullName.trim();
+        if (profileFullName.isNotEmpty) {
+          await storage.saveString(StorageKeys.displayName, profileFullName);
+        }
         // No PIN prefetch: it is fetched live wherever it is shown, so there
         // is no stored copy to keep in step with an org/school switch.
       } catch (_) {
