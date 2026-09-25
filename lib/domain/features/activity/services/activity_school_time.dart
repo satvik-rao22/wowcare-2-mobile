@@ -10,7 +10,7 @@ import 'package:wowcare/core/utils/school_zone_datetime.dart';
 /// — call through the screen's `_editor` instead of resolving
 /// `StorageService`/`ApiClient` directly here.
 DateTime activityDateTimeForDisplayFromIso(String iso) {
-  final parsed = DateTime.parse(iso);
+  final parsed = SchoolZoneDateTime.parseUtcInstant(iso);
   return SchoolZoneDateTime.dateTimeFromInstantInSchool(
     parsed,
     SchoolTimezoneResolver.lastKnownTimeZone,

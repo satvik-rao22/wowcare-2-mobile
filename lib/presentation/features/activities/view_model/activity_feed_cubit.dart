@@ -88,7 +88,10 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
 
   final ActivityFeedDataSource _dataSource;
   final StorageService _storage;
-  final ActivityFeedPresentation _presentation;
+
+  /// NOT `final`: [updateSchoolIana] replaces it once the school zone
+  /// resolves after this cubit's construction — see that method's doc.
+  ActivityFeedPresentation _presentation;
 
   /// Grows as feed rows are primed; passed to [activityItemFromFeedRow].
   final Map<String, String> _staffDisplayNameByCode;
@@ -120,6 +123,44 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
   // --------------------------------------------------------------------------
   // Public API
   // --------------------------------------------------------------------------
+
+  /// Replaces the school IANA zone used to map every subsequently-loaded row.
+  ///
+  /// [ActivityDailyTab] builds this cubit (and therefore its
+  /// [ActivityFeedPresentation]) on the very FIRST `build()`, via the
+  /// `BlocBuilder(bloc: _feedCubit, …)` in that widget's own `build()` —
+  /// unavoidably before `_bootstrapSchoolZone()`'s `addPostFrameCallback` has
+  /// any chance to run, let alone finish its `/time` network round-trip. So
+  /// this cubit's very first [ActivityFeedPresentation] is routinely built
+  /// with `schoolIana: ''`, and [activityItemFromFeedRow] having its own
+  /// empty-zone fallback (prefers `ServerTimeService`'s already-synced zone,
+  /// see that function's doc) only narrows the window — it does not close it,
+  /// because `ServerTimeService.schoolTimeZone` itself defaults to the
+  /// literal string `'UTC'` until a sync has completed. A feed page fetched
+  /// inside that window is mapped with the wrong zone and — because
+  /// `_presentation` used to be `final` — stayed wrong for the rest of the
+  /// cubit's life even after the zone resolved a moment later.
+  ///
+  /// Swaps the zone only; does NOT itself re-fetch. The caller
+  /// (`_bootstrapSchoolZone`) drives the reload afterward through the same
+  /// `_loadDailyFeed(refresh: true)` entry point every other feed refresh
+  /// uses — that single entry point already knows how to branch between the
+  /// plain staff/admin load and the guardian fan-out (which needs per-student
+  /// classroom codes this cubit does not retain), so replaying the load here
+  /// instead would have to duplicate that branching and would silently miss
+  /// the guardian case.
+  void updateSchoolIana(String ianaName) {
+    final id = ianaName.trim();
+    if (id.isEmpty || id == _presentation.schoolIana) return;
+    _presentation = ActivityFeedPresentation(
+      viewerStaffDisplayName: _presentation.viewerStaffDisplayName,
+      schoolIana: id,
+      classroomNameByCode: _presentation.classroomNameByCode,
+      tagStudentCodes: _presentation.tagStudentCodes,
+      selectedDate: _presentation.selectedDate,
+      staffDisplayNameByCode: _presentation.staffDisplayNameByCode,
+    );
+  }
 
   /// Full daily-feed load — port of `_loadDailyFeed`. Bumps the generation,
   /// snapshots the live school, runs the tri-source merge (activity feed +
@@ -1064,7 +1105,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
           day = src.isEmpty
               ? _dayForQuery(query)
               : SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                  DateTime.parse(src),
+                  SchoolZoneDateTime.parseUtcInstant(src),
                   _presentation.schoolIana,
                 );
         }
@@ -1322,7 +1363,7 @@ class ActivityFeedCubit extends Cubit<ActivityFeedState> {
       // the log on every malformed row instead of once. Falls through to
       // the display-string parse below, then the epoch fallback.
       try {
-        return DateTime.parse(iso);
+        return SchoolZoneDateTime.parseUtcInstant(iso);
       } catch (_) {}
     }
     final parsedDisplay = _tryParseDisplayDateTime(item.date, item.time);

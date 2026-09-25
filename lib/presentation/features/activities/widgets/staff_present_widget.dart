@@ -225,6 +225,12 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     _emitStaffChanged();
   }
 
+  /// Codes this instance has already asked [_resolveStaffCodeDirectly] to
+  /// look up, successfully or not — a per-instance guard so a code that
+  /// isn't in the bulk "ACTIVE" directory (inactive staff, outside the
+  /// paginated page, …) doesn't refetch on every rebuild.
+  final Set<String> _attemptedDirectCodeLookups = <String>{};
+
   String _resolveDisplayName(String raw) {
     final t = raw.trim();
     if (t.isEmpty) return '';
@@ -234,7 +240,37 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     }
     final fromCode = _staffNameByCodeLower[t.toLowerCase()];
     if ((fromCode ?? '').trim().isNotEmpty) return fromCode!.trim();
+    // Not in the bulk directory (loaded once, page 0, "ACTIVE" only — see
+    // `ActivityEditorCubit.loadActiveStaffDirectory`'s doc). Rather than
+    // show the raw code with no way to recover, look this ONE code up
+    // directly — it's the same per-profile fetch `incident_activity.dart`
+    // already relies on, just centralized here so every `StaffPresentWidget`
+    // caller gets it instead of only the one screen that reimplemented it.
+    if (_looksLikeStaffCode(t)) {
+      _resolveStaffCodeDirectly(t);
+    }
     return t;
+  }
+
+  static bool _looksLikeStaffCode(String value) {
+    final v = value.toUpperCase();
+    return v.startsWith('STF_') || v.startsWith('STAFF_');
+  }
+
+  Future<void> _resolveStaffCodeDirectly(String code) async {
+    if (!_attemptedDirectCodeLookups.add(code)) return;
+    try {
+      final resolved = await context
+          .read<ActivityEditorCubit>()
+          .resolveStaffDisplayNamesByCode([code]);
+      final name = (resolved[code] ?? '').trim();
+      if (name.isEmpty || !mounted) return;
+      _staffNameByCodeLower[code.toLowerCase()] = name;
+      _staffCodeByNameLower[name.toLowerCase()] = code;
+      setState(_rebuildStaffSelection);
+    } catch (_) {
+      // Best-effort: keep showing the raw code rather than block the form.
+    }
   }
 
   void _emitStaffChanged() {
