@@ -264,7 +264,11 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       emit(
         GeofenceState(
-          status: lastStatus,
+          // A persisted `withinRange` is unverified — keep Sign-In disabled
+          // until the fresh location check below confirms the user is inside.
+          status: lastStatus == GeofenceCubitStatus.withinRange
+              ? GeofenceCubitStatus.checking
+              : lastStatus,
           schoolCode: schoolCode,
           gpsSignInEnabled: prefs.getBool(_prefsGpsSignInEnabledKey) ?? true,
           radiusMeters: prefs.getDouble(_prefsSchoolRadiusKey),
@@ -579,13 +583,10 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           // Try the last-persisted status; if there is none (first launch),
           // leave the state as 'checking' and schedule a high-accuracy
           // re-check so the user isn't locked out on their first visit.
-          final restored = await _restoreLastKnownStatus();
-          if (restored != null) {
-            immediateStatus = restored;
-          } else {
-            immediateStatus = GeofenceCubitStatus.checking;
-            unawaited(_refineWithHighAccuracyFix());
-          }
+          // Never reuse a persisted status here: a stale `withinRange` would
+          // enable Sign-In for a user who is no longer inside the radius.
+          immediateStatus = GeofenceCubitStatus.checking;
+          unawaited(_refineWithHighAccuracyFix());
         }
 
         // ── Comprehensive GPS diagnostic log ──────────────────────────────
@@ -616,14 +617,11 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         );
       } else {
         // GPS unavailable — fall back to last-known persisted status.
-        final restored = await _restoreLastKnownStatus();
-        immediateStatus = restored ?? GeofenceCubitStatus.checking;
-        debugPrint(
-          '[GeofenceCubit] ⚠️ GPS position unavailable — using '
-          'persisted status: $immediateStatus',
-        );
+        // No fix: stay unconfirmed (Sign-In disabled) instead of trusting a
+        // persisted, possibly stale, inside/outside status.
+        immediateStatus = GeofenceCubitStatus.checking;
         AppLogger.d(
-          '[GeofenceCubit] GPS unavailable — restored=$restored → $immediateStatus',
+          '[GeofenceCubit] GPS unavailable → $immediateStatus',
         );
       }
 
