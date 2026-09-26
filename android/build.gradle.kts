@@ -45,34 +45,6 @@ subprojects {
     }
 }
 
-// AGP 8.9 also rejects `package="..."` in source AndroidManifest for libraries.
-// Patch known outdated dependency manifest (isar_flutter_libs 3.1.0+1) before
-// manifest processing, so local builds succeed without editing pub cache manually.
-subprojects {
-    if (name != "isar_flutter_libs") return@subprojects
-
-    val patchIsarManifest = tasks.register("patchIsarManifestPackageAttribute") {
-        doLast {
-            val manifestFile = file("src/main/AndroidManifest.xml")
-            if (!manifestFile.exists()) return@doLast
-            val original = manifestFile.readText()
-            val patched =
-                original.replace(Regex("""\s+package="[^"]*"""", RegexOption.IGNORE_CASE), "")
-            if (patched != original) {
-                manifestFile.writeText(patched)
-            }
-        }
-    }
-
-    tasks.configureEach {
-        if (name.contains("process", ignoreCase = true) &&
-            name.contains("manifest", ignoreCase = true)
-        ) {
-            dependsOn(patchIsarManifest)
-        }
-    }
-}
-
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
