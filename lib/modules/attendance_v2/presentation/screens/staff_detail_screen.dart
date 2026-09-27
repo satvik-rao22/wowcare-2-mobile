@@ -11,6 +11,7 @@ import '../../core/theme/av2_text_styles.dart';
 import '../controllers/av2_period.dart';
 import '../cubit/staff_detail_cubit.dart';
 import '../cubit/staff_detail_state.dart';
+import '../controllers/av2_day_filter.dart';
 import '../widgets/av2_detail_scaffold.dart';
 import 'staff_detail_view.dart';
 
@@ -22,10 +23,14 @@ class StaffDetailScreen extends StatefulWidget {
     super.key,
     required this.staffCode,
     this.staffName = '',
+    this.initialFilter = Av2DayFilter.all,
   });
 
   final String staffCode;
   final String staffName;
+
+  /// Which filter chip to open on, for deep links.
+  final Av2DayFilter initialFilter;
 
   @override
   State<StaffDetailScreen> createState() => _StaffDetailScreenState();
@@ -100,6 +105,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 reloadId: state.reloadId,
                 onPeriodChanged: _onPeriodChanged,
                 canEdit: canEdit,
+                initialFilter: widget.initialFilter,
                 onEditSession: ({
                   required recordCode,
                   required signInLocal,

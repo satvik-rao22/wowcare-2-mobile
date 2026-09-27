@@ -47,6 +47,7 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/controllers/av2_day_filter.dart';
 import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
@@ -2006,6 +2007,9 @@ final GoRouter appRouter = GoRouter(
                       StaffDetailScreen(
                         staffCode: q['code'] ?? '',
                         staffName: q['name'] ?? '',
+                        // Deep links (notifications) can name the chip to
+                        // open on; anything unknown falls back to All days.
+                        initialFilter: av2DayFilterFromName(q['tab']),
                       ),
                     );
                   },

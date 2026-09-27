@@ -4,6 +4,16 @@ import '../../domain/entities/attendance_day.dart';
 /// Show-Absent toggles.
 enum Av2DayFilter { all, overtime, absent, requests }
 
+/// Parses the `tab` deep-link parameter. Unknown or absent falls back to
+/// [Av2DayFilter.all], so a stale link lands somewhere sensible.
+Av2DayFilter av2DayFilterFromName(String? name) {
+  final wanted = (name ?? '').trim().toLowerCase();
+  for (final f in Av2DayFilter.values) {
+    if (f.name == wanted) return f;
+  }
+  return Av2DayFilter.all;
+}
+
 extension Av2DayFilterX on Av2DayFilter {
   String get label {
     switch (this) {

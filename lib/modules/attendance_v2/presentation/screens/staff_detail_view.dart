@@ -55,6 +55,7 @@ class StaffDetailView extends StatefulWidget {
     this.reloadId = 0,
     this.onPeriodChanged,
     this.canEdit = false,
+    this.initialFilter = Av2DayFilter.all,
     this.onEditSession,
     this.onDeleteSession,
     this.onEditAbsence,
@@ -72,6 +73,11 @@ class StaffDetailView extends StatefulWidget {
 
   /// Admin-only: when false, no edit/delete affordance is shown on rows.
   final bool canEdit;
+
+  /// Which chip the screen opens on. A regularization notification is about
+  /// one request, so it lands on Requests rather than making the reader find
+  /// it.
+  final Av2DayFilter initialFilter;
   final Av2EditSession? onEditSession;
   final Av2DeleteSession? onDeleteSession;
   final Av2EditAbsence? onEditAbsence;
@@ -82,7 +88,7 @@ class StaffDetailView extends StatefulWidget {
 }
 
 class _StaffDetailViewState extends State<StaffDetailView> {
-  Av2DayFilter _filter = Av2DayFilter.all;
+  late Av2DayFilter _filter = widget.initialFilter;
 
   StaffOvertimeProfile get _profile => widget.profile;
 
