@@ -171,7 +171,7 @@ ActivityItem activityItemFromFeedRow(
 
   DateTime dt;
   try {
-    final parsed = DateTime.parse(row.activityDateIso);
+    final parsed = SchoolZoneDateTime.parseUtcInstant(row.activityDateIso);
     var iana = (schoolIana ?? '').trim();
     if (iana.isEmpty) {
       // Caller hasn't resolved the school zone for this row yet — prefer the

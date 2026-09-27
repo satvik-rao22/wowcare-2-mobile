@@ -2251,6 +2251,20 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
             widget.highlightDate ??
             SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
+      // The cubit's own presentation was frozen at first `build()` (see
+      // `_feedCubit`'s doc) — possibly before this zone resolved, and with
+      // it any already-loaded rows mapped in the wrong zone. Only patch +
+      // reload if the cubit already exists and has something loaded; if it
+      // doesn't exist yet, the lazy getter picks up the now-updated
+      // `_schoolIana` at construction time instead (per that same doc), and
+      // if nothing has loaded yet there's nothing stale on screen to fix.
+      if (_feedCubitInstance != null) {
+        final hadItems = _feedCubit.state.items.isNotEmpty;
+        _feedCubit.updateSchoolIana(z);
+        if (hadItems) {
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
     } catch (e) {
       AppLogger.d('_bootstrapSchoolZone failed: $e');
     }

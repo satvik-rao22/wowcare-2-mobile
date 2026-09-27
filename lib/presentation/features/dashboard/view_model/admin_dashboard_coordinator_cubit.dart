@@ -220,6 +220,15 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     unawaited(geofenceCubit.refreshSettings());
     unawaited(geofenceCubit.checkStaffSignInStatus());
 
+    // The welcome header's name is cached per org/school (see
+    // AuthCubit.prefetchStaffProfileForOrgAndSchool) and can change after a
+    // school/org switch. dashboardCubit is kept alive across switches (this
+    // coordinator's constructor only runs loadUserName() once, on first
+    // mount), so without re-reading it here the header keeps showing
+    // whichever organization's name was cached when the dashboard first
+    // loaded, even after switching to an org/school with a different name.
+    unawaited(dashboardCubit.loadUserName());
+
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode != null && schoolCode.isNotEmpty) {
       await Future.wait([

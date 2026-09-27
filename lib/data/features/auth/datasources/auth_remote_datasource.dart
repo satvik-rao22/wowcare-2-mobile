@@ -566,10 +566,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           final codeToName = <String, String>{};
           for (final e in dataJson) {
             if (e is Map && e['code'] != null && e['name'] != null) {
-              codeToName[e['code'].toString()] = e['name'].toString();
+              // Trim defensively — the backend has been observed to send the
+              // same org's code with inconsistent whitespace across
+              // endpoints/rows, which would otherwise leave this map keyed
+              // by a code the (also-untrimmed) caller never matches,
+              // silently falling back to the raw code for that entry.
+              codeToName[e['code'].toString().trim()] = e['name'].toString();
             }
           }
-          return organizationCodes.map((c) => codeToName[c] ?? c).toList();
+          return organizationCodes
+              .map((c) => codeToName[c.trim()] ?? c)
+              .toList();
         });
         return apiResponse.data ?? <String>[];
       } else {
