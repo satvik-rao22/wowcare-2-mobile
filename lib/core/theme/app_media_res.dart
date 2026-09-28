@@ -153,6 +153,10 @@ class MediaRes {
   static const String dailyActivityDrawer = '$_baseIcons/Daily_Summary.svg';
   static const String allActivitiesDrawer = '$_baseIcons/All_Activities.svg';
   static const String logout = '$_baseIcons/logout.svg';
+
+  /// The ChildcareWow mark on its own, no wordmark. Multicolour artwork:
+  /// paint it with `AppArtwork`, never `AppIcon`, which would flatten it.
+  static const String logoMark = '$_baseIcons/logo-mark.svg';
   static const String classroom_Schedule_drawer_icon =
       '$_baseIcons/Classroom_Schedule_drawer_icon.svg';
   static const String documents_drawer_Icon =

@@ -145,6 +145,7 @@ class AppArtwork extends StatelessWidget {
     this.height,
     this.fit = BoxFit.contain,
     this.semanticsLabel,
+    this.rasterize = false,
   });
 
   final String asset;
@@ -153,6 +154,11 @@ class AppArtwork extends StatelessWidget {
   final BoxFit fit;
   final String? semanticsLabel;
 
+  /// True for artwork that moves every frame (the update banners' breathing
+  /// mark): it is drawn once into an image and then only blitted, instead of
+  /// its paths being replayed on each frame. See the library doc.
+  final bool rasterize;
+
   @override
   Widget build(BuildContext context) => SvgPicture.asset(
     asset,
@@ -160,5 +166,8 @@ class AppArtwork extends StatelessWidget {
     height: height,
     fit: fit,
     semanticsLabel: semanticsLabel,
+    renderingStrategy: rasterize
+        ? RenderingStrategy.raster
+        : RenderingStrategy.picture,
   );
 }

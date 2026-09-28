@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/app_update/widgets/optional_update_banner.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/my_childs_day_cubit.dart';
@@ -207,8 +208,18 @@ class _ParentDashboardCardList extends StatelessWidget {
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
+                    // The optional update banner (System Messages S1). It
+                    // takes the list's 24px top inset, and is zero height
+                    // unless an update is waiting, so the cards sit exactly
+                    // where they did.
                     SliverPadding(
-                      padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 28),
+                      padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                      sliver: const SliverToBoxAdapter(
+                        child: OptionalUpdateBanner(),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                       sliver: SliverReorderableList(
                         itemCount: dashState.cards.length,
                         onReorder: context

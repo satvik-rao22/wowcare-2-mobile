@@ -12,8 +12,6 @@ import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
-import '../../../../core/util/app_update/app_update_config.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -22,19 +20,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-
-  @override
-  void initState() {
-    handleUpdate();
-    super.initState();
-  }
-
-  handleUpdate() async {
-    await handleAppUpdate(context).then((canNavigate){
-      context.read<SplashCubit>().resolve();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,8 +61,6 @@ class _SplashScreenState extends State<SplashScreen> {
 /// here rather than in the (BuildContext-free) cubit.
 class SplashScreenWrapper extends StatefulWidget {
   const SplashScreenWrapper({super.key});
-
-
 
   @override
   State<SplashScreenWrapper> createState() => _SplashScreenWrapperState();

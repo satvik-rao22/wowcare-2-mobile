@@ -14,8 +14,6 @@ import 'package:wowcare/core/notifications/notification_launch_handler.dart';
 import 'package:wowcare/core/security/fresh_install_reset_service.dart';
 import 'package:wowcare/domain/features/activity/usecases/sweep_orphaned_staged_media_usecase.dart';
 
-import '../core/util/remote_config_service/remote_config.dart';
-
 /// Orchestrates all app startup steps, in the exact order the app previously
 /// ran them from `main()`, before the widget tree is built with `runApp`.
 class AppBootstrap {
@@ -58,8 +56,6 @@ class AppBootstrap {
     }
 
     setPreferredOrientations();
-
-    await RemoteConfigUtil.instance.init();
 
     await resolvePendingLaunchNotification();
 

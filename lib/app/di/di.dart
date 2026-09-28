@@ -677,6 +677,18 @@ import '../../presentation/features/events/view_model/events_cubit.dart';
 import '../../presentation/features/tasks/view_model/tasks_cubit.dart';
 import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
 import '../../shared/services/attachment_view/attachment_asset_service.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:wowcare/core/firebase/remote_config_service.dart';
+import 'package:wowcare/data/features/app_update/datasources/app_update_local_data_source.dart';
+import 'package:wowcare/data/features/app_update/datasources/app_update_mock_data_sources.dart';
+import 'package:wowcare/data/features/app_update/datasources/app_update_platform_data_source.dart';
+import 'package:wowcare/data/features/app_update/datasources/app_update_remote_data_source.dart';
+import 'package:wowcare/data/features/app_update/repositories/app_update_repository_impl.dart';
+import 'package:wowcare/domain/features/app_update/repositories/app_update_repository.dart';
+import 'package:wowcare/domain/features/app_update/usecases/check_app_update_usecase.dart';
+import 'package:wowcare/domain/features/app_update/usecases/dismiss_optional_update_usecase.dart';
+import 'package:wowcare/domain/features/app_update/usecases/open_app_store_usecase.dart';
+import 'package:wowcare/presentation/features/app_update/view_model/app_update_cubit.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -3790,6 +3802,58 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<UpdateTaskOccurrenceUseCase>(),
       serviceLocator<CancelTaskOccurrenceUseCase>(),
       serviceLocator<UpdateTaskUseCase>(),
+    ),
+  );
+
+  // ===== APP UPDATE (Firebase Remote Config) =====
+  // Everything is lazy: FirebaseRemoteConfig.instance needs Firebase, which
+  // AppBootstrap initialises after this function returns. AppUpdateMock
+  // swaps the remote and local data sources for fakes and nothing above
+  // them can tell; see app_update_mock_data_sources.dart.
+  final AppUpdateMock appUpdateMock = AppUpdateMock.active;
+  if (appUpdateMock != AppUpdateMock.off) {
+    AppLogger.w('[AppUpdate] MOCK "${appUpdateMock.name}" is on');
+  }
+  serviceLocator.registerLazySingleton<RemoteConfigService>(
+    () => FirebaseRemoteConfigService(FirebaseRemoteConfig.instance),
+  );
+  serviceLocator.registerLazySingleton<AppUpdatePlatformDataSource>(
+    AppUpdatePlatformDataSourceImpl.new,
+  );
+  serviceLocator.registerLazySingleton<AppUpdateRemoteDataSource>(
+    () => appUpdateMock == AppUpdateMock.off
+        ? AppUpdateRemoteDataSourceImpl(serviceLocator<RemoteConfigService>())
+        : MockAppUpdateRemoteDataSource(
+            appUpdateMock,
+            serviceLocator<AppUpdatePlatformDataSource>(),
+          ),
+  );
+  serviceLocator.registerLazySingleton<AppUpdateLocalDataSource>(
+    () => appUpdateMock == AppUpdateMock.off
+        ? AppUpdateLocalDataSourceImpl(serviceLocator<StorageService>())
+        : InMemoryAppUpdateLocalDataSource(),
+  );
+  serviceLocator.registerLazySingleton<AppUpdateRepository>(
+    () => AppUpdateRepositoryImpl(
+      remote: serviceLocator<AppUpdateRemoteDataSource>(),
+      platform: serviceLocator<AppUpdatePlatformDataSource>(),
+      local: serviceLocator<AppUpdateLocalDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<CheckAppUpdateUseCase>(
+    () => CheckAppUpdateUseCase(serviceLocator<AppUpdateRepository>()),
+  );
+  serviceLocator.registerFactory<DismissOptionalUpdateUseCase>(
+    () => DismissOptionalUpdateUseCase(serviceLocator<AppUpdateRepository>()),
+  );
+  serviceLocator.registerFactory<OpenAppStoreUseCase>(
+    () => OpenAppStoreUseCase(serviceLocator<AppUpdateRepository>()),
+  );
+  serviceLocator.registerFactory<AppUpdateCubit>(
+    () => AppUpdateCubit(
+      checkAppUpdate: serviceLocator<CheckAppUpdateUseCase>(),
+      dismissOptionalUpdate: serviceLocator<DismissOptionalUpdateUseCase>(),
+      openAppStore: serviceLocator<OpenAppStoreUseCase>(),
     ),
   );
 }

@@ -40,6 +40,9 @@ class AppRadius {
   /// 22 — the 64x64 well behind an empty state's icon.
   static const double r22 = 22;
 
+  /// 24 — the optional update banner on a tablet.
+  static const double r24 = 24;
+
   /// 28 — the top corners of a bottom sheet.
   static const double r28 = 28;
 

@@ -1366,6 +1366,93 @@ class AppTextStyles {
     fontSize: 13,
     fontWeight: FontWeight.w600,
   );
+  // ── App update banners ───────────────────────────────────────────────────
+  // *WowCare System Messages* S1 (optional), ST1 (optional, tablet) and S2
+  // (required). Sizes are the design's rem values at a 16px root.
+
+  /// The small caps line over each banner's headline. Pink on the optional
+  /// banner; the required one swaps in the danger ink with `copyWith`.
+  static const TextStyle appUpdateEyebrow = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 10.5,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 1.05,
+    color: AppPalette.brandDark,
+  );
+
+  /// "WowCare 2.3 is waiting".
+  static const TextStyle appUpdateTitle = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 19.8,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+    color: AppPalette.textPrimary,
+  );
+
+  /// "You are on 2.2.21".
+  static const TextStyle appUpdateMeta = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w600,
+    color: AppPalette.textMuted,
+  );
+
+  /// The line under the keys, and the store-unavailable notice.
+  static const TextStyle appUpdateFoot = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 11.4,
+    fontWeight: FontWeight.w600,
+    height: 1.5,
+    color: AppPalette.textMuted,
+  );
+
+  /// Key labels on the optional banner. The key sets the colour.
+  static const TextStyle appUpdateKey = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13.4,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// The single full-width key on the required overlay.
+  static const TextStyle appUpdateKeyLarge = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 14.7,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// "Time to swap it for WowCare 3.0".
+  static const TextStyle appUpdateRequiredTitle = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 21.4,
+    fontWeight: FontWeight.w700,
+    height: 1.22,
+    color: AppPalette.textPrimary,
+  );
+
+  /// "The school cannot hear this version any more."
+  static const TextStyle appUpdateRequiredBody = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13.4,
+    fontWeight: FontWeight.w600,
+    height: 1.5,
+    color: AppPalette.textSecondary,
+  );
+
+  /// The installed version in the required overlay's now-to-next panel.
+  static const TextStyle appUpdateVersionNow = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13.8,
+    fontWeight: FontWeight.w700,
+    color: AppPalette.textMuted,
+  );
+
+  /// The version the store will install, in the same panel.
+  static const TextStyle appUpdateVersionNext = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 15.4,
+    fontWeight: FontWeight.w800,
+    color: AppPalette.statusSuccessStrong,
+  );
 }
 
 /// Reusable text widgets with predefined styles

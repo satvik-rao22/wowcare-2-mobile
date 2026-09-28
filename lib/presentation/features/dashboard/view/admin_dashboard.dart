@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
+import 'package:wowcare/presentation/features/app_update/widgets/optional_update_banner.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/admin_dashboard_coordinator_cubit.dart';
@@ -168,6 +169,9 @@ class _AdminDashboardState extends State<AdminDashboard>
         children: [
           DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
           const SizedBox(height: 16),
+          // Above the attention deck (System Messages S1). Zero height and
+          // no gap unless an optional update is waiting.
+          const OptionalUpdateBanner(),
           AttentionGrid(
             onRatioCardTap: _scrollToRatioCard,
             onShiftsCardTap: _scrollToShiftsCard,
