@@ -120,6 +120,15 @@ class DocumentImageWidget extends StatefulWidget {
     0,
   );
 
+  /// Bumped only when an avatar caches a freshly-resolved non-empty photo URL.
+  /// Nothing rebuilds avatars from this; it exists so a screen (the profile
+  /// photo action sheet) can re-check "is there a photo" the moment a lookup
+  /// that was still in flight when it opened finishes.
+  static final ValueNotifier<int> _profilePhotoResolvedTick =
+      ValueNotifier<int>(0);
+
+  static Listenable get profilePhotoResolved => _profilePhotoResolvedTick;
+
   static void _removeProfilePhotoKey(String key) {
     _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
     _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
@@ -189,6 +198,25 @@ class DocumentImageWidget extends StatefulWidget {
 
     // Wake every mounted avatar so the deletion is visible immediately.
     _profilePhotoRefreshTick.value++;
+  }
+
+  /// Whether an avatar for [staffCode] currently has a resolved, non-expired
+  /// photo URL in the cache. Read-only: never evicts or fetches.
+  ///
+  /// Lets a screen agree with what its avatar is actually showing — the avatar
+  /// resolves a staff photo by code when the profile response carries no URL,
+  /// so `profilePhotoUrl` alone can say "no photo" while one is on screen.
+  static bool hasResolvedStaffPhoto(String? staffCode) {
+    final code = (staffCode ?? '').trim();
+    if (code.isEmpty) return false;
+    final key = 'staff:$code';
+    if (_DocumentImageWidgetState._wasRecentlyDeleted(key)) return false;
+    final cached = _DocumentImageWidgetState._profilePhotoUrlCache[key];
+    final fetchedAt = _DocumentImageWidgetState._profilePhotoFetchedAt[key];
+    if (cached == null || cached.trim().isEmpty || fetchedAt == null) {
+      return false;
+    }
+    return AppTime.nowUtc().difference(fetchedAt) <= _profilePhotoCacheTtl;
   }
 
   /// Seeds the freshly-resolved [url] into the cache for the given owner and
@@ -544,6 +572,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if ((resolved ?? '').trim().isNotEmpty) {
         _profilePhotoUrlCache[cacheKey] = resolved!.trim();
         _profilePhotoFetchedAt[cacheKey] = AppTime.nowUtc();
+        DocumentImageWidget._profilePhotoResolvedTick.value++;
       }
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {

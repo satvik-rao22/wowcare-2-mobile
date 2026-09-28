@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
@@ -428,7 +429,28 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     super.dispose();
   }
 
-  Future<void> _pickProfileImage() async {
+  /// Camera capture for the profile photo; hands the shot to the same upload
+  /// path as [_pickProfileImage].
+  Future<void> _takeProfilePhoto() async {
+    if (!_canEditStaffRecords(context.read<RoleCubit>())) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    try {
+      final shot = await ImagePicker().pickImage(source: ImageSource.camera);
+      if (shot == null || !mounted) return;
+      await _pickProfileImage(capturedPath: shot.path);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to open the camera: $e',
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _pickProfileImage({String? capturedPath}) async {
     // Defense in depth: the camera badge is hidden and the avatar is not
     // tappable without write access, but never let the picker open regardless
     // of how this is reached.
@@ -437,12 +459,15 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       return;
     }
     try {
-      // Shared file picker → every allowed image format is selectable.
-      final picked = await FilePickerUtils.pickFile(
-        allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
-      );
-      final imagePath = picked?.path;
+      // Shared file picker → every allowed image format is selectable. Skipped
+      // when the camera already supplied a path.
+      final picked = capturedPath != null
+          ? null
+          : await FilePickerUtils.pickFile(
+              allowedExtensions: FilePickerUtils.allowedImageExtensions,
+              context: context,
+            );
+      final imagePath = capturedPath ?? picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;
       if (!mounted) return;
       final staffCode = widget.staffCode.trim();
@@ -602,18 +627,16 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
-  /// Whether the acting user may delete THIS staff member's photo.
-  ///
-  /// Stricter than [_canEditStaffRecords], which lets an admin change anyone's
-  /// photo. The delete endpoint is `my-profile`-scoped, so we fail closed and
-  /// only offer delete on your own profile.
-  ///
-  /// TODO(profile-photo-delete): flip this back to [canChangePhoto] once the
-  /// backend confirms whether the my-profile delete endpoint accepts an
-  /// arbitrary staffCode from an admin, or ships an admin-scoped one.
-  bool _canDeleteOwnPhoto() {
-    final own = (_ownStaffCode ?? '').trim();
-    return own.isNotEmpty && own == widget.staffCode.trim();
+  /// Whether a photo exists to delete: the profile carries a URL, or the
+  /// avatar has resolved one by staff code. False only while an upload is
+  /// still in flight.
+  bool _hasStaffPhotoToDelete() {
+    if (!mounted) return false;
+    if (context.read<StaffProfilePhotoUploadCubit>().state.isUploading) {
+      return false;
+    }
+    return (_profilePhotoUrl ?? '').trim().isNotEmpty ||
+        DocumentImageWidget.hasResolvedStaffPhoto(widget.staffCode);
   }
 
   Future<void> _deleteProfilePhoto() async {
@@ -664,19 +687,16 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                   onTap: canChangePhoto
                       ? () => ProfilePhotoActionSheet.show(
                           context,
-                          // No delete while an upload is still in flight, and
-                          // none for an admin on someone else's profile.
-                          hasPhoto:
-                              (_profilePhotoUrl ?? '').trim().isNotEmpty &&
-                              !context
-                                  .read<StaffProfilePhotoUploadCubit>()
-                                  .state
-                                  .isUploading &&
-                              _canDeleteOwnPhoto(),
+                          // Delete is offered whenever a photo exists (only
+                          // held back while an upload is still in flight).
+                          hasPhoto: _hasStaffPhotoToDelete(),
+                          hasPhotoNow: _hasStaffPhotoToDelete,
+                          refreshOn: DocumentImageWidget.profilePhotoResolved,
                           subjectName: _displayName.trim().isNotEmpty
                               ? _displayName
                               : widget.name,
                           onChangePhoto: _pickProfileImage,
+                          onTakePhoto: _takeProfilePhoto,
                           onDelete: _deleteProfilePhoto,
                         )
                       : null,
