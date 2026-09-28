@@ -410,6 +410,10 @@ class _PickupCardState extends State<_PickupCard> {
     final responsive = ResponsiveHelper(context);
     final isTablet = responsive.isTabletCompact;
     final isCarpool = widget.pickupType.trim().toUpperCase() == 'CARPOOL';
+    // Staff must not see pickup contact details. Also hidden until the
+    // persona resolves, since `RoleState.role` defaults to `admin`.
+    final role = context.watch<RoleCubit>();
+    final showContactDetails = role.isPersonaResolved && !role.isStaff;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -525,56 +529,60 @@ class _PickupCardState extends State<_PickupCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.s10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            StudentStrings.emailId,
-                            style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.5,
+                      if (showContactDetails) ...[
+                        const SizedBox(height: AppSpacing.s10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              StudentStrings.emailId,
+                              style: AppTextStyles.label.copyWith(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: 14,
+                                letterSpacing: 14 * (-3 / 100),
                               ),
-                              fontSize: 14,
-                              letterSpacing: 14 * (-3 / 100),
                             ),
-                          ),
-                          Flexible(
-                            child: Text(
-                              (widget.email != null &&
-                                      widget.email!.isNotEmpty &&
-                                      widget.email != '-')
-                                  ? widget.email!
-                                  : '-',
+                            Flexible(
+                              child: Text(
+                                (widget.email != null &&
+                                        widget.email!.isNotEmpty &&
+                                        widget.email != '-')
+                                    ? widget.email!
+                                    : '-',
+                                style: AppTextStyles.value.copyWith(
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.s10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              StudentStrings.phoneNumber,
+                              style: AppTextStyles.label.copyWith(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: 14,
+                                letterSpacing: 14 * (-3 / 100),
+                              ),
+                            ),
+                            Text(
+                              widget.phoneNumber ?? '-',
                               style: AppTextStyles.value.copyWith(fontSize: 15),
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.right,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.s10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            StudentStrings.phoneNumber,
-                            style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.5,
-                              ),
-                              fontSize: 14,
-                              letterSpacing: 14 * (-3 / 100),
-                            ),
-                          ),
-                          Text(
-                            widget.phoneNumber ?? '-',
-                            style: AppTextStyles.value.copyWith(fontSize: 15),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       AppSpacing.gapVLg,
                       if (widget.showActionButtons) ...[
                         if (isCarpool)
