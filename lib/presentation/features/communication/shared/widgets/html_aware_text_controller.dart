@@ -27,6 +27,134 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 class HtmlAwareTextController extends TextEditingController {
   HtmlAwareTextController({super.text});
 
+  /// Intercepts every value change to apply two deterministic corrections
+  /// the platform doesn't reliably give us on its own — see
+  /// [_continueListPrefixIfNeeded] and [_capitalizeIfNeeded]. Both are
+  /// no-ops (return null) for anything that isn't a single-character
+  /// insertion at a collapsed cursor, so paste/cut/select-all/clipboard
+  /// methods below (which replace multi-character spans) pass through
+  /// unchanged.
+  @override
+  set value(TextEditingValue newValue) {
+    super.value =
+        _continueListPrefixIfNeeded(newValue) ??
+        _capitalizeIfNeeded(newValue) ??
+        newValue;
+  }
+
+  /// Auto-continues a bullet ("• ") or numbered ("1. ", "2. ", ...) list
+  /// prefix onto the next line when Enter is pressed inside one — the web
+  /// composer's rich-text editor does this natively; this TextField-based
+  /// one doesn't, since Enter on a multiline TextField just inserts a bare
+  /// `\n` with no awareness of list context. Pressing Enter on an EMPTY
+  /// list line (prefix with nothing typed after it) ends the list instead
+  /// of perpetuating empty bullets, matching standard rich-text-editor
+  /// convention.
+  ///
+  /// Returns null when no continuation applies.
+  TextEditingValue? _continueListPrefixIfNeeded(TextEditingValue newValue) {
+    final insertion = _singleCharInsertion(newValue);
+    if (insertion == null || insertion.char != '\n') return null;
+    final oldText = text;
+    final insertAt = insertion.at;
+
+    // The '\n' landed at index insertAt - 1. If that's 0, it's the very
+    // first character (nothing before it) — no prior line to continue.
+    // Guards `lastIndexOf`'s start index, which must be >= 0.
+    if (insertAt - 1 <= 0) return null;
+
+    final priorLineStart = oldText.lastIndexOf('\n', insertAt - 2) + 1;
+    final priorLine = oldText.substring(priorLineStart, insertAt - 1);
+
+    final bulletMatch = RegExp(r'^• ').firstMatch(priorLine);
+    final numberedMatch = RegExp(r'^(\d+)\. ').firstMatch(priorLine);
+    if (bulletMatch == null && numberedMatch == null) return null;
+
+    final prefixEnd = bulletMatch?.end ?? numberedMatch!.end;
+    final priorContent = priorLine.substring(prefixEnd);
+
+    if (priorContent.isEmpty) {
+      // Enter on an empty list line ends the list: strip that line's own
+      // prefix instead of adding another empty bullet.
+      final withoutPrefix =
+          oldText.substring(0, priorLineStart) +
+          oldText.substring(insertAt - 1);
+      return TextEditingValue(
+        text: withoutPrefix,
+        selection: TextSelection.collapsed(offset: priorLineStart),
+      );
+    }
+
+    final nextPrefix = numberedMatch != null
+        ? '${int.parse(numberedMatch.group(1)!) + 1}. '
+        : '• ';
+    final newText = newValue.text;
+    final withPrefix =
+        newText.substring(0, insertAt) +
+        nextPrefix +
+        newText.substring(insertAt);
+    return TextEditingValue(
+      text: withPrefix,
+      selection: TextSelection.collapsed(offset: insertAt + nextPrefix.length),
+    );
+  }
+
+  /// Auto-capitalizes a letter typed at the start of the message, right
+  /// after a newline, right after a fresh bullet/numbered prefix (typed
+  /// via the toolbar or continued by [_continueListPrefixIfNeeded]), or
+  /// right after sentence-ending punctuation + space — deterministic
+  /// backstop for `TextCapitalization.sentences` (set on the field
+  /// itself), which delegates to the platform keyboard and is known to
+  /// not reliably fire on several Android keyboards once the period and
+  /// the next word are typed as separate "words" rather than one gesture.
+  ///
+  /// Returns null when no correction applies.
+  TextEditingValue? _capitalizeIfNeeded(TextEditingValue newValue) {
+    final insertion = _singleCharInsertion(newValue);
+    if (insertion == null) return null;
+    final upper = insertion.char.toUpperCase();
+    if (insertion.char == upper) return null; // not a lowercase letter
+
+    final before = newValue.text.substring(0, insertion.at - 1);
+    final atStart = before.isEmpty || before.endsWith('\n');
+    final afterSentenceEnd = RegExp(r'[.!?]\s+$').hasMatch(before);
+    final afterFreshListPrefix = RegExp(
+      r'(?:^|\n)(?:• |\d+\. )$',
+    ).hasMatch(before);
+    if (!atStart && !afterSentenceEnd && !afterFreshListPrefix) return null;
+
+    final newText = newValue.text;
+    final capitalized =
+        newText.substring(0, insertion.at - 1) +
+        upper +
+        newText.substring(insertion.at);
+    return TextEditingValue(
+      text: capitalized,
+      selection: TextSelection.collapsed(offset: insertion.at),
+    );
+  }
+
+  /// Recognizes "exactly one character was inserted at a collapsed
+  /// cursor, nothing else in the text changed" — the shape of a single
+  /// keypress, as opposed to an IME autocomplete replace, a paste, or a
+  /// toolbar/clipboard edit (all of which this controller's own methods
+  /// below also route through the [value] setter).
+  ({int at, String char})? _singleCharInsertion(TextEditingValue newValue) {
+    final oldText = text;
+    final newText = newValue.text;
+    if (newText.length != oldText.length + 1) return null;
+    if (!newValue.selection.isValid || !newValue.selection.isCollapsed) {
+      return null;
+    }
+    final at = newValue.selection.baseOffset;
+    if (at < 1 || at > newText.length) return null;
+    if (newText.substring(0, at - 1) != oldText.substring(0, at - 1)) {
+      return null;
+    }
+    if (newText.substring(at) != oldText.substring(at - 1)) return null;
+    return (at: at, char: newText[at - 1]);
+  }
+
   /// Copies the current selection as plain text (stripping any rich-text tags)
   /// rather than the underlying HTML markup.
   String plainTextSelection() {
