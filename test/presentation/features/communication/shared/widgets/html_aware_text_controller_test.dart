@@ -159,11 +159,22 @@ void main() {
       expect(controller.text, 'hello worl');
     });
 
-    test('does not capitalize a period directly followed by a letter with no space', () {
+    test('capitalizes a period directly followed by a letter with no space', () {
+      // Real typing routinely runs straight into the next letter with no
+      // space after the period (reported: "Hhnnn." then "b" typed with no
+      // gap) — this must still capitalize, even though it also means an
+      // abbreviation like "e.g." typed the same way capitalizes too.
       final controller = HtmlAwareTextController(text: 'e.g.');
       _typeCharAt(controller, controller.text.length, 'g');
 
-      expect(controller.text, 'e.g.g');
+      expect(controller.text, 'e.g.G');
+    });
+
+    test('capitalizes when the next word runs straight into the period with no space', () {
+      final controller = HtmlAwareTextController(text: 'Hhnnn.');
+      _typeCharAt(controller, controller.text.length, 'b');
+
+      expect(controller.text, 'Hhnnn.B');
     });
 
     test('leaves digits and symbols alone', () {

@@ -117,7 +117,11 @@ class HtmlAwareTextController extends TextEditingController {
 
     final before = newValue.text.substring(0, insertion.at - 1);
     final atStart = before.isEmpty || before.endsWith('\n');
-    final afterSentenceEnd = RegExp(r'[.!?]\s+$').hasMatch(before);
+    // No space required after the punctuation — real typing on mobile
+    // routinely runs the next letter straight into the period with no gap
+    // (as reported: "Hhnnn." followed immediately by "b", no space typed),
+    // and `\s+` here meant that exact, common case never capitalized.
+    final afterSentenceEnd = RegExp(r'[.!?]\s*$').hasMatch(before);
     final afterFreshListPrefix = RegExp(
       r'(?:^|\n)(?:• |\d+\. )$',
     ).hasMatch(before);
