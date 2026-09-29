@@ -37,6 +37,7 @@ class MessagingHeader extends StatelessWidget {
                           )
                       ? staffInfo.avatar
                       : null,
+                  staffCode: staffInfo.staffCode,
                   userCode: staffInfo.staffUserCode,
                   name: staffInfo.name,
                   size: 45,
