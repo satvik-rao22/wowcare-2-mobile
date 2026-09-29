@@ -26,7 +26,7 @@ class ApiConstants {
 
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: 'DEV',
+    defaultValue: 'UAT',
   );
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';

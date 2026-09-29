@@ -467,6 +467,7 @@ import '../../domain/features/communication/usecases/get_conversations_for_class
 import '../../domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import '../../domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import '../../domain/features/communication/usecases/mark_all_read_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
 import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
@@ -2161,6 +2162,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<MarkConversationReadUseCase>(
     () => MarkConversationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkAllReadUseCase>(
+    () => MarkAllReadUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetUnreadCountsPerConversationUseCase>(
     () => GetUnreadCountsPerConversationUseCase(serviceLocator()),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/router/app_routes.dart' show DashboardRoutes;
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -13,6 +14,7 @@ import 'package:wowcare/presentation/features/communication/view_model/unread_ba
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/communication_launcher_button.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_dialogue_box.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
 
@@ -92,6 +94,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       ),
                     ),
                   ),
+                  _MarkAllReadButton(isParent: isParent, isStaff: isStaff),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(
@@ -235,6 +238,91 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Header action that clears every unread badge in one go. The sheet stays open on
+/// success so the badges visibly drop to 0 as the Firestore inbox
+/// listeners pick up the backend's reset — no local badge state is touched.
+class _MarkAllReadButton extends StatefulWidget {
+  const _MarkAllReadButton({required this.isParent, required this.isStaff});
+
+  final bool isParent;
+  final bool isStaff;
+
+  @override
+  State<_MarkAllReadButton> createState() => _MarkAllReadButtonState();
+}
+
+class _MarkAllReadButtonState extends State<_MarkAllReadButton> {
+  bool _loading = false;
+
+  Future<void> _onTap() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const ConfirmationDialog(
+        title: AppStrings.markAllReadConfirmTitle,
+        content: AppStrings.markAllReadConfirmBody,
+        confirmText: AppStrings.markAllRead,
+        cancelText: 'Cancel',
+        showSkipButton: true,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _loading = true);
+    final result = await resolveMarkAllReadUseCase()();
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    result.fold(
+      (failure) => CoreUtils.showTopSnackBar(
+        context: context,
+        message: failure.message ?? AppStrings.markAllReadFailed,
+        isError: true,
+      ),
+      (_) => CoreUtils.showTopSnackBar(
+        context: context,
+        message: AppStrings.markAllReadSuccess,
+        isSuccess: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Always shown, even at 0 unread (product decision). To hide it again
+    // when nothing is unread for the current persona, restore:
+    // final total = context.select<UnreadBadgeCubit, int>((c) {
+    //   final s = c.state;
+    //   if (widget.isParent) return s.parentTotal;
+    //   if (widget.isStaff) return s.staffTotal;
+    //   return s.adminTotal;
+    // });
+    // if (total == 0 && !_loading) return const SizedBox.shrink();
+
+    return TextButton.icon(
+      onPressed: _loading ? null : _onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.primaryColor,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        visualDensity: VisualDensity.compact,
+      ),
+      icon: _loading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.done_all, size: 18),
+      label: Text(
+        AppStrings.markAllRead,
+        style: AppTextStyles.size16.copyWith(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

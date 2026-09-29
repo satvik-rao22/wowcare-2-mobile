@@ -1,4 +1,5 @@
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_all_read_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
@@ -19,3 +20,6 @@ StudentCubit resolveStudentCubit() => serviceLocator<StudentCubit>();
 ClassroomCubit resolveClassroomCubit() => serviceLocator<ClassroomCubit>();
 
 UnreadBadgeCubit resolveUnreadBadgeCubit() => serviceLocator<UnreadBadgeCubit>();
+
+MarkAllReadUseCase resolveMarkAllReadUseCase() =>
+    serviceLocator<MarkAllReadUseCase>();
