@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_profile_pho
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
@@ -523,7 +524,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     // Document" setting — see [_canEditStaffDocuments].
     final canEditStaffDocuments = _canEditStaffDocuments(role);
     // Profile Information and Schedule are manager-owned: the tab additionally
-    // keeps them hidden on the logged-in user's own profile.
+    // keeps them hidden on the logged-in user's own profile — except for a
+    // true admin, who has no other self-service screen for their own
+    // schedule (see `allowOwnProfileEdit` below).
     final canEditManagedProfile = _hasStaffWriteAccess(role);
     return GlobalScaffold(
       hasBackButton: true,
@@ -573,6 +576,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                 StaffProfileTab(
                   staffCode: widget.staffCode,
                   canEdit: canEditManagedProfile,
+                  allowOwnProfileEdit: role.isTrueAdmin,
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
                   onProfileSummaryChanged:
@@ -919,6 +923,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
         children: [
           _buildActionIcon(
             MediaRes.calenderClockIcon,
+            // widget.employmentStatus is the same value this screen already
+            // renders as the "Status: Upcoming" badge, so it's used directly
+            // both to disable the icon and as profileStatus below — no need
+            // to re-fetch it (unlike the attendance-list screens, which
+            // don't have it locally; see resolveStaffProfileStatus).
+            isEnabled: !_isUpcomingProfile,
+            disabledTooltip: 'Attendance unavailable for upcoming staff',
             onTap: () {
               final code = widget.staffCode.trim();
               if (code.isEmpty) {
@@ -942,7 +953,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                   'isAbsent': false,
                   'isExpectedToday': true,
                   'isPresentToday': false,
-                  'profileStatus': 'A',
+                  'profileStatus': widget.employmentStatus ?? 'ACTIVE',
                 },
               );
             },
@@ -987,24 +998,38 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
-  Widget _buildActionIcon(String asset, {required VoidCallback onTap}) {
+  bool get _isUpcomingProfile =>
+      (widget.employmentStatus ?? '').trim().toUpperCase() == 'UPCOMING';
+
+  Widget _buildActionIcon(
+    String asset, {
+    required VoidCallback onTap,
+    bool isEnabled = true,
+    String disabledTooltip = '',
+  }) {
     final bool isSvg = asset.toLowerCase().endsWith('.svg');
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          child: isSvg
-              ? SvgPicture.asset(
-                  asset,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.cardColor,
-                    BlendMode.srcIn,
-                  ),
-                )
-              : Image.asset(asset, height: 28, color: AppColors.cardColor),
+    return AppTooltip(
+      message: !isEnabled ? disabledTooltip : '',
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        child: Opacity(
+          opacity: isEnabled ? 1.0 : 0.5,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: isSvg
+                  ? SvgPicture.asset(
+                      asset,
+                      height: 28,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.cardColor,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Image.asset(asset, height: 28, color: AppColors.cardColor),
+            ),
+          ),
         ),
       ),
     );

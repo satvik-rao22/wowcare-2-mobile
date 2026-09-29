@@ -13,6 +13,7 @@ class StaffThreadInfo {
     required this.avatar,
     required this.code,
     this.staffUserCode,
+    this.staffCode,
     this.designation,
     this.email,
     this.isSigned = false,
@@ -31,6 +32,16 @@ class StaffThreadInfo {
   /// when [avatar] itself is empty (the conversation payload doesn't always
   /// carry a resolved photo/media-asset-code for staff).
   final String? staffUserCode;
+
+  /// The counterpart's staff code (`STF_*`), when the caller already has it
+  /// (e.g. opened from a classroom roster, which always knows the staff
+  /// code directly). Preferred over [staffUserCode] by
+  /// [DocumentImageWidget] — a direct staffCode lookup is the same
+  /// mechanism that reliably resolves the photo everywhere else the staff
+  /// list itself renders it, whereas the userCode fallback needs an extra
+  /// userCode→staffCode resolution step that isn't always available or
+  /// successful for every conversation participant payload.
+  final String? staffCode;
   final String? designation;
   final String? email;
   final bool isSigned;

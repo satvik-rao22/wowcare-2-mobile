@@ -22,6 +22,7 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/staff/widgets/resolve_staff_profile_status.dart';
 import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -574,7 +575,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                       : index;
                                 });
                               },
-                              onView: () {
+                              onView: () async {
+                                final profileStatus =
+                                    await resolveStaffProfileStatus(
+                                      staff.id,
+                                    );
+                                if (!mounted) return;
                                 context.push(
                                   StaffAttendanceProfile.routeName,
                                   extra: {
@@ -587,7 +593,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                     'isAbsent': true,
                                     'isExpectedToday': staff.expectedToday,
                                     'isPresentToday': false,
-                                    'profileStatus': 'A',
+                                    'profileStatus': profileStatus,
                                     'initialShowAbsentDays': true,
                                   },
                                 );
