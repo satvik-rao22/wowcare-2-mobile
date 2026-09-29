@@ -739,6 +739,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      DocumentImageWidget.markStaffPhotoUploaded(staffCode);
       await loadStaffProfile(staffCode);
       return const UserProfilePhotoResult(
         UserProfilePhotoStatus.success,

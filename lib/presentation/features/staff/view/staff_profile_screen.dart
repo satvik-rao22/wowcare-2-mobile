@@ -505,6 +505,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
           );
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      DocumentImageWidget.markStaffPhotoUploaded(staffCode);
       // forEditStaff:true — an admin/director can change another staff
       // member's photo here (see `_canEditStaffRecords`), so this must read
       // that staff member's own record, not fall back to my-profile.

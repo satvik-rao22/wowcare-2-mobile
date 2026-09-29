@@ -39,6 +39,7 @@ class StaffPhotoBackgroundUploadService {
         organizationCode: organizationCode.trim(),
       );
       DocumentImageWidget.clearProfilePhotoCache(staffCode: code);
+      DocumentImageWidget.markStaffPhotoUploaded(code);
       ProfilePhotoUploadEvents.notifyStaffUploaded();
       AppLogger.d('[photo] staff $code photo uploaded (bg)');
     } catch (e) {

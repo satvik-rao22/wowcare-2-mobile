@@ -151,8 +151,19 @@ class DocumentImageWidget extends StatefulWidget {
       _DocumentImageWidgetState._profilePhotoFetchedAt.clear();
       _DocumentImageWidgetState._profilePhotoInFlight.clear();
     } else {
-      if (student.isNotEmpty) _removeProfilePhotoKey('student:$student');
-      if (staff.isNotEmpty) _removeProfilePhotoKey('staff:$staff');
+      // A targeted clear is what runs after a (re-)upload. Lift any delete
+      // tombstone for that owner, or a photo uploaded within minutes of a
+      // delete is treated as still deleted and its Delete option stays hidden.
+      if (student.isNotEmpty) {
+        _removeProfilePhotoKey('student:$student');
+        _DocumentImageWidgetState._profilePhotoDeletedAt.remove(
+          'student:$student',
+        );
+      }
+      if (staff.isNotEmpty) {
+        _removeProfilePhotoKey('staff:$staff');
+        _DocumentImageWidgetState._profilePhotoDeletedAt.remove('staff:$staff');
+      }
       if (classroom.isNotEmpty) _removeProfilePhotoKey('classroom:$classroom');
     }
     // Wake every mounted avatar so the change is visible immediately.
@@ -186,10 +197,13 @@ class DocumentImageWidget extends StatefulWidget {
       final cached = _DocumentImageWidgetState._profilePhotoUrlCache[key];
       if (cached != null && cached.trim().isNotEmpty) {
         try {
-          PaintingBinding.instance.imageCache.evict(NetworkImage(cached.trim()));
+          PaintingBinding.instance.imageCache.evict(
+            NetworkImage(cached.trim()),
+          );
         } catch (_) {}
       }
       _removeProfilePhotoKey(key);
+      _DocumentImageWidgetState._staffKeysWithPhoto.remove(key);
       _DocumentImageWidgetState._profilePhotoDeletedAt[key] = AppTime.nowUtc();
     }
 
@@ -211,12 +225,27 @@ class DocumentImageWidget extends StatefulWidget {
     if (code.isEmpty) return false;
     final key = 'staff:$code';
     if (_DocumentImageWidgetState._wasRecentlyDeleted(key)) return false;
+    if (_DocumentImageWidgetState._staffKeysWithPhoto.contains(key)) {
+      return true;
+    }
     final cached = _DocumentImageWidgetState._profilePhotoUrlCache[key];
     final fetchedAt = _DocumentImageWidgetState._profilePhotoFetchedAt[key];
     if (cached == null || cached.trim().isEmpty || fetchedAt == null) {
       return false;
     }
     return AppTime.nowUtc().difference(fetchedAt) <= _profilePhotoCacheTtl;
+  }
+
+  /// Records that a staff photo was just uploaded successfully, so screens
+  /// offer Delete straight away instead of waiting for an avatar to resolve
+  /// the (eventually-consistent) photo URL. Lifts any delete tombstone.
+  static void markStaffPhotoUploaded(String? staffCode) {
+    final code = (staffCode ?? '').trim();
+    if (code.isEmpty) return;
+    final key = 'staff:$code';
+    _DocumentImageWidgetState._profilePhotoDeletedAt.remove(key);
+    _DocumentImageWidgetState._staffKeysWithPhoto.add(key);
+    _profilePhotoResolvedTick.value++;
   }
 
   /// Seeds the freshly-resolved [url] into the cache for the given owner and
@@ -243,6 +272,10 @@ class DocumentImageWidget extends StatefulWidget {
       _DocumentImageWidgetState._profilePhotoUrlCache[key] = u;
       _DocumentImageWidgetState._profilePhotoFetchedAt[key] = AppTime.nowUtc();
       _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+      _DocumentImageWidgetState._profilePhotoDeletedAt.remove(key);
+      if (key.startsWith('staff:')) {
+        _DocumentImageWidgetState._staffKeysWithPhoto.add(key);
+      }
     }
 
     final student = (studentCode ?? '').trim();
@@ -294,6 +327,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   /// Long enough to outlast the backend's eventual consistency right after a
   /// delete, short enough that it cannot suppress a later re-upload.
   static const Duration _deletedTombstoneTtl = Duration(minutes: 2);
+
+  /// Staff photo keys (`staff:<code>`) an avatar has resolved and is showing.
+  /// Unlike [_profilePhotoUrlCache] this has NO TTL: an avatar keeps painting
+  /// its resolved photo long after the 10-minute cache entry expires, so
+  /// "is there a photo" must not be answered from the TTL'd cache alone.
+  /// Removed only when the photo is deleted ([DocumentImageWidget.forgetProfilePhoto]).
+  static final Set<String> _staffKeysWithPhoto = <String>{};
 
   /// True while [key]'s photo is known to have been deleted recently, so an
   /// empty resolve should CLEAR the avatar rather than leave the old image up.
@@ -572,6 +612,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if ((resolved ?? '').trim().isNotEmpty) {
         _profilePhotoUrlCache[cacheKey] = resolved!.trim();
         _profilePhotoFetchedAt[cacheKey] = AppTime.nowUtc();
+        if (cacheKey.startsWith('staff:')) _staffKeysWithPhoto.add(cacheKey);
         DocumentImageWidget._profilePhotoResolvedTick.value++;
       }
       if (!mounted) return;
