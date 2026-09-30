@@ -87,7 +87,7 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       AppStrings.messagingTitle,
                       style: AppTextStyles.size16.copyWith(
                         fontSize: responsive.isTablet ? 22 : 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
                       ),
                     ),

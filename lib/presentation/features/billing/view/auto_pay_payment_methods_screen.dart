@@ -199,7 +199,7 @@ class _AutoPayPaymentMethodsScreenState
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 15.5,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.billingBlackText87,
                         ),
                       ),
@@ -222,7 +222,7 @@ class _AutoPayPaymentMethodsScreenState
                             : BillingStrings.disabled,
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           color: enabled
                               ? AppColors.successColor
                               : AppColors.billingMutedIconColor,
@@ -331,7 +331,7 @@ class _AutoPayPaymentMethodsScreenState
             ),
             style: const TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.billingBlackText87,
             ),
           ),
@@ -646,7 +646,7 @@ class _AutoPayPaymentMethodsScreenState
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
       ),
     );
   }
@@ -681,7 +681,7 @@ class _AutoPayPaymentMethodsScreenState
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.billingCardOnColorText,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 1,
                   ),
                 ),
@@ -708,7 +708,7 @@ class _AutoPayPaymentMethodsScreenState
                     color: AppColors.billingCardOnColorText,
                     letterSpacing: 2,
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -756,7 +756,7 @@ class _AutoPayPaymentMethodsScreenState
                 BillingStrings.echeck,
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.billingEcheckTitleColor,
                 ),
               ),
@@ -872,7 +872,7 @@ class _AutoPayPaymentMethodsScreenState
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: isDark
                 ? AppColors.billingCardOnColorText
                 : AppColors.billingBlackText87,
@@ -941,7 +941,7 @@ class _AutoPayPaymentMethodsScreenState
                     : 'Maximum of ${state.maxMethods} methods reached',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: canAdd
                       ? _autopayTagFg
                       : AppColors.billingMutedIconColor,
@@ -1017,7 +1017,7 @@ class _AutoPayPaymentMethodsScreenState
                           style: const TextStyle(
                             color: AppColors.billingCardOnColorText,
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                 ),
@@ -1322,7 +1322,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 BillingStrings.editPaymentMethod,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: _primary,
                 ),
               ),
@@ -1466,7 +1466,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                                 style: TextStyle(
                                   color: AppColors.billingCardOnColorText,
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                       );
@@ -1591,7 +1591,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   title,
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: _primary,
                   ),
                 ),

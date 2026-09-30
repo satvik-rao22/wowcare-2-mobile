@@ -26,7 +26,7 @@ class DashboardWelcomeHeader extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontSize: 24,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         if (showSectionLabel) ...[

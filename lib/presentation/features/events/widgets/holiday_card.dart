@@ -158,7 +158,7 @@ class HolidayCard extends StatelessWidget {
             DateFormat('MMM').format(holiday.startDate).toUpperCase(),
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: badgeColor,
               letterSpacing: 0.6,
             ),
@@ -167,7 +167,7 @@ class HolidayCard extends StatelessWidget {
             '${holiday.startDate.day}',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: badgeColor,
             ),
           ),

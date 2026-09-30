@@ -57,7 +57,7 @@ class NewMessagesIndicator extends StatelessWidget {
                         style: AppTextStyles.size14.copyWith(
                           color: AppColors.messagingOnAccent,
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],

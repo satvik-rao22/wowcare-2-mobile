@@ -126,7 +126,7 @@ class MessageInfoDialog extends StatelessWidget {
                     AppStrings.messageInfo,
                     style: AppTextStyles.heading18.copyWith(
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
                     ),
                   ),
@@ -265,7 +265,7 @@ class _MessageSectionLabel extends StatelessWidget {
       label,
       style: AppTextStyles.size14.copyWith(
         fontSize: 12,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: AppColors.primaryColor.withValues(alpha: 0.6),
         letterSpacing: 0.4,
       ),

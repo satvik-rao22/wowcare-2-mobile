@@ -78,7 +78,7 @@ class _PageHeader extends StatelessWidget {
               children: [
                 CustomTextWidget(
                   text: AppStrings.typeAdminChat,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   fontSize: 22,
                   fontColor: AppColors.primaryColor,
                 ),
@@ -197,7 +197,7 @@ class _ConversationTileContent extends StatelessWidget {
                     text: conversation.title.isNotEmpty
                         ? conversation.title
                         : AppStrings.unnamedConversation,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 17,
                     fontColor: AppColors.primaryColor,
                   ),
@@ -295,7 +295,7 @@ class _ConversationTileContent extends StatelessWidget {
                       style: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingOnAccent,
                         fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),

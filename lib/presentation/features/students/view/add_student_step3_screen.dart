@@ -263,7 +263,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                           style: TextStyle(
                             fontFamily: AppFonts.body,
                             fontSize: responsive.buttonFontSize,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.primaryColor,
                           ),
                         ),
@@ -284,7 +284,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         style: TextStyle(
                           fontFamily: AppFonts.body,
                           fontSize: responsive.buttonFontSize,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.whiteColor,
                         ),
                       ),
@@ -408,7 +408,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.primaryColor,
                       ),
                     ),

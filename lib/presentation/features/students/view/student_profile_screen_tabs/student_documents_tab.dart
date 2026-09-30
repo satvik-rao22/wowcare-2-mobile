@@ -730,7 +730,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                 AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w700,
+                                                                FontWeight.w500,
                                                             color: AppColors
                                                                 .whiteColor,
                                                           ),
@@ -769,7 +769,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                 AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
-                                                                FontWeight.w700,
+                                                                FontWeight.w500,
                                                             color: AppColors
                                                                 .attendanceActionAccentColor,
                                                           ),
@@ -859,7 +859,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                               AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
-                                                              FontWeight.w700,
+                                                              FontWeight.w500,
                                                           color: AppColors
                                                               .whiteColor,
                                                         ),

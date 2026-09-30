@@ -417,7 +417,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   style: TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
                   ),
                 ),
@@ -431,7 +431,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                       StudentStrings.close,
                       style: TextStyle(
                         fontFamily: AppFonts.body,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.primaryColor,
                       ),
                     ),
@@ -904,7 +904,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                         style: const TextStyle(
                                           color: AppColors.whiteColor,
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       AppSpacing.gapVXxs,

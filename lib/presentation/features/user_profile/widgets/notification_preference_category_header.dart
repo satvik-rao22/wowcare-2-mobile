@@ -20,7 +20,7 @@ class NotificationPreferenceCategoryHeader extends StatelessWidget {
         style: const TextStyle(
           fontFamily: AppFonts.body,
           fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.4,
           color: AppColors.themeColor,
         ),

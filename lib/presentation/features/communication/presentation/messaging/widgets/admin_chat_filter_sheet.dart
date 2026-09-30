@@ -82,7 +82,7 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
                 Text(
                   AppStrings.filter,
                   style: AppTextStyles.heading18.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 IconButton(
@@ -238,7 +238,7 @@ class _Section extends StatelessWidget {
           Text(
             label,
             style: AppTextStyles.sectionHeader.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.primaryColor.withValues(alpha: 0.7),
             ),
           ),

@@ -105,7 +105,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                         const CustomTextWidget(
                           text: AppStrings.filters,
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                         IconButton(
                           icon: const Icon(Icons.close),
@@ -186,7 +186,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                               AppStrings.clearAll,
                               style: AppTextStyles.mediumWeight.copyWith(
                                 color: AppColors.primaryColor,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -220,7 +220,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                               AppStrings.apply,
                               style: AppTextStyles.mediumWeight.copyWith(
                                 color: AppColors.messagingOnAccent,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),

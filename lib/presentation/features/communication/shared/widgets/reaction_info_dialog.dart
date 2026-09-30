@@ -98,7 +98,7 @@ class ReactionInfoDialog extends StatelessWidget {
                     AppStrings.reactions,
                     style: AppTextStyles.heading18.copyWith(
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
                     ),
                   ),
@@ -129,7 +129,7 @@ class ReactionInfoDialog extends StatelessWidget {
                           '(${entry.value.length})',
                           style: AppTextStyles.size14.copyWith(
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor.withValues(
                               alpha: 0.6,
                             ),

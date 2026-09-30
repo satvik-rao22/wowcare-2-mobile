@@ -78,7 +78,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                     widget.label,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppSurfaces.keyInk(
                         isEnabled ? KeyVariant.primary : KeyVariant.disabled,
                       ),

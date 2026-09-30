@@ -237,7 +237,7 @@ class _DialogHeader extends StatelessWidget {
               AppStrings.groupChatParticipants(total),
               style: AppTextStyles.heading18.copyWith(
                 fontSize: 17,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.messagingTitleColor,
               ),
             ),
@@ -298,7 +298,7 @@ class _StudentCard extends StatelessWidget {
               name,
               style: AppTextStyles.heading18.copyWith(
                 fontSize: 17,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.messagingTitleColor,
               ),
             ),
@@ -323,7 +323,7 @@ class _SectionHeader extends StatelessWidget {
         '$label ($count)',
         style: AppTextStyles.size14.copyWith(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: AppColors.primaryColor,
           letterSpacing: 0.8,
         ),

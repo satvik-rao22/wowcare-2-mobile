@@ -3522,7 +3522,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 child: const CustomTextWidget(
                   text: AppStrings.goBack,
                   fontColor: AppColors.messagingOnAccent,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -3820,7 +3820,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     children: [
                       CustomTextWidget(
                         text: title,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         fontSize: 15,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

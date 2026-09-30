@@ -1007,23 +1007,45 @@ class AppTypeScale {
   static const double s32 = 32;
 
   // ── Weights ──────────────────────────────────────────────────────────────
-  /// 400 — the lightest weight used for readable copy.
+  //
+  // The app runs on a four-step ladder, and each step has one job. Reaching
+  // for a heavier step than the job needs is what made every screen read as
+  // shouting: when everything is bold, nothing is.
+  //
+  //   400 regular   body copy, captions, values, anything not emphasised
+  //   500 medium    every key and button label
+  //   600 semiBold  titles, names, section and table headers, selected tabs
+  //   700 bold      ATTENTION ONLY: an amount, a hero figure, an unread or
+  //                 count badge, an alert headline, the sign-in PIN
+  //
+  // Each step is a bundled Poppins face (see `fonts:` in pubspec.yaml), so a
+  // step below renders lighter than the one above it. Nothing new should ask
+  // for 800 or 900; they resolve to Bold anyway.
+
+  /// 400 — body copy, captions and values. The default for any text that is
+  /// not a title, a key label or a figure that has to be seen first.
   static const FontWeight regular = FontWeight.w400;
 
-  /// 500 — body copy in the brand design language.
+  /// 500 — the label on a key or button. A key is read by its face and its
+  /// rim, so the label has no need to shout.
   static const FontWeight medium = FontWeight.w500;
 
-  /// 600 — headings in the brand design language.
+  /// 600 — titles, names, section and table headers, a selected tab.
   static const FontWeight semiBold = FontWeight.w600;
 
-  /// 700 — titles and emphasis.
+  /// 700 — reserved for the one thing on a screen that must be seen first:
+  /// an amount, a hero statistic, an unread or count badge, an alert.
   static const FontWeight bold = FontWeight.w700;
 
-  /// 800 — eyebrows and small all-caps labels.
+  /// 800 — legacy. Poppins has no ExtraBold face bundled, so this renders as
+  /// [bold]. Kept for the handful of legacy sites; do not use for new text.
   static const FontWeight extraBold = FontWeight.w800;
 
-  /// The weight body copy defaults to. The brand guide sets body at Medium.
-  static const FontWeight bodyWeight = _brand ? medium : regular;
+  /// The weight body copy defaults to: regular in both skins.
+  static const FontWeight bodyWeight = regular;
+
+  /// The weight every key and button label defaults to.
+  static const FontWeight buttonWeight = medium;
 
   /// The weight headings default to.
   static const FontWeight headingWeight = _brand ? semiBold : bold;

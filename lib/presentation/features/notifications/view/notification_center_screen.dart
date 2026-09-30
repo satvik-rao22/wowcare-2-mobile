@@ -221,7 +221,7 @@ class _ActionsRow extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.whiteColor,
                     ),
                   ),

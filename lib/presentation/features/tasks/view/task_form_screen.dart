@@ -1129,7 +1129,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                       style: const TextStyle(
                         color: AppPalette.onBrand,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
             ),

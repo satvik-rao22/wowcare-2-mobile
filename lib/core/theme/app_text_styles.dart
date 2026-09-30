@@ -28,30 +28,30 @@ class AppTextStyles {
   );
 
   /// Title text style - used for section titles
-  /// fontSize: 16, fontWeight: w700, color: primaryColor
+  /// fontSize: 16, fontWeight: w600, color: primaryColor
   static const TextStyle title = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 16,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
     height: 16 / 16,
   );
 
   /// Subtitle text style - used for subtitles
-  /// fontSize: 14, fontWeight: w700, color: primaryColor
+  /// fontSize: 14, fontWeight: w600, color: primaryColor
   static const TextStyle subtitle = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
   /// Body text style - used for regular body text
-  /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
+  /// fontSize: 14, fontWeight: w400, color: primaryColor, height: 19/14
   static const TextStyle body = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 14,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
     height: 19 / 14,
   );
@@ -67,13 +67,27 @@ class AppTextStyles {
   );
 
   /// Button text style - used for button labels
-  /// fontSize: 16, fontWeight: w700, color: varies
+  /// fontSize: 16, fontWeight: w500, color: varies
   static TextStyle button({Color? color}) => TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 16,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w500,
     color: color ?? AppColors.primaryColor,
     height: 16 / 16,
+  );
+
+  /// The label every Material key falls back to when the call site sets no
+  /// style of its own: `TextButton`, `ElevatedButton`, `FilledButton` and
+  /// `OutlinedButton` all read it through the button themes in
+  /// `lib/core/utils/app_themes.dart`. Size and line height match Material's
+  /// own `labelLarge`, so wiring it in moved no button; only the weight is
+  /// ours. No colour: the button's `foregroundColor` supplies it.
+  /// fontSize: 14, fontWeight: w500, height: 20/14
+  static const TextStyle keyLabel = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: AppTypeScale.sizeBase,
+    fontWeight: AppTypeScale.buttonWeight,
+    height: 20 / 14,
   );
 
   /// Section header text style - used for section headers
@@ -179,7 +193,7 @@ class AppTextStyles {
       TextStyle(
         fontFamily: AppFonts.body,
         fontSize: isTablet ? 18 : 16,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w500,
         letterSpacing: (isTablet ? 18 : 16) * (-3 / 100),
       );
 
@@ -188,7 +202,7 @@ class AppTextStyles {
   static TextStyle attendanceCustomTabLabel({required bool isSelected}) =>
       TextStyle(
         fontSize: 16,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
         color: isSelected
             ? AppColors.attendanceTabSelectedLabelColor
             : AppColors.attendanceTabUnselectedLabelColor,
@@ -314,18 +328,18 @@ class AppTextStyles {
   /// Button label with no color of its own — used where the surrounding
   /// button (e.g. `ElevatedButton.styleFrom(foregroundColor: ...)`) supplies
   /// the color.
-  /// fontSize: 16, fontWeight: w700
+  /// fontSize: 16, fontWeight: w500
   static const TextStyle activityPlainButtonLabel = TextStyle(
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w500,
     fontSize: 16,
   );
 
   /// Modal/bottom-sheet dialog title ("Student" list sheet, "Image Uploader").
-  /// fontSize: 18, fontWeight: w700, color: primaryColor
+  /// fontSize: 18, fontWeight: w600, color: primaryColor
   static const TextStyle activityDialogTitle = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 18,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
@@ -339,19 +353,19 @@ class AppTextStyles {
   );
 
   /// "Processing..." label on the media-preview processing card.
-  /// fontSize: 12, fontWeight: w700, color: activityProcessingText
+  /// fontSize: 12, fontWeight: w600, color: activityProcessingText
   static const TextStyle activityProcessingCardText = TextStyle(
     color: AppColors.activityProcessingText,
     fontSize: 12,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
   );
 
   /// "PROCESSING" corner-badge label on media thumbnails.
-  /// fontSize: 9.5, fontWeight: w700, color: activityProcessingBadgeText
+  /// fontSize: 9.5, fontWeight: w600, color: activityProcessingBadgeText
   static const TextStyle activityProcessingBadgeLabel = TextStyle(
     color: AppColors.activityProcessingBadgeText,
     fontSize: 9.5,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
   );
 
   /// Emphasized 13px label text — toggle option labels ("Yes"/"No"),
@@ -513,10 +527,10 @@ class AppTextStyles {
   );
 
   /// "Upload" section label in the school-cloud image uploader dialog.
-  /// fontSize: 14, fontWeight: w700, color: primaryColor
+  /// fontSize: 14, fontWeight: w600, color: primaryColor
   static const TextStyle activityUploadSectionLabel = TextStyle(
     fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
@@ -528,10 +542,10 @@ class AppTextStyles {
   );
 
   /// "Selected Images (N)" section label.
-  /// fontSize: 13, fontWeight: w700, color: primaryColor
+  /// fontSize: 13, fontWeight: w600, color: primaryColor
   static const TextStyle activitySelectedImagesLabel = TextStyle(
     fontSize: 13,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
@@ -550,10 +564,10 @@ class AppTextStyles {
   );
 
   /// "Choose Media" gradient-button label — dims when disabled.
-  /// fontWeight: w600
+  /// fontWeight: w500
   static TextStyle activityGradientButtonLabel({required bool enabled}) =>
       TextStyle(
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         color: enabled
             ? AppColors.cardColor
             : AppColors.activityPlaceholderTextColor,
@@ -565,10 +579,10 @@ class AppTextStyles {
   );
 
   /// "Select Media Source" picker-dialog title.
-  /// fontSize: 20, fontWeight: w700, color: primaryColor
+  /// fontSize: 20, fontWeight: w600, color: primaryColor
   static const TextStyle activityPickerDialogTitle = TextStyle(
     fontSize: 20,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
@@ -641,13 +655,13 @@ class AppTextStyles {
       );
 
   /// Daily/Custom tab toggle label — themed when selected.
-  /// fontWeight: bold
+  /// fontWeight: w600
   static TextStyle activityTabToggleLabel({required bool isSelected}) =>
       TextStyle(
         color: isSelected
             ? AppColors.themeColor
             : AppColors.activityMutedGreyColor,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w600,
       );
 
   /// Filter-screen shimmer-loading label.
@@ -767,7 +781,7 @@ class AppTextStyles {
   /// supplies the size.
   static const TextStyle reportsDownloadButtonLabel = TextStyle(
     color: AppColors.cardColor,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
   );
 
   // ---------------------------------------------------------------------
@@ -840,10 +854,10 @@ class AppTextStyles {
   );
 
   /// "More Options" bottom-sheet title.
-  /// fontSize: 18, fontWeight: w700, color: primaryColor
+  /// fontSize: 18, fontWeight: w600, color: primaryColor
   static const TextStyle movementBottomSheetTitle = TextStyle(
     fontSize: 18,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
   );
 
@@ -930,9 +944,9 @@ class AppTextStyles {
   );
 
   /// Grid header cell text (Classroom/Morning/Afternoon).
-  /// fontSize: 15, fontWeight: w700, color: primaryColor @ 80% opacity
+  /// fontSize: 15, fontWeight: w600, color: primaryColor @ 80% opacity
   static TextStyle get futureAvailabilityHeaderCellText => TextStyle(
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     fontSize: 15,
     color: AppColors.primaryColor.withValues(alpha: 0.8),
   );
@@ -1012,7 +1026,7 @@ class AppTextStyles {
   /// Mark Absent).
   static const TextStyle myDayActionButtonLabel = TextStyle(
     fontSize: 16,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
   );
 
   /// Geofence status line under the card body.
@@ -1102,7 +1116,7 @@ class AppTextStyles {
   static const TextStyle newsletterRecipientCount = TextStyle(
     color: AppColors.primaryColor,
     fontSize: 18,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
   );
 
   /// "Recipients" caption under the count.
@@ -1123,14 +1137,14 @@ class AppTextStyles {
   static const TextStyle newsletterRecipientBadge = TextStyle(
     color: AppColors.primaryColor,
     fontSize: 13,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
   );
 
   /// Title row of the recipients sheet.
   static const TextStyle newsletterSheetTitle = TextStyle(
     color: AppColors.primaryColor,
     fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
   );
 
   /// "+N" extra-attachment count over a card thumbnail.
@@ -1288,7 +1302,7 @@ class AppTextStyles {
   static const TextStyle guardianPinInlineButtonLabel = TextStyle(
     fontFamily: Fonts.manrope,
     fontSize: 13,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w500,
     color: AppColors.whiteColor,
   );
 
@@ -1375,7 +1389,7 @@ class AppTextStyles {
   static const TextStyle appUpdateEyebrow = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 10.5,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w600,
     letterSpacing: 1.05,
     color: AppPalette.brandDark,
   );
@@ -1384,7 +1398,7 @@ class AppTextStyles {
   static const TextStyle appUpdateTitle = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 19.8,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     height: 1.25,
     color: AppPalette.textPrimary,
   );
@@ -1410,14 +1424,14 @@ class AppTextStyles {
   static const TextStyle appUpdateKey = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 13.4,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w500,
   );
 
   /// The single full-width key on the required overlay.
   static const TextStyle appUpdateKeyLarge = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 14.7,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w500,
   );
 
   /// "Time to swap it for WowCare 3.0".
@@ -1442,7 +1456,7 @@ class AppTextStyles {
   static const TextStyle appUpdateVersionNow = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 13.8,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: AppPalette.textMuted,
   );
 
@@ -1450,7 +1464,7 @@ class AppTextStyles {
   static const TextStyle appUpdateVersionNext = TextStyle(
     fontFamily: AppFonts.body,
     fontSize: 15.4,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     color: AppPalette.statusSuccessStrong,
   );
 }

@@ -375,7 +375,7 @@ class _Brandmark extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: screen.height * 0.032,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
               ),
             ),

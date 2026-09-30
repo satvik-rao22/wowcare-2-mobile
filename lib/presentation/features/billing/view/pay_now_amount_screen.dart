@@ -267,7 +267,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: _primary,
                       ),
                     ),
@@ -276,7 +276,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                       style: const TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: _primary,
                       ),
                     ),
@@ -314,7 +314,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: _primary,
                   ),
                 ),
@@ -426,7 +426,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 style: TextStyle(
                   color: AppColors.billingCardOnColorText,
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

@@ -628,7 +628,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               StudentStrings.attendance,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
               ),
             ),

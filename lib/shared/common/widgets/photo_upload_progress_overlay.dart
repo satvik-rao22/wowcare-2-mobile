@@ -59,7 +59,7 @@ class PhotoUploadProgressOverlay extends StatelessWidget {
                       style: const TextStyle(
                         color: AppPalette.textOnDark,
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),

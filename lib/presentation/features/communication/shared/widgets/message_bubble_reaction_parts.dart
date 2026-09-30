@@ -342,7 +342,7 @@ class _EmojiChip extends StatelessWidget {
             '$count',
             style: AppTextStyles.size14.copyWith(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.messagingPreviewBody,
               decoration: TextDecoration.none,
               height: 1.2,

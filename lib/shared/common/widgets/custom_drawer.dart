@@ -231,7 +231,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     style: TextStyle(
                       color: AppPalette.textPrimary,
                       fontSize: 19,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 16),

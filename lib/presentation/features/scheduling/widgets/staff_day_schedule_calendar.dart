@@ -293,7 +293,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                 roomLabel,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.secondaryColor,
                 ),
                 maxLines: 1,
@@ -330,7 +330,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               roomLabel,
               style: const TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: AppColors.secondaryColor,
               ),
               maxLines: 2,
@@ -366,7 +366,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               text: '🍔  Lunch Break  ',
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: MaterialHues.black87,
                 height: 1.2,
               ),

@@ -120,7 +120,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                 Expanded(
                   child: Text(
                     BillingStrings.reviewPayment,
-                    style: _t(18, FontWeight.w700, AppColors.primaryColor),
+                    style: _t(18, FontWeight.w600, AppColors.primaryColor),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -216,7 +216,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                   children: [
                     Text(
                       _brand(),
-                      style: _t(17, FontWeight.w800, AppColors.primaryColor),
+                      style: _t(17, FontWeight.w600, AppColors.primaryColor),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -235,7 +235,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                           : BillingStrings.cardHolderCaps,
                       style: _t(
                         11,
-                        FontWeight.w700,
+                        FontWeight.w600,
                         AppColors.primaryColor.withValues(alpha: 0.45),
                         spacing: 0.4,
                       ),
@@ -274,11 +274,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
             children: [
               Text(
                 BillingStrings.totalAmount,
-                style: _t(16, FontWeight.w800, AppColors.primaryColor),
+                style: _t(16, FontWeight.w600, AppColors.primaryColor),
               ),
               Text(
                 '\$${_money(total)}',
-                style: _t(20, FontWeight.w800, _accent),
+                style: _t(20, FontWeight.w700, _accent),
               ),
             ],
           ),
@@ -301,7 +301,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
         ),
         Text(
           '\$${_money(value)}',
-          style: _t(15, FontWeight.w700, AppColors.primaryColor),
+          style: _t(15, FontWeight.w600, AppColors.primaryColor),
         ),
       ],
     );
@@ -351,7 +351,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
                 BillingStrings.confirmPayment,
                 style: _t(
                   16,
-                  FontWeight.w700,
+                  FontWeight.w500,
                   AppColors.billingCardOnColorText,
                 ),
               ),

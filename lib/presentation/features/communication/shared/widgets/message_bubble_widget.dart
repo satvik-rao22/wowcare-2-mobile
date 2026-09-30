@@ -559,7 +559,7 @@ class _MessageBubbleState extends State<MessageBubble>
                     AppStrings.delete,
                     style: AppTextStyles.size16.copyWith(
                       color: AppColors.messagingOnAccent,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1791,7 +1791,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   child: CustomTextWidget(
                                     text: '+$remaining',
                                     fontSize: 28,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                     fontColor: AppColors.messagingOnAccent,
                                   ),
                                 ),

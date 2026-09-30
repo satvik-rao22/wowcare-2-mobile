@@ -984,7 +984,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                   AppStrings.cancel,
                   style: AppTextStyles.size14.copyWith(
                     fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppSurfaces.keyInk(KeyVariant.secondary),
                   ),
                 ),
@@ -1047,7 +1047,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                   AppStrings.next,
                   style: AppTextStyles.size14.copyWith(
                     fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.messagingOnAccent,
                   ),
                 ),

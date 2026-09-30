@@ -450,7 +450,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar>
                       style: const TextStyle(
                         color: AppPalette.textOnDark,
                         fontSize: 9,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         height: 1,
                       ),
                       textAlign: TextAlign.center,

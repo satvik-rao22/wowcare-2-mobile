@@ -389,7 +389,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   '$count',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: selected ? color : AppPalette.textMuted,
                   ),
                 ),

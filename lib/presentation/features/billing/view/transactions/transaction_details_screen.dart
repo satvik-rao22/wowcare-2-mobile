@@ -886,7 +886,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           const TextSpan(
             text: BillingStrings.parents,
             style: TextStyle(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.billingTextColor,
               fontSize: 14,
               fontFamily: AppFonts.body,
@@ -947,7 +947,7 @@ class _FamilyChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.primaryColor,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
             ),

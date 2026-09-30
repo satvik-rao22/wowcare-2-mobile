@@ -204,7 +204,7 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                         style: TextStyle(
                           color: AppSurfaces.keyInk(KeyVariant.primary),
                           fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -241,7 +241,7 @@ class _MeBadge extends StatelessWidget {
             'Me',
             style: TextStyle(
               fontSize: 10.5,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.themeColor,
             ),
           ),

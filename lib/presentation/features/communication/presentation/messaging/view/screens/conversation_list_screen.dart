@@ -501,7 +501,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
               AppStrings.staffDirectory,
               style: AppTextStyles.size14.copyWith(
                 fontSize: 12,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor.withValues(alpha: 0.6),
                 letterSpacing: 0.5,
               ),

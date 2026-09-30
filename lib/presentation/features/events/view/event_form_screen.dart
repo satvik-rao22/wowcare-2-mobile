@@ -1794,7 +1794,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                         style: TextStyle(
                           color: AppSurfaces.keyInk(KeyVariant.primary),
                           fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),

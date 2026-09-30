@@ -102,7 +102,7 @@ class GeofenceSignInSheet extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppFonts.body,
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.primaryColor, // AppColors.primaryColor
             ),
             textAlign: TextAlign.center,
@@ -186,7 +186,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.whiteColor,
                   ),
                 ),
@@ -220,7 +220,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.themeColor,
                     ),
                   ),

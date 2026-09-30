@@ -177,21 +177,28 @@ flutter:
     # the same family). It is what `AppSkin.childcareWow` renders in — see
     # lib/core/theme/app_theme_config.dart.
     #
-    # Three weights only, matching what the brand guide actually prescribes:
-    # Medium body, Semi Bold headings, Bold emphasis. Flutter resolves any
-    # other requested weight to the nearest bundled face, which lands where
-    # the guide wants it anyway:
+    # Four weights, one per tier of the app's weight ladder (see
+    # `AppTypeScale` in lib/core/theme/app_theme_config.dart and the
+    # "Type weights" section of docs/theming.md):
     #
-    #   w400 (192 sites) -> Medium 500   the guide sets body at Medium
-    #   w800 (15 sites)  -> Bold 700
-    #   w900 (4 sites)   -> Bold 700
-    #   w200 (1 site)    -> Medium 500
+    #   Regular 400   body copy and everything that is not emphasised
+    #   Medium 500    every key and button label
+    #   SemiBold 600  titles, names, section and table headers
+    #   Bold 700      reserved for attention: amounts, hero figures,
+    #                 unread and count badges, alerts
+    #
+    # Flutter resolves any other requested weight to the nearest bundled
+    # face, so the few remaining w800/w900 sites render at Bold. Regular is
+    # bundled on purpose: without it w400 silently rendered at Medium and
+    # body text was indistinguishable from a button label.
     #
     # MediumItalic covers the 8 italic call sites (message bubbles, hint and
     # caption text); without an italic face Flutter renders them upright,
     # since it does not synthesise a slant for a bundled family.
     - family: Poppins
       fonts:
+        - asset: assets/fonts/poppins/Poppins-Regular.ttf
+          weight: 400
         - asset: assets/fonts/poppins/Poppins-Medium.ttf
           weight: 500
         - asset: assets/fonts/poppins/Poppins-MediumItalic.ttf

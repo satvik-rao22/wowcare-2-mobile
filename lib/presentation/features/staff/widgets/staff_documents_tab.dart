@@ -660,7 +660,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                               AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
-                                                              FontWeight.w700,
+                                                              FontWeight.w500,
                                                           color: AppColors
                                                               .cardColor,
                                                         ),
@@ -700,7 +700,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                               AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
-                                                              FontWeight.w700,
+                                                              FontWeight.w500,
                                                           color: Color(
                                                             0xFF6C7FD8,
                                                           ),
@@ -803,7 +803,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                             AppFonts.body,
                                                         fontSize: 16,
                                                         fontWeight:
-                                                            FontWeight.w700,
+                                                            FontWeight.w500,
                                                         color:
                                                             AppColors.cardColor,
                                                       ),

@@ -286,7 +286,7 @@ class FilledActionButton extends StatelessWidget {
             style: const TextStyle(
               fontFamily: AppFonts.body,
               fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: AppColors.billingCardOnColorText,
             ),
           ),
@@ -322,7 +322,7 @@ class OutlineActionButton extends StatelessWidget {
           style: const TextStyle(
             fontFamily: AppFonts.body,
             fontSize: 13,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
             color: _accent,
           ),
         ),
@@ -371,7 +371,7 @@ class StaffCardActions extends StatelessWidget {
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: _accent,
                     height: 16 / 16,
                   ),
@@ -394,7 +394,7 @@ class StaffCardActions extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: AppFonts.body,
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.billingCardOnColorText,
                   height: 16 / 16,
                 ),

@@ -617,7 +617,7 @@ class _StudentCardState extends State<StudentCard> {
                                           style: const TextStyle(
                                             fontFamily: AppFonts.body,
                                             fontSize: 16,
-                                            fontWeight: FontWeight.w700,
+                                            fontWeight: FontWeight.w500,
                                             color: AppColors
                                                 .attendanceActionAccentColor,
                                             height: 16 / 16,
@@ -669,7 +669,7 @@ class _StudentCardState extends State<StudentCard> {
                                             style: TextStyle(
                                               fontFamily: AppFonts.body,
                                               fontSize: 16,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight: FontWeight.w500,
                                               color: AppColors
                                                   .attendanceActionAccentColor,
                                               height: 16 / 16,
@@ -695,7 +695,7 @@ class _StudentCardState extends State<StudentCard> {
                                           style: TextStyle(
                                             fontFamily: AppFonts.body,
                                             fontSize: 16,
-                                            fontWeight: FontWeight.w700,
+                                            fontWeight: FontWeight.w500,
                                             color: AppColors.whiteColor,
                                             height: 16 / 16,
                                           ),

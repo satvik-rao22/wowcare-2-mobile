@@ -218,7 +218,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
         Text(
           widget.transaction.studentName,
           style: AppTextStyles.value.copyWith(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
           ),
         ),
@@ -251,7 +251,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyDark,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -279,7 +279,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.billingGreyDark,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.start,
               ),
@@ -304,7 +304,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyDark,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -480,7 +480,7 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
                     style: TextStyle(
                       color: AppColors.billingButtonTextColor,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
           ),

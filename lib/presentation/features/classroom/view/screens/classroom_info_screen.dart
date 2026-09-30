@@ -241,7 +241,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
           style: const TextStyle(
             fontFamily: AppFonts.body,
             fontSize: 20,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ),
         subtitle: Padding(
@@ -744,7 +744,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                 style: const TextStyle(
                   fontFamily: AppFonts.body,
                   fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -788,7 +788,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                             text: '${details.capacity}',
                             style: const TextStyle(
                               fontFamily: AppFonts.body,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.classroomTextColor,
                             ),
                           ),
@@ -811,7 +811,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                             text: details.studentTeacherRatioDisplay,
                             style: const TextStyle(
                               fontFamily: AppFonts.body,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.classroomTextColor,
                             ),
                           ),

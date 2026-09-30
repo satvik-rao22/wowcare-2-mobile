@@ -130,7 +130,7 @@ class _RetryKey extends StatelessWidget {
           foregroundColor: AppSurfaces.keyInk(KeyVariant.secondary),
           backgroundColor: AppColors.transparentColor,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

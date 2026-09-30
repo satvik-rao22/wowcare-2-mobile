@@ -25,7 +25,7 @@ class CustomCancelButton extends StatelessWidget {
     const labelStyle = TextStyle(
       color: AppColors.primaryColor,
       fontSize: 16,
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w500,
     );
     final label = Text(cancelButtonLabel ?? 'Cancel', style: labelStyle);
 

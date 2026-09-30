@@ -110,7 +110,7 @@ class ParentStatementsWidget extends StatelessWidget {
                     '\$${currentBalance.toStringAsFixed(2)}',
                     style: AppTextStyles.value.copyWith(
                       fontSize: 24,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.themeColor,
                     ),
                   ),
@@ -151,7 +151,7 @@ class ParentStatementsWidget extends StatelessWidget {
                         style: AppTextStyles.value.copyWith(
                           color: AppColors.themeColor,
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
               ),

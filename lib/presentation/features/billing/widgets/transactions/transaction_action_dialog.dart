@@ -46,7 +46,7 @@ class TransactionActionDialog extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.billingTextColor,
                       ),
                     ),

@@ -213,7 +213,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         widget.title,
                         style: AppTextStyles.subtitle.copyWith(
                           color: AppColors.primaryColor,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           fontSize: 18,
                         ),
                       ),

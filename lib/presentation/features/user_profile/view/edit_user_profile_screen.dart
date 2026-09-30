@@ -608,7 +608,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                 style: TextStyle(
                   fontFamily: AppFonts.body,
                   fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.cardColor,
                 ),
               ),

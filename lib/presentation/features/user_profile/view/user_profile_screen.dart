@@ -763,6 +763,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                             SizedBox(height: 10),
                                             CustomTextWidget(
                                               text: displayName,
+                                              fontWeight: FontWeight.w600,
                                               fontSize: 26,
                                             ),
                                             const SizedBox(height: 5),
@@ -864,7 +865,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                       fontFamily: AppFonts.body,
                                                       fontSize: 16,
                                                       fontWeight:
-                                                          FontWeight.w700,
+                                                          FontWeight.w500,
                                                       color:
                                                           AppColors.cardColor,
                                                       height: 16 / 16,
@@ -906,6 +907,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     children: [
                                       CustomTextWidget(
                                         text: 'My Profile',
+                                        fontWeight: FontWeight.w600,
                                         fontSize: 18,
                                       ),
                                       // Staff persona edits their own profile through HR/admin,

@@ -34,7 +34,7 @@ class ConfirmationDialog extends StatelessWidget {
               cancelText,
               style: TextStyle(
                 color: AppColors.primaryColor,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -50,7 +50,7 @@ class ConfirmationDialog extends StatelessWidget {
               confirmText,
               style: const TextStyle(
                 color: AppPalette.onBrand,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),

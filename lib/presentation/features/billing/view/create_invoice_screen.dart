@@ -634,7 +634,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           BillingStrings.addItem,
           style: AppTextStyles.label.copyWith(
             fontSize: isTablet ? 15 : 13,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: AppColors.billingCardColor,
           ),
         ),

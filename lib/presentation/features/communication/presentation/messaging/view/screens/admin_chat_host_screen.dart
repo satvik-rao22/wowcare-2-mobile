@@ -769,7 +769,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
             AppStrings.startNewChat(contacts.length),
             style: AppTextStyles.size14.copyWith(
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               letterSpacing: 0.4,
               color: AppColors.messagingMutedPurple,
             ),
@@ -820,7 +820,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                           Text(
                             name,
                             style: AppTextStyles.size16.copyWith(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.messagingHeadingPlum,
                             ),
                           ),

@@ -423,7 +423,7 @@ class _MovementSummaryRow extends StatelessWidget {
                     day,
                     style: const TextStyle(
                       fontSize: 32,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -459,7 +459,7 @@ class _MovementSummaryRow extends StatelessWidget {
                               'Student 1',
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -473,7 +473,7 @@ class _MovementSummaryRow extends StatelessWidget {
                               studentCount,
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(width: 4),
@@ -481,7 +481,7 @@ class _MovementSummaryRow extends StatelessWidget {
                               'Students',
                               style: TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

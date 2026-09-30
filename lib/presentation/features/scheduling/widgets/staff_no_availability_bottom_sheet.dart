@@ -31,7 +31,7 @@ class StaffNoAvailabilityBottomSheet extends StatelessWidget {
           'their profile.',
           style: TextStyle(
             fontSize: SchedulingBottomSheetScaffold.titleFontSize(context),
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
             height: 1.35,
           ),

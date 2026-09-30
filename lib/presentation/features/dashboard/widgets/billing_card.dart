@@ -418,7 +418,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       rod.toY.toStringAsFixed(0),
                       const TextStyle(
                         color: AppColors.whiteColor,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     );
                   },

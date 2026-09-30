@@ -865,7 +865,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.billingBackgroundColor,
                 ),
               ),
@@ -928,7 +928,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           style: TextStyle(
             color: AppColors.themeColor,
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
