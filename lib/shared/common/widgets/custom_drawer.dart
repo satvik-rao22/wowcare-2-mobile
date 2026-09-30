@@ -1225,14 +1225,8 @@ class _DrawerAccess {
   bool get canViewActivities =>
       _role.canReadModule(AppAccessModules.dailyActivity);
 
-  // TEMPORARY: Events and Tasks are forced visible. `users/details` does not
-  // list their modules yet although the events-todo service serves them. The
-  // router and per-tab guards are untouched. Restore the two lines below once
-  // the permission payload includes those modules.
-  // bool get canViewEvents => EventAccess.canOpenModule(_role);
-  // bool get canViewTasks => TaskAccess.canAccessModule(_role);
-  bool get canViewEvents => true;
-  bool get canViewTasks => true;
+  bool get canViewEvents => EventAccess.canOpenModule(_role);
+  bool get canViewTasks => TaskAccess.canAccessModule(_role);
 
   bool get showParentMessagingDrawer =>
       _role.canReadModule(AppAccessModules.parentMessaging);

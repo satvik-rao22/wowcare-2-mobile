@@ -1,7 +1,5 @@
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
-// TEMP-EVENTS-TASKS-UNLOCK keeps this for the commented-out module-grant checks below.
-// ignore: unused_import
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
@@ -25,18 +23,12 @@ class TaskAccess {
 
   /// The entire Tasks module is hidden from guardians/parents (PRD §5.2:
   /// "No" across every row; FR requirement that parents see no task UI).
-  /// TEMP-EVENTS-TASKS-UNLOCK: the module grant is dropped, the parent
-  /// exclusion is not.
-  // static bool canAccessModule(RoleCubit roles) =>
-  //     !roles.isParent && roles.canOpenModule(AppAccessModules.task);
-  static bool canAccessModule(RoleCubit roles) => !roles.isParent;
+  static bool canAccessModule(RoleCubit roles) =>
+      !roles.isParent && roles.canOpenModule(AppAccessModules.task);
 
   /// Admin and staff can create tasks; parents never can (PRD FR-TK-01).
-  /// TEMP-EVENTS-TASKS-UNLOCK: the module write grant is dropped, the parent
-  /// exclusion is not.
-  // static bool canCreateTasks(RoleCubit roles) =>
-  //     !roles.isParent && roles.canWriteModule(AppAccessModules.task);
-  static bool canCreateTasks(RoleCubit roles) => !roles.isParent;
+  static bool canCreateTasks(RoleCubit roles) =>
+      !roles.isParent && roles.canWriteModule(AppAccessModules.task);
 
   /// Staff/Teacher default to "My Tasks"; admins default to "All Tasks"
   /// (PRD FR-TK-19).
@@ -59,8 +51,7 @@ class TaskAccess {
     String userName = '',
   }) {
     if (roles.isParent) return false;
-    // TEMP-EVENTS-TASKS-UNLOCK
-    // if (!roles.canReadModule(AppAccessModules.task)) return false;
+    if (!roles.canReadModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
     return _isMine(task, userCode, staffCode, userName);
@@ -78,8 +69,7 @@ class TaskAccess {
     String userName = '',
   }) {
     if (roles.isParent) return false;
-    // TEMP-EVENTS-TASKS-UNLOCK
-    // if (!roles.canWriteModule(AppAccessModules.task)) return false;
+    if (!roles.canWriteModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
     return _isMine(task, userCode, staffCode, userName);
