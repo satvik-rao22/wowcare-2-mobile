@@ -165,14 +165,8 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                   : (state is AuthLoaded
                       ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
                       : const <Map<String, String>>[]);
-          // Hide schools that are not yet ACTIVE (e.g. still PENDING
-          // approval) from the picker.
-          final schoolEntries = _schoolStatuses.isEmpty
-              ? allSchoolEntries
-              : allSchoolEntries.where((e) {
-                  final status = _schoolStatuses[(e['schoolCode'] ?? '').trim()];
-                  return status == null || status == 'ACTIVE';
-                }).toList();
+          // PENDING schools stay listed; selecting one is blocked on Next.
+          final schoolEntries = allSchoolEntries;
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
@@ -428,6 +422,28 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                     final schoolCode =
                                         _selectedSchoolCode.value ?? schoolName;
                                     try {
+                                      // Status comes from names-by-org
+                                      // (entry 'status'); users/details
+                                      // statuses are the fallback.
+                                      final entry = schoolEntries.firstWhere(
+                                        (e) => (e['schoolCode'] ?? '') == schoolCode,
+                                        orElse: () => <String, String>{},
+                                      );
+                                      final status = (entry['status'] ??
+                                              _schoolStatuses[schoolCode.trim()] ??
+                                              '')
+                                          .toUpperCase();
+                                      if (status == 'PENDING') {
+                                        if (!context.mounted) return;
+                                        CoreUtils.showTopSnackBar(
+                                          context: context,
+                                          message:
+                                              'This school is pending for review. Please login from web browser first to activate this school.',
+                                          isError: true,
+                                          duration: const Duration(seconds: 6),
+                                        );
+                                        return;
+                                      }
                                       final blockMessage = await authCubit
                                           .verifySchoolActiveOrBlockMessage(
                                         organizationCode: widget.selectedOrg,

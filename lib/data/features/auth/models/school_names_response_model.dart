@@ -42,9 +42,14 @@ class SchoolNamesResponseModel {
             .trim();
         final code =
             (item['schoolCode'] ?? item['code'] ?? item['id'] ?? name).toString().trim();
+        final status = (item['status'] ?? '').toString().trim().toUpperCase();
         if (name.isNotEmpty) {
           names.add(name);
-          withCodes.add({'schoolCode': code, 'schoolName': name});
+          withCodes.add({
+            'schoolCode': code,
+            'schoolName': name,
+            if (status.isNotEmpty) 'status': status,
+          });
         }
       }
     }
