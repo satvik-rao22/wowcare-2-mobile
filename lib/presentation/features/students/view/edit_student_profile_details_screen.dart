@@ -12,7 +12,6 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
@@ -37,6 +36,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_today_si
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -932,21 +933,12 @@ class _EditStudentProfileDetailsScreenState
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: AppColors.whiteColor,
+        backgroundColor: AppColors.pageBackgroundColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
+              child: ColoredBox(color: AppColors.pageBackgroundColor),
             ),
             Column(
               children: [
@@ -960,7 +952,7 @@ class _EditStudentProfileDetailsScreenState
                     child: Text(
                       StudentStrings.editStudent,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
@@ -976,19 +968,7 @@ class _EditStudentProfileDetailsScreenState
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -1011,7 +991,7 @@ class _EditStudentProfileDetailsScreenState
                                 '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
                                     .trim(),
                                 style: const TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryColor,
@@ -1170,19 +1150,19 @@ class _EditStudentProfileDetailsScreenState
                             showAsterisk: true,
                             labelStyle: TextStyle(
                               fontSize: responsive.labelFontSize,
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.w400,
                               color: AppColors.primaryColor,
                             ),
                             selectedTextStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.attendanceSearchHintColor,
                               height: 19 / 14,
                             ),
                             popupItemTextStyle: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.inputFontSize,
                               fontWeight: FontWeight.w400,
                               color: AppColors.primaryColor,
@@ -1224,20 +1204,7 @@ class _EditStudentProfileDetailsScreenState
             right: AppSpacing.md,
             top: AppSpacing.xs,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: CustomButtonLayout(
             confirmButtonLabel: StudentStrings.save,
             onPressedConfirm: _saveProfileDetails,
@@ -1262,7 +1229,7 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1286,13 +1253,7 @@ class _EditStudentProfileDetailsScreenState
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
@@ -1310,7 +1271,7 @@ class _EditStudentProfileDetailsScreenState
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1343,21 +1304,21 @@ class _EditStudentProfileDetailsScreenState
       isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
@@ -1378,7 +1339,7 @@ class _EditStudentProfileDetailsScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1414,7 +1375,7 @@ class _EditStudentProfileDetailsScreenState
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : StudentStrings.selectDate,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
@@ -1426,13 +1387,10 @@ class _EditStudentProfileDetailsScreenState
                     ),
                   ),
                   AppSpacing.gapHXxs,
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

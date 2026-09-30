@@ -13,6 +13,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// The [EditUserProfileCubit] is provided by the router's GoRoute builder
 /// (which also kicks off the profile load), so this screen just renders
@@ -348,7 +350,8 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty &&
+        !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -413,8 +416,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
         // instead of celebrating.
         CoreUtils.showTopSnackBar(
           context: context,
-          message:
-              message.isNotEmpty ? message : 'Profile updated successfully',
+          message: message.isNotEmpty
+              ? message
+              : 'Profile updated successfully',
           isSuccess: !cubit.emailChangeFailed,
           isWarning: cubit.emailChangeFailed,
         );
@@ -546,19 +550,19 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                   showAsterisk: true,
                   labelStyle: TextStyle(
                     fontSize: responsive.labelFontSize + 1,
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w400,
                     color: AppColors.userProfileTextColor,
                   ),
                   selectedTextStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.userProfileSecondaryTextColor,
                     height: 19 / 14,
                   ),
                   popupItemTextStyle: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w400,
                     color: AppColors.userProfileTextColor,
@@ -587,35 +591,22 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             right: 16,
             top: 8,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
+          decoration: AppSurfaces.card(
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
+          child: SkeuKeyBox(
+            variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+            radius: responsive.isTablet ? 16.0 : 8.0,
             height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: isSubmitting ? AppColors.userProfileDisabledButtonColor : null,
-              borderRadius: BorderRadius.circular(
-                responsive.isTablet ? 16.0 : 8.0,
-              ),
-            ),
             child: TextButton(
               onPressed: isSubmitting ? null : () => _saveProfileDetails(),
               child: Text(
                 'Save',
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.buttonFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.cardColor,
@@ -649,7 +640,7 @@ class _InputField extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize + 1,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.userProfileTextColor,
     );
@@ -673,12 +664,8 @@ class _InputField extends StatelessWidget {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.userProfileBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
           ),
           child: TextField(
             controller: controller,
@@ -708,7 +695,9 @@ class _InputField extends StatelessWidget {
                             : const <TextInputFormatter>[])),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: AppColors.userProfileMutedIconColor),
+              hintStyle: labelStyle.copyWith(
+                color: AppColors.userProfileMutedIconColor,
+              ),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -716,7 +705,7 @@ class _InputField extends StatelessWidget {
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.userProfileTextColor,
@@ -760,21 +749,21 @@ class _CustomDropdownField extends StatelessWidget {
       showAsterisk: isRequired,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize + 1,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.userProfileTextColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.userProfileTextColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.userProfileTextColor,

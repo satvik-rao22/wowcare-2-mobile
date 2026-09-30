@@ -3,7 +3,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
 
-/// Newsletter title bar with a horizontal theme gradient background.
+/// Newsletter title bar, on its theme's flat fill.
 class NewsletterThemedTitleBar extends StatelessWidget {
   const NewsletterThemedTitleBar({
     super.key,
@@ -23,7 +23,7 @@ class NewsletterThemedTitleBar extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: 14),
       decoration: BoxDecoration(
-        gradient: theme.titleBarGradient,
+        color: theme.titleBarColor,
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,

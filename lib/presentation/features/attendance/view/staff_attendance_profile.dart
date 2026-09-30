@@ -3,7 +3,6 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
@@ -29,15 +28,14 @@ import 'package:wowcare/domain/features/attendance/entities/attendance_profile_a
 import 'package:wowcare/core/utils/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/modules/attendance_v2/core/config/av2_config.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 // enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 enum StaffProfileAbsentMarkMethod {
@@ -63,66 +61,51 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
     case StaffProfileAbsentMarkMethod.gps:
       return Tooltip(
         message: 'GPS',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.gpsMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.qr:
       return Tooltip(
         message: 'QR',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.qrAttendanceIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.kiosk:
       return Tooltip(
         message: 'Kiosk',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.kioskAttendenceIcons,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.app:
       return Tooltip(
         message: 'APP',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.web:
       return Tooltip(
         message: 'WEB',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
 
@@ -130,56 +113,44 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
       // TODO: Handle this case.
       return Tooltip(
         message: 'PIN',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.pinMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.transfer:
       // TODO: Handle this case.
       return Tooltip(
         message: 'Transfer',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.transferMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.nfc:
       // TODO: Handle this case.
       return Tooltip(
         message: 'NFC',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.nfcMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.biometric:
       // TODO: Handle this case.
       return Tooltip(
         message: 'Biometric',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.biometricMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case StaffProfileAbsentMarkMethod.system:
@@ -187,14 +158,11 @@ Widget _absentMethodIcon(StaffProfileAbsentMarkMethod method) {
       // gear/"System" indicator.
       return Tooltip(
         message: 'System',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.systemMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
   }
@@ -545,6 +513,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
+    // Attendance V2: the new module owns the detail screen and self-loads.
+    // Skip the legacy data fetches when it's enabled.
+    if (Av2Config.enabled) return;
     final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
@@ -965,6 +936,22 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
+    // Attendance V2: render the new overtime detail module. Gating here
+    // rather than at the router keeps every caller (and the typed
+    // StaffAttendanceProfileArgs) working unchanged, and the legacy UI below
+    // is preserved for rollback — flip Av2Config.enabled to false.
+    if (Av2Config.enabled) {
+      // The legacy screen's callers default staffName to '-' as a display
+      // placeholder; V2 treats an EMPTY name as "not known yet" and resolves
+      // it from the overview (and keeps it out of the CSV filename), so the
+      // placeholder is normalised away here.
+      final name = widget.staffName.trim();
+      return StaffDetailScreen(
+        staffCode: widget.staffCode,
+        staffName: name == '-' ? '' : name,
+      );
+    }
+
     final contentPadding = ResponsiveHelper(context).contentPadding;
 
     return GlobalScaffold(

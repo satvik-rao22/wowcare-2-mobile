@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CustomFloatingTextButton extends StatelessWidget {
   const CustomFloatingTextButton({
@@ -22,54 +24,40 @@ class CustomFloatingTextButton extends StatelessWidget {
   final bool? isFilled;
 
   Widget _buildFilledButton() {
-    return Container(
-      height: height ?? 50,
+    return SkeuKeyBox(
+      variant: KeyVariant.primary,
+      radius: borderRadius?.topLeft.x ?? 10,
       width: width ?? 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.rectangle,
-        borderRadius: borderRadius ?? BorderRadius.circular(10),
-        gradient: AppColors.buildPrimaryGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
+      height: height ?? 50,
       child: FloatingActionButton(
         heroTag: null,
         onPressed: onPressed,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         elevation: 0,
-        child: Text(
-          label,
-          style: textStyle,
-        ),
+        child: Text(label, style: textStyle),
       ),
     );
   }
 
   Widget _buildOutlinedButton() {
-    return Container(
-      height: height ?? 50,
+    return SkeuKeyBox(
+      variant: KeyVariant.secondary,
+      radius: borderRadius?.topLeft.x ?? 10,
       width: width ?? 50,
-      decoration: BoxDecoration(
-        borderRadius: borderRadius ?? BorderRadius.circular(10),
-        gradient: AppColors.buildSecondaryGradient(),
-      ),
+      height: height ?? 50,
       padding: const EdgeInsets.all(1),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.transparentColor,
           shape: RoundedRectangleBorder(
             borderRadius: borderRadius ?? BorderRadius.circular(10),
           ),
         ),
-        child: ShaderMask(
-          shaderCallback: (Rect bounds) =>
-              AppColors.buildSecondaryGradient().createShader(bounds),
-          blendMode: BlendMode.srcIn,
-          child: Text(
-            label,
-            style: textStyle,
+        child: Text(
+          label,
+          style: (textStyle ?? const TextStyle()).copyWith(
+            color: AppSurfaces.keyInk(KeyVariant.secondary),
           ),
         ),
       ),

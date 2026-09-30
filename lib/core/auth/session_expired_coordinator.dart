@@ -39,20 +39,16 @@ class SessionExpiredCoordinator {
   DateTime? _lastHandledAt;
 
   /// Routes the user can be on BEFORE they have a session: the splash (`/`,
-  /// which runs its own auth check and routes), the onboarding pages, sign-in
-  /// and forgot-password.
+  /// which runs its own auth check and routes), sign-in and forgot-password.
   ///
-  /// Onboarding is in here for the fresh-install case: a stray 401 from a
-  /// startup call made with no token at all (see [FirebaseAuthService.signIn])
-  /// used to bounce the user off the onboarding pages onto Login with a
-  /// "session expired" error, for a session that never existed. Post-auth
-  /// routes that merely look entry-ish — `/org-selection`, `/school-selection`
-  /// — are deliberately NOT here: a 401 there IS a genuine expiry and must
-  /// still bounce.
+  /// The point is the fresh-install case: a stray 401 from a startup call made
+  /// with no token at all (see [FirebaseAuthService.signIn]) used to bounce the
+  /// user onto Login with a "session expired" error, for a session that never
+  /// existed. Post-auth routes that merely look entry-ish — `/org-selection`,
+  /// `/school-selection` — are deliberately NOT here: a 401 there IS a genuine
+  /// expiry and must still bounce.
   static const Set<String> _preAuthRoutes = {
     '/',
-    '/first-screen',
-    '/onboarding',
     SignInScreen.routeName,
     ForgotPasswordScreen.routeName,
   };
@@ -60,7 +56,7 @@ class SessionExpiredCoordinator {
   /// True when the app is already on a pre-auth route ([_preAuthRoutes]) or
   /// there is no navigator yet. Used to avoid a redirect/snackbar loop when a
   /// burst of 401s lands after we've already bounced the user out, and to avoid
-  /// interrupting the boot/onboarding/login flow.
+  /// interrupting the boot/login flow.
   bool _isOnPreAuthRoute() {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return true;

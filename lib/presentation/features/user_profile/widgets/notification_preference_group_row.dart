@@ -44,7 +44,7 @@ class NotificationPreferenceGroupRow extends StatelessWidget {
               child: Text(
                 group.title,
                 style: const TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ConfirmationDialog extends StatelessWidget {
   final String title;
@@ -20,9 +22,8 @@ class ConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    
     return AlertDialog(
+      backgroundColor: AppPalette.surfaceCard,
       title: Text(title),
       content: Text(content),
       actions: [
@@ -41,16 +42,14 @@ class ConfirmationDialog extends StatelessWidget {
         ],
         TextButton(
           onPressed: () => Navigator.of(context).pop(true), // Confirm action
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(8),
-            ),
             child: Text(
               confirmText,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.onBrand,
                 fontWeight: FontWeight.w600,
               ),
             ),

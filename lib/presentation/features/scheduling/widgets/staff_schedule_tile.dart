@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../model/scheduling_models.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Drop trailing `.0` so whole hours render as `9h` not `9.0h`, but fractional
 /// values (e.g. 7.5h) keep their decimal.
@@ -156,9 +158,9 @@ Color? schedulingAttendanceDotColor(String? status) {
   final normalized = (status ?? '').trim().toUpperCase();
   if (normalized.isEmpty) return null;
   if (normalized == 'SIGNED_IN' || normalized == 'SIGNED-IN') {
-    return const Color.fromRGBO(0, 177, 21, 1);
+    return AppPalette.statusSuccess;
   }
-  if (normalized == 'ABSENT') return Colors.red;
+  if (normalized == 'ABSENT') return MaterialHues.red;
   return null;
 }
 
@@ -247,7 +249,7 @@ class _HourChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SvgPicture.asset(iconAsset, width: 13, height: 13),
+        AppIcon(iconAsset, width: 13, height: 13),
         const SizedBox(width: 2),
         Text(
           '${formatSchedulingHours(hours)}h',
@@ -280,17 +282,11 @@ class StaffTimeRangePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const borderColor = Color(0xFF89A0FF);
+    const borderColor = AppPalette.borderStrong;
     const radius = 8.0;
     final inner = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
-        borderRadius: BorderRadius.circular(radius),
-        border: isPublished
-            ? Border.all(color: borderColor, width: 1.2)
-            : null,
-      ),
+      decoration: AppSurfaces.well(radius: radius),
       child: Text(
         '$startTime -\n$endTime',
         textAlign: TextAlign.center,
@@ -427,12 +423,7 @@ class ShiftHoursTile extends StatelessWidget {
               ],
             ),
           ),
-          SvgPicture.asset(
-            icon,
-            width: 32,
-            height: 32,
-            fit: BoxFit.contain,
-          ),
+          AppIcon(icon, width: 32, height: 32),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/add_shift_cubit.dart';
@@ -17,8 +18,8 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Add Shift form. All form state, validation and the create flow live in
 /// [AddShiftCubit]; this widget is a pure view over that state. It stays a
@@ -202,22 +203,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                       right: 16,
                       top: 8,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          offset: const Offset(0, -4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                      borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        topRight:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: CustomButtonLayout(
                       confirmButtonLabel: state.saving ? 'Saving…' : 'Confirm',
                       onPressedConfirm:
@@ -303,20 +289,22 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Shift Start',
                               isRequired: true,
-                              time: state.shiftStart,
+                              initialTime: state.shiftStart,
                               errorText: state.shiftStartError,
                               onTimeSelected: cubit.setShiftStart,
                             ),
                           ),
                           SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Shift End',
                               isRequired: true,
-                              time: state.shiftEnd,
+                              initialTime: state.shiftEnd,
                               errorText: state.shiftEndError,
                               onTimeSelected: cubit.setShiftEnd,
                             ),
@@ -328,9 +316,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Break Start',
-                              time: state.breakStart,
+                              initialTime: state.breakStart,
                               errorText: state.breakStartError,
                               onTimeSelected: cubit.setBreakStart,
                               onClear: () => cubit.setBreakStart(null),
@@ -338,9 +327,10 @@ class _AddShiftViewState extends State<_AddShiftView> {
                           ),
                           SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                           Expanded(
-                            child: GradientTimePickerField(
+                            child: CustomDateTimeField(
+                              isTime: true,
                               label: 'Break End',
-                              time: state.breakEnd,
+                              initialTime: state.breakEnd,
                               errorText: state.breakEndError,
                               onTimeSelected: cubit.setBreakEnd,
                               onClear: () => cubit.setBreakEnd(null),
@@ -366,7 +356,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                           Text(
                             state.daysError!,
                             style: const TextStyle(
-                              color: Colors.red,
+                              color: MaterialHues.red,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -422,7 +412,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -440,7 +430,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -469,21 +459,16 @@ class _AddShiftViewState extends State<_AddShiftView> {
         if (state.repeatOn)
           GestureDetector(
             onTap: cubit.toggleSelectAll,
-            child: ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: AppColors.primaryGradientColors,
-              ).createShader(bounds),
-              child: Text(
+            child: Text(
                 state.selectedDays.length == state.availableWeekDays.length
                     ? 'Clear All'
                     : 'Select All',
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.themeColor,
                 ),
               ),
-            ),
           ),
       ],
     );
@@ -559,13 +544,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
           constraints: BoxConstraints(
             minHeight: responsive.inputFieldHeight,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _noteController,
             maxLines: 3,
@@ -578,7 +557,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
             ),
             decoration: InputDecoration(
               hintText: 'Write a note',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: MaterialHues.grey500),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

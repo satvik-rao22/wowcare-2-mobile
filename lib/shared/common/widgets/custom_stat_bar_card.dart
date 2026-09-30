@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class ProgressItemHelper {
   const ProgressItemHelper({
@@ -129,7 +130,9 @@ class CustomStatBarCard extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           shape: BoxShape.rectangle,
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: isSelected
+              ? AppPalette.surfaceCard
+              : AppColors.transparentColor,
           border: Border(
             bottom: BorderSide(
               color: isSelected ? AppColors.themeColor : Colors.transparent,
@@ -203,8 +206,8 @@ class CustomStatBarCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'Manrope',
-                              color: const Color(0xff573353),
+                              fontFamily: AppFonts.body,
+                              color: AppColors.primaryColor,
                               fontWeight: FontWeight.w500,
                               fontSize: titleFontSize ?? 15,
                             ),
@@ -237,8 +240,8 @@ class CustomStatBarCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: const Color(0xff573353),
+                            fontFamily: AppFonts.body,
+                            color: AppColors.primaryColor,
                             fontWeight: FontWeight.w500,
                             fontSize: titleFontSize ?? 15,
                           ),
@@ -268,7 +271,11 @@ class CustomStatBarCard extends StatelessWidget {
                 width: double.infinity,
                 child: Row(
                   children: percentTotal == 0
-                      ? [Expanded(child: Container(color: Colors.grey[300]))]
+                      ? [
+                          Expanded(
+                            child: Container(color: MaterialHues.grey300),
+                          ),
+                        ]
                       : [
                           ...barItems.map(
                             (item) => Expanded(
@@ -279,7 +286,7 @@ class CustomStatBarCard extends StatelessWidget {
                           if (percentTotal < 100)
                             Expanded(
                               flex: ((100 - percentTotal) * 1000 ~/ 100),
-                              child: Container(color: Colors.grey[300]),
+                              child: Container(color: MaterialHues.grey300),
                             ),
                         ],
                 ),
@@ -326,8 +333,8 @@ class CustomStatBarCard extends StatelessWidget {
                           title,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: const Color(0xff573353),
+                            fontFamily: AppFonts.body,
+                            color: AppColors.primaryColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -348,8 +355,8 @@ class CustomStatBarCard extends StatelessWidget {
                         title,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontFamily: 'Manrope',
-                          color: const Color(0xff573353),
+                          fontFamily: AppFonts.body,
+                          color: AppColors.primaryColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -367,7 +374,7 @@ class CustomStatBarCard extends StatelessWidget {
                         children: !hasValidTotal
                             ? [
                                 Expanded(
-                                  child: Container(color: Colors.grey[300]),
+                                  child: Container(color: MaterialHues.grey300),
                                 ),
                               ]
                             : [
@@ -396,7 +403,9 @@ class CustomStatBarCard extends StatelessWidget {
                                               .round();
                                       return computed <= 0 ? 1 : computed;
                                     })(),
-                                    child: Container(color: Colors.grey[300]),
+                                    child: Container(
+                                      color: MaterialHues.grey300,
+                                    ),
                                   ),
                               ],
                       ),

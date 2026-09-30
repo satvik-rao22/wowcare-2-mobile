@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Bottom sheet that lets a STAFF persona edit only a student's tags.
 ///
@@ -153,10 +154,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
             AppSpacing.md,
             AppSpacing.md,
           ),
-          decoration: const BoxDecoration(
-            color: AppColors.whiteColor,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: 24),
           child: SafeArea(
             top: false,
             child: Column(
@@ -169,7 +167,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                     const Text(
                       StudentStrings.editTags,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,

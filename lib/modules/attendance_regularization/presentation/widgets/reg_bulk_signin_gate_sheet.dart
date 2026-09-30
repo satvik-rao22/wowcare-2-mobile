@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
@@ -320,35 +322,28 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
           ],
         ),
         const SizedBox(height: Av2Spacing.xs),
-        TextField(
-          controller: _reason,
-          maxLines: 2,
-          maxLength: RegConfig.reasonMaxLength,
-          style: Av2Text.body,
-          onChanged: (_) {
-            if (_error != null) setState(() => _error = null);
-          },
-          decoration: InputDecoration(
-            hintText: 'e.g. forgot to sign out',
-            hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
-            filled: true,
-            fillColor: Av2Colors.surfaceMuted,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-              borderSide: const BorderSide(color: Av2Colors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-              borderSide: const BorderSide(color: Av2Colors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-              borderSide: const BorderSide(color: Av2Colors.theme),
-            ),
+        SkeuFieldWell(
+          // A field you type into is a well: no edge at rest, none on focus.
+          radius: Av2Spacing.radiusSm,
+          child: TextField(
+            controller: _reason,
+            maxLines: 2,
+            maxLength: RegConfig.reasonMaxLength,
+            style: Av2Text.body,
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            decoration: AppSurfaces.fieldDecoration(radius: Av2Spacing.radiusSm)
+                .copyWith(
+                  hintText: 'e.g. forgot to sign out',
+                  hintStyle: Av2Text.body.copyWith(
+                    color: Av2Colors.textTertiary,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
+                  ),
+                ),
           ),
         ),
         if (_error != null) ...[
@@ -370,13 +365,13 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
               child: Ink(
                 height: 48,
                 decoration: BoxDecoration(
-                  gradient: Av2Colors.primaryGradient,
+                  color: Av2Colors.primaryFill,
                   borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
                 ),
                 child: Center(
                   child: Text(
                     'Close all $n & sign them in',
-                    style: Av2Text.bodyMedium.copyWith(color: Colors.white),
+                    style: Av2Text.bodyMedium.copyWith(color: Av2Colors.onPrimary),
                   ),
                 ),
               ),

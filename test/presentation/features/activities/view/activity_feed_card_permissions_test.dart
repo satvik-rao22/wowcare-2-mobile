@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_card_permissions.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/model/activity_item.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 
 // AC-P0-3 (permission integrity): the admin approve/reject bar must respect the

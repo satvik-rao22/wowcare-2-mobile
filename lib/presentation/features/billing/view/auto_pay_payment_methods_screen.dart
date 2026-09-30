@@ -21,6 +21,9 @@ import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class AutoPayPaymentMethodsScreen extends StatefulWidget {
   const AutoPayPaymentMethodsScreen({super.key, this.isPicker = false});
@@ -77,8 +80,7 @@ class _AutoPayPaymentMethodsScreenState
       value: _cubit,
       child: BlocConsumer<AutoPayMethodsCubit, AutoPayMethodsState>(
         listenWhen: (prev, curr) =>
-            prev.errorMessage != curr.errorMessage &&
-            curr.errorMessage != null,
+            prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
         listener: (context, state) {
           CoreUtils.showTopSnackBar(
             context: context,
@@ -205,7 +207,9 @@ class _AutoPayPaymentMethodsScreenState
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: enabled
                             ? AppColors.billingSuccessBackground
@@ -213,7 +217,9 @@ class _AutoPayPaymentMethodsScreenState
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        enabled ? BillingStrings.enabled : BillingStrings.disabled,
+                        enabled
+                            ? BillingStrings.enabled
+                            : BillingStrings.disabled,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
@@ -228,7 +234,10 @@ class _AutoPayPaymentMethodsScreenState
                 const SizedBox(height: 2),
                 const Text(
                   BillingStrings.automaticallyPayInvoicesUsing,
-                  style: TextStyle(fontSize: 12, color: AppColors.billingBlackText54),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.billingBlackText54,
+                  ),
                 ),
               ],
             ),
@@ -310,8 +319,11 @@ class _AutoPayPaymentMethodsScreenState
                           'You can save up to $maxMethods payment methods.',
                       triggerMode: TooltipTriggerMode.tap,
                       showDuration: const Duration(seconds: 3),
-                      child: Icon(Icons.info_outline,
-                          size: 16, color: AppColors.billingMutedIconColor),
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: AppColors.billingMutedIconColor,
+                      ),
                     ),
                   ),
                 ),
@@ -340,8 +352,11 @@ class _AutoPayPaymentMethodsScreenState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_user_outlined,
-              size: 14, color: AppColors.successColor),
+          Icon(
+            Icons.verified_user_outlined,
+            size: 14,
+            color: AppColors.successColor,
+          ),
           const SizedBox(width: 6),
           Text(
             BillingStrings.secureAndEncrypted,
@@ -389,27 +404,32 @@ class _AutoPayPaymentMethodsScreenState
                 // as b. 3+ cards keep the centered both-side peek (distinct).
                 padEnds: count != 2,
                 onPageChanged: (i) => setState(() => _currentPage = i % count),
-                itemBuilder: (_, i) => _buildMethodCard(state, methods[i % count]),
+                itemBuilder: (_, i) =>
+                    _buildMethodCard(state, methods[i % count]),
               ),
               if (loop) ...[
                 Align(
                   alignment: Alignment.centerLeft,
                   child: _arrowButton(
                     Icons.chevron_left,
-                    () => unawaited(_pageController!.previousPage(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOut,
-                    )),
+                    () => unawaited(
+                      _pageController!.previousPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
                   ),
                 ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _arrowButton(
                     Icons.chevron_right,
-                    () => unawaited(_pageController!.nextPage(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOut,
-                    )),
+                    () => unawaited(
+                      _pageController!.nextPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -423,7 +443,10 @@ class _AutoPayPaymentMethodsScreenState
           const Center(
             child: Text(
               BillingStrings.savingYourPaymentMethod,
-              style: TextStyle(color: AppColors.billingMutedSlateText, fontSize: 12),
+              style: TextStyle(
+                color: AppColors.billingMutedSlateText,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -484,8 +507,10 @@ class _AutoPayPaymentMethodsScreenState
     final initialPage = methods.length > 1
         ? _loopBase - (_loopBase % methods.length) + target
         : target;
-    _pageController =
-        PageController(viewportFraction: 0.88, initialPage: initialPage);
+    _pageController = PageController(
+      viewportFraction: 0.88,
+      initialPage: initialPage,
+    );
   }
 
   // ── Method card (rich visual) ────────────────────────────────────────────
@@ -536,11 +561,15 @@ class _AutoPayPaymentMethodsScreenState
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               const SizedBox(width: 4),
-              if (m.autopay) _tag(BillingStrings.autoPay, _autopayTagBg, _autopayTagFg),
+              if (m.autopay)
+                _tag(BillingStrings.autoPay, _autopayTagBg, _autopayTagFg),
               if (m.primary) ...[
                 if (m.autopay) const SizedBox(width: 6),
-                _tag(BillingStrings.primary, AppColors.billingSuccessBackground,
-                    AppColors.successColor),
+                _tag(
+                  BillingStrings.primary,
+                  AppColors.billingSuccessBackground,
+                  AppColors.successColor,
+                ),
               ],
               if (disabled) ...[
                 if (m.autopay || m.primary) const SizedBox(width: 6),
@@ -626,7 +655,7 @@ class _AutoPayPaymentMethodsScreenState
     final card = m.card;
     final last4 = card?.last4 ?? m.last4 ?? '••••';
     final type = (card?.cardType ?? m.methodType.apiValue).toUpperCase();
-    final gradient = _cardGradient(type);
+    final Color face = _cardFace(type);
     final exp = (card?.expireMonth != null && card?.expireYear != null)
         ? '${card!.expireMonth.toString().padLeft(2, '0')}/${card.expireYear}'
         : '--/--';
@@ -634,17 +663,7 @@ class _AutoPayPaymentMethodsScreenState
       width: double.infinity,
       constraints: const BoxConstraints(maxWidth: 480),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.impact().copyWith(color: face),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -799,39 +818,23 @@ class _AutoPayPaymentMethodsScreenState
 
   String _echeckAccountTypeLabel(String? accountType) {
     final lower = (accountType ?? '').toLowerCase();
-    if (lower == 'c' || lower.contains('checking')) return BillingStrings.checking;
+    if (lower == 'c' || lower.contains('checking'))
+      return BillingStrings.checking;
     if (lower == 's' || lower.contains('saving')) return BillingStrings.savings;
     return accountType ?? BillingStrings.bankAccount;
   }
 
-  LinearGradient _cardGradient(String cardType) {
+  /// The face of a stored card. All four are the navy impact face: the brand
+  /// is carried by the card's own logo and label, not by tinting the whole
+  /// card, and four saturated washes in one list read as decoration.
+  Color _cardFace(String cardType) {
     final type = cardType.toLowerCase();
-    if (type.contains('visa')) {
-      return const LinearGradient(
-        colors: AppColors.billingVisaGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
+    if (type.contains('visa')) return AppColors.billingVisaCardFace;
     if (type.contains('mast') || type.contains('master')) {
-      return const LinearGradient(
-        colors: AppColors.billingMastercardGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
+      return AppColors.billingMastercardCardFace;
     }
-    if (type.contains('disc')) {
-      return const LinearGradient(
-        colors: AppColors.billingDiscoverGradientColors,
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    return const LinearGradient(
-      colors: AppColors.billingGenericCardGradientColors,
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
+    if (type.contains('disc')) return AppColors.billingDiscoverCardFace;
+    return AppColors.billingGenericCardFace;
   }
 
   Widget _buildChip() {
@@ -840,18 +843,8 @@ class _AutoPayPaymentMethodsScreenState
       height: 28,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        gradient: const LinearGradient(
-          colors: AppColors.billingCardChipGradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.billingCardChipColor,
+        boxShadow: AppElevation.card,
       ),
     );
   }
@@ -936,8 +929,11 @@ class _AutoPayPaymentMethodsScreenState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add_circle_outline,
-                  size: 20, color: _autopayTagFg),
+              const Icon(
+                Icons.add_circle_outline,
+                size: 20,
+                color: _autopayTagFg,
+              ),
               const SizedBox(width: 8),
               Text(
                 state.canAddMore
@@ -997,13 +993,11 @@ class _AutoPayPaymentMethodsScreenState
                   ? (widget.isPicker ? _handleContinue : _handleSave)
                   : null,
               borderRadius: BorderRadius.circular(16),
-              child: Container(
-                height: 54,
+              child: SkeuKeyBox(
+                variant: KeyVariant.primary,
+                radius: 16,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                height: 54,
                 child: Center(
                   child: state.isSettingPrimary
                       ? const SizedBox(
@@ -1012,11 +1006,14 @@ class _AutoPayPaymentMethodsScreenState
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.billingCardOnColorText),
+                              AppColors.billingCardOnColorText,
+                            ),
                           ),
                         )
                       : Text(
-                          widget.isPicker ? BillingStrings.continueLabel : BillingStrings.save,
+                          widget.isPicker
+                              ? BillingStrings.continueLabel
+                              : BillingStrings.save,
                           style: const TextStyle(
                             color: AppColors.billingCardOnColorText,
                             fontSize: 16,
@@ -1031,13 +1028,18 @@ class _AutoPayPaymentMethodsScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outline,
-                  size: 14, color: AppColors.billingMutedIconColor),
+              Icon(
+                Icons.lock_outline,
+                size: 14,
+                color: AppColors.billingMutedIconColor,
+              ),
               const SizedBox(width: 6),
               Text(
                 BillingStrings.yourPaymentInformationIsSecure,
                 style: TextStyle(
-                    fontSize: 12, color: AppColors.billingCaptionTextColor),
+                  fontSize: 12,
+                  color: AppColors.billingCaptionTextColor,
+                ),
               ),
             ],
           ),
@@ -1103,7 +1105,9 @@ class _AutoPayPaymentMethodsScreenState
     final result = await context.push<dynamic>(
       AutoPayTokenWebView.routeName,
       extra: AutoPayTokenWebViewArgs(
-        payload: _cubit.buildWebviewPayload(title: BillingStrings.addPaymentMethod),
+        payload: _cubit.buildWebviewPayload(
+          title: BillingStrings.addPaymentMethod,
+        ),
       ),
     );
     if (!mounted || result is! Map) return;
@@ -1112,13 +1116,16 @@ class _AutoPayPaymentMethodsScreenState
       final error = result['error'];
       final message = error is Map
           ? (error['response_description'] ??
-                  error['response_text'] ??
-                  error['error_message'] ??
-                  BillingStrings.unableToAddPaymentMethod)
-              .toString()
-          : (error?.toString() ??
-              BillingStrings.unableToAddPaymentMethod);
-      CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+                    error['response_text'] ??
+                    error['error_message'] ??
+                    BillingStrings.unableToAddPaymentMethod)
+                .toString()
+          : (error?.toString() ?? BillingStrings.unableToAddPaymentMethod);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
       return;
     }
 
@@ -1141,7 +1148,9 @@ class _AutoPayPaymentMethodsScreenState
         ? PaymentMethodType.echeck
         : PaymentMethodTypeX.fromApi(data['card_type']?.toString());
     // Never log the one-time payment token — only the non-sensitive shape.
-    debugPrint('[AUTOPAY] tokenization result (type=${type.apiValue}, tokenPresent=${token.isNotEmpty})');
+    debugPrint(
+      '[AUTOPAY] tokenization result (type=${type.apiValue}, tokenPresent=${token.isNotEmpty})',
+    );
 
     final ok = await _cubit.addPaymentMethodFromToken(
       oneTimeToken: token,
@@ -1181,20 +1190,20 @@ class _AutoPayPaymentMethodsScreenState
 /// UPPERCASE letters only, max 4 words, a single space between words and no
 /// leading space — shared by the account-holder fields.
 List<TextInputFormatter> _holderFormatters() => [
-      FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
-      TextInputFormatter.withFunction((old, value) {
-        var v = value.text
-            .toUpperCase()
-            .replaceAll(RegExp(' {2,}'), ' ') // single space between words
-            .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
-        final parts = v.split(' ');
-        if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
-        return value.copyWith(
-          text: v,
-          selection: TextSelection.collapsed(offset: v.length),
-        );
-      }),
-    ];
+  FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
+  TextInputFormatter.withFunction((old, value) {
+    var v = value.text
+        .toUpperCase()
+        .replaceAll(RegExp(' {2,}'), ' ') // single space between words
+        .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
+    final parts = v.split(' ');
+    if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
+    return value.copyWith(
+      text: v,
+      selection: TextSelection.collapsed(offset: v.length),
+    );
+  }),
+];
 
 /// Bottom-sheet editor for a saved method: editable fields per type (card:
 /// name + expiry; eCheck: holder, routing, type) plus Make Primary / Use for
@@ -1227,7 +1236,8 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     super.initState();
     final m = widget.method;
     _holder = TextEditingController(
-      text: (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard ?? '')
+      text:
+          (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard ?? '')
               ?.toUpperCase() ??
           '',
     );
@@ -1283,7 +1293,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         decoration: const BoxDecoration(
@@ -1338,16 +1350,24 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 CustomDropdown(
                   label: BillingStrings.accountType,
                   hintText: BillingStrings.selectAccountType,
-                  items: const [BillingStrings.checking, BillingStrings.savings],
-                  selectedItem: _accountType == 'savings' ? BillingStrings.savings : BillingStrings.checking,
+                  items: const [
+                    BillingStrings.checking,
+                    BillingStrings.savings,
+                  ],
+                  selectedItem: _accountType == 'savings'
+                      ? BillingStrings.savings
+                      : BillingStrings.checking,
                   labelStyle: _ddLabel,
                   showAsterisk: false,
                   labelBottomSpacing: 6,
                   fieldHeight: 52,
                   onSelect: (v) {
                     if (v == null) return;
-                    setState(() =>
-                        _accountType = v == 'Savings' ? 'savings' : 'checking');
+                    setState(
+                      () => _accountType = v == 'Savings'
+                          ? 'savings'
+                          : 'checking',
+                    );
                   },
                 ),
               ] else ...[
@@ -1360,8 +1380,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         label: BillingStrings.expiryMonth,
                         hintText: 'MM',
                         items: months,
-                        selectedItem:
-                            months.contains(_expMonth) ? _expMonth : null,
+                        selectedItem: months.contains(_expMonth)
+                            ? _expMonth
+                            : null,
                         labelStyle: _ddLabel,
                         showAsterisk: false,
                         labelBottomSpacing: 6,
@@ -1377,8 +1398,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         label: BillingStrings.expiryYear,
                         hintText: 'YYYY',
                         items: years,
-                        selectedItem:
-                            years.contains(_expYear) ? _expYear : null,
+                        selectedItem: years.contains(_expYear)
+                            ? _expYear
+                            : null,
                         labelStyle: _ddLabel,
                         showAsterisk: false,
                         labelBottomSpacing: 6,
@@ -1420,10 +1442,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 width: double.infinity,
                 height: 50,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                  decoration: AppSurfaces.key(KeyVariant.primary, radius: 14),
                   child: BlocBuilder<AutoPayMethodsCubit, AutoPayMethodsState>(
                     bloc: widget.cubit,
                     buildWhen: (prev, curr) => prev.isSaving != curr.isSaving,
@@ -1438,7 +1457,8 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppColors.billingCardOnColorText),
+                                    AppColors.billingCardOnColorText,
+                                  ),
                                 ),
                               )
                             : const Text(
@@ -1463,24 +1483,24 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
 
   // Label style shared by the CustomDropdowns (matches the Add Staff form).
   static const TextStyle _ddLabel = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: _primary,
   );
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontFamily: Fonts.manrope,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: _primary,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontFamily: AppFonts.body,
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        color: _primary,
+      ),
+    ),
+  );
 
   Widget _field({
     required TextEditingController controller,
@@ -1490,19 +1510,16 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     bool capsAll = false,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: AppColors.billingBorderDefault),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: AppSurfaces.field(radius: 8),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
         inputFormatters: formatters,
-        textCapitalization:
-            capsAll ? TextCapitalization.characters : TextCapitalization.none,
+        textCapitalization: capsAll
+            ? TextCapitalization.characters
+            : TextCapitalization.none,
         style: const TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           color: _primary,
@@ -1511,14 +1528,16 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.billingMutedIconColor,
           ),
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -1580,7 +1599,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                      fontSize: 12, color: AppColors.billingCaptionTextColor),
+                    fontSize: 12,
+                    color: AppColors.billingCaptionTextColor,
+                  ),
                 ),
               ],
             ),

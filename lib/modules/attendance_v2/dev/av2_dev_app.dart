@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 
 import '../core/theme/av2_colors.dart';
 import '../data/fixtures/staff_overtime_fixtures.dart';
@@ -23,7 +24,7 @@ class Av2DevApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         colorScheme: ColorScheme.fromSeed(seedColor: Av2Colors.primary),
       ),
       home: const _DevHost(),

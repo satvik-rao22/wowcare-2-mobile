@@ -5,7 +5,6 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/entities/staff_sign_in_request.dart';
@@ -416,24 +415,41 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // too), never UI state.
     _submitInFlight = true;
     try {
-      // Admin-only override: clear same-day absence records for any
-      // selected staff who were marked absent, before creating the sign-in.
-      // Self-service (non-admin / QR) sign-in never runs this — an absent
-      // staff member cannot recover their own day this way.
-      if (isStaffAdmin) {
-        await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
-          attendanceDateYyyyMmDd: attendanceDate,
-          actingStaffCode: staffCode,
-          targets: selectedStaff
-              .map(
-                (s) => (
-                  staffCode: (s.staffCode ?? '').trim(),
-                  classroomCode: (s.classroomCode ?? '').trim(),
-                  name: s.name,
-                ),
-              )
-              .toList(),
-        );
+      // Clear same-day absence records for any selected staff who were
+      // marked absent, before creating the sign-in. Runs for admins and for
+      // self sign-in, so a staff member who marked themselves absent can
+      // still sign in. For self-service it is best-effort: if the absence
+      // can't be cleared, the sign-in POST still runs and the backend decides.
+      if (isStaffAdmin || isSelfSignIn) {
+        final targets = selectedStaff
+            .map(
+              (s) => (
+                staffCode: (s.staffCode ?? '').trim(),
+                classroomCode: (s.classroomCode ?? '').trim(),
+                name: s.name,
+              ),
+            )
+            .toList();
+        if (isStaffAdmin) {
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+            attendanceDateYyyyMmDd: attendanceDate,
+            actingStaffCode: staffCode,
+            targets: targets,
+          );
+        } else {
+          try {
+            await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+              attendanceDateYyyyMmDd: attendanceDate,
+              actingStaffCode: staffCode,
+              targets: targets,
+            );
+          } catch (e) {
+            AppLogger.d(
+              '[StaffSignIn] self absence clear failed ($e); '
+              'proceeding to sign-in',
+            );
+          }
+        }
       }
 
       final result = await _submitCubit.submit(
@@ -658,8 +674,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                               // force "now" for them. Admin personas can edit the
                               // time even for their own record.
                               ignoring: gate.isStaffAdminPersona != true,
-                              child: GradientTimePickerField(
-                                time: gate.selectedTime,
+                              child: CustomDateTimeField(
+                                isTime: true,
+                                initialTime: gate.selectedTime,
                                 onTimeSelected: (t) {
                                   _gateCubit.setSelectedTime(t);
                                 },

@@ -7,6 +7,8 @@ import 'package:better_player_plus/better_player_plus.dart';
 // import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 // PIP-DISABLED (App Review 2.5.4, Sept 2026): restoring PiP requires re-adding
 // `audio` to UIBackgroundModes in ios/Runner/Info.plist plus a screen recording
@@ -287,8 +289,8 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
       fullScreenAspectRatio: _currentScreenAspectRatio(),
       controlsConfiguration: BetterPlayerControlsConfiguration(
         playerTheme: BetterPlayerTheme.material,
-        iconsColor: Colors.white,
-        textColor: Colors.white,
+        iconsColor: AppColors.whiteColor,
+        textColor: AppColors.whiteColor,
         enableFullscreen: true,
         // PIP-DISABLED (App Review 2.5.4, Sept 2026): kept explicitly false so
         // the plugin's own PiP entry in the overflow menu stays hidden — do
@@ -306,11 +308,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         enablePlaybackSpeed: true,
         controlsHideTime: Duration(milliseconds: 2200),
         controlBarHeight: 52,
-        controlBarColor: Color(0xD910141A),
-        progressBarPlayedColor: Color(0xFF35B6FF),
-        progressBarHandleColor: Color(0xFF35B6FF),
-        progressBarBufferedColor: Color(0x8AE0E8F1),
-        progressBarBackgroundColor: Color(0x5A6A7789),
+        controlBarColor: AppPalette.mediaScrim,
+        progressBarPlayedColor: AppPalette.statusInfo,
+        progressBarHandleColor: AppPalette.statusInfo,
+        progressBarBufferedColor: AppPalette.onMediaHint,
+        progressBarBackgroundColor: AppPalette.onMediaTrack,
         overflowMenuIcon: Icons.more_vert_rounded,
         qualitiesIcon: Icons.high_quality_rounded,
         playbackSpeedIcon: Icons.speed_rounded,
@@ -318,9 +320,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         fullscreenDisableIcon: Icons.fullscreen_exit_rounded,
         playIcon: Icons.play_arrow_rounded,
         pauseIcon: Icons.pause_rounded,
-        overflowModalColor: Color(0xFF111827),
-        overflowModalTextColor: Color(0xFFEAF2FF),
-        overflowMenuIconsColor: Colors.white,
+        overflowModalColor: AppPalette.surfaceInverse,
+        overflowModalTextColor: AppPalette.statusInfoSoft,
+        overflowMenuIconsColor: AppColors.whiteColor,
       ),
       translations: [
         BetterPlayerTranslations(
@@ -564,7 +566,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   Widget build(BuildContext context) {
     if (_controller == null) {
       return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: CircularProgressIndicator(color: AppColors.whiteColor),
       );
     }
     return SizedBox.expand(
@@ -577,23 +579,23 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
               // Restoring needs `audio` back in UIBackgroundModes + a review
               // screen recording.
               // key: _playerKey,
-              color: Colors.black,
+              color: AppColors.blackColor,
               child: Theme(
                 data: Theme.of(context).copyWith(
                   brightness: Brightness.dark,
                   colorScheme: const ColorScheme.dark(
-                    primary: Colors.white,
-                    onPrimary: Colors.white,
-                    secondary: Colors.white,
-                    onSecondary: Colors.white,
-                    surface: Colors.black,
-                    onSurface: Colors.white,
+                    primary: AppColors.whiteColor,
+                    onPrimary: AppColors.whiteColor,
+                    secondary: AppColors.whiteColor,
+                    onSecondary: AppColors.whiteColor,
+                    surface: AppColors.blackColor,
+                    onSurface: AppColors.whiteColor,
                   ),
-                  iconTheme: const IconThemeData(color: Colors.white),
-                  primaryIconTheme: const IconThemeData(color: Colors.white),
+                  iconTheme: const IconThemeData(color: AppColors.whiteColor),
+                  primaryIconTheme: const IconThemeData(color: AppColors.whiteColor),
                   textTheme: Theme.of(context).textTheme.apply(
-                    bodyColor: Colors.white,
-                    displayColor: Colors.white,
+                    bodyColor: AppColors.whiteColor,
+                    displayColor: AppColors.whiteColor,
                   ),
                 ),
                 child: BetterPlayer(controller: _controller!),
@@ -626,9 +628,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
           //         padding: const EdgeInsets.only(top: 58, right: 14),
           //         child: DecoratedBox(
           //           decoration: BoxDecoration(
-          //             color: const Color(0xB010141A),
+          //             color: AppPalette.mediaScrim,
           //             borderRadius: BorderRadius.circular(22),
-          //             border: Border.all(color: const Color(0x6635B6FF)),
+          //             border: Border.all(color: AppPalette.statusInfoSoft),
           //           ),
           //           child: IconButton(
           //             tooltip: 'PiP',

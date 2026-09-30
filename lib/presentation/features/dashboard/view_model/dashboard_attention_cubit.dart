@@ -7,6 +7,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_overview_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 part 'dashboard_attention_state.dart';
@@ -19,8 +21,9 @@ part 'dashboard_attention_state.dart';
 /// 4. `GET /api/v1/staff-dates/physical-checkup-summary`
 /// 5. `GET /api/v1/student/student-documents/expiry-count`
 /// 6. `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+/// 7. `GET /invoices/overview` (no date range — all-time outstanding balance)
 ///
-/// All six are fetched in parallel via [Future.wait]. A failure in any one
+/// All seven are fetched in parallel via [Future.wait]. A failure in any one
 /// API does not block the others — partial results are emitted as
 /// [DashboardAttentionStatus.partialFailure] so the dashboard stays useful.
 class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
@@ -30,11 +33,13 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     required StaffRepository staffRepository,
     required StudentRepository studentRepository,
     required StorageService storageService,
+    required GetInvoiceOverviewUseCase getInvoiceOverview,
   }) : _activityRepository = activityRepository,
        _availabilityRepository = availabilityRepository,
        _staffRepository = staffRepository,
        _studentRepository = studentRepository,
        _storageService = storageService,
+       _getInvoiceOverview = getInvoiceOverview,
        super(const DashboardAttentionState());
 
   final ActivityRepository _activityRepository;
@@ -42,6 +47,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   final StaffRepository _staffRepository;
   final StudentRepository _studentRepository;
   final StorageService _storageService;
+  final GetInvoiceOverviewUseCase _getInvoiceOverview;
 
   bool _isFetching = false;
 
@@ -114,8 +120,11 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
     final toDate =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDayOfMonth.toString().padLeft(2, '0')}';
+    final organizationCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
 
-    // Run all six in parallel; capture individual errors so one failure
+    // Run all seven in parallel; capture individual errors so one failure
     // does not suppress the other results.
     final results = await Future.wait([
       _activityRepository
@@ -146,6 +155,12 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
           .getStudentPhysicalCheckupCount(schoolCode: schoolCode)
           .then<Object?>((v) => v)
           .onError((_, __) => null),
+      organizationCode.isEmpty
+          ? Future<Object?>.value(null)
+          : _getInvoiceOverview(
+              organizationCode: organizationCode,
+              school: schoolCode,
+            ).then<Object?>((v) => v).onError((_, __) => null),
     ], eagerError: false);
 
     final regularizationCount =
@@ -173,6 +188,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     final studentCheckupResult =
         results[5]
             as ({int overdueExamCount, int studentsWithoutActiveExamCount})?;
+    final invoiceOverviewResult = results[6] as InvoiceOverviewEntity?;
 
     final anyFailed =
         incidentResult == null ||
@@ -180,7 +196,8 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
         staffDocResult == null ||
         staffCheckupResult == null ||
         studentDocResult == null ||
-        studentCheckupResult == null;
+        studentCheckupResult == null ||
+        invoiceOverviewResult == null;
 
     emit(
       state.copyWith(
@@ -215,6 +232,8 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
         missingStudentCheckups:
             studentCheckupResult?.studentsWithoutActiveExamCount ??
             state.missingStudentCheckups,
+        outstandingAmount:
+            invoiceOverviewResult?.outstanding ?? state.outstandingAmount,
       ),
     );
   }

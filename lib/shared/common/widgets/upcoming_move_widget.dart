@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class UpcomingMoveWidget extends StatelessWidget {
   final String month;
@@ -12,7 +14,7 @@ class UpcomingMoveWidget extends StatelessWidget {
     required this.day,
     required this.currentClass,
     required this.nextClass,
-    this.dividerColor = const Color(0xFFA1DA79)
+    this.dividerColor = AppPalette.statusSuccess
   });
 
   @override
@@ -23,10 +25,10 @@ class UpcomingMoveWidget extends StatelessWidget {
         Text(
           'Upcoming move',
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            color: AppColors.primaryColor,
           ),
         ),
         const SizedBox(height: 6),
@@ -38,8 +40,8 @@ class UpcomingMoveWidget extends StatelessWidget {
                 Text(
                   month,
                   style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: Color(0x8041414E),
+                    fontFamily: AppFonts.body,
+                    color: AppPalette.textSecondary,
                     fontWeight: FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -49,8 +51,8 @@ class UpcomingMoveWidget extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF41414E),
-                    fontFamily: 'Manrope'
+                    color: AppPalette.textPrimary,
+                    fontFamily: AppFonts.body
                   ),
 
 
@@ -67,28 +69,28 @@ class UpcomingMoveWidget extends StatelessWidget {
             Text(
               currentClass,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
                 letterSpacing: -0.03 * 16,
-                color: Color(0xFF41414E)
+                color: AppPalette.textPrimary
               ),
             ),
             const SizedBox(width: 16,),
             Icon(
               Icons.arrow_forward,
-              color: const Color(0xFF1D1B20),
+              color: AppPalette.textPrimary,
               size: 20,
             ),
             const SizedBox(width: 16,),
             Text(
               nextClass,
               style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                   letterSpacing: -0.03 * 16,
-                  color: Color(0xFF41414E)
+                  color: AppPalette.textPrimary
               ),
             ),
           ],

@@ -20,7 +20,6 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_pro
 ///    model as [dailyPage].
 class StaffAttendanceProfileRecordModel extends Equatable {
   const StaffAttendanceProfileRecordModel({
-    this.code,
     required this.attendanceDate,
     required this.sequenceNumber,
     required this.totalSequenceCount,
@@ -38,9 +37,9 @@ class StaffAttendanceProfileRecordModel extends Equatable {
     required this.attendedMinutes,
     required this.signedInMethod,
     required this.notExpectedComment,
+    this.code,
   });
 
-  final String? code;
   final String attendanceDate;
   final int sequenceNumber;
   final int totalSequenceCount;
@@ -59,9 +58,12 @@ class StaffAttendanceProfileRecordModel extends Equatable {
   final String? signedInMethod;
   final String notExpectedComment;
 
+  /// The session record's own identifier, carried for the Attendance V2
+  /// overtime module's edit/delete actions.
+  final String? code;
+
   factory StaffAttendanceProfileRecordModel.fromJson(Map<String, dynamic> m) {
     return StaffAttendanceProfileRecordModel(
-      code: m['code'] as String?,
       attendanceDate: m['attendanceDate'] as String? ?? '',
       sequenceNumber: m['sequenceNumber'] as int? ?? 1,
       totalSequenceCount: m['totalSequenceCount'] as int? ?? 1,
@@ -79,12 +81,12 @@ class StaffAttendanceProfileRecordModel extends Equatable {
       attendedMinutes: m['attendedMinutes'] as int? ?? 0,
       signedInMethod: m['signedInMethod'] as String?,
       notExpectedComment: m['notExpectedComment'] as String? ?? '',
+      code: m['code']?.toString(),
     );
   }
 
   @override
   List<Object?> get props => [
-    code,
     attendanceDate,
     sequenceNumber,
     totalSequenceCount,
@@ -102,11 +104,11 @@ class StaffAttendanceProfileRecordModel extends Equatable {
     attendedMinutes,
     signedInMethod,
     notExpectedComment,
+    code,
   ];
 
   StaffAttendanceProfileRecord toEntity() {
     return StaffAttendanceProfileRecord(
-      code: code,
       attendanceDate: attendanceDate,
       sequenceNumber: sequenceNumber,
       totalSequenceCount: totalSequenceCount,
@@ -124,6 +126,7 @@ class StaffAttendanceProfileRecordModel extends Equatable {
       attendedMinutes: attendedMinutes,
       signedInMethod: signedInMethod,
       notExpectedComment: notExpectedComment,
+      code: code,
     );
   }
 }

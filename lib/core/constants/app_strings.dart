@@ -500,6 +500,10 @@ abstract final class AppStrings {
   static const String navAdmin = 'Admin';
   static const String navStudents = 'Students';
   static const String navClassroomNotes = 'Classroom Notes';
+  static const String messagingInactiveUnreadNotice =
+      'Unread message counts also include unread messages for Students / '
+      'Staff made inactive. Apply filters accordingly to view them in '
+      'messaging.';
 
   // ── Attachment options sheet ────────────────────────────────────────────────
   static const String addAttachment = 'Add Attachment';

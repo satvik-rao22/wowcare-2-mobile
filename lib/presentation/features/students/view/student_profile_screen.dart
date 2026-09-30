@@ -4,7 +4,6 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
@@ -37,6 +36,7 @@ import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
+import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
@@ -47,6 +47,9 @@ import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/student-profile';
@@ -149,6 +152,23 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
   StudentSettings? _studentSettings;
 
+  /// Resolves whether this student has any guardian linked — gates the
+  /// Messaging action icon. There's no one to receive a message for a
+  /// student with no guardian, so tapping it used to only fail after a
+  /// round trip (the backend's "no parent/guardian added" error); this lets
+  /// the icon start out disabled instead.
+  final StudentGuardianCubit _guardianCubit =
+      serviceLocator<StudentGuardianCubit>();
+
+  /// Whether this student's billing family was found — gates the Billing
+  /// action icon for the admin persona (the only persona that opens a
+  /// *student-specific* billing profile; parents always land on their own
+  /// billing tab regardless, which needs no such check). Null until
+  /// resolved; starts permissive (enabled) so a slow/failed lookup doesn't
+  /// wrongly block a real billing profile — it flips to disabled only once
+  /// resolution has actually confirmed none exists.
+  bool? _hasBillingFamily;
+
   @override
   void initState() {
     super.initState();
@@ -168,6 +188,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
     _loadStudentSettings();
+    if ((_activeStudentCode ?? '').trim().isNotEmpty) {
+      unawaited(_guardianCubit.load(_activeStudentCode!.trim()));
+      unawaited(_resolveHasBillingFamily(_activeStudentCode!.trim()));
+    }
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on another
@@ -338,7 +362,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 child: Text(
                   t,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryColor,
@@ -353,17 +377,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
     final med = (health.medications ?? '').trim();
     if (med.isNotEmpty) {
-      addLine(
-        med,
-        SvgPicture.asset(MediaRes.healthIcon, height: 22, width: 22),
-      );
+      addLine(med, AppIcon(MediaRes.healthIcon, height: 22, width: 22));
     }
     final allergy = (health.allergy ?? '').trim();
     if (allergy.isNotEmpty) {
-      addLine(
-        allergy,
-        SvgPicture.asset(MediaRes.alertIcon, height: 22, width: 22),
-      );
+      addLine(allergy, AppIcon(MediaRes.alertIcon, height: 22, width: 22));
     }
     final diet = (health.dietRestrictions ?? '').trim();
     if (diet.isNotEmpty) {
@@ -372,7 +390,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (health.photoPermission == false) {
       addLine(
         StudentStrings.photoPermissionNotGranted,
-        SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
+        AppIcon(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
 
@@ -397,7 +415,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 const Text(
                   StudentStrings.details,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryColor,
@@ -412,7 +430,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     child: const Text(
                       StudentStrings.close,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
                       ),
@@ -464,6 +482,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void dispose() {
     _parentChildSub?.cancel();
     _profileCubit.close();
+    _guardianCubit.close();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -726,13 +745,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               indicatorPadding: const EdgeInsets.only(bottom: AppSpacing.xs),
               labelStyle: const TextStyle(
                 color: AppColors.studentDarkPlum,
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 16,
               ),
               labelColor: AppColors.studentDarkPlum,
@@ -911,16 +930,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          SvgPicture.asset(
+                                          AppIcon(
                                             MediaRes.uploadIcon,
                                             height: 10,
                                             width: 10,
-                                            colorFilter: ColorFilter.mode(
-                                              AppColors.whiteColor.withValues(
-                                                alpha: 0.92,
-                                              ),
-                                              BlendMode.srcIn,
-                                            ),
+                                            color: AppColors.whiteColor
+                                                .withValues(alpha: 0.92),
                                           ),
                                           const SizedBox(width: 3),
                                           Text(
@@ -949,27 +964,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                             child: Container(
                               width: 32,
                               height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.whiteColor,
-                                borderRadius: AppRadius.allLg,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.blackColor.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
+                              decoration: AppSurfaces.card(
+                                radius: AppRadius.lg,
                               ),
-                              child: Container(
+                              child: SkeuKeyBox(
+                                variant: KeyVariant.primary,
+                                radius: AppRadius.r14,
                                 margin: const EdgeInsets.all(AppSpacing.s2),
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.buildPrimaryGradient(),
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r14,
-                                  ),
-                                ),
                                 child: const Icon(
                                   Icons.camera_alt,
                                   color: AppColors.whiteColor,
@@ -1065,7 +1066,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.healthIcon,
                                       height: 20,
                                       width: 20,
@@ -1076,7 +1077,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.alertIcon,
                                       height: 20,
                                       width: 20,
@@ -1087,7 +1088,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     padding: const EdgeInsets.only(
                                       left: AppSpacing.xxs,
                                     ),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.cameraIcon,
                                       height: 20,
                                       width: 20,
@@ -1113,11 +1114,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xs),
-      decoration: BoxDecoration(
+      decoration: AppSurfaces.key(
+        KeyVariant.primary,
         borderRadius: const BorderRadius.vertical(
           bottom: Radius.circular(AppRadius.md),
         ),
-        gradient: AppColors.buildPrimaryGradient(),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1202,74 +1203,41 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               );
             },
           ),
-          _buildActionIcon(
-            context,
-            role,
-            MediaRes.message_panel_icon,
-            enabled: role.canAccessAny([
-              AppAccessModules.parentMessaging,
-              AppAccessModules.staffMessaging,
-            ]),
-            onTap: () {
-              final messagingOk = role.canAccessAny([
-                AppAccessModules.parentMessaging,
-                AppAccessModules.staffMessaging,
-              ]);
-              if (!messagingOk) {
-                ModuleAccess.showFeatureRestricted(context);
-                return;
-              }
-              final code = (_activeStudentCode ?? '').trim();
-              if (code.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      StudentStrings.studentDetailsNotLoadedYetPleaseTryAgain,
-                  isError: true,
-                );
-                return;
-              }
-              openMessagingShortcut(
+          BlocBuilder<StudentGuardianCubit, StudentGuardianState>(
+            bloc: _guardianCubit,
+            builder: (context, guardianState) {
+              // Stays enabled while unresolved (still loading, or the lookup
+              // failed) — only a CONFIRMED empty guardian list disables it,
+              // so a slow/failed fetch never wrongly blocks a real guardian.
+              final bool noGuardianConfirmed = !guardianState.isLoading &&
+                  guardianState.errorMessage == null &&
+                  guardianState.guardians.isEmpty;
+              final bool messagingOk = role.canAccessAny([
+                    AppAccessModules.parentMessaging,
+                    AppAccessModules.staffMessaging,
+                  ]) &&
+                  !noGuardianConfirmed;
+              return _buildActionIcon(
                 context,
-                recipients: [
-                  SelectedRecipient(
-                    code: code,
-                    name: _displayName,
-                    isStaff: false,
-                    classroomCode: _displayClassroomCode,
-                  ),
-                ],
-              );
-            },
-          ),
-          // Billing is hidden for the staff persona; admins open the
-          // student's family billing profile, parents/guardians land on
-          // their family billing tab.
-          if (!role.isStaff)
-            _buildActionIcon(
-              context,
-              role,
-              MediaRes.billing_drawer_icon,
-              enabled: role.canAccessAny([
-                AppAccessModules.transaction,
-                AppAccessModules.invoices,
-                AppAccessModules.recurringPlans,
-                AppAccessModules.billingSettings,
-              ]),
-              onTap: () {
-                final billingOk = role.canAccessAny([
-                  AppAccessModules.transaction,
-                  AppAccessModules.invoices,
-                  AppAccessModules.recurringPlans,
-                  AppAccessModules.billingSettings,
-                ]);
-                if (!billingOk) {
-                  ModuleAccess.showFeatureRestricted(context);
-                  return;
-                }
-                // Admin persona (role == 'admin', i.e. isAdmin but not staff):
-                // open this student's family billing profile.
-                if (role.isAdmin && !role.isStaff) {
+                role,
+                MediaRes.message_panel_icon,
+                enabled: messagingOk,
+                disabledMessage: noGuardianConfirmed
+                    ? StudentStrings.noGuardiansAvailable
+                    : null,
+                onTap: () {
+                  if (!messagingOk) {
+                    if (noGuardianConfirmed) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: StudentStrings.noGuardiansAvailable,
+                        isWarning: true,
+                      );
+                    } else {
+                      ModuleAccess.showFeatureRestricted(context);
+                    }
+                    return;
+                  }
                   final code = (_activeStudentCode ?? '').trim();
                   if (code.isEmpty) {
                     CoreUtils.showTopSnackBar(
@@ -1280,23 +1248,122 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     );
                     return;
                   }
-                  _openStudentFamilyBilling(context, code);
-                  return;
-                }
-                // Parent/guardian persona: land on the bottom-nav Billing
-                // branch, same as the dashboard billing card.
-                if (role.isParent) {
-                  context.go(ParentBillingScreen.routeName);
-                  return;
-                }
-                // Any other persona reaching here (e.g. kiosk with module
-                // access somehow granted) has no billing destination.
-                ModuleAccess.showFeatureRestricted(context);
+                  openMessagingShortcut(
+                    context,
+                    recipients: [
+                      SelectedRecipient(
+                        code: code,
+                        name: _displayName,
+                        isStaff: false,
+                        classroomCode: _displayClassroomCode,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+          // Billing is hidden for the staff persona; admins open the
+          // student's family billing profile, parents/guardians land on
+          // their family billing tab.
+          if (!role.isStaff)
+            Builder(
+              builder: (context) {
+                // Only the admin persona's destination depends on this
+                // specific student having a billing family (see
+                // _resolveHasBillingFamily) — a parent always has their own
+                // billing tab to land on regardless, so this only gates admin.
+                final bool noBillingFamilyConfirmed = role.isAdmin &&
+                    !role.isStaff &&
+                    _hasBillingFamily == false;
+                final bool billingOk = role.canAccessAny([
+                      AppAccessModules.transaction,
+                      AppAccessModules.invoices,
+                      AppAccessModules.recurringPlans,
+                      AppAccessModules.billingSettings,
+                    ]) &&
+                    !noBillingFamilyConfirmed;
+                return _buildActionIcon(
+                  context,
+                  role,
+                  MediaRes.billing_drawer_icon,
+                  enabled: billingOk,
+                  disabledMessage: noBillingFamilyConfirmed
+                      ? StudentStrings.noBillingProfileFoundForThisStudent
+                      : null,
+                  onTap: () {
+                    if (!billingOk) {
+                      if (noBillingFamilyConfirmed) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: StudentStrings
+                              .noBillingProfileFoundForThisStudent,
+                          isWarning: true,
+                        );
+                      } else {
+                        ModuleAccess.showFeatureRestricted(context);
+                      }
+                      return;
+                    }
+                    // Admin persona (role == 'admin', i.e. isAdmin but not
+                    // staff): open this student's family billing profile.
+                    if (role.isAdmin && !role.isStaff) {
+                      final code = (_activeStudentCode ?? '').trim();
+                      if (code.isEmpty) {
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: StudentStrings
+                              .studentDetailsNotLoadedYetPleaseTryAgain,
+                          isError: true,
+                        );
+                        return;
+                      }
+                      _openStudentFamilyBilling(context, code);
+                      return;
+                    }
+                    // Parent/guardian persona: land on the bottom-nav Billing
+                    // branch, same as the dashboard billing card.
+                    if (role.isParent) {
+                      context.go(ParentBillingScreen.routeName);
+                      return;
+                    }
+                    // Any other persona reaching here (e.g. kiosk with
+                    // module access somehow granted) has no billing
+                    // destination.
+                    ModuleAccess.showFeatureRestricted(context);
+                  },
+                );
               },
             ),
         ],
       ),
     );
+  }
+
+  /// Pre-resolves whether [studentCode] has a billing family, so the
+  /// Billing icon can start out disabled instead of only failing after a
+  /// tap. Same lookup [_openStudentFamilyBilling] does on demand, just run
+  /// once up front and cached as a plain bool rather than navigated from.
+  Future<void> _resolveHasBillingFamily(String studentCode) async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org =
+          (await storage.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return;
+      final families = await serviceLocator<GetFamilySummaryUseCase>()(
+        organizationCode: org,
+        school: school,
+      );
+      final found = families.any((f) => f.studentCodes.contains(studentCode));
+      if (!mounted) return;
+      setState(() => _hasBillingFamily = found);
+    } catch (_) {
+      // Leave unresolved (stays permissive) — a transient failure here
+      // shouldn't block a billing profile that may well exist.
+    }
   }
 
   /// Resolves the student's family (`FAM_…`) from the billing family-summary —
@@ -1378,11 +1445,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     String asset, {
     required VoidCallback onTap,
     required bool enabled,
+
+    /// Shown instead of the generic "you do not have access" message when
+    /// disabled for a reason OTHER than module permission (e.g. no guardian
+    /// linked, no billing family found) — that generic wording is actively
+    /// misleading for those cases, reading as a permissions problem when
+    /// it's really "there's nothing here to open yet".
+    String? disabledMessage,
   }) {
     final bool isSvg = asset.toLowerCase().endsWith('.svg');
     final void Function() tap = enabled
         ? onTap
-        : () => ModuleAccess.showFeatureRestricted(context);
+        : () => disabledMessage != null
+            ? CoreUtils.showTopSnackBar(
+                context: context,
+                message: disabledMessage,
+                isWarning: true,
+              )
+            : ModuleAccess.showFeatureRestricted(context);
     return InkWell(
       onTap: tap,
       child: Opacity(
@@ -1392,14 +1472,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: isSvg
-                ? SvgPicture.asset(
-                    asset,
-                    height: 28,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.whiteColor,
-                      BlendMode.srcIn,
-                    ),
-                  )
+                ? AppIcon(asset, height: 28, color: AppColors.whiteColor)
                 : Image.asset(asset, height: 28, color: AppColors.whiteColor),
           ),
         ),

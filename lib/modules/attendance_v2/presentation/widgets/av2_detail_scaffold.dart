@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -13,17 +14,19 @@ class Av2DetailScaffold extends StatelessWidget {
     this.onExport,
     this.onRefresh,
     this.isRefreshing = false,
+    this.isExporting = false,
   });
 
   final Widget body;
   final VoidCallback? onExport;
   final VoidCallback? onRefresh;
   final bool isRefreshing;
+  final bool isExporting;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: Av2Colors.scaffoldGradient),
+      decoration: const BoxDecoration(color: Av2Colors.scaffoldFill),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -39,22 +42,22 @@ class Av2DetailScaffold extends StatelessWidget {
                 onPressed: isRefreshing ? null : onRefresh,
                 tooltip: 'Refresh',
                 icon: isRefreshing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Av2Colors.theme),
-                      )
+                    ? const PrimaryCircularLoader(size: 18, strokeWidth: 2)
                     : const Icon(Icons.refresh, color: Av2Colors.primary),
               ),
             Padding(
               padding: const EdgeInsets.only(right: Av2Spacing.sm),
               child: TextButton.icon(
-                onPressed: onExport,
-                icon: const Icon(Icons.file_download_outlined,
-                    size: 18, color: Av2Colors.theme),
+                onPressed: isExporting ? null : onExport,
+                icon: isExporting
+                    ? const PrimaryCircularLoader(size: 16, strokeWidth: 2)
+                    : const Icon(
+                        Icons.file_download_outlined,
+                        size: 18,
+                        color: Av2Colors.theme,
+                      ),
                 label: Text(
-                  'Export CSV',
+                  isExporting ? 'Preparing…' : 'Export CSV',
                   style: Av2Text.label.copyWith(
                     color: Av2Colors.theme,
                     fontWeight: FontWeight.w600,

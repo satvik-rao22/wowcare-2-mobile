@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 
@@ -18,18 +20,18 @@ class NotificationCategoryStyle {
     switch (category) {
       case NotificationCategory.availability:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF2E7D32),
-          background: Color(0xFFE7F5E9),
+          foreground: AppPalette.statusSuccessStrong,
+          background: AppPalette.statusSuccessSoft,
         );
       case NotificationCategory.staff:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFFC2185B),
-          background: Color(0xFFFCE7F0),
+          foreground: AppPalette.brandDark,
+          background: AppPalette.brandSoft,
         );
       case NotificationCategory.student:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF3F51B5),
-          background: Color(0xFFE8EAF6),
+          foreground: MaterialHues.indigo,
+          background: AppPalette.surfaceMuted,
         );
     }
   }
@@ -44,71 +46,71 @@ class NotificationCategoryStyle {
       case 'STAFF_ATTENDANCE':
       case 'STUDENT_ATTENDANCE':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF00796B),
-          background: Color(0xFFE0F2F1),
+          foreground: AppPalette.domainStudentInk,
+          background: AppPalette.domainStudentSoft,
         );
       case 'STAFF':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFFC2185B),
-          background: Color(0xFFFCE7F0),
+          foreground: AppPalette.brandDark,
+          background: AppPalette.brandSoft,
         );
       case 'STUDENT':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF3F51B5),
-          background: Color(0xFFE8EAF6),
+          foreground: MaterialHues.indigo,
+          background: AppPalette.surfaceMuted,
         );
       case 'CLASSROOM':
       case 'CLASSROOM_SCHEDULE':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFFE65100),
-          background: Color(0xFFFFF3E0),
+          foreground: AppPalette.statusWarningStrong,
+          background: MaterialHues.orange50,
         );
       case 'USER':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF455A64),
-          background: Color(0xFFECEFF1),
+          foreground: MaterialHues.blueGrey700,
+          background: AppPalette.surfaceMuted,
         );
       case 'BILLING':
       case 'ACCOUNTS':
       case 'INVOICES':
       case 'TRANSACTION':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF2E7D32),
-          background: Color(0xFFE7F5E9),
+          foreground: AppPalette.statusSuccessStrong,
+          background: AppPalette.statusSuccessSoft,
         );
       case 'ACTIVITY':
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF6A1B9A),
-          background: Color(0xFFF3E5F5),
+          foreground: AppPalette.dataPurple,
+          background: AppPalette.dataPurpleSoft,
         );
       case 'SCHEDULING':
       case 'STAFF_SCHEDULING':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF1565C0),
-          background: Color(0xFFE3F2FD),
+          foreground: AppPalette.statusInfo,
+          background: MaterialHues.blue50,
         );
       case 'AVAILABILITY':
       case 'FUTURE_AVAILABILITY':
       case 'MOVEMENT_RULES':
       case 'INDIVISUAL_MOVEMENTS':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF2E7D32),
-          background: Color(0xFFE7F5E9),
+          foreground: AppPalette.statusSuccessStrong,
+          background: AppPalette.statusSuccessSoft,
         );
       case 'NEWSLETTER':
       case 'MESSAGING':
       case 'PARENT_MESSAGING':
       case 'STAFF_MESSAGING':
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF00838F),
-          background: Color(0xFFE0F7FA),
+          foreground: AppPalette.domainStudentInk,
+          background: AppPalette.statusInfoSoft,
         );
       default:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF573353),
-          background: Color(0xFFF1ECF1),
+          foreground: AppColors.primaryColor,
+          background: AppPalette.surfaceMuted,
         );
     }
   }

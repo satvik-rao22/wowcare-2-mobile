@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'custom_checkbox.dart';
 import 'ellipsis_tooltip_text.dart';
@@ -35,8 +36,8 @@ class CommonSelectionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isEnabled ? AppColors.themeColor : Colors.grey.shade300;
-    final nameColor = isEnabled ? AppColors.primaryColor : Colors.grey[500];
+    final borderColor = isEnabled ? AppColors.themeColor : MaterialHues.grey300;
+    final nameColor = isEnabled ? AppColors.primaryColor : MaterialHues.grey500;
 
     return InkWell(
       onTap: isEnabled ? () => onSelectionChanged(!isSelected) : null,
@@ -45,10 +46,10 @@ class CommonSelectionItem extends StatelessWidget {
           border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(8),
           color: !isEnabled
-              ? Colors.grey.shade100
+              ? AppPalette.surfaceMuted
               : (isSelected
-                    ? const Color.fromARGB(255, 249, 245, 250)
-                    : Colors.white),
+                    ? AppPalette.surfaceSelected
+                    : AppPalette.surfaceCard),
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: 4),
@@ -93,7 +94,7 @@ class CommonSelectionItem extends StatelessWidget {
                       maxLines: 2,
                       preferLongPress: true,
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         color: nameColor,
                         fontSize: fontSize,
                         fontWeight: FontWeight.w600,
@@ -107,8 +108,8 @@ class CommonSelectionItem extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: Colors.grey[500],
+                            fontFamily: AppFonts.body,
+                            color: MaterialHues.grey500,
                             fontSize: fontSize - 2,
                             fontWeight: FontWeight.w400,
                           ),

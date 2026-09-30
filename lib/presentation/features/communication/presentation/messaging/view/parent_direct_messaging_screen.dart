@@ -29,6 +29,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Parent/Guardian messaging entry point.
 ///
@@ -773,17 +774,7 @@ class _ParentDirectMessagingScreenState
         SafeArea(
           top: false,
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blackColor.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
+            decoration: AppSurfaces.card(radius: 12),
             child: ChatInputBar(
               controller: _emptyInputController,
               focusNode: _emptyInputFocus,

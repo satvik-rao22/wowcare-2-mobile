@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 enum IndividualMovementAction { edit, confirm, reject, moveToPending, delete }
 
@@ -63,7 +64,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withValues(alpha: 0.18),
+                  color: AppPalette.borderStrong,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),

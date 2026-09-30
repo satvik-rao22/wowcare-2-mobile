@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -37,8 +39,12 @@ class _Av2DayTableState extends State<Av2DayTable> {
   final Set<int> _expanded = {};
   final Map<int, Future<DayDetail>> _futures = {};
 
-  static const _flexDate = 3, _flexReg = 2, _flexOt = 2, _flexTotal = 2,
-      _flexBreak = 2, _flexAction = 1;
+  static const _flexDate = 3,
+      _flexReg = 2,
+      _flexOt = 2,
+      _flexTotal = 2,
+      _flexBreak = 2,
+      _flexAction = 1;
 
   void _toggle(int index, AttendanceDay day) {
     setState(() {
@@ -66,31 +72,36 @@ class _Av2DayTableState extends State<Av2DayTable> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Av2Colors.surface,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
-        border: Border.all(color: Av2Colors.border),
-      ),
+      decoration: AppSurfaces.card(radius: Av2Spacing.radiusLg),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           _headerRow(),
-          for (var i = 0; i < widget.days.length; i++) _dayRow(i, widget.days[i]),
+          for (var i = 0; i < widget.days.length; i++)
+            _dayRow(i, widget.days[i]),
         ],
       ),
     );
   }
 
   Widget _headerRow() {
-    final hStyle = Av2Text.label
-        .copyWith(fontWeight: FontWeight.w700, color: Av2Colors.textPrimary);
-    Widget h(String t, int flex, {TextAlign align = TextAlign.left, Color? color}) =>
-        Expanded(
-          flex: flex,
-          child: Text(t,
-              style: color == null ? hStyle : hStyle.copyWith(color: color),
-              textAlign: align),
-        );
+    final hStyle = Av2Text.label.copyWith(
+      fontWeight: FontWeight.w700,
+      color: Av2Colors.textPrimary,
+    );
+    Widget h(
+      String t,
+      int flex, {
+      TextAlign align = TextAlign.left,
+      Color? color,
+    }) => Expanded(
+      flex: flex,
+      child: Text(
+        t,
+        style: color == null ? hStyle : hStyle.copyWith(color: color),
+        textAlign: align,
+      ),
+    );
     return Container(
       color: Av2Colors.surfaceMuted,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -118,7 +129,9 @@ class _Av2DayTableState extends State<Av2DayTable> {
             onTap: canExpand ? () => _toggle(index, day) : null,
             child: Container(
               decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Av2Colors.border, width: 0.5)),
+                border: Border(
+                  top: BorderSide(color: Av2Colors.border, width: 0.5),
+                ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: day.isAbsent
@@ -137,19 +150,40 @@ class _Av2DayTableState extends State<Av2DayTable> {
       children: [
         Expanded(
           flex: _flexDate,
-          child: Text(Av2DateFormatter.monthDay(day.date),
-              style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(
+            Av2DateFormatter.monthDay(day.date),
+            style: Av2Text.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        Expanded(flex: _flexReg, child: Text(Av2DurationFormatter.hm(day.regularMinutes), style: Av2Text.body)),
+        Expanded(
+          flex: _flexReg,
+          child: Text(
+            Av2DurationFormatter.hm(day.regularMinutes),
+            style: Av2Text.body,
+          ),
+        ),
         Expanded(
           flex: _flexOt,
           child: Text(
-            day.hasOvertime ? Av2DurationFormatter.hm(day.overtimeMinutes) : '—',
+            day.hasOvertime
+                ? Av2DurationFormatter.hm(day.overtimeMinutes)
+                : '—',
             style: Av2Text.body.copyWith(
-                color: day.hasOvertime ? Av2Colors.overtime : Av2Colors.textTertiary),
+              color: day.hasOvertime
+                  ? Av2Colors.overtime
+                  : Av2Colors.textTertiary,
+            ),
           ),
         ),
-        Expanded(flex: _flexTotal, child: Text(Av2DurationFormatter.hm(day.totalMinutes), style: Av2Text.bodyMedium)),
+        Expanded(
+          flex: _flexTotal,
+          child: Text(
+            Av2DurationFormatter.hm(day.totalMinutes),
+            style: Av2Text.bodyMedium,
+          ),
+        ),
         Expanded(
           flex: _flexBreak,
           child: Text(
@@ -161,8 +195,11 @@ class _Av2DayTableState extends State<Av2DayTable> {
           flex: _flexAction,
           child: Align(
             alignment: Alignment.centerRight,
-            child: Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
-                size: 16, color: Av2Colors.textSecondary),
+            child: Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              size: 16,
+              color: Av2Colors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -174,14 +211,22 @@ class _Av2DayTableState extends State<Av2DayTable> {
       children: [
         Expanded(
           flex: _flexDate,
-          child: Text(Av2DateFormatter.monthDay(day.date),
-              style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(
+            Av2DateFormatter.monthDay(day.date),
+            style: Av2Text.bodyMedium,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         const Expanded(
           flex: _flexReg + _flexOt + _flexTotal + _flexBreak,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Av2Pill(text: 'Absent', fill: Av2Colors.dangerFill, textColor: Av2Colors.danger),
+            child: Av2Pill(
+              text: 'Absent',
+              fill: Av2Colors.dangerFill,
+              textColor: Av2Colors.danger,
+            ),
           ),
         ),
         const Expanded(flex: _flexAction, child: SizedBox.shrink()),
@@ -201,10 +246,7 @@ class _Av2DayTableState extends State<Av2DayTable> {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 14),
               child: Center(
-                child: SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
-                ),
+                child: PrimaryCircularLoader(size: 18, strokeWidth: 2),
               ),
             );
           }
@@ -231,10 +273,19 @@ class _Av2DayTableState extends State<Av2DayTable> {
                 ),
                 if (i < sessions.length - 1 && sessions[i].signOutAt != null)
                   ...(() {
-                    final b = breakByStart[sessions[i].signOutAt!.millisecondsSinceEpoch];
+                    final b =
+                        breakByStart[sessions[i]
+                            .signOutAt!
+                            .millisecondsSinceEpoch];
                     return b == null
                         ? const <Widget>[]
-                        : [Av2BreakRow(minutes: b.minutes, start: b.start, end: b.end)];
+                        : [
+                            Av2BreakRow(
+                              minutes: b.minutes,
+                              start: b.start,
+                              end: b.end,
+                            ),
+                          ];
                   })(),
               ],
             ],

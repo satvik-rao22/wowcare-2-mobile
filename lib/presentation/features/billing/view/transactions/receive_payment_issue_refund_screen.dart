@@ -10,6 +10,8 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
   const ReceivePaymentIssueRefundScreen({
@@ -246,7 +248,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
     fontSize: responsive.labelFontSize,
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontWeight: FontWeight.w400,
     color: AppColors.billingTextColor,
   );
@@ -307,14 +309,16 @@ class _ReceivePaymentIssueRefundScreenState
                 null,
         onChanged: onChanged,
         style: TextStyle(
-          fontFamily: Fonts.manrope,
+          fontFamily: AppFonts.body,
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
           color: AppColors.billingTextColor,
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: _labelStyle(responsive).copyWith(color: AppColors.billingGrey),
+          hintStyle: _labelStyle(
+            responsive,
+          ).copyWith(color: AppColors.billingGrey),
           border: InputBorder.none,
           contentPadding: _fieldPadding(responsive),
         ),
@@ -349,8 +353,11 @@ class _ReceivePaymentIssueRefundScreenState
                 _buildPaymentTypeField(responsive, labelGap),
                 if (_selectedPaymentType == 'Cheque') ...<Widget>[
                   SizedBox(height: verticalSpacing),
-                  _fieldLabel(responsive, BillingStrings.chequeNumber,
-                      required: true),
+                  _fieldLabel(
+                    responsive,
+                    BillingStrings.chequeNumber,
+                    required: true,
+                  ),
                   SizedBox(height: labelGap),
                   _outlinedTextField(
                     responsive,
@@ -452,7 +459,7 @@ class _ReceivePaymentIssueRefundScreenState
         Text(
           BillingStrings.receiveMethod,
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: responsive.isTablet ? 18.0 : 16.0,
             fontWeight: FontWeight.w700,
             color: AppColors.billingTextColor,
@@ -559,7 +566,7 @@ class _ReceivePaymentIssueRefundScreenState
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppColors.billingTextColor,
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -569,7 +576,7 @@ class _ReceivePaymentIssueRefundScreenState
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
                         color: AppColors.billingGrey,
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ],
@@ -615,7 +622,7 @@ class _ReceivePaymentIssueRefundScreenState
             color: AppColors.billingCardOnColorText,
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
           ),
         ),
       ),
@@ -646,7 +653,7 @@ class _ReceivePaymentIssueRefundScreenState
             child: Text(
               label,
               style: TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: responsive.isTablet ? 17.0 : 15.0,
                 fontWeight: FontWeight.w500,
                 color: AppColors.billingTextColor,
@@ -668,7 +675,7 @@ class _ReceivePaymentIssueRefundScreenState
     VoidCallback? onChanged,
   }) {
     final TextStyle valueStyle = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,
@@ -737,7 +744,7 @@ class _ReceivePaymentIssueRefundScreenState
         ? _selectedPaymentType
         : null;
     final TextStyle valueStyle = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,
@@ -793,9 +800,9 @@ class _ReceivePaymentIssueRefundScreenState
                           selected ?? BillingStrings.selectPaymentType,
                           style: selected != null
                               ? valueStyle
-                              : _labelStyle(
-                                  responsive,
-                                ).copyWith(color: AppColors.billingMutedIconColor),
+                              : _labelStyle(responsive).copyWith(
+                                  color: AppColors.billingMutedIconColor,
+                                ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -840,13 +847,10 @@ class _ReceivePaymentIssueRefundScreenState
           topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
         ),
       ),
-      child: Container(
+      child: SkeuKeyBox(
+        variant: !(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+        radius: responsive.isTablet ? 16.0 : 8.0,
         height: responsive.buttonHeight,
-        decoration: BoxDecoration(
-          gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-          color: _isSubmitting ? AppColors.billingGreyLight : null,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-        ),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
           child: _isSubmitting
@@ -867,7 +871,7 @@ class _ReceivePaymentIssueRefundScreenState
                     Text(
                       BillingStrings.processing,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.billingCardColor,
@@ -878,7 +882,7 @@ class _ReceivePaymentIssueRefundScreenState
               : Text(
                   BillingStrings.save,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,
@@ -912,7 +916,7 @@ class _ReceivePaymentIssueRefundScreenState
                     color: AppColors.billingCardOnColorText,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                   ),
                 ),
               ),
@@ -925,7 +929,7 @@ class _ReceivePaymentIssueRefundScreenState
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppColors.billingTextColor,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                 ),
               ),
             ),
@@ -939,7 +943,7 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
           const SizedBox(height: 6),
@@ -949,7 +953,7 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
         ] else
@@ -959,16 +963,11 @@ class _ReceivePaymentIssueRefundScreenState
               fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.billingTextColor,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
         const SizedBox(height: 12),
-        Container(
-          height: 1.5,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildSecondaryGradient(),
-          ),
-        ),
+        SkeuKeyBox(variant: KeyVariant.primary, height: 1.5),
       ],
     );
   }

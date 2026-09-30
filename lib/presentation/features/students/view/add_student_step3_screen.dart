@@ -4,19 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_schedule_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -115,21 +116,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       builder: (context, state) => GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: AppColors.whiteColor,
+          backgroundColor: AppColors.pageBackgroundColor,
           appBar: const CustomAppBar(hasBackButton: true),
           body: Stack(
             children: [
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildScaffoldGradient(),
-                  ),
-                  child: Image.asset(
-                    MediaRes.wowcareMobileBg,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                  ),
-                ),
+                child: ColoredBox(color: AppColors.pageBackgroundColor),
               ),
               Column(
                 children: [
@@ -144,7 +136,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         widget.title ??
                             StudentStrings.addStudentStep3Of3Optional,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.titleFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -162,18 +154,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       padding: EdgeInsets.all(
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.whiteColor,
+                      decoration: AppSurfaces.card(
                         borderRadius: BorderRadius.all(
                           Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.blackColor.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       child: Column(
                         children: [
@@ -186,7 +170,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                   StudentStrings.schedule,
                                   style: TextStyle(
                                     fontSize: responsive.labelFontSize,
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.primaryColor,
                                   ),
@@ -199,7 +183,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                     fontSize: 12,
                                     color:
                                         AppColors.attendanceDialogHintTextColor,
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                   ),
                                 ),
                                 AppSpacing.gapVSm,
@@ -254,15 +238,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               right: AppSpacing.md,
               top: AppSpacing.xs,
             ),
-            decoration: BoxDecoration(
-              color: AppColors.whiteColor,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blackColor.withValues(alpha: 0.05),
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
+            decoration: AppSurfaces.card(
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
@@ -285,7 +261,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         child: Text(
                           StudentStrings.skip,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.buttonFontSize,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -297,20 +273,16 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   AppSpacing.gapHSm,
                 ],
                 Expanded(
-                  child: Container(
+                  child: SkeuKeyBox(
+                    variant: KeyVariant.primary,
+                    radius: responsive.isTablet ? 16.0 : 8.0,
                     height: responsive.buttonHeight,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(
-                        responsive.isTablet ? 16.0 : 8.0,
-                      ),
-                    ),
                     child: TextButton(
                       onPressed: _onNext,
                       child: Text(
                         widget.primaryButtonLabel ?? StudentStrings.next,
                         style: TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
                           color: AppColors.whiteColor,
@@ -358,7 +330,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               Text(
                 day,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,
@@ -377,10 +349,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             Row(
               children: [
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: StudentStrings.startTime,
                     minuteInterval: 15,
-                    time:
+                    initialTime:
                         schedule!['start'] ??
                         _scheduleCubit.defaultStartForDay(day),
                     onTimeSelected: (picked) {
@@ -395,10 +368,11 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                 ),
                 AppSpacing.gapHSm,
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: StudentStrings.endTime,
                     minuteInterval: 15,
-                    time:
+                    initialTime:
                         schedule['end'] ?? _scheduleCubit.defaultEndForDay(day),
                     onTimeSelected: (picked) {
                       final err = _scheduleCubit.applyPickedTime(
@@ -421,7 +395,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   Text(
                     StudentStrings.holiday,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.attendanceDialogHintTextColor,
@@ -432,7 +406,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     child: const Text(
                       StudentStrings.enable,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,

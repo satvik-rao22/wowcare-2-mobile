@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
@@ -16,8 +17,10 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -46,6 +49,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   List<String> _selectedTags = [];
   DateTime _selectedAttendanceDate = AppTime.now();
   bool _filtersAdopted = false;
+  bool _signedInOnly = false;
 
   late final ActivityStudentSelectionCubit _cubit;
 
@@ -68,10 +72,19 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     List<StudentAttendanceCustomItem> students,
   ) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return students;
-    return students
-        .where((student) => student.studentName.toLowerCase().contains(query))
-        .toList();
+    var result = query.isEmpty
+        ? students
+        : students
+            .where(
+              (student) => student.studentName.toLowerCase().contains(query),
+            )
+            .toList();
+    if (_signedInOnly) {
+      result = result
+          .where((student) => student.hasSignIn && !student.hasSignOut)
+          .toList();
+    }
+    return result;
   }
 
   void _updateSelectAllState(List<StudentAttendanceCustomItem> filtered) {
@@ -229,44 +242,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         children: [
           Text('Select Students', style: AppTextStyles.activityFieldValueBold),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: AppColors.activitySearchFieldBg,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: AppColors.activityMutedGreyColor),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Students',
-                hintStyle: AppTextStyles.activitySearchHintText,
-                border: InputBorder.none,
-                icon: const Icon(
-                  Icons.search,
-                  color: AppColors.activityMutedGreyColor,
-                ),
-                suffixIcon: _searchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchController.clear();
-                            _updateSelectAllState(_filteredStudents(students));
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.close,
-                          color: AppColors.activityMutedGreyColor,
-                        ),
-                      ),
-              ),
-              onChanged: (_) {
-                setState(() {
-                  _updateSelectAllState(_filteredStudents(students));
-                });
-              },
-            ),
+          CustomSearchBar(
+            controller: _searchController,
+            hintText: 'Search Students',
+            showClearButton: true,
+            onChanged: (_) {
+              setState(() {
+                _updateSelectAllState(_filteredStudents(students));
+              });
+            },
           ),
           const SizedBox(height: 12),
           CustomDateTimeField(
@@ -391,11 +375,24 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                       schoolNow.day,
                     );
                     _selectAll = false;
+                    _signedInOnly = false;
                   });
                   _loadStudents();
                 },
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          CustomToggle(
+            label: _signedInOnly ? 'Signed In' : 'All Attended',
+            isToggled: _signedInOnly,
+            labelOnLeftSide: true,
+            onToggle: (value) {
+              setState(() {
+                _signedInOnly = value;
+                _updateSelectAllState(_filteredStudents(students));
+              });
+            },
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -572,7 +569,7 @@ class _ActivityStudentListItem extends StatelessWidget {
           border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
+              ? AppPalette.surfaceSelected
               : AppColors.cardColor,
         ),
         child: Padding(

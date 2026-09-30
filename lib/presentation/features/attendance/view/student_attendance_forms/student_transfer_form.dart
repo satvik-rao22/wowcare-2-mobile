@@ -20,7 +20,6 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 export '../../model/tag_entity.dart';
 import '../../model/student_entity.dart';
 export '../../model/student_entity.dart';
@@ -519,8 +518,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                       const SizedBox(height: AppSpacing.xs),
                       IgnorePointer(
                         ignoring: !(_isStaffPersona ?? false),
-                        child: GradientTimePickerField(
-                          time: _selectedTransferTime,
+                        child: CustomDateTimeField(
+                          isTime: true,
+                          initialTime: _selectedTransferTime,
                           onTimeSelected: (t) {
                             setState(() {
                               _selectedTransferTime = t;

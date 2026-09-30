@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -18,7 +18,6 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import '../../model/staff_entity.dart';
-import 'staff_mark_absent_form.dart';
 
 class StaffSelectionMarkAbsentForm extends StatefulWidget {
   static const String routeName = '/staff-selection-mark-absent-form';
@@ -192,7 +191,7 @@ class _StaffSelectionMarkAbsentFormState
                   children: [
                     const AppText.subtitle('Select Staff'),
                     const SizedBox(height: AppSpacing.sm),
-                    AttendanceSearchField(
+                    CustomSearchBar(
                       controller: _searchController,
                       hintText: 'Search Staff',
                     ),

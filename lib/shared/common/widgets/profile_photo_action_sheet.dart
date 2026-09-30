@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
@@ -205,7 +206,7 @@ class _ActionRow extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: fontSize,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w500,
                 color: color,
               ),

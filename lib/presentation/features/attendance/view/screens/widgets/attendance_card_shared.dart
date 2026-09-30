@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Shared by [StaffAttendanceCard] and [StudentAttendanceCard] — the two
 /// mirror each other's sign-in/sign-out display exactly.
@@ -62,14 +64,11 @@ Widget buildAttendanceSignInOutRow(
             if (showTransferIcon) ...[
               Tooltip(
                 message: 'Transfer',
-                child: SvgPicture.asset(
+                child: AppIcon(
                   MediaRes.transfer,
                   width: 18,
                   height: 18,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.themeColor,
-                    BlendMode.srcIn,
-                  ),
+                  color: AppColors.themeColor,
                 ),
               ),
               const SizedBox(width: AppSpacing.xxs),
@@ -100,79 +99,61 @@ Widget buildAttendanceMethodIcon(SignMethod method) {
     case SignMethod.gps:
       return Tooltip(
         message: 'GPS',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.gpsMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.qr:
       return Tooltip(
         message: 'QR',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.qrAttendanceIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.kiosk:
       return Tooltip(
         message: 'Kiosk',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.kioskAttendenceIcons,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.pin:
       return Tooltip(
         message: 'PIN',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.kioskAttendenceIcons,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.direct:
       return Tooltip(
         message: 'APP',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.web:
       return Tooltip(
         message: 'WEB',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case SignMethod.system:
@@ -180,14 +161,11 @@ Widget buildAttendanceMethodIcon(SignMethod method) {
       // gear/"System" indicator.
       return Tooltip(
         message: 'System',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.systemMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
   }
@@ -287,11 +265,9 @@ Widget attendanceOutlinedButton(String label, VoidCallback? onPressed) {
 }
 
 Widget attendanceGradientButton(String label, VoidCallback? onPressed) {
-  return Container(
-    decoration: BoxDecoration(
-      borderRadius: AppRadius.allSm,
-      gradient: AppColors.buildPrimaryGradient(),
-    ),
+  return SkeuKeyBox(
+    variant: KeyVariant.primary,
+    radius: AppRadius.sm,
     child: TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
@@ -345,16 +321,18 @@ Widget buildAbsentMethodIcon(AbsentMarkMethod method) {
   const size = 18.0;
   switch (method) {
     case AbsentMarkMethod.gps:
-      return SvgPicture.asset(
+      return AppIcon(
         MediaRes.gpsMethodIcon,
         width: size,
         height: size,
+        tone: IconTone.muted,
       );
     case AbsentMarkMethod.qr:
-      return SvgPicture.asset(
+      return AppIcon(
         MediaRes.qrAttendanceIcon,
         width: size,
         height: size,
+        tone: IconTone.muted,
       );
     case AbsentMarkMethod.kiosk:
       return Icon(
@@ -363,24 +341,18 @@ Widget buildAbsentMethodIcon(AbsentMarkMethod method) {
         color: AppColors.themeColor,
       );
     case AbsentMarkMethod.app:
-      return SvgPicture.asset(
+      return AppIcon(
         MediaRes.appMethodIcon,
         width: size,
         height: size,
-        colorFilter: const ColorFilter.mode(
-          AppColors.themeColor,
-          BlendMode.srcIn,
-        ),
+        color: AppColors.themeColor,
       );
     case AbsentMarkMethod.web:
-      return SvgPicture.asset(
+      return AppIcon(
         MediaRes.webMethodIcon,
         width: size,
         height: size,
-        colorFilter: const ColorFilter.mode(
-          AppColors.themeColor,
-          BlendMode.srcIn,
-        ),
+        color: AppColors.themeColor,
       );
   }
 }

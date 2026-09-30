@@ -17,6 +17,8 @@ import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
@@ -194,8 +196,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     if (_isDownloading.value) return;
     if (!hasImage && !hasVideo) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text(AppStrings.mediaStillProcessing),
         ),
       );
@@ -210,8 +213,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       }
       if (!await Gal.hasAccess(toAlbum: true)) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
             content: Text(
               AppStrings.mediaPermissionRequired,
             ),
@@ -267,18 +271,21 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.savedToGallery)),
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(content: Text(AppStrings.savedToGallery)),
       );
     } on GalException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.type.message)));
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(content: Text(e.type.message)),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
           content: Text(AppStrings.mediaDownloadFailed),
         ),
       );
@@ -372,15 +379,8 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             child: SafeArea(
               bottom: false,
               child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.blackColor.withValues(alpha: 0.75),
-                      AppColors.transparentColor,
-                    ],
-                  ),
+                decoration: const BoxDecoration(
+                  color: AppPalette.mediaScrim,
                 ),
                 padding: const EdgeInsets.only(bottom: AppSizes.lg),
                 child: Row(

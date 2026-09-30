@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/activities/view_model/activity_filter_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -144,26 +145,10 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     }
 
     if (state.status == ActivityFilterStatus.error) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Could not load filter options.',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.activityFilterErrorText,
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => context
-                    .read<ActivityFilterCubit>()
-                    .loadMetadata(schoolCode: widget.schoolCode),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+      return AppErrorState(
+        title: 'Could not load filter options.',
+        onRetry: () => context.read<ActivityFilterCubit>().loadMetadata(
+          schoolCode: widget.schoolCode,
         ),
       );
     }

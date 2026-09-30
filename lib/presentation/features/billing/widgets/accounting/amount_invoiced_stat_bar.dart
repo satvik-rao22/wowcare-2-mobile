@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/billing/view_model/bool_toggle_cub
 import 'package:wowcare/presentation/features/billing/view_model/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The five tappable summary-card filters. Four scope the Transactions list
 /// (see [TransactionFilter]); [outstanding] routes to the Student(s) tab and
@@ -279,24 +280,23 @@ class _TotalOutstandingSummary extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.refundLegendColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(999),
-            ),
+            // The design's status pill: a tint with its own ink, so the
+            // label always reads (it was pale teal on a pale teal wash).
+            decoration: AppSurfaces.pill(AppTone.student),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.arrow_outward_rounded,
                   size: 16,
-                  color: AppColors.refundLegendColor,
+                  color: AppTone.student.ink,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   percentageLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.refundLegendColor,
+                    color: AppTone.student.ink,
                   ),
                 ),
               ],

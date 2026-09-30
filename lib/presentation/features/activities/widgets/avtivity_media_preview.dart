@@ -7,6 +7,8 @@ import 'package:wowcare/presentation/features/activities/model/activity_route_ar
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class ActivityMediaPreview extends StatelessWidget {
   final ActivityItem activity;
@@ -27,6 +29,7 @@ class ActivityMediaPreview extends StatelessWidget {
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };
@@ -82,17 +85,7 @@ class ActivityMediaPreview extends StatelessWidget {
     return Container(
       width: 122,
       height: 76,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppColors.activityProcessingCardGradientStart,
-            AppColors.activityProcessingCardGradientEnd,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: AppSurfaces.sub(radius: AppRadius.sm),
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -5,6 +5,7 @@ import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_overlay_panel.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Reusable multi-select filter field with search, select all, and smart display.
 ///
@@ -320,10 +321,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
             child: Container(
               constraints: BoxConstraints(minHeight: 44),
               padding: const EdgeInsets.symmetric(horizontal: AppSizes.sm),
-              decoration: BoxDecoration(
-                color: AppColors.fieldBackgroundColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: AppSurfaces.well(radius: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

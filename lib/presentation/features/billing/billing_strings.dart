@@ -119,6 +119,7 @@ class BillingStrings {
   static const String download = 'Download';
   static const String draft = 'Draft';
   static const String downloadingStatementPdf = 'Downloading statement PDF…';
+  static const String downloaded = 'Downloaded successfully';
   static const String dueDate = 'Due Date: ';
   static const String dueDateColon = 'Due Date : ';
   static const String echeck = 'eCheck';

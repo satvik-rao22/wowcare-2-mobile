@@ -21,6 +21,8 @@ import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_scr
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Pay Now — step 1: choose how much to pay (full family balance or a custom
 /// per-owner allocation). Continues to the saved-method picker.
@@ -95,8 +97,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           // Seed the family-balance field once after load.
           if (!state.isLoading && !_seededCurrent) {
             _seededCurrent = true;
-            _currentController.text =
-                state.currentAmount > 0 ? _money(state.currentAmount) : '';
+            _currentController.text = state.currentAmount > 0
+                ? _money(state.currentAmount)
+                : '';
           }
           return StaffFormLayout(
             title: BillingStrings.payNow,
@@ -110,7 +113,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                         const Text(
                           BillingStrings.paymentAmount,
                           style: TextStyle(
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: _primary,
@@ -130,15 +133,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   }
 
   Widget _buildLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerLoader(height: 22, width: 160, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ShimmerLoader(
+        height: 22,
+        width: 160,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ],
+  );
 
   Widget _buildCurrentOption(PayNowState state) {
     final selected = state.mode == PayNowAmountMode.currentOutstanding;
@@ -163,7 +178,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 child: Text(
                   BillingStrings.currentOutstandingUnpaidBalance,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: _primary,
@@ -218,7 +233,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const Text(
                 BillingStrings.customAmount,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: _primary,
@@ -250,7 +265,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     const Text(
                       BillingStrings.totalPaymentAmount,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: _primary,
@@ -259,7 +274,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     Text(
                       '\$${_money(state.customTotal)}',
                       style: const TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: _primary,
@@ -297,7 +312,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: student.fullName,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: _primary,
@@ -306,7 +321,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: '  (Outstanding: \$${_money(student.outstanding)})',
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
                     color: AppColors.billingCaptionTextColor,
@@ -344,7 +359,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // Manrope, primary text color, soft border, InputBorder.none inside a
     // bordered container.
     final textStyle = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
       color: AppColors.billingTextColor,
@@ -352,19 +367,14 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(
-          color: hasError ? AppColors.errorColor : AppColors.billingBorderDefault,
-        ),
-        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+      decoration: AppSurfaces.field(
+        radius: responsive.isTablet ? 12.0 : 8.0,
+        error: hasError,
       ),
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         onChanged: onChanged,
         style: textStyle,
         decoration: InputDecoration(
@@ -405,13 +415,11 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
         child: InkWell(
           onTap: canConfirm ? () => unawaited(_confirm()) : null,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 54,
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 16,
             width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16),
-            ),
+            height: 54,
             child: const Center(
               child: Text(
                 BillingStrings.confirm,

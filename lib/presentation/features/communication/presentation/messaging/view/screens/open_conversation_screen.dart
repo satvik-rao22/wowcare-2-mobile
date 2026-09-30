@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
@@ -46,6 +47,12 @@ class OpenConversationScreen extends StatefulWidget {
 class _OpenConversationScreenState extends State<OpenConversationScreen> {
   late final Future<ConversationEntity?> _future;
 
+  /// Signed-in user's own USR_* code — needed to resolve the OTHER
+  /// participant's avatar/name for a 1:1 STAFF_DIRECT chat (its
+  /// conversation-level avatarUrl is always empty). See
+  /// [ConversationEntityDisplay.displayAvatar].
+  String _currentUserCode = '';
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +62,8 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
   Future<ConversationEntity?> _load() async {
     final code = widget.conversationCode.trim();
     if (code.isEmpty) return null;
+    final userCode = await resolveCommunicationCubit().readCurrentUserCode();
+    _currentUserCode = (userCode ?? '').trim();
     final result = await resolveConversationByCode(code);
     return result.fold((_) => null, (c) => c);
   }
@@ -116,8 +125,10 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
               child: StaffMessagingThread(
                 staffInfo: StaffThreadInfo(
                   name: conversation.title,
-                  avatar: conversation.avatarUrl,
+                  avatar: conversation.displayAvatar(_currentUserCode),
                   code: conversation.code,
+                  staffUserCode:
+                      conversation.otherParticipant(_currentUserCode)?.userCode,
                 ),
               ),
             );

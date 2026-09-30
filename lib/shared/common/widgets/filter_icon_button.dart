@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_media_res.dart';
 
-/// Filter funnel icon button that overlays a red dot on [iconAsset] whenever
-/// [isActive] is true, so the applied-filter state stays visible on the
-/// button itself after the filter sheet closes (not just on the chips below
-/// it, which don't cover every filter field).
+/// The filter funnel: the one way the app draws it.
+///
+/// Navy ink on every screen, whether or not a filter is applied. An applied
+/// filter is shown by a dot or a count beside the funnel (each screen keeps
+/// its own), never by recolouring it; a pink funnel used to mean "tappable"
+/// on some screens and nothing on others. Every filter button in the app
+/// draws this widget, so changing it here changes all of them.
+class FilterGlyph extends StatelessWidget {
+  const FilterGlyph({this.size = 22, super.key});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) =>
+      AppIcon(MediaRes.filterIcon, height: size, tone: IconTone.standard);
+}
+
+/// Filter funnel icon button that overlays a red dot on the [FilterGlyph]
+/// whenever [isActive] is true, so the applied-filter state stays visible on
+/// the button itself after the filter sheet closes (not just on the chips
+/// below it, which don't cover every filter field).
 class FilterIconButton extends StatelessWidget {
   const FilterIconButton({
-    required this.iconAsset,
     required this.isActive,
     required this.onPressed,
     super.key,
@@ -16,7 +34,6 @@ class FilterIconButton extends StatelessWidget {
     this.tooltip,
   });
 
-  final String iconAsset;
   final bool isActive;
   final VoidCallback onPressed;
   final double iconHeight;
@@ -30,7 +47,7 @@ class FilterIconButton extends StatelessWidget {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          SvgPicture.asset(iconAsset, height: iconHeight),
+          FilterGlyph(size: iconHeight),
           if (isActive)
             Positioned(
               right: -2,
@@ -41,7 +58,7 @@ class FilterIconButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.errorColor,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.2),
+                  border: Border.all(color: AppPalette.textOnDark, width: 1.2),
                 ),
               ),
             ),

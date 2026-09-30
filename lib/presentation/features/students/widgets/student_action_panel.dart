@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -21,10 +22,10 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_attendan
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
-import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 enum StudentPanelType { attendance, activities, none }
 
@@ -484,19 +485,14 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
           children: [
             Material(
               borderRadius: BorderRadius.circular(AppRadius.r10),
-              elevation: 3,
+              elevation: 0,
+              color: AppColors.transparentColor,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xs,
                   vertical: AppSpacing.sm,
                 ),
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadius.r10),
-                ),
+                decoration: AppSurfaces.actionPanel(),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -742,18 +738,7 @@ class _StudentSidePanel extends StatelessWidget {
         width: 70,
         constraints: const BoxConstraints(maxHeight: 400),
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.billingAccentBlue),
-          color: AppColors.whiteColor,
-          borderRadius: BorderRadius.circular(AppRadius.r10),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: AppRadius.r10),
         child: _buildAttendanceColumn(context),
       );
     }
@@ -925,7 +910,12 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                   color: AppColors.studentInfoColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+                child: AppIcon(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                  tone: IconTone.action,
+                ),
               ),
               const SizedBox(height: AppSpacing.s5),
               Text(
@@ -934,7 +924,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -992,7 +982,7 @@ class _ActivityPngItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -1067,19 +1057,16 @@ class _ActionButton extends StatelessWidget {
           opacity: opacity,
           child: Column(
             children: [
-              SvgPicture.asset(
+              AppIcon(
                 svgPath,
                 height: 24,
                 width: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.whiteColor,
-                  BlendMode.srcIn,
-                ),
+                tone: IconTone.onBrand,
               ),
               AppSpacing.gapVXxs,
               Text(
                 label,
-                style: const TextStyle(color: AppColors.whiteColor, fontSize: 12),
+                style: AppTextStyles.actionPanelLabel,
               ),
             ],
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -8,6 +7,8 @@ import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class MovementDragDropDecision {
   const MovementDragDropDecision({
@@ -28,7 +29,7 @@ Future<MovementDragDropDecision?> showMovementConfirmDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Confirm Movement',
@@ -46,7 +47,7 @@ Future<MovementDragDropDecision?> showMovementRejectDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Reject Movement',
@@ -69,7 +70,7 @@ Future<MovementDragDropDecision?> showMovementDateDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: title,
@@ -89,7 +90,7 @@ Future<MovementDragDropDecision?> showMovementDeleteNotAllowedDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.blackColor.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Delete Not Allowed',
@@ -194,17 +195,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
         color: Colors.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryColor.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.card(radius: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,13 +258,10 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                       ),
                       child: Row(
                         children: [
-                          SvgPicture.asset(
+                          AppIcon(
                             MediaRes.calender_icon,
                             height: 18,
-                            colorFilter: const ColorFilter.mode(
-                              AppColors.primaryColor,
-                              BlendMode.srcIn,
-                            ),
+                            color: AppColors.primaryColor,
                           ),
                           const SizedBox(width: 10),
                           Text(
@@ -310,6 +298,8 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         maxLines: 3,
                         minLines: 1,
                         decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppSurfaces.fieldFill,
                           hintText: widget.commentHint,
                           hintStyle: AppTextStyles.body.copyWith(
                             color: AppColors.attendanceDialogHintTextColor,
@@ -318,14 +308,8 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                             horizontal: 14,
                             vertical: 12,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: AppColors.attendanceBorderLightColor),
-                          ),
+                          border: AppSurfaces.fieldBorder(radius: 10),
+                          enabledBorder: AppSurfaces.fieldBorder(radius: 10),
                         ),
                       ),
                     ],

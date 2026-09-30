@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Isolated PIN pad widget with local state management.
 /// Prevents PIN input changes from triggering QR widget rebuilds.
@@ -51,6 +55,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
 
   void _addDigit(String digit) {
     if (_pin.length < widget.maxPinLength) {
+      AppHaptics.tap();
       setState(() {
         _pin += digit;
       });
@@ -70,6 +75,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
 
   void _removeDigit() {
     if (_pin.isNotEmpty) {
+      AppHaptics.tap();
       setState(() {
         _pin = _pin.substring(0, _pin.length - 1);
       });
@@ -142,7 +148,10 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             if (widget.title != null) ...[
               Text(
                 widget.title!,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 20),
             ],
@@ -169,7 +178,9 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
           height: 12,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: index < _pin.length ? Colors.blue[400] : Colors.grey[300],
+            color: index < _pin.length
+                ? MaterialHues.blue400
+                : MaterialHues.grey300,
           ),
         ),
       ),
@@ -222,8 +233,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                 child: ElevatedButton(
                   onPressed: _removeDigit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[200],
-                    foregroundColor: Colors.black,
+                    backgroundColor: MaterialHues.grey200,
+                    foregroundColor: AppColors.blackColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -247,8 +258,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       child: ElevatedButton(
         onPressed: () => _addDigit(number),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
+          backgroundColor: MaterialHues.grey200,
+          foregroundColor: AppColors.blackColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
@@ -267,12 +278,10 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
     return Row(
       children: [
         Expanded(
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildSecondaryGradient(),
-            ),
             padding: const EdgeInsets.all(1),
             child: TextButton(
               onPressed: _isSubmitting
@@ -287,23 +296,18 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                           );
                         },
               style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.whiteColor,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) =>
-                    AppColors.buildSecondaryGradient().createShader(bounds),
-                blendMode: BlendMode.srcIn,
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 16 * (-3 / 100),
-                  ),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 16 * (-3 / 100),
                 ),
               ),
             ),
@@ -311,11 +315,9 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: AppColors.buildSecondaryGradient(),
-            ),
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: 8,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
@@ -336,13 +338,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.whiteColor,
+                        ),
                       ),
                     )
                   : const Text(
                       'Next',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.whiteColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 16 * (-3 / 100),

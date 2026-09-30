@@ -7,7 +7,6 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
@@ -17,6 +16,9 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -140,16 +142,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
       return Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           MediaQuery.removePadding(
             context: context,
@@ -196,16 +189,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     return Stack(
       children: [
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildScaffoldGradient(),
-            ),
-            child: Image.asset(
-              MediaRes.wowcareMobileBg,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-            ),
-          ),
+          child: ColoredBox(color: AppColors.pageBackgroundColor),
         ),
         MediaQuery.removePadding(
           context: context,
@@ -250,13 +234,11 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),
-                            child: Container(
+                            child: SkeuKeyBox(
+                              variant: KeyVariant.primary,
+                              radius: AppRadius.sm,
                               width: 38,
                               height: 38,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: AppRadius.allSm,
-                              ),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.edit,
@@ -271,15 +253,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     if (_isLoading)
                       const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: AppColors.errorColor,
-                            fontSize: 14,
-                          ),
-                        ),
+                      AppErrorState(
+                        title: _errorMessage!,
+                        compact: true,
+                        onRetry: _loadDates,
                       )
                     else
                       ...List.generate(entries.length * 2 - 1, (i) {

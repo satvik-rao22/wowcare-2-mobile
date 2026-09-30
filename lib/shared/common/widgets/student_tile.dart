@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import 'custom_checkbox.dart';
 import 'profile_show_widget.dart';
@@ -31,10 +32,9 @@ class StudentTile extends StatelessWidget {
         //height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          //color: isSelected ? const Color(0xFFF8F7FA) : Colors.white,
           color: isSelected
-              ? const Color(0xFFB1AFE9).withValues(alpha: 0.102)
-              : Colors.white,
+              ? AppPalette.surfaceSelected
+              : AppPalette.surfaceCard,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: isSelected ? Colors.transparent : AppColors.themeColor,
@@ -49,10 +49,10 @@ class StudentTile extends StatelessWidget {
               child: Text(
                 name,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: isTablet ? 16 : 14,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353),
+                  color: AppColors.primaryColor,
                   height: 19 / 14,
                 ),
                 overflow: TextOverflow.ellipsis,

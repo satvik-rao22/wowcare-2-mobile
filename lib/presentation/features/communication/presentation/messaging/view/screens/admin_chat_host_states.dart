@@ -87,38 +87,10 @@ class _FullScreenError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 56,
-              color: AppColors.primaryColor.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: AppSizes.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.size14.copyWith(fontSize: 14, color: AppColors.messagingTextSecondary),
-            ),
-            const SizedBox(height: AppSizes.lg),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text(AppStrings.tryAgain),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryColor,
-                side: BorderSide(
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return AppErrorState(
+      title: message,
+      onRetry: onRetry,
+      retryLabel: AppStrings.tryAgain,
     );
   }
 }

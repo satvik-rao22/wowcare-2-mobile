@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -361,7 +362,7 @@ class RegGateCoordinator implements RegSignInGate {
       context: context,
       snackBar: SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? Av2Colors.danger : Av2Colors.success,
       ),
     );
   }

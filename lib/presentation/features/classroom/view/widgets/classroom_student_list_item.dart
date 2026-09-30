@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/upcoming_birthday.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_health_usecase.dart';
+import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
@@ -32,6 +35,11 @@ class ClassroomStudentListItem extends StatefulWidget {
   final String studentStatus;
   final String? todayAttendanceStatusRaw;
 
+  /// Student's date of birth (any ISO-parseable string); used to show a cake
+  /// badge on the avatar when the birthday is today or within the next few
+  /// days. Null/unparseable simply means no badge.
+  final String? dob;
+
   /// When the classroom roster is filtered to upcoming students only, show the
   /// amber profile dot even if [studentStatus] from the API is missing or varies.
   final bool forceUpcomingProfileStatusDot;
@@ -51,6 +59,7 @@ class ClassroomStudentListItem extends StatefulWidget {
     required this.studentStatus,
     this.todayAttendanceStatusRaw,
     this.forceUpcomingProfileStatusDot = false,
+    this.dob,
   });
 
   @override
@@ -104,6 +113,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final String? assetCode = (!looksLikeUrl && rawPhoto.isNotEmpty)
         ? rawPhoto
         : null;
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.dob);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -159,7 +169,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                               top: 0,
                               child: Tooltip(
                                 message: 'Student is currently napping',
-                                child: SvgPicture.asset(
+                                child: AppArtwork(
                                   // Guard against empty path in assets
                                   MediaRes.napIcon.isNotEmpty
                                       ? MediaRes.napIcon
@@ -167,6 +177,14 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                                   height: 18,
                                   width: 18,
                                 ),
+                              ),
+                            ),
+                          if (birthdayDaysUntil != null)
+                            Positioned(
+                              left: -2,
+                              bottom: -2,
+                              child: BirthdayAvatarBadge(
+                                daysUntil: birthdayDaysUntil,
                               ),
                             ),
                         ],
@@ -178,7 +196,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             color: AppColors.primaryColor,
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -213,7 +231,7 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                     message:
                         entry.value["info"] ?? getDefaultIconDetail(entry.key),
                     child: isSvg
-                        ? SvgPicture.asset(iconPath, height: 18)
+                        ? AppArtwork(iconPath, height: 18)
                         : Image.asset(iconPath, height: 18),
                   ),
                 );
@@ -337,7 +355,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
       title: Text(
         widget.studentName.trim().isEmpty ? 'Details' : widget.studentName,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.primaryColor,
           fontSize: 18,
           fontWeight: FontWeight.w600,
@@ -361,7 +379,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
           child: const Text(
             'Close',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w500,
             ),
@@ -420,7 +438,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           isSvg
-              ? SvgPicture.asset(iconPath, height: 24, width: 24)
+              ? AppArtwork(iconPath, height: 24, width: 24)
               : Image.asset(iconPath, height: 24, width: 24),
           const SizedBox(width: 16),
           Expanded(
@@ -430,7 +448,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                     color: AppColors.classroomTextColor,
@@ -440,7 +458,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     color: AppColors.classroomTextColor,
                   ),

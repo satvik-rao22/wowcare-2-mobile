@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Reusable text style widgets following the design patterns from staff_card.dart
 class AppTextStyles {
@@ -9,7 +10,7 @@ class AppTextStyles {
   /// Label text style - used for field labels
   /// fontSize: 13, fontWeight: w400, color: primaryColor, height: 16/13
   static const TextStyle label = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
@@ -19,7 +20,7 @@ class AppTextStyles {
   /// Value text style - used for displaying values/content
   /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
   static const TextStyle value = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     color: AppColors.primaryColor,
@@ -29,7 +30,7 @@ class AppTextStyles {
   /// Title text style - used for section titles
   /// fontSize: 16, fontWeight: w700, color: primaryColor
   static const TextStyle title = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 16,
     fontWeight: FontWeight.w700,
     color: AppColors.primaryColor,
@@ -39,7 +40,7 @@ class AppTextStyles {
   /// Subtitle text style - used for subtitles
   /// fontSize: 14, fontWeight: w700, color: primaryColor
   static const TextStyle subtitle = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     fontWeight: FontWeight.w700,
     color: AppColors.primaryColor,
@@ -48,7 +49,7 @@ class AppTextStyles {
   /// Body text style - used for regular body text
   /// fontSize: 14, fontWeight: w500, color: primaryColor, height: 19/14
   static const TextStyle body = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     color: AppColors.primaryColor,
@@ -58,7 +59,7 @@ class AppTextStyles {
   /// Small text style - used for smaller text
   /// fontSize: 12, fontWeight: w400, color: primaryColor
   static const TextStyle small = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
@@ -68,7 +69,7 @@ class AppTextStyles {
   /// Button text style - used for button labels
   /// fontSize: 16, fontWeight: w700, color: varies
   static TextStyle button({Color? color}) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 16,
     fontWeight: FontWeight.w700,
     color: color ?? AppColors.primaryColor,
@@ -78,7 +79,7 @@ class AppTextStyles {
   /// Section header text style - used for section headers
   /// fontSize: 13, fontWeight: w600, color: primaryColor
   static const TextStyle sectionHeader = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
@@ -113,7 +114,7 @@ class AppTextStyles {
   /// Attendance tab bar selected-label style (responsive size).
   static TextStyle attendanceTabLabelSelected({required bool isTablet}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         color: AppColors.attendanceIconColor,
         fontSize: isTablet ? 18 : 16,
         fontWeight: FontWeight.w600,
@@ -122,7 +123,7 @@ class AppTextStyles {
   /// Attendance tab bar unselected-label style (responsive size).
   static TextStyle attendanceTabLabelUnselected({required bool isTablet}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         color: AppColors.primaryColor.withValues(alpha: 0.5),
         fontSize: isTablet ? 18 : 16,
         fontWeight: FontWeight.w400,
@@ -130,7 +131,7 @@ class AppTextStyles {
 
   /// Attendance screen header title ("Student/Staff Attendance"), responsive size.
   static TextStyle attendanceScreenTitle({required bool isTablet}) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: isTablet ? 22 : 18,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
@@ -149,7 +150,7 @@ class AppTextStyles {
   static TextStyle attendancePopupTabLabelSelected({required bool isTablet}) =>
       TextStyle(
         color: AppColors.attendanceIconColor,
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: isTablet ? 18 : 16,
         fontWeight: FontWeight.w500,
       );
@@ -160,23 +161,23 @@ class AppTextStyles {
     required bool isTablet,
   }) => TextStyle(
     color: AppColors.primaryColor.withValues(alpha: 0.5),
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: isTablet ? 18 : 16,
   );
 
   /// Attendance popup action-button label (icon+label grid buttons).
   static TextStyle attendancePopupActionButton({required double fontSize}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: fontSize,
         color: AppColors.primaryColor,
       );
 
-  /// Attendance popup "View Attendance" gradient button label. No color of
-  /// its own — painted via ShaderMask, which overrides paint regardless.
+  /// Attendance popup "View Attendance" key label. No colour of its own: the
+  /// call site takes it from `AppSurfaces.keyInk` for the key it sits on.
   static TextStyle attendancePopupViewButton({required bool isTablet}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: isTablet ? 18 : 16,
         fontWeight: FontWeight.w700,
         letterSpacing: (isTablet ? 18 : 16) * (-3 / 100),
@@ -206,7 +207,7 @@ class AppTextStyles {
   /// row's layout. Color varies per call site via `.copyWith(color: ...)`.
   static TextStyle attendanceDesignationLabel({required bool isTablet}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: isTablet ? 13 : 12,
         fontWeight: FontWeight.w400,
       );
@@ -296,7 +297,7 @@ class AppTextStyles {
   /// Compact bold name text — single-student avatar row, student grid tile.
   /// fontSize: 13, fontWeight: w600, color: primaryColor
   static const TextStyle activityCompactBoldName = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
@@ -322,7 +323,7 @@ class AppTextStyles {
   /// Modal/bottom-sheet dialog title ("Student" list sheet, "Image Uploader").
   /// fontSize: 18, fontWeight: w700, color: primaryColor
   static const TextStyle activityDialogTitle = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 18,
     fontWeight: FontWeight.w700,
     color: AppColors.primaryColor,
@@ -404,7 +405,7 @@ class AppTextStyles {
   /// fontWeight: w400, color: primaryColor
   static TextStyle activityInputFieldLabel({required double fontSize}) =>
       TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: fontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
@@ -497,7 +498,7 @@ class AppTextStyles {
   /// fontFamily: 'MervaleScript', fontSize: 24, fontWeight: w400,
   /// color: primaryColor
   static const TextStyle activitySignatureScriptText = TextStyle(
-    fontFamily: 'MervaleScript',
+    fontFamily: AppFonts.scriptAlt,
     fontSize: 24,
     fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
@@ -673,7 +674,7 @@ class AppTextStyles {
     required double fontSize,
     required double height,
   }) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: fontSize,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
@@ -685,7 +686,7 @@ class AppTextStyles {
   /// color in here would flatten the selected/unselected distinction.
   /// fontSize: 16, fontWeight: w600
   static const TextStyle reportsTabLabel = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
@@ -694,7 +695,7 @@ class AppTextStyles {
   /// replaced had none, and adding one would change the line box.
   /// fontSize: 14, fontWeight: w500, color: primaryColor @ 60% opacity
   static TextStyle get reportsEmptyListText => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     fontWeight: FontWeight.w500,
     color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -703,7 +704,7 @@ class AppTextStyles {
   /// Base report form field label. fontWeight w400, color primaryColor.
   /// Local variation (opacity, height) goes through `.copyWith(...)`.
   static TextStyle reportsFieldLabel({required double fontSize}) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: fontSize,
     fontWeight: FontWeight.w400,
     color: AppColors.primaryColor,
@@ -711,7 +712,7 @@ class AppTextStyles {
 
   /// Base report field VALUE. fontWeight w500, color primaryColor.
   static TextStyle reportsFieldValue({required double fontSize}) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: fontSize,
     fontWeight: FontWeight.w500,
     color: AppColors.primaryColor,
@@ -719,7 +720,7 @@ class AppTextStyles {
 
   /// Base report heading. fontWeight w600, color primaryColor.
   static TextStyle reportsHeading({required double fontSize}) => TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: fontSize,
     fontWeight: FontWeight.w600,
     color: AppColors.primaryColor,
@@ -727,7 +728,7 @@ class AppTextStyles {
 
   /// "Note: All Classrooms will be selected by Default." fontSize 12, w400.
   static const TextStyle reportsNote = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.reportsAccentColor,
@@ -735,7 +736,7 @@ class AppTextStyles {
 
   /// Small uppercase section heading above a group of filter fields.
   static const TextStyle reportsSectionLabel = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 13,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
@@ -999,7 +1000,9 @@ class AppTextStyles {
 
   /// The clock-in PIN, rendered on the primary gradient.
   static const TextStyle myDayClockInPin = TextStyle(
-    color: AppColors.cardColor,
+    // The pin used to be painted over by a gradient, so this was the light
+    // colour underneath it. It is the brand colour itself now.
+    color: AppColors.themeColor,
     fontSize: 17,
     fontWeight: FontWeight.bold,
     letterSpacing: 17 * (-3 / 100),
@@ -1222,10 +1225,146 @@ class AppTextStyles {
 
   /// Message body text inside a chat bubble. 15.5 / height 1.35, Manrope.
   static const TextStyle messagingBubbleText = TextStyle(
-    fontFamily: Fonts.manrope,
+    fontFamily: AppFonts.body,
     fontSize: 15.5,
     height: 1.35,
     decoration: TextDecoration.none,
+  );
+
+  // ── Student: guardian change-PIN dialog (Mandate 4) ───────────────────────
+
+  /// Explanatory body copy in the Change PIN dialog.
+  static const TextStyle guardianPinDialogBody = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    height: 1.45,
+  );
+
+  /// "Enter PIN manually" section label.
+  static const TextStyle guardianPinSectionLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Inline validation message under the PIN field.
+  static const TextStyle guardianPinErrorText = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.errorColor,
+  );
+
+  /// The typed PIN itself — tracked out so the four digits read clearly.
+  static const TextStyle guardianPinFieldValue = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: AppColors.primaryColor,
+    letterSpacing: 2,
+  );
+
+  /// Placeholder in the PIN field (no tracking, unlike the typed value).
+  static const TextStyle guardianPinFieldHint = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: AppColors.studentGrey,
+    letterSpacing: 0,
+  );
+
+  /// "Or generate by system" divider caption.
+  static const TextStyle guardianPinDividerLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppColors.studentGrey,
+  );
+
+  /// Label on the inline gradient "Change PIN" button.
+  static const TextStyle guardianPinInlineButtonLabel = TextStyle(
+    fontFamily: Fonts.manrope,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.whiteColor,
+  );
+
+  /// Label under each icon in a floating action panel (students, staff,
+  /// billing, guardians). Warm white, on `AppSurfaces.actionPanel`.
+  static const TextStyle actionPanelLabel = TextStyle(
+    color: AppColors.textOnDarkColor,
+    fontSize: 12,
+  );
+
+  // ── Attendance V2 (staff overtime detail) ───────────────────────────────
+  // The module reaches these through `Av2Text`, which is now just a set of
+  // aliases; the values live here so the app has one type scale.
+
+  /// The hero number on the overtime card: total hours, in the brand colour.
+  static const TextStyle av2Hero = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
+    color: AppColors.themeColor,
+    letterSpacing: -0.5,
+  );
+
+  /// Section and sheet titles inside the overtime detail screen.
+  static const TextStyle av2Title = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// The number on a metric tile (regular hours, overtime, days attended).
+  static const TextStyle av2MetricValue = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 19,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Body copy inside the overtime detail screen.
+  static const TextStyle av2Body = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    color: AppColors.primaryColor,
+  );
+
+  /// Emphasised body copy: a day's date, a session's classroom.
+  static const TextStyle av2BodyMedium = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primaryColor,
+  );
+
+  /// Field and metric labels in the overtime detail screen.
+  static const TextStyle av2Label = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: AppPalette.textSecondary,
+  );
+
+  /// Timestamps and secondary metadata on a session row.
+  static const TextStyle av2Caption = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 12.5,
+    fontWeight: FontWeight.w500,
+    color: AppPalette.textSecondary,
+  );
+
+  /// A filter chip's label. Colour is set per state by the chip.
+  static const TextStyle av2Chip = TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
   );
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class GradientCircularProgress extends StatelessWidget {
   final double size;
@@ -32,25 +33,25 @@ class GradientCircularProgress extends StatelessWidget {
             width: size,
             child: CircularProgressIndicator(
               strokeWidth: strokeWidth,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                AppColors.primaryGradientColors.first,
-              ),
-              backgroundColor: Colors.grey[300],
+              valueColor: const AlwaysStoppedAnimation<Color>(AppPalette.brand),
+              backgroundColor: AppPalette.surfaceField,
             ),
           ),
           if (loadingText != null) ...[
             const SizedBox(height: 8),
             Text(
               loadingText!,
-              style: textStyle ?? TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style:
+                  textStyle ??
+                  TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
             ),
           ],
         ],
       ),
     );
   }
-} 
+}

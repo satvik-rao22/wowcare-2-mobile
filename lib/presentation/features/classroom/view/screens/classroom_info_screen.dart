@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -43,6 +43,7 @@ import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom
 import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({
@@ -239,7 +240,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         title: Text(
           classroomName.trim().isEmpty ? 'Classroom' : classroomName.trim(),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -742,7 +743,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -767,7 +768,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
               Text(
                 details.ageRangeCompactDisplay,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   color: AppColors.classroomTextColor,
                 ),
               ),
@@ -780,14 +781,14 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                       TextSpan(
                         text: 'Capacity: ',
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           color: AppColors.classroomTextColor,
                         ),
                         children: [
                           TextSpan(
                             text: '${details.capacity}',
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.bold,
                               color: AppColors.classroomTextColor,
                             ),
@@ -803,14 +804,14 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                       TextSpan(
                         text: 'Ratio: ',
                         style: const TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           color: AppColors.classroomTextColor,
                         ),
                         children: [
                           TextSpan(
                             text: details.studentTeacherRatioDisplay,
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontWeight: FontWeight.bold,
                               color: AppColors.classroomTextColor,
                             ),
@@ -942,7 +943,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
                           IconButton(
                             tooltip: 'Back',
                             onPressed: () => Navigator.pop(context),
-                            icon: SvgPicture.asset(
+                            icon: AppIcon(
                               MediaRes.classroomInfoIcon,
                               height: 32,
                             ),

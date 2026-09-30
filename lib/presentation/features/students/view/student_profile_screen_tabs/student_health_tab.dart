@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/students/view/student_health_tab_c
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -166,16 +165,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
     return Stack(
       children: [
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildScaffoldGradient(),
-            ),
-            child: Image.asset(
-              MediaRes.wowcareMobileBg,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-            ),
-          ),
+          child: ColoredBox(color: AppColors.pageBackgroundColor),
         ),
         Column(
           children: [
@@ -218,7 +208,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                               maxLines: 3,
                               softWrap: true,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.primaryColor,
@@ -398,7 +388,7 @@ class _ExemptAllConfirmationDialog extends StatelessWidget {
                   child: Text(
                     StudentStrings.confirmation,
                     style: TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -432,7 +422,7 @@ class _ExemptAllConfirmationDialog extends StatelessWidget {
               StudentStrings.confirmExemptAllImmunizations,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AppColors.studentMutedText,

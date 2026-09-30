@@ -261,6 +261,16 @@ android {
             manifestPlaceholders["appLinkHost"] =
                 overriddenAppLinkHost ?: defaultAppLinkHost
         }
+
+        // Flutter's own build type behind `flutter run --profile` and
+        // `flutter build apk --profile`. The Flutter plugin creates it as a
+        // copy of debug when it is applied, which is before this block runs,
+        // so it never received the placeholder and every profile build failed
+        // in the manifest merger. Without it the app cannot be profiled.
+        maybeCreate("profile").apply {
+            manifestPlaceholders["appLinkHost"] =
+                overriddenAppLinkHost ?: defaultAppLinkHost
+        }
     }
 }
 

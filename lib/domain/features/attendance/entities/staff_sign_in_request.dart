@@ -107,7 +107,14 @@ class StaffSignInRequest extends Equatable {
           'staffCodes': staffCodes,
           'classroomCode': classroomCode,
           'classroomCodeByStaffCode': classroomCodeByStaffCode,
-          'method': signInMethod,
+          // Admin bulk sign-in always reports APP, never the resolved
+          // [signInMethod]. An admin signing several staff in from the roster
+          // is not doing it at a geofence or a kiosk, but the shared method
+          // resolution was reporting GPS for them anyway. Carried over from
+          // feature/staff-overtime ("bulk sign in, sign out method change to
+          // app, as it going GPS currently"). Remove once the backend
+          // attributes bulk actions correctly on its own.
+          'method': 'APP',
           'latitude': latitude,
           'longitude': longitude,
           'withinGeofence': withinGeofence,

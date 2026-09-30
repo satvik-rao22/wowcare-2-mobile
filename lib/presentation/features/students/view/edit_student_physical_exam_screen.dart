@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
@@ -21,6 +20,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentPhysicalExamScreen extends StatefulWidget {
   const EditStudentPhysicalExamScreen({
@@ -242,7 +243,7 @@ class _EditStudentPhysicalExamScreenState
                 TextSpan(
                   text: StudentStrings.physicalCheckupDate,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: AppColors.primaryColor,
@@ -278,16 +279,13 @@ class _EditStudentPhysicalExamScreenState
                               ? AppColors.attendanceMutedTextColor
                               : AppColors.blackColor,
                           fontSize: 14,
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                         ),
                       ),
-                      SvgPicture.asset(
+                      AppIcon(
                         MediaRes.calender_icon,
                         height: 20,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.primaryColor,
-                          BlendMode.srcIn,
-                        ),
+                        color: AppColors.primaryColor,
                       ),
                     ],
                   ),
@@ -301,7 +299,7 @@ class _EditStudentPhysicalExamScreenState
                 selectedItem: state.formStatus,
                 labelStyle: const TextStyle(
                   fontSize: 15,
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w400,
                   color: AppColors.primaryColor,
                 ),
@@ -318,20 +316,7 @@ class _EditStudentPhysicalExamScreenState
               right: AppSpacing.md,
               top: AppSpacing.xs,
             ),
-            decoration: const BoxDecoration(
-              color: AppColors.whiteColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  offset: Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
-            ),
+            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(24), topRight: Radius.circular(24), )),
             child: CustomButtonLayout(
               confirmButtonLabel: StudentStrings.save,
               onPressedConfirm: state.mutationInProgress ? null : _save,

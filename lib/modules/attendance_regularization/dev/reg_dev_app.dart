@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
@@ -26,7 +27,7 @@ class RegDevApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         colorScheme: ColorScheme.fromSeed(seedColor: Av2Colors.primary),
       ),
       home: const _DevMenu(),
@@ -40,7 +41,7 @@ class _DevMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: Av2Colors.scaffoldGradient),
+      decoration: const BoxDecoration(color: Av2Colors.scaffoldFill),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(

@@ -27,9 +27,15 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 /// coordinator (a GetIt `registerFactory`) and re-runs the full cold-open
 /// fan-out on every tab switch.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.focus});
 
   static const String routeName = DashboardRoutes.root;
+
+  /// The `focus` query param off `/dashboard` (e.g. from a Classroom Notes
+  /// notification tap — see [NotificationRouteResolver]) naming a card to
+  /// scroll to once the role-appropriate dashboard has rendered. Only
+  /// `'ratioMonitoring'` is recognised today.
+  final String? focus;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -80,13 +86,16 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final Widget dashboard;
     if (role.isParent) {
+      // Guardians have no Ratio Monitoring card - Classroom Notes is
+      // staff-internal (see MessagingEntryScreen), so `focus` is never sent
+      // for this persona and is intentionally dropped here.
       dashboard = const ParentDashboard();
     } else if (role.isStaff) {
-      dashboard = const StaffDashboard();
+      dashboard = StaffDashboard(focus: widget.focus);
     } else {
       // Admin/director. Explicit rather than a fallthrough so an unrecognised
       // role can never silently land on the most privileged dashboard.
-      dashboard = const AdminDashboard();
+      dashboard = AdminDashboard(focus: widget.focus);
     }
 
     return KeyedSubtree(

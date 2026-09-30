@@ -5,12 +5,15 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import '../data/datasources/staff_overtime_remote_datasource.dart';
 import '../data/repositories/attendance_v2_repository_impl.dart';
 import '../domain/repositories/attendance_v2_repository.dart';
+import '../domain/usecases/add_attendance_usecase.dart';
 import '../domain/usecases/calculate_overtime_usecase.dart';
 import '../domain/usecases/delete_absence_usecase.dart';
 import '../domain/usecases/delete_session_usecase.dart';
 import '../domain/usecases/edit_absence_usecase.dart';
 import '../domain/usecases/edit_session_usecase.dart';
+import '../domain/usecases/get_classrooms_usecase.dart';
 import '../domain/usecases/get_day_detail_usecase.dart';
+import '../domain/usecases/get_staff_list_usecase.dart';
 import '../domain/usecases/get_staff_overview_usecase.dart';
 import '../presentation/cubit/staff_detail_cubit.dart';
 
@@ -49,6 +52,15 @@ void registerAttendanceV2(GetIt sl) {
   sl.registerFactory<DeleteAbsenceUseCase>(
     () => DeleteAbsenceUseCase(sl<AttendanceV2Repository>()),
   );
+  sl.registerFactory<GetClassroomsUseCase>(
+    () => GetClassroomsUseCase(sl<AttendanceV2Repository>()),
+  );
+  sl.registerFactory<AddAttendanceUseCase>(
+    () => AddAttendanceUseCase(sl<AttendanceV2Repository>()),
+  );
+  sl.registerFactory<GetStaffListUseCase>(
+    () => GetStaffListUseCase(sl<AttendanceV2Repository>()),
+  );
   sl.registerFactory<StaffDetailCubit>(
     () => StaffDetailCubit(
       calculateOvertimeUseCase: sl(),
@@ -58,6 +70,7 @@ void registerAttendanceV2(GetIt sl) {
       deleteSessionUseCase: sl(),
       editAbsenceUseCase: sl(),
       deleteAbsenceUseCase: sl(),
+      getStaffListUseCase: sl(),
     ),
   );
 }

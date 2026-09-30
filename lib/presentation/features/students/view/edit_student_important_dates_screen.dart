@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -16,6 +15,8 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_important_dates_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentImportantDatesScreen extends StatefulWidget {
   const EditStudentImportantDatesScreen({
@@ -182,26 +183,7 @@ class _EditStudentImportantDatesScreenState
                           right: AppSpacing.md,
                           top: AppSpacing.xs,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.whiteColor,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.blackColor.withValues(
-                                alpha: 0.05,
-                              ),
-                              offset: const Offset(0, -4),
-                              blurRadius: 16,
-                            ),
-                          ],
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(
-                              responsive.isTablet ? 40.0 : 24.0,
-                            ),
-                            topRight: Radius.circular(
-                              responsive.isTablet ? 40.0 : 24.0,
-                            ),
-                          ),
-                        ),
+                        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                         child: CustomButtonLayout(
                           confirmButtonLabel: StudentStrings.save,
                           onPressedConfirm: isSubmitting ? null : _save,
@@ -225,7 +207,7 @@ class _EditStudentImportantDatesScreenState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -263,17 +245,14 @@ class _EditStudentImportantDatesScreenState
                             ? AppColors.attendanceMutedTextColor
                             : AppColors.blackColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

@@ -4,6 +4,8 @@ import 'package:wowcare/src/app_router.dart';
 
 import '../../../../core/utils/active_school_switcher.dart';
 import '../../../../core/utils/logger_service.dart';
+import '../../../../core/utils/notification_identity_guard.dart';
+import '../../../../core/utils/notification_persona_switcher.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../../../../shared/common/app/cubits/parent_child_cubit.dart';
 import '../../../../shared/common/app/cubits/role_cubit.dart';
@@ -61,6 +63,11 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
       AppLogger.d('[FCM] No route mapped for action: ${message.action}');
       return;
     }
+    // Reject a link generated for a different account than whoever is
+    // logged in on this device BEFORE switching school or navigating — see
+    // blockIfWrongAccount's own doc for why this only ever fires for
+    // email-originated deep-links, never a real push.
+    if (await blockIfWrongAccount(message)) return;
     // Capture the role cubit before the async gap; reading `.isParent` after the
     // switch then reflects the TARGET school's persona (the cubit instance lives
     // above this widget, so it's safe to use post-await without `context`).
@@ -73,6 +80,16 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
         context: context,
         organizationCode: message.organizationCode,
         schoolCode: message.schoolCode,
+      );
+    }
+    // A link can also target a DIFFERENT persona at the SAME org/school
+    // (e.g. a staff member who is also a guardian there) — the school switch
+    // above no-ops in that case since org/school haven't changed, so without
+    // this, the active persona would never move to match the link's role.
+    if (mounted) {
+      await switchActiveSchoolPersonaIfNeeded(
+        context: context,
+        targetRole: message.role,
       );
     }
     // Resolve again with the resolved persona: billing actions open the parent

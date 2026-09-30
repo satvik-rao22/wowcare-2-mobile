@@ -125,6 +125,10 @@ class StorageKeys {
   static const String organizationsAndSchools = 'organizationsAndSchools';
 
   static const String loginCompleted = 'loginCompleted';
+
+  /// First launch has been dealt with. Kept under its original key so no
+  /// existing install is mistaken for a new one; it no longer gates a
+  /// screen, only the fresh-install cache wipe in `SplashCubit.resolve`.
   static const String onboardingSeen = 'onboardingSeen';
   static const String loginContext = 'loginContext';
   static const String userAccessDetails = 'userAccessDetails';
@@ -144,4 +148,12 @@ class StorageKeys {
   /// snapshots are ignored until refetched.
   static const String activityFeedCacheRevision =
       'activity_feed_cache_revision';
+
+  /// Task attachments this device uploaded, as `{seriesCode: [assetRow, …]}`.
+  ///
+  /// Only needed because the Tasks API exposes no attachments **read** endpoint
+  /// (unlike Events/Activities, whose payloads carry their attachment rows), so
+  /// without this a file is invisible the moment the in-memory cache is gone.
+  /// Display-only — never authoritative for the `assetCodes` full-replace.
+  static const String taskAttachmentsCache = 'task_attachments_cache_v1';
 }

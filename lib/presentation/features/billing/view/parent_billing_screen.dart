@@ -3,12 +3,15 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_family_member.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -329,32 +332,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ),
               )
             else if (state.errorMessage != null && state.ledger == null)
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: AppColors.primaryColor,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        state.errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.primaryColor.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: _cubit.load,
-                        child: const Text(BillingStrings.retry),
-                      ),
-                    ],
-                  ),
-                ),
+              AppErrorState(
+                title: state.errorMessage!,
+                retryLabel: BillingStrings.retry,
+                onRetry: _cubit.load,
               )
             else if (state.filteredTransactions.isEmpty)
               Padding(
@@ -465,8 +446,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                   controller: _tabController,
                   dividerColor: AppColors.transparentColor,
                   indicatorSize: TabBarIndicatorSize.label,
-                  indicator: _GradientTabIndicator(
-                    gradient: AppColors.buildPrimaryGradient(),
+                  indicator: const _TabUnderlineIndicator(
+                    color: AppColors.themeColor,
                   ),
                   tabs: const [
                     Tab(text: BillingStrings.billing),
@@ -494,24 +475,23 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
 // ─── Gradient tab indicator ───────────────────────────────────────────────────
 
-class _GradientTabIndicator extends Decoration {
-  const _GradientTabIndicator({
-    required this.gradient,
-    this.height = 2.5,
-  });
+/// The selected tab's underline: a flat rule in the brand colour, drawn only
+/// under the label rather than the whole tab.
+class _TabUnderlineIndicator extends Decoration {
+  const _TabUnderlineIndicator({required this.color, this.height = 2.5});
 
-  final Gradient gradient;
+  final Color color;
   final double height;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _GradientTabPainter(gradient: gradient, height: height);
+      _TabUnderlinePainter(color: color, height: height);
 }
 
-class _GradientTabPainter extends BoxPainter {
-  _GradientTabPainter({required this.gradient, required this.height});
+class _TabUnderlinePainter extends BoxPainter {
+  _TabUnderlinePainter({required this.color, required this.height});
 
-  final Gradient gradient;
+  final Color color;
   final double height;
 
   @override
@@ -523,15 +503,14 @@ class _GradientTabPainter extends BoxPainter {
       size.width,
       height,
     );
-    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
+    canvas.drawRect(rect, Paint()..color = color);
   }
 }
 
 /// Small gradient-outlined "Update AutoPay" button for the blocked-AutoPay
-/// banner — a 1px gradient border (via the padding trick: an outer gradient
-/// container with a 1px inset holding an inner solid-fill container) with
-/// gradient text via [ShaderMask], matching the gradient buttons used
-/// elsewhere in billing instead of a filled/solid button.
+/// banner — a secondary key (the flat skin's outline button: a 1px rim over
+/// the banner's own ground) with a flat brand label, matching
+/// [CustomCancelButton] instead of a filled/solid button.
 class _UpdateAutoPayButton extends StatelessWidget {
   const _UpdateAutoPayButton({required this.onTap});
 
@@ -539,12 +518,10 @@ class _UpdateAutoPayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuKeyBox(
+      variant: KeyVariant.secondary,
+      radius: 8,
       height: 30,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildPrimaryGradient(),
-      ),
       padding: const EdgeInsets.all(1),
       child: Material(
         color: AppColors.transparentColor,
@@ -553,22 +530,14 @@ class _UpdateAutoPayButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(7),
           child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.billingInfoBannerBackground,
-              borderRadius: BorderRadius.circular(7),
-            ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.center,
-            child: ShaderMask(
-              shaderCallback: (bounds) =>
-                  AppColors.buildPrimaryGradient().createShader(bounds),
-              child: const Text(
-                BillingStrings.updateAutoPay,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: AppColors.billingCardOnColorText,
-                ),
+            child: const Text(
+              BillingStrings.updateAutoPay,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppColors.primaryColor,
               ),
             ),
           ),

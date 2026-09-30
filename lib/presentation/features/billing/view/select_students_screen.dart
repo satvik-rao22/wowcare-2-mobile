@@ -19,6 +19,8 @@ import 'package:wowcare/presentation/features/billing/view/create_invoice_screen
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
 import 'package:wowcare/presentation/features/billing/model/student_models.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
@@ -145,7 +147,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   value: areAllSelected,
                   label: BillingStrings.selectAll,
                   labelStyle: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,
@@ -158,26 +160,16 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : (state.errorMessage != null && filtered.isEmpty)
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  state.errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontFamily: Fonts.manrope,
-                                    fontSize: 14,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                ),
-                              ),
+                          ? AppErrorState(
+                              title: state.errorMessage!,
+                              onRetry: _cubit.initialize,
                             )
                           : filtered.isEmpty
                               ? const Center(
                                   child: Text(
                                     BillingStrings.noStudentsFound,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontSize: 14,
                                       color: AppColors.billingTextColor,
                                     ),
@@ -235,10 +227,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       ),
       child: Container(
         height: 48.0,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(8.0),
-        ),
+        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8.0),
         child: TextButton(
           onPressed: () async {
             final selectedStudents = _cubit.selectedStudents;
@@ -336,7 +325,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               : const Text(
                   BillingStrings.next,
                   style: TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 16.0,
                     fontWeight: FontWeight.w600,
                     color: AppColors.billingCardColor,
@@ -361,12 +350,43 @@ class _StudentRow extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool?> onChanged;
 
+  /// Schedule days-per-week isn't its own field on [Student] — schools tag
+  /// students with it directly (e.g. "2 Days/Week"), so it's read off
+  /// [Student.tags] rather than derived from a regular-schedule fetch.
+  static String? _daysPerWeekTag(List<Tag> tags) {
+    for (final t in tags) {
+      final name = t.name.trim();
+      if (RegExp(r'\d+\s*days?\s*/?\s*week', caseSensitive: false)
+          .hasMatch(name)) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  /// Same as [_daysPerWeekTag]: Full Day / Half Day is a tag, not a
+  /// schedule-derived value.
+  static String? _dayTypeTag(List<Tag> tags) {
+    for (final t in tags) {
+      final normalized = t.name.trim().toLowerCase();
+      if (normalized == 'full day' || normalized == 'half day') {
+        return t.name.trim();
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Compose the subtitle: classroom + age (e.g. "Room 101 · 2 yrs 3 mos").
+    // Compose the subtitle: classroom + age + schedule tags
+    // (e.g. "Room 101 · 2 yrs 3 mos · 2 Days/Week · Full Day").
+    final daysPerWeek = _daysPerWeekTag(student.tags);
+    final dayType = _dayTypeTag(student.tags);
     final parts = <String>[
       if ((student.roomName ?? '').trim().isNotEmpty) student.roomName!.trim(),
       if (student.ageLabel.trim().isNotEmpty) student.ageLabel.trim(),
+      if (daysPerWeek != null) daysPerWeek,
+      if (dayType != null) dayType,
     ];
     final subtitle = parts.join('  ·  ');
 
@@ -399,7 +419,7 @@ class _StudentRow extends StatelessWidget {
                   Text(
                     student.fullName,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.billingTextColor,
@@ -411,7 +431,7 @@ class _StudentRow extends StatelessWidget {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: 12,
                         color: AppColors.billingTextMuted,
                       ),

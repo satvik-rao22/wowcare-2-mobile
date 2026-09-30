@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/partici
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Normalized participant data — works for both ConversationParticipant
 /// (used in ParentMessagingThread) and ParticipantEntity (ConversationThreadScreen).
@@ -273,17 +274,7 @@ class _StudentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSizes.md, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 14),
       child: Row(
         children: [
           DocumentImageWidget(

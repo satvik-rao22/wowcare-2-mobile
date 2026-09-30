@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ReportItem {
   const ReportItem({
@@ -198,13 +200,10 @@ class _GenerateButton extends StatelessWidget {
     final isEnabled = onPressed != null;
 
     if (!isPrimary) {
-      return Container(
+      return SkeuKeyBox(
+        variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+        radius: 8,
         height: 44,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-          color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
-        ),
         padding: const EdgeInsets.all(1),
         child: TextButton(
           onPressed: onPressed,
@@ -220,15 +219,10 @@ class _GenerateButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               isEnabled
-                  ? ShaderMask(
-                      shaderCallback: (bounds) =>
-                          AppColors.buildPrimaryGradient().createShader(bounds),
-                      blendMode: BlendMode.srcIn,
-                      child: _ReportFormatIcon(
-                        format: format,
-                        color: AppColors.cardColor,
-                        size: 18,
-                      ),
+                  ? _ReportFormatIcon(
+                      format: format,
+                      color: AppColors.themeColor,
+                      size: 18,
                     )
                   : _ReportFormatIcon(
                       format: format,
@@ -250,13 +244,10 @@ class _GenerateButton extends StatelessWidget {
       );
     }
 
-    return Container(
+    return SkeuKeyBox(
+      variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+      radius: 8,
       height: 44,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : AppColors.reportsDisabledSurfaceColor,
-      ),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
@@ -314,11 +305,11 @@ class _ReportFormatIcon extends StatelessWidget {
     if (format == ReportExportFormat.pdf) {
       return Icon(Icons.picture_as_pdf_rounded, size: size, color: color);
     }
-    return SvgPicture.asset(
+    return AppIcon(
       'assets/icons/excel_icon.svg',
       width: size,
       height: size,
-      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      color: color,
     );
   }
 }

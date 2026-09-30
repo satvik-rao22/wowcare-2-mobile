@@ -49,15 +49,14 @@ class OverviewMapper {
     final staff = _map(data['staff']);
     final period = _map(data['period']);
     final summary = _map(data['summary']);
+    // `days` may be a plain list or a paginated page object ({content: [...]}).
     final daysJson = _list(data['days']);
-
     if (data.isEmpty) {
       AppLogger.w('Av2 overview: response has no `data` — ${_shape(body)}');
     } else if (daysJson.isEmpty) {
       AppLogger.w(
           'Av2 overview: no `days` in response — ${_shape(body)}');
     }
-
     final days = daysJson
         .whereType<Map>()
         .map((e) => _mapDay(e.cast<String, dynamic>()))
@@ -159,7 +158,8 @@ class OverviewMapper {
       absenceFromDate: _date(absence['fromDate'] ?? absence['absenceFromDate']),
       absenceToDate: _date(absence['toDate'] ?? absence['absenceToDate']),
       absenceNote: _str(absence['note'] ?? m['absenceNote']),
-      absenceMarkedByName: _str(absence['markedByName'] ?? m['markedByName']),
+      absenceMarkedByName: _str(
+          absence['markedByName'] ?? m['markedByName'] ?? m['markedBy']),
     );
   }
 

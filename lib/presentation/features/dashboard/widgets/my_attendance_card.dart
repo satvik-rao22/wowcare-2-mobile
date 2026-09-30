@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -71,7 +72,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           onRetry: () => context.read<MyAttendanceCubit>().load(),
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.whiteColor,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -137,7 +138,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
   Widget _buildShimmer() {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -146,8 +147,8 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
+          baseColor: MaterialHues.grey300,
+          highlightColor: MaterialHues.grey100,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -195,7 +196,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
     width: w,
     height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.whiteColor,
       borderRadius: BorderRadius.circular(radius),
     ),
   );
@@ -268,7 +269,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           icon: MediaRes.calenderClockIcon,
           label: 'Attended Days',
           text: attendedDays.toString(),
-          valueColor: const Color.fromRGBO(52, 199, 89, 1),
+          valueColor: AppPalette.statusSuccess,
         ),
         const SizedBox(height: 16),
         _AttendanceHoursTile(hours: attendedHours, minutes: attendedMinutes),
@@ -277,7 +278,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           icon: MediaRes.calenderClockIcon,
           label: 'Absent Days',
           text: absentDays.toString(),
-          valueColor: const Color.fromRGBO(255, 117, 110, 1),
+          valueColor: AppPalette.statusError,
         ),
       ],
     );
@@ -313,7 +314,7 @@ class _AttendanceInfoTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -367,7 +368,7 @@ class _AttendanceHoursTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          SvgPicture.asset(MediaRes.timerIcon, height: 30),
+          AppIcon(MediaRes.timerIcon, height: 30),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -405,13 +406,13 @@ class _ValueCircle extends StatelessWidget {
       width: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(color: Color(0xFF4285F4), width: 1.5),
+        border: Border.all(color: AppPalette.statusInfo, width: 1.5),
         shape: BoxShape.circle,
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: Color(0xFF4285F4),
+          color: AppPalette.statusInfo,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),

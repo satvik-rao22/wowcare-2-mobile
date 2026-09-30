@@ -12,6 +12,7 @@ class StaffThreadInfo {
     required this.name,
     required this.avatar,
     required this.code,
+    this.staffUserCode,
     this.designation,
     this.email,
     this.isSigned = false,
@@ -24,6 +25,12 @@ class StaffThreadInfo {
   final String name;
   final String avatar;
   final String code;
+
+  /// The counterpart staff member's own account code (`USR_*`) — lets the
+  /// header resolve a photo via [DocumentImageWidget]'s userCode fallback
+  /// when [avatar] itself is empty (the conversation payload doesn't always
+  /// carry a resolved photo/media-asset-code for staff).
+  final String? staffUserCode;
   final String? designation;
   final String? email;
   final bool isSigned;

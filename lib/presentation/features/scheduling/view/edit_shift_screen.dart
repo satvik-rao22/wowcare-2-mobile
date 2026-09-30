@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/edit_shift_cubit.dart';
@@ -18,8 +19,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Whether the Edit screen affects a single occurrence or every occurrence in
 /// a recurring series. Drives the screen title and which PUT API is hit on
@@ -246,20 +247,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                   right: 16,
                   top: 8,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  ),
-                ),
+                decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                 child: CustomButtonLayout(
                   confirmButtonLabel: state.saving ? 'Saving…' : 'Save',
                   onPressedConfirm:
@@ -332,20 +320,22 @@ class _EditShiftViewState extends State<_EditShiftView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: GradientTimePickerField(
+                        child: CustomDateTimeField(
+                          isTime: true,
                           label: 'Shift Start',
                           isRequired: true,
-                          time: state.shiftStart,
+                          initialTime: state.shiftStart,
                           errorText: state.shiftStartError,
                           onTimeSelected: cubit.setShiftStart,
                         ),
                       ),
                       SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                       Expanded(
-                        child: GradientTimePickerField(
+                        child: CustomDateTimeField(
+                          isTime: true,
                           label: 'Shift End',
                           isRequired: true,
-                          time: state.shiftEnd,
+                          initialTime: state.shiftEnd,
                           errorText: state.shiftEndError,
                           onTimeSelected: cubit.setShiftEnd,
                         ),
@@ -357,9 +347,10 @@ class _EditShiftViewState extends State<_EditShiftView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: GradientTimePickerField(
+                        child: CustomDateTimeField(
+                          isTime: true,
                           label: 'Break Start',
-                          time: state.breakStart,
+                          initialTime: state.breakStart,
                           errorText: state.breakStartError,
                           onTimeSelected: cubit.setBreakStart,
                           onClear: () => cubit.setBreakStart(null),
@@ -367,9 +358,10 @@ class _EditShiftViewState extends State<_EditShiftView> {
                       ),
                       SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                       Expanded(
-                        child: GradientTimePickerField(
+                        child: CustomDateTimeField(
+                          isTime: true,
                           label: 'Break End',
-                          time: state.breakEnd,
+                          initialTime: state.breakEnd,
                           errorText: state.breakEndError,
                           onTimeSelected: cubit.setBreakEnd,
                           onClear: () => cubit.setBreakEnd(null),
@@ -391,7 +383,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                       Text(
                         state.daysError!,
                         style: const TextStyle(
-                          color: Colors.red,
+                          color: MaterialHues.red,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -469,7 +461,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -487,7 +479,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -512,21 +504,16 @@ class _EditShiftViewState extends State<_EditShiftView> {
         const Spacer(),
         GestureDetector(
           onTap: cubit.toggleSelectAll,
-          child: ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: AppColors.primaryGradientColors,
-            ).createShader(bounds),
-            child: Text(
+          child: Text(
               state.selectedDays.length == state.availableWeekDays.length
                   ? 'Clear All'
                   : 'Select All',
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.themeColor,
               ),
             ),
-          ),
         ),
       ],
     );
@@ -605,13 +592,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           constraints: BoxConstraints(
             minHeight: responsive.inputFieldHeight,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _noteController,
             maxLines: 3,
@@ -624,7 +605,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             ),
             decoration: InputDecoration(
               hintText: 'Eg. Please note the change in classroom location',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: MaterialHues.grey500),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

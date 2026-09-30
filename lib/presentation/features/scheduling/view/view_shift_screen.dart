@@ -3,14 +3,15 @@ import 'package:intl/intl.dart';
 
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_bottom_sheet_scaffold.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Read-only view of a single shift. Mirrors the form layout of [AddShiftScreen]
 /// so the fields look familiar, but every field is non-interactive. The bottom
@@ -84,22 +85,7 @@ class ViewShiftScreen extends StatelessWidget {
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: CustomButtonLayout(
                 cancelButtonLabel: 'Delete',
                 confirmButtonLabel: 'Edit',
@@ -234,7 +220,7 @@ class ViewShiftScreen extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),
@@ -279,10 +265,11 @@ class ViewShiftScreen extends StatelessWidget {
     bool isRequired = false,
   }) {
     return IgnorePointer(
-      child: GradientTimePickerField(
+      child: CustomDateTimeField(
+        isTime: true,
         label: label,
         isRequired: isRequired,
-        time: time,
+        initialTime: time,
         onTimeSelected: (_) {},
       ),
     );
@@ -302,12 +289,7 @@ class ViewShiftScreen extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(responsive.isTablet ? 16.0 : 12.0),
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.well(radius: responsive.isTablet ? 12.0 : 8.0,),
           child: Text(
             note!,
             style: TextStyle(
@@ -440,7 +422,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF8B7B89),
+            color: AppPalette.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -474,13 +456,7 @@ class _ScopeRadioTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.fieldBackgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.themeColor.withValues(alpha: 0.18),
-          ),
-        ),
+        decoration: AppSurfaces.well(radius: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -507,7 +483,7 @@ class _ScopeRadioTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF8B7B89),
+                      color: AppPalette.textSecondary,
                       height: 1.35,
                     ),
                   ),

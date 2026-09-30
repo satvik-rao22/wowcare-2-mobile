@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/utils/attendance_events.dart';
@@ -21,6 +20,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'choose_activity.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class ActivityFeedScreen extends StatefulWidget {
   const ActivityFeedScreen({
@@ -35,6 +35,8 @@ class ActivityFeedScreen extends StatefulWidget {
     this.initialTab,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -68,6 +70,16 @@ class ActivityFeedScreen extends StatefulWidget {
 
   /// Pre-selected classrooms to pass to the Custom tab (e.g., ['all']).
   final List<String>? initialClassrooms;
+
+  /// Pre-selected approval statuses to pass to the Custom tab (e.g., the
+  /// Incidents attention card's ['PENDING_ADMIN_APPROVAL']).
+  final List<String>? initialApprovalStatuses;
+
+  /// When true, the Custom tab widens its date filter to cover all time
+  /// instead of its current-month default — the Incidents attention card's
+  /// count has no date bound, so scoping its destination list to a month
+  /// would hide older pending incidents the count still includes.
+  final bool initialAllTime;
 
   /// Used to force state reset in didUpdateWidget when navigating repeatedly.
   final String? resetKey;
@@ -297,10 +309,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                                       ),
                                   child: Padding(
                                     padding: const EdgeInsets.all(8),
-                                    child: SvgPicture.asset(
+                                    child: AppIcon(
                                       MediaRes.uploadCloudIcon,
                                       width: iconSize,
                                       height: iconSize,
+                                      tone: IconTone.action,
                                     ),
                                   ),
                                 );
@@ -361,6 +374,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           highlightCode: widget.highlightCode,
                           highlightDate: widget.highlightDate,
                           highlightClassroomCode: widget.highlightClassroomCode,
+                          // Missing here meant a staff/admin deep-link's student
+                          // scope (see ActivityDailyTab._resolveDeepLinkStudentScope)
+                          // never even ran — this layout branch simply never
+                          // received the code the parent branch below already did.
+                          deepLinkStudentCode: widget.deepLinkStudentCode,
                           onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
                         ActivityCustomTab(
@@ -373,6 +391,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           allowActivityWrite: allowWrite,
                           initialActivityTypes: widget.initialActivityTypes,
                           initialClassrooms: widget.initialClassrooms,
+                          initialApprovalStatuses:
+                              widget.initialApprovalStatuses,
+                          initialAllTime: widget.initialAllTime,
                           resetKey: widget.resetKey,
                           onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
@@ -416,6 +437,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           allowActivityWrite: allowWrite,
                           initialActivityTypes: widget.initialActivityTypes,
                           initialClassrooms: widget.initialClassrooms,
+                          initialApprovalStatuses:
+                              widget.initialApprovalStatuses,
+                          initialAllTime: widget.initialAllTime,
                           resetKey: widget.resetKey,
                         ),
                       ],

@@ -23,7 +23,6 @@ import 'package:wowcare/data/features/attendance/models/student_attendance_model
 ///    verbatim by exposing the composed model as [dailyPage].
 class StaffAttendanceProfileRecord extends Equatable {
   const StaffAttendanceProfileRecord({
-    this.code,
     required this.attendanceDate,
     required this.sequenceNumber,
     required this.totalSequenceCount,
@@ -41,11 +40,8 @@ class StaffAttendanceProfileRecord extends Equatable {
     required this.attendedMinutes,
     required this.signedInMethod,
     required this.notExpectedComment,
+    this.code,
   });
-
-  /// `m['code'] as String?` — the attendance record code, needed to
-  /// edit/delete a single session.
-  final String? code;
 
   /// `m['attendanceDate'] as String? ?? ''`
   final String attendanceDate;
@@ -104,9 +100,13 @@ class StaffAttendanceProfileRecord extends Equatable {
   /// `m['notExpectedComment'] as String? ?? ''` (screen keeps the `.trim()`)
   final String notExpectedComment;
 
+  /// `m['code']` — the session record's own identifier. Not read by the
+  /// legacy profile screen, which only displays sessions; the Attendance V2
+  /// overtime module edits and deletes them and so needs it.
+  final String? code;
+
   @override
   List<Object?> get props => [
-    code,
     attendanceDate,
     sequenceNumber,
     totalSequenceCount,
@@ -124,6 +124,7 @@ class StaffAttendanceProfileRecord extends Equatable {
     attendedMinutes,
     signedInMethod,
     notExpectedComment,
+    code,
   ];
 }
 

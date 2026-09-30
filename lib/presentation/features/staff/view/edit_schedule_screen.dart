@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/staff/model/schedule_entry.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_schedule_entry.dart';
@@ -12,6 +13,8 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/events/scheduling_events.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class EditScheduleScreen extends StatelessWidget {
   const EditScheduleScreen({
@@ -514,7 +517,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               child: Text(
                 _schoolHoursLoadError!,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 12,
                   color: AppColors.staffWarningBannerText,
                   fontWeight: FontWeight.w500,
@@ -588,28 +591,16 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
           right: 16,
           top: 8,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.billingShadowColorLight,
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
+        decoration: AppSurfaces.card(
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Container(
+        child: SkeuKeyBox(
+          variant: KeyVariant.primary,
+          radius: responsive.isTablet ? 16.0 : 8.0,
           height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 16.0 : 8.0,
-            ),
-          ),
           child: ValueListenableBuilder<bool>(
             valueListenable: _isSubmitting,
             builder: (context, isSubmitting, _) {
@@ -618,7 +609,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                 child: Text(
                   'Save',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
                     color: AppColors.cardColor,
@@ -662,7 +653,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               Text(
                 day,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryColor,
@@ -698,7 +689,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                       child: const Text(
                         'Enable',
                         style: TextStyle(
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
@@ -711,7 +702,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Text(
               'Holiday',
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.attendanceDialogHintTextColor,
@@ -723,7 +714,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
               Text(
                 _schoolHoursHint(day)!,
                 style: TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.staffMutedBlueGreyText,
@@ -772,7 +763,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Text(
               title,
               style: const TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
@@ -782,10 +773,11 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
             Row(
               children: [
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: 'Start',
                     minuteInterval: 15,
-                    time: startTime,
+                    initialTime: startTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,
                       title == 'Work Time'
@@ -797,10 +789,11 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GradientTimePickerField(
+                  child: CustomDateTimeField(
+                    isTime: true,
                     label: 'End',
                     minuteInterval: 15,
-                    time: endTime,
+                    initialTime: endTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,
                       title == 'Work Time'

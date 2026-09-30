@@ -112,20 +112,179 @@ class StaffOvertimeRemoteDataSource {
     );
   }
 
-  /// Reads the calculated per-day overview.
+  /// Fetches active classrooms/locations for the school (own call so the
+  /// module stays independent). Returns raw `{code, name}` maps.
+  Future<List<Map<String, dynamic>>> getClassroomsRaw({
+    required String schoolCode,
+  }) async {
+    final uri = Uri.parse(ApiPaths.url(ApiPaths.classroomAll)).replace(
+      queryParameters: <String, String>{
+        'school': schoolCode,
+        'status': 'ACTIVE',
+        'sortByName': 'asc',
+      },
+    );
+    final res = await _client.getUri<dynamic>(uri);
+    final body = res.data;
+    final root = body is Map ? (body['data'] ?? body) : body;
+    final list = root is Map ? (root['content'] as List?) : (root as List?);
+    return (list ?? const [])
+        .whereType<Map>()
+        .map((e) {
+          final m = e.cast<String, dynamic>();
+          return <String, dynamic>{
+            'code': (m['code'] ?? m['classroomCode'])?.toString() ?? '',
+            'name': (m['name'] ?? m['classroomName'])?.toString() ?? '',
+          };
+        })
+        .where((m) => (m['code'] as String).isNotEmpty)
+        .toList();
+  }
+
+  /// Fetches active staff for the school (own call so the module stays
+  /// independent) for the admin "switch staff" picker. Returns raw
+  /// `{code, name, designation, classroom}` maps.
+  Future<List<Map<String, dynamic>>> getStaffRaw({
+    required String schoolCode,
+    String organizationCode = '',
+  }) async {
+    final endpoint =
+        ApiPaths.urlWithBase(ApiPaths.staffList, ApiConstants.staffBaseUrl);
+    final res = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'page': 0,
+        'size': 200,
+        'sort': 'firstName,asc',
+        'status': <String>['ACTIVE'],
+        if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
+      },
+      // Repeats keys: `status=ACTIVE&status=UPCOMING`.
+      options: Options(listFormat: ListFormat.multi),
+    );
+    final body = res.data;
+    final data = body is Map ? body['data'] : null;
+    final list = data is List
+        ? data
+        : (data is Map ? (data['content'] as List?) : null);
+    return (list ?? const [])
+        .whereType<Map>()
+        .map((e) {
+          final m = e.cast<String, dynamic>();
+          final primary = m['primaryClassroom'];
+          final classroom = primary is Map
+              ? (primary['name'] ?? primary['classroomName'])?.toString()
+              : null;
+          return <String, dynamic>{
+            'code': (m['code'] ?? m['staffCode'])?.toString() ?? '',
+            'name': (m['name'] ?? '').toString(),
+            'designation': (m['designation'] ?? '').toString(),
+            'classroom': (classroom ?? '').toString(),
+          };
+        })
+        .where((m) =>
+            (m['code'] as String).isNotEmpty &&
+            (m['name'] as String).trim().isNotEmpty)
+        .toList();
+  }
+
+  /// Records a sign-in (admin-added session). [occurredAtUtc] is ISO-8601 UTC.
+  Future<void> signIn({
+    required String staffCode,
+    required String classroomCode,
+    required String attendanceDate,
+    required String occurredAtUtc,
+    required String timeZone,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-attendance-records/sign-in',
+      ApiConstants.attendanceBaseUrl,
+    );
+    await _client.post<dynamic>(endpoint, data: _sessionBody(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+      attendanceDate: attendanceDate,
+      occurredAtUtc: occurredAtUtc,
+      timeZone: timeZone,
+      isSignIn: true,
+    ));
+  }
+
+  /// Records a sign-out (admin-added). [occurredAtUtc] is ISO-8601 UTC.
+  Future<void> signOut({
+    required String staffCode,
+    required String classroomCode,
+    required String attendanceDate,
+    required String occurredAtUtc,
+    required String timeZone,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '/api/v1/staff-attendance-records/sign-out',
+      ApiConstants.attendanceBaseUrl,
+    );
+    await _client.post<dynamic>(endpoint, data: _sessionBody(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+      attendanceDate: attendanceDate,
+      occurredAtUtc: occurredAtUtc,
+      timeZone: timeZone,
+      isSignIn: false,
+    ));
+  }
+
+  Map<String, dynamic> _sessionBody({
+    required String staffCode,
+    required String classroomCode,
+    required String attendanceDate,
+    required String occurredAtUtc,
+    required String timeZone,
+    required bool isSignIn,
+  }) {
+    return <String, dynamic>{
+      if (isSignIn) 'isExpectedToday': true,
+      'attendanceDate': attendanceDate,
+      'staffCode': staffCode,
+      'staffCodes': <String>[staffCode],
+      'classroomCode': classroomCode,
+      'classroomCodeByStaffCode': <String, String>{staffCode: classroomCode},
+      'method': 'APP',
+      'latitude': 0,
+      'longitude': 0,
+      'withinGeofence': false,
+      'timeZone': timeZone,
+      'occurredAt': occurredAtUtc,
+      'allowedClassroomCodes': <String>[],
+    };
+  }
+
+  /// Reads the calculated per-day overview. The endpoint is paginated
+  /// (server default 10/page); [page]/[size] go as query params (Spring
+  /// pageable) and the [overtimeOnly]/[absentOnly] filters in the body.
   Future<Map<String, dynamic>?> getOverview({
     required String staffCode,
     required String fromDate,
     required String toDate,
+    int page = 0,
+    int size = 10,
+    bool overtimeOnly = false,
+    bool absentOnly = false,
   }) async {
     final endpoint =
         ApiPaths.urlWithBase(_overviewPath, ApiConstants.attendanceBaseUrl);
     final response = await _client.post<dynamic>(
       endpoint,
+      queryParameters: <String, dynamic>{
+        'page': page,
+        'size': size,
+        'sort': 'date,desc',
+      },
       data: <String, dynamic>{
         'staffCode': staffCode,
         'fromDate': fromDate,
         'toDate': toDate,
+        'overtimeOnly': overtimeOnly,
+        'absentOnly': absentOnly,
       },
     );
     final data = response.data;

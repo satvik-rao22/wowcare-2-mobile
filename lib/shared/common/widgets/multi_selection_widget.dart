@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class MultiSelectWidget extends StatefulWidget {
@@ -100,10 +102,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 320),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: AppSurfaces.card(radius: 12),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
                       final responsive = ResponsiveHelper(context);
@@ -121,14 +120,11 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                             padding: const EdgeInsets.all(12),
                             child: TextField(
                               decoration: InputDecoration(
+                                filled: true,
+                                fillColor: AppSurfaces.fieldFill,
                                 hintText: widget.hintText,
                                 prefixIcon: const Icon(Icons.search, size: 20),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
+                                border: AppSurfaces.fieldBorder(radius: 10),
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                 ),
@@ -167,7 +163,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                             vertical: 14,
                                           ),
                                           color: hasSelections
-                                              ? Color(0xFFF8F7FA)
+                                              ? AppPalette.surfaceSunken
                                               : Colors.transparent,
                                           child: Row(
                                             children: [
@@ -176,13 +172,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                 child: Text(
                                                   widget.clearSelectionText,
                                                   style: TextStyle(
-                                                    fontFamily: "Manrope",
+                                                    fontFamily: AppFonts.body,
                                                     fontSize: responsive
                                                         .inputFontSize,
                                                     fontWeight: FontWeight.w500,
                                                     color: hasSelections
-                                                        ? Color(0xff573353)
-                                                        : Colors.grey.shade400,
+                                                        ? AppColors.primaryColor
+                                                        : MaterialHues.grey400,
                                                   ),
                                                 ),
                                               ),
@@ -227,11 +223,11 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                           child: Text(
                                             tag,
                                             style: TextStyle(
-                                              fontFamily: "Manrope",
+                                              fontFamily: AppFonts.body,
                                               fontSize:
                                                   responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
-                                              color: const Color(0xff573353),
+                                              color: AppColors.primaryColor,
                                             ),
                                           ),
                                         ),
@@ -287,16 +283,16 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
             text: TextSpan(
               style: TextStyle(
                 fontSize: responsive.labelFontSize,
-                fontFamily: "Manrope",
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
               children: [
                 TextSpan(text: widget.label),
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: MaterialHues.red),
                   ),
               ],
             ),
@@ -319,13 +315,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               // decoration: BoxDecoration(
               //   color: Colors.white,
               //   border: Border.all(
-              //     color: widget.errorText != null ? Colors.red : const Color(0x66573353),
+              //     color: widget.errorText != null ? Colors.red : AppPalette.textMuted,
               //   ),
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
+                color: AppPalette.brandSoft.withValues(alpha: 0.102),
+                //color: AppPalette.surfaceSunken,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Stack(
@@ -337,8 +333,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                         displayText,
                         style: TextStyle(
                           color: widget.selectedOptions.isEmpty
-                              ? Colors.grey[600]
-                              : Colors.black87,
+                              ? MaterialHues.grey600
+                              : MaterialHues.black87,
                           fontSize: 15,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -350,9 +346,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       child: Text(
                         widget.hintText,
                         style: TextStyle(
-                          color: const Color(0xff573353),
+                          color: AppColors.primaryColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -370,7 +366,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           decoration: BoxDecoration(
                             color: widget.colorfulSelection
                                 ? _getTagBackgroundColor(tag)
-                                : Colors.white,
+                                : AppPalette.surfaceCard,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -383,7 +379,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                     color: _getTagTextColor(tag),
                                     fontWeight: FontWeight.w600,
                                     fontSize: responsive.inputFontSize,
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -414,7 +410,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       _isDropdownOpen
                           ? Icons.keyboard_arrow_up_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                       size: responsive.isTablet ? 28 : 24,
                     ),
                   ),
@@ -430,7 +426,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 widget.errorText!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+                style: const TextStyle(color: MaterialHues.red, fontSize: 12),
               ),
             ),
         ],
@@ -451,13 +447,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : Colors.grey,
+          color: value ? AppColors.transparentColor : AppPalette.borderStrong,
           width: 2,
         ),
-        gradient: value ? AppColors.buildPrimaryGradient() : null,
+        color: value ? AppPalette.brand : AppColors.transparentColor,
       ),
       child: value
-          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          ? const Icon(Icons.check, size: 16, color: AppPalette.onBrand)
           : null,
     );
   }

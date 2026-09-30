@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 /// Indicator showing active filters with a badge.
 /// Only displayed when filters are active.
@@ -20,7 +21,7 @@ class FilterIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!hasActiveFilters) {
       return IconButton(
-        icon: const Icon(Icons.tune),
+        icon: const FilterGlyph(),
         onPressed: onTap,
         tooltip: 'Filters',
       );
@@ -30,7 +31,7 @@ class FilterIndicator extends StatelessWidget {
       alignment: Alignment.topRight,
       children: [
         IconButton(
-          icon: const Icon(Icons.tune),
+          icon: const FilterGlyph(),
           onPressed: onTap,
           color: AppColors.primaryColor,
           tooltip: 'Filters (Active)',

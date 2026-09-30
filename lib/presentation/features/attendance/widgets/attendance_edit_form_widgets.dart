@@ -3,7 +3,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Photo + name (+ optional subtitle) header card shown atop
@@ -88,7 +88,11 @@ class AttendanceEditTimeSection extends StatelessWidget {
       children: [
         AppText.label(label),
         const SizedBox(height: AppSpacing.xs),
-        GradientTimePickerField(time: time, onTimeSelected: onTimeChanged),
+        CustomDateTimeField(
+          isTime: true,
+          initialTime: time,
+          onTimeSelected: onTimeChanged,
+        ),
       ],
     );
   }

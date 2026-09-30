@@ -27,7 +27,7 @@ class KioskAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       leading: showBackButton

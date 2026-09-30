@@ -1,69 +1,20 @@
 import 'package:flutter/material.dart';
-import 'av2_colors.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
-/// Typography tokens for Attendance V2.
+/// Typography names used across the Attendance V2 module.
 ///
-/// Uses the host app's Manrope family. Sizes are tuned for comfortable
-/// readability (no tiny text), and every style defaults to the brand plum
-/// (#573353) — never pure black — for a warm childcare feel.
+/// The scale is not the module's own any more — every style is an alias for
+/// an `av2*` entry in [AppTextStyles], where the rest of the app's type
+/// lives. The names are kept because ~90 call sites read them.
 class Av2Text {
   const Av2Text._();
 
-  static const String _family = 'Manrope';
-
-  static const TextStyle hero = TextStyle(
-    fontFamily: _family,
-    fontSize: 32,
-    fontWeight: FontWeight.w700,
-    color: Av2Colors.theme,
-    letterSpacing: -0.5,
-  );
-
-  static const TextStyle title = TextStyle(
-    fontFamily: _family,
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    color: Av2Colors.textPrimary,
-  );
-
-  static const TextStyle metricValue = TextStyle(
-    fontFamily: _family,
-    fontSize: 19,
-    fontWeight: FontWeight.w600,
-    color: Av2Colors.textPrimary,
-  );
-
-  static const TextStyle body = TextStyle(
-    fontFamily: _family,
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    color: Av2Colors.textPrimary,
-  );
-
-  static const TextStyle bodyMedium = TextStyle(
-    fontFamily: _family,
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
-    color: Av2Colors.textPrimary,
-  );
-
-  static const TextStyle label = TextStyle(
-    fontFamily: _family,
-    fontSize: 13,
-    fontWeight: FontWeight.w500,
-    color: Av2Colors.textSecondary,
-  );
-
-  static const TextStyle caption = TextStyle(
-    fontFamily: _family,
-    fontSize: 12.5,
-    fontWeight: FontWeight.w500,
-    color: Av2Colors.textSecondary,
-  );
-
-  static const TextStyle chip = TextStyle(
-    fontFamily: _family,
-    fontSize: 13,
-    fontWeight: FontWeight.w600,
-  );
+  static const TextStyle hero = AppTextStyles.av2Hero;
+  static const TextStyle title = AppTextStyles.av2Title;
+  static const TextStyle metricValue = AppTextStyles.av2MetricValue;
+  static const TextStyle body = AppTextStyles.av2Body;
+  static const TextStyle bodyMedium = AppTextStyles.av2BodyMedium;
+  static const TextStyle label = AppTextStyles.av2Label;
+  static const TextStyle caption = AppTextStyles.av2Caption;
+  static const TextStyle chip = AppTextStyles.av2Chip;
 }

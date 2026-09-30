@@ -1,38 +1,42 @@
-/// Spacing, radius and sizing tokens for the Attendance V2 module.
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_spacing.dart';
+
+/// Spacing, radius and sizing names used across the Attendance V2 module.
 ///
-/// One place for vertical rhythm and component metrics so every widget
-/// stays consistent and easy to retune.
+/// The scale is not the module's own any more — every value resolves to
+/// [AppSpacing] or [AppRadius], so the app has one rhythm and one set of
+/// corners. The names are kept because ~160 call sites read them, and
+/// because the last few entries (screen padding per breakpoint, content max
+/// width, the desktop rail) are genuinely module-specific layout metrics
+/// with no app-wide equivalent.
 class Av2Spacing {
   const Av2Spacing._();
 
-  // Base spacing scale
-  static const double xxs = 4;
-  static const double xs = 8;
-  static const double sm = 12;
-  static const double md = 16;
-  static const double lg = 20;
-  static const double xl = 24;
-  static const double xxl = 32;
+  // Base spacing scale — AppSpacing.
+  static const double xxs = AppSpacing.xxs;
+  static const double xs = AppSpacing.xs;
+  static const double sm = AppSpacing.sm;
+  static const double md = AppSpacing.md;
+  static const double lg = AppSpacing.lg;
+  static const double xl = AppSpacing.xl;
+  static const double xxl = AppSpacing.xxl;
 
-  // Corner radii
-  static const double radiusSm = 8;
-  static const double radiusMd = 12;
-  static const double radiusLg = 16;
-  static const double radiusPill = 999;
+  // Corner radii — AppRadius.
+  static const double radiusSm = AppRadius.sm;
+  static const double radiusMd = AppRadius.md;
+  static const double radiusLg = AppRadius.lg;
+  static const double radiusPill = AppRadius.pill;
 
-  // Screen padding (horizontal) per breakpoint
-  static const double screenPadMobile = 16;
-  static const double screenPadTablet = 24;
-  static const double screenPadDesktop = 32;
+  // ── Module layout metrics (no app-wide equivalent) ──────────────────────
 
-  // Content max width on large screens so lines never stretch too wide
+  /// Screen padding (horizontal) per breakpoint.
+  static const double screenPadMobile = AppSpacing.md;
+  static const double screenPadTablet = AppSpacing.xl;
+  static const double screenPadDesktop = AppSpacing.xxl;
+
+  /// Content max width on large screens so lines never stretch too wide.
   static const double contentMaxWidth = 720;
 
-  // Desktop master-detail rail width
+  /// Desktop master-detail rail width.
   static const double rosterRailWidth = 280;
-}
-
-/// Font weights kept to two values per the design system (regular / medium).
-class Av2FontWeight {
-  const Av2FontWeight._();
 }

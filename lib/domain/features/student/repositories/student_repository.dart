@@ -298,6 +298,36 @@ abstract class StudentRepository {
     required String studentCode,
   });
 
+  /// Re-sends the app invitation email to one guardian.
+  ///
+  /// Returns the server's success message. Read-only with respect to guardian
+  /// records, so no cache is invalidated.
+  Future<String> resendGuardianInvite({
+    required String invitedEmail,
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// Sets a guardian's clock PIN to an operator-supplied [pin].
+  ///
+  /// Invalidates the cached guardian list for [studentCode] so a reload shows
+  /// the new PIN. Returns `(message, newClockPin)`.
+  Future<({String message, String newClockPin})> changeGuardianPin({
+    required String guardianCode,
+    required String pin,
+    required String studentCode,
+  });
+
+  /// Asks the server to generate a new clock PIN for a guardian.
+  ///
+  /// Invalidates the cached guardian list for [studentCode] so a reload shows
+  /// the new PIN. Returns `(message, newClockPin)`.
+  Future<({String message, String newClockPin})> generateGuardianPin({
+    required String guardianCode,
+    required String studentCode,
+  });
+
   /// Fetches a student's pickup contacts.
   ///
   /// [forceRefresh] bypasses the local cache and re-fetches from the network.

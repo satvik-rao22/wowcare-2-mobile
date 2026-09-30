@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Outcome of [showUnexpectedSignInAttentionDialog].
 class UnexpectedSignInAttentionResult {
@@ -90,17 +91,7 @@ class _UnexpectedSignInAttentionDialogBodyState
         color: AppColors.transparentColor,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: AppRadius.allLg,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryColor.withValues(alpha: 0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
+          decoration: AppSurfaces.card(radius: AppRadius.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,6 +177,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                   maxLines: 3,
                   minLines: 1,
                   decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppSurfaces.fieldFill,
                     hintText: 'Add a Comment',
                     hintStyle: AppTextStyles.body.copyWith(
                       color: AppColors.attendanceDialogHintTextColor,
@@ -194,18 +187,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                       horizontal: AppSpacing.s14,
                       vertical: AppSpacing.sm,
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: const BorderSide(
-                        color: AppColors.attendanceBorderLightColor,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.r10),
-                      borderSide: const BorderSide(
-                        color: AppColors.attendanceBorderLightColor,
-                      ),
-                    ),
+                    border: AppSurfaces.fieldBorder(radius: AppRadius.r10),
+                    enabledBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
                   ),
                 ),
               ),

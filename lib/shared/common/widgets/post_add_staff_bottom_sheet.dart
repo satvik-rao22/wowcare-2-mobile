@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class PostAddStaffBottomSheet extends StatelessWidget {
   final String staffName;
@@ -41,13 +44,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
             top: verticalPadding,
             bottom: verticalPadding + bottomSafe,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
-            ),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: borderRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -56,13 +53,13 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                 child: Container(
                   width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                   height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
+                  decoration: const BoxDecoration(
+                    color: AppPalette.brand,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.person_add_alt_1,
-                    color: Colors.white,
+                    color: AppPalette.onBrand,
                     size: 36,
                   ),
                 ),
@@ -75,10 +72,10 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                 child: Text(
                   'Do you want to add additional details for this staff now?',
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,
@@ -88,10 +85,10 @@ class PostAddStaffBottomSheet extends StatelessWidget {
               Text(
                 'A new staff${staffName.isNotEmpty ? ' $staffName ' : ' '}is added successfully',
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF573353),
+                  color: AppColors.primaryColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -99,17 +96,15 @@ class PostAddStaffBottomSheet extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Container(
+                    child: SkeuKeyBox(
+                      variant: KeyVariant.secondary,
+                      radius: borderRadius / 2,
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(borderRadius / 2),
-                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.transparentColor,
                             borderRadius: BorderRadius.circular(
                               borderRadius / 2 - 1,
                             ),
@@ -126,7 +121,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                             child: Text(
                               'Do it later',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryColor,
@@ -140,12 +135,10 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                   ),
                   SizedBox(width: horizontalPadding / 2),
                   Expanded(
-                    child: Container(
+                    child: SkeuKeyBox(
+                      variant: KeyVariant.primary,
+                      radius: borderRadius / 2,
                       height: buttonHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(borderRadius / 2),
-                        gradient: AppColors.buildPrimaryGradient(),
-                      ),
                       child: TextButton(
                         onPressed: onYes,
                         style: TextButton.styleFrom(
@@ -158,10 +151,10 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                         child: Text(
                           'Yes',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppPalette.onBrand,
                             height: 1.0,
                           ),
                         ),

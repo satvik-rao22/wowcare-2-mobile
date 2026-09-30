@@ -35,9 +35,13 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  const AdminDashboard({super.key, this.focus});
 
   static const String routeName = '/admin-dashboard';
+
+  /// See [DashboardScreen.focus]. `'ratioMonitoring'` scrolls to the Ratio
+  /// Monitoring card once this dashboard has rendered.
+  final String? focus;
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -55,6 +59,28 @@ class _AdminDashboardState extends State<AdminDashboard>
   void initState() {
     super.initState();
     _coordinator = serviceLocator<AdminDashboardCoordinatorCubit>();
+    if (widget.focus == 'ratioMonitoring') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToRatioCard();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(AdminDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The dashboard is the kept-alive root of the shell's first branch (see
+    // DashboardScreen's doc comment), so a repeat "Classroom Notes" tap while
+    // it's already mounted rebuilds this widget with a new `focus` instead of
+    // recreating it — initState alone only ever fired once, on the first-ever
+    // dashboard build, so every later tap silently redirected without
+    // scrolling. Re-check here too, same guard as initState.
+    if (widget.focus == 'ratioMonitoring' &&
+        oldWidget.focus != widget.focus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollToRatioCard();
+      });
+    }
   }
 
   // Dashboard is branch index 0 in app_router.dart's shell.
@@ -147,9 +173,25 @@ class _AdminDashboardState extends State<AdminDashboard>
             onRatioCardTap: _scrollToRatioCard,
             onShiftsCardTap: _scrollToShiftsCard,
             onIncidentCardTap: () {
-              // Navigate to the Custom Activities view with the Incident Type filter.
-              // Note: ActivityFeedScreen currently does not support these query
-              // parameters natively, so this sets the convention.
+              // Navigate to the Custom Activities view with the Incident Type
+              // AND Pending Admin Approval filters applied, every classroom,
+              // no date bound — the card counts pending incidents regardless
+              // of when they occurred, so scoping the list to a date range
+              // (the Custom tab's default is the current month) would hide
+              // older ones the count still includes.
+              //
+              // 'Pending Admin Approval' (not the raw PENDING_ADMIN_APPROVAL
+              // enum) because ActivityCustomTab's _filterApprovalStatuses
+              // holds human-readable labels throughout (mirroring how
+              // _filterActivityTypes holds 'Incident', not an ACT_TYPE_*
+              // code) — the Filter Activities sheet's own pruning step
+              // (activity_filter_screen.dart's _pruneSelectionsToOptions)
+              // strips any value that doesn't exactly match its Title Case
+              // option list, so the raw enum silently vanished from the
+              // sheet's display (though it still reached the API correctly
+              // via _approvalStatusesForApiFilter's case-insensitive label
+              // lookup) — the funnel badge counted it as an active filter
+              // while the sheet itself showed "Select status".
               context.go(
                 Uri(
                   path: ShellBranchRoutes.activityFeed,
@@ -157,6 +199,8 @@ class _AdminDashboardState extends State<AdminDashboard>
                     'tab': 'custom',
                     'activityType': 'Incident',
                     'classroom': 'All',
+                    'approvalStatus': 'Pending Admin Approval',
+                    'dateRange': 'all',
                   },
                 ).toString(),
                 // The timestamp exists only to make each tap a distinct

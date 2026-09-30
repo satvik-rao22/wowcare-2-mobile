@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_media_res.dart';
 import 'ellipsis_tooltip_text.dart';
 import 'profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class SelectedStudentTile extends StatelessWidget {
   const SelectedStudentTile({
@@ -28,10 +29,10 @@ class SelectedStudentTile extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final textStyle = TextStyle(
-      fontFamily: 'Manrope',
+      fontFamily: AppFonts.body,
       fontSize: isTablet ? 16 : 14,
       fontWeight: FontWeight.w500,
-      color: const Color(0xff573353),
+      color: AppColors.primaryColor,
       height: 19 / 14,
     );
 
@@ -94,7 +95,7 @@ class SelectedStudentTile extends StatelessWidget {
         if (showRemove)
           IconButton(
             onPressed: onTap,
-            icon: SvgPicture.asset(MediaRes.delete_icon),
+            icon: AppIcon(MediaRes.delete_icon, tone: IconTone.danger),
           ),
       ],
     );
@@ -107,8 +108,8 @@ class SelectedStudentTile extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: useViewColors
-            ? Colors.white
-            : const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+            ? AppPalette.surfaceCard
+            : AppPalette.surfaceSunken,
         borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
         border: Border.all(color: AppColors.themeColor, width: 1),
       ),

@@ -26,6 +26,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -186,9 +187,10 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
   void _showNewTransactionMenu() {
     final students = _familyStudents();
     if (students.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(BillingStrings.noStudentsFoundForFamily)),
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+        content: Text(BillingStrings.noStudentsFoundForFamily)),
       );
       return;
     }
@@ -444,12 +446,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                     unselectedLabelColor:
                         AppColors.primaryColor.withValues(alpha: 0.5),
                     labelStyle: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                     unselectedLabelStyle: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 16,
                     ),
                     tabs: const [
@@ -562,29 +564,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
         const SizedBox(height: 12),
         // Transaction list section
         if (_hasError)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.billingErrorBackgroundColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.billingErrorBorderColor),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.error_outline, color: AppColors.billingErrorIconColor, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Error loading family transactions: $_errorMessage',
-                    style: TextStyle(color: AppColors.billingErrorTextColor, fontSize: 14),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => _cubit.refresh(),
-                  child: const Text(BillingStrings.retry),
-                ),
-              ],
-            ),
+          AppErrorState(
+            title: 'Error loading family transactions',
+            message: _errorMessage,
+            retryLabel: BillingStrings.retry,
+            onRetry: () => _cubit.refresh(),
+            compact: true,
           )
         else if (_isLoadingSiblings)
           // Transaction-card-shaped shimmer (avatar + name/badge + amount/date).
@@ -754,7 +739,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
           BillingStrings.noInvoicedDataAvailable,
           style: TextStyle(
             color: AppColors.primaryColor,
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -904,7 +889,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w700,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
           TextSpan(
@@ -913,7 +898,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
               fontWeight: FontWeight.w400,
               color: AppColors.billingTextColor,
               fontSize: 14,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
             ),
           ),
         ],

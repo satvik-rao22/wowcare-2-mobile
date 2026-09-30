@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SelectFlowHeader extends StatelessWidget {
@@ -46,7 +47,7 @@ class SelectFlowHeader extends StatelessWidget {
         AppText.small(
           userRole,
           style: TextStyle(
-            color: Colors.grey.shade600,
+            color: MaterialHues.grey600,
           ),
           textAlign: TextAlign.center,
         ),

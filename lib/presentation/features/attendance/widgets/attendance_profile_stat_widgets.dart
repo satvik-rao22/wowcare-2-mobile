@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// Small circular value badge (e.g. "5h", "30m") used inside the attendance
 /// profile stat rows — shared by the student and staff profile screens, was
@@ -78,11 +78,7 @@ class AttendanceProfileStatItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SvgPicture.asset(
-            icon,
-            height: 22,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          ),
+          AppIcon(icon, height: 22, color: iconColor),
           const SizedBox(width: AppSpacing.xs),
           AppText.body(label, style: AppTextStyles.valueLarge),
           const Spacer(),
@@ -135,13 +131,10 @@ class AttendanceProfileAttendedHoursStat extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SvgPicture.asset(
+          AppIcon(
             MediaRes.timerIcon,
             height: 22,
-            colorFilter: const ColorFilter.mode(
-              AppColors.attendanceStatBlueColor,
-              BlendMode.srcIn,
-            ),
+            color: AppColors.attendanceStatBlueColor,
           ),
           const SizedBox(width: AppSpacing.xs),
           const AppText.body('Attended Hours', style: AppTextStyles.valueLarge),

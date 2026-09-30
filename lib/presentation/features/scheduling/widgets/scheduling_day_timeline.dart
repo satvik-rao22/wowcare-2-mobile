@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import '../model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
 import '../model/scheduling_staff_shift_style.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Left column width for daily classroom Gantt rows.
 const double kSchedulingDayLeftColumnWidth = 152;
@@ -353,7 +355,7 @@ class SchedulingDayGanttRow extends StatelessWidget {
   final Widget left;
   final Widget right;
 
-  static const Color dividerColor = Color(0xFFE9ECEF);
+  static const Color dividerColor = AppPalette.borderHairline;
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +469,7 @@ class _SchedulingClassroomDayTimelineState
   }) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.25),
+      barrierColor: AppColors.blackColor.withValues(alpha: 0.25),
       builder: (_) => SchedulingSlotDetailsDialog(
         day: widget.day,
         slotIndex: slotIndex,
@@ -576,7 +578,7 @@ class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline>
   }) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.25),
+      barrierColor: AppColors.blackColor.withValues(alpha: 0.25),
       builder: (_) => SchedulingStaffSlotDetailsDialog(
         day: widget.day,
         slotIndex: slotIndex,
@@ -774,7 +776,7 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
     final label = SchedulingStaffShiftStyle.slotLabel(status);
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -927,7 +929,7 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
     final monitoringMessage = _monitoringMessage(detail, hasForecast);
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.whiteColor,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -1016,7 +1018,7 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AppColors.whiteColor,
                               ),
                             ),
                           ),
@@ -1144,10 +1146,7 @@ class _CountRow extends StatelessWidget {
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
-            borderRadius: BorderRadius.circular(4),
-          ),
+          decoration: AppSurfaces.well(radius: 4),
           child: Text(
             '$count',
             style: const TextStyle(

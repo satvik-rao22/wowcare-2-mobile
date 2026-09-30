@@ -79,9 +79,9 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
             }
           },
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.pageBackgroundColor,
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.pageBackgroundColor,
               elevation: 0,
               scrolledUnderElevation: 0,
               leading: IconButton(

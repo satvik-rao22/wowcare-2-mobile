@@ -11,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
@@ -21,6 +20,8 @@ import 'package:wowcare/presentation/features/students/view_model/student_docume
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStudentDocumentScreen extends StatefulWidget {
   const AddStudentDocumentScreen({
@@ -291,20 +292,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           right: AppSpacing.md,
           top: AppSpacing.xs,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.whiteColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
         child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
           builder: (context, state) {
             return CustomButtonLayout(
@@ -352,13 +340,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: controller,
             textCapitalization: TextCapitalization.sentences,
@@ -451,17 +433,14 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                                 ? AppColors.attendanceMutedTextColor
                                 : AppColors.blackColor,
                             fontSize: responsive.inputFontSize,
-                            fontFamily: Fonts.manrope,
+                            fontFamily: AppFonts.body,
                           ),
                         ),
                       ),
-                      SvgPicture.asset(
+                      AppIcon(
                         MediaRes.calender_icon,
                         height: responsive.isTablet ? 28.0 : 24.0,
-                        colorFilter: const ColorFilter.mode(
-                          AppColors.primaryColor,
-                          BlendMode.srcIn,
-                        ),
+                        color: AppColors.primaryColor,
                       ),
                     ],
                   ),
@@ -528,17 +507,14 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                               ? AppColors.attendanceMutedTextColor
                               : AppColors.blackColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                         ),
                       ),
                     ),
-                    SvgPicture.asset(
+                    AppIcon(
                       MediaRes.uploadIcon,
                       height: responsive.isTablet ? 28.0 : 24.0,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.primaryColor,
-                        BlendMode.srcIn,
-                      ),
+                      color: AppColors.primaryColor,
                     ),
                   ],
                 ),
@@ -566,13 +542,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             minHeight: responsive.inputFieldHeight * 2,
             maxHeight: responsive.inputFieldHeight * 4,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _notesController,
             maxLines: 4,

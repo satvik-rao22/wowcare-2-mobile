@@ -14,7 +14,6 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -33,6 +32,9 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -440,16 +442,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           BlocBuilder<StudentDocumentsListCubit, StudentDocumentsListState>(
             builder: (context, state) {
@@ -520,28 +513,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                             ),
                             child: Column(
                               children: [
-                                TextField(
+                                CustomSearchBar(
                                   controller: _searchController,
-                                  decoration: InputDecoration(
-                                    hintText: StudentStrings.searchDocuments,
-                                    prefixIcon: const Icon(Icons.search),
-                                    suffixIcon:
-                                        _searchController.text.trim().isEmpty
-                                        ? null
-                                        : IconButton(
-                                            onPressed: () => setState(() {
-                                              _searchController.clear();
-                                            }),
-                                            icon: const Icon(Icons.close),
-                                          ),
-                                    filled: true,
-                                    fillColor:
-                                        AppColors.staffLightBackgroundColor,
-                                    border: OutlineInputBorder(
-                                      borderRadius: AppRadius.allMd,
-                                      borderSide: BorderSide.none,
-                                    ),
-                                  ),
+                                  hintText: StudentStrings.searchDocuments,
+                                  showClearButton: true,
                                   onChanged: (_) => setState(() {}),
                                 ),
                                 AppSpacing.gapVSm,
@@ -678,7 +653,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: const TextStyle(
-                                                    fontFamily: Fonts.manrope,
+                                                    fontFamily: AppFonts.body,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w600,
                                                     color:
@@ -690,7 +665,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               Text(
                                                 docTypeDisplay,
                                                 style: TextStyle(
-                                                  fontFamily: Fonts.manrope,
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w500,
                                                   color: AppColors.primaryColor
@@ -731,14 +706,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               Row(
                                                 children: [
                                                   Expanded(
-                                                    child: Container(
+                                                    child: SkeuKeyBox(
+                                                      variant:
+                                                          KeyVariant.primary,
+                                                      radius: AppRadius.sm,
                                                       height: 40,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            AppRadius.allSm,
-                                                        gradient:
-                                                            AppColors.buildPrimaryGradient(),
-                                                      ),
                                                       child: TextButton(
                                                         onPressed: () =>
                                                             _handleEdit(
@@ -755,7 +727,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           StudentStrings.edit,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                Fonts.manrope,
+                                                                AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
@@ -794,7 +766,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           StudentStrings.delete,
                                                           style: TextStyle(
                                                             fontFamily:
-                                                                Fonts.manrope,
+                                                                AppFonts.body,
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
@@ -865,14 +837,10 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                 ),
                                                 AppSpacing.gapHSm,
                                                 Expanded(
-                                                  child: Container(
+                                                  child: SkeuKeyBox(
+                                                    variant: KeyVariant.primary,
+                                                    radius: AppRadius.sm,
                                                     height: 40,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          AppRadius.allSm,
-                                                      gradient:
-                                                          AppColors.buildPrimaryGradient(),
-                                                    ),
                                                     child: TextButton(
                                                       onPressed: () =>
                                                           _handleDownload(
@@ -888,7 +856,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                         'Download',
                                                         style: TextStyle(
                                                           fontFamily:
-                                                              Fonts.manrope,
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -970,7 +938,7 @@ class _DocumentDetailRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -984,7 +952,7 @@ class _DocumentDetailRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

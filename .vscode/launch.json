@@ -1,0 +1,80 @@
+{
+  // Environment switching is a single compile-time define:
+  //   --dart-define=ENVIRONMENT=<LOCAL|DEV|QA|UAT|PROD>
+  //
+  // That one value drives everything:
+  //   - lib/core/utils/api_constants.dart      -> which backend hosts are used
+  //   - lib/core/firebase/firebase_config_factory.dart -> Dart FirebaseOptions
+  //   - android/app/build.gradle.kts           -> copies android/app/firebase/<env>/google-services.json
+  //   - ios/scripts/copy_firebase_config.sh    -> copies ios/firebase/<env>/GoogleService-Info.plist
+  //
+  // The two native copy hooks read Flutter's DART_DEFINES, so they work
+  // identically whether you launch from here or from `make <env>-run`.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "LOCAL (debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=ENVIRONMENT=LOCAL"]
+    },
+    {
+      "name": "DEV shared (debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=ENVIRONMENT=DEV"]
+    },
+    {
+      "name": "QA (debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=ENVIRONMENT=QA"]
+    },
+    {
+      "name": "UAT (debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=ENVIRONMENT=UAT"]
+    },
+    {
+      "name": "UAT (profile)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "toolArgs": ["--dart-define=ENVIRONMENT=UAT"]
+    },
+    {
+      "name": "PROD (debug)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": ["--dart-define=ENVIRONMENT=PROD"]
+    },
+    {
+      "name": "PROD (profile)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "toolArgs": ["--dart-define=ENVIRONMENT=PROD"]
+    },
+    {
+      "name": "PROD (release)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "toolArgs": ["--dart-define=ENVIRONMENT=PROD"]
+    }
+  ]
+}

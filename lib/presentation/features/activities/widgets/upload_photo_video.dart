@@ -1107,12 +1107,7 @@ class _MediaUploaderState extends State<MediaUploader>
                     borderRadius: BorderRadius.circular(12),
                   ),
                   // Gradient-colored icon.
-                  child: ShaderMask(
-                    blendMode: BlendMode.srcIn,
-                    shaderCallback: (bounds) =>
-                        AppColors.buildPrimaryGradient().createShader(bounds),
-                    child: Icon(icon, size: 26, color: AppColors.cardColor),
-                  ),
+                  child: Icon(icon, size: 26, color: AppColors.themeColor),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

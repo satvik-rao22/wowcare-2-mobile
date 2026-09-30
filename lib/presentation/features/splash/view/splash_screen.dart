@@ -49,10 +49,10 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-/// Decides where the app goes on launch: onboarding, sign-in, org/school
+/// Decides where the app goes on launch: sign-in, org/school
 /// selection, or the dashboard. Lives in the router as the "/" route.
 ///
-/// Pure View: all the decision logic (onboarding/session/kiosk/deep-link
+/// Pure View: all the decision logic (session/kiosk/deep-link
 /// resolution) lives in [SplashCubit] — this widget only reacts to the
 /// emitted [SplashState.route] and performs the actual `context.go(...)`.
 /// The one exception is [_switchSchoolForLaunch]: a killed-state
@@ -73,9 +73,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         return;
       case SplashRoute.sessionExpired:
         // SessionExpiredCoordinator already performed its own navigation.
-        return;
-      case SplashRoute.firstScreen:
-        context.go('/first-screen');
         return;
       case SplashRoute.kiosk:
         context.go('/kiosk');

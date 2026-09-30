@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Shared chrome for [AssignStudentToClassroomForm]/[AssignStaffToClassroomForm]
@@ -31,7 +33,7 @@ class AssignFormHeader extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 20,
               fontWeight: FontWeight.w600,
             ),
@@ -48,43 +50,6 @@ class AssignFormHeader extends StatelessWidget {
 }
 
 /// The search field styling shared by both roster-selection screens.
-class AssignFormSearchBar extends StatelessWidget {
-  const AssignFormSearchBar({
-    required this.controller,
-    required this.hintText,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final String hintText;
-
-  @override
-  Widget build(BuildContext context) {
-    return SearchBar(
-      controller: controller,
-      constraints: const BoxConstraints(minHeight: 44),
-      hintText: hintText,
-      hintStyle: const WidgetStatePropertyAll(
-        TextStyle(
-          fontFamily: 'Manrope',
-          color: AppColors.classroomSearchFieldHintColor,
-        ),
-      ),
-      backgroundColor: const WidgetStatePropertyAll<Color>(
-        AppColors.cardColor,
-      ),
-      surfaceTintColor: const WidgetStatePropertyAll<Color>(
-        AppColors.cardColor,
-      ),
-      elevation: const WidgetStatePropertyAll<double>(0),
-      side: const WidgetStatePropertyAll(
-        BorderSide(width: 1, color: AppColors.classroomBorderColor),
-      ),
-      leading: const Icon(Icons.search, color: AppColors.classroomMutedIconColor),
-    );
-  }
-}
-
 /// The "Select All" checkbox + label row shared by both roster screens.
 class SelectAllCheckboxRow extends StatelessWidget {
   const SelectAllCheckboxRow({
@@ -111,7 +76,7 @@ class SelectAllCheckboxRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: checkboxBuilder(value, onChanged),
         ),
-        const Text('Select All', style: TextStyle(fontFamily: 'Manrope')),
+        const Text('Select All', style: TextStyle(fontFamily: AppFonts.body)),
       ],
     );
   }
@@ -138,23 +103,7 @@ class AssignFormResultsArea extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: PrimaryCircularLoader());
     if (errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Manrope',
-                color: AppColors.classroomNegativeStatusColor,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      );
+      return AppErrorState(title: errorMessage!, onRetry: onRetry);
     }
     return content;
   }
@@ -173,7 +122,7 @@ class AssignFormEmptySelection extends StatelessWidget {
         child: Text(
           message,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.classroomTextColor,
             fontSize: 16,
           ),

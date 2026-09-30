@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_category_header.dart';
 import 'package:wowcare/presentation/features/user_profile/widgets/notification_preference_group_row.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 // The cubit is owned by the ancestor BlocProvider set up in the router's
 // GoRoute builder (which also kicks off .load()), and every read of it below
@@ -48,21 +49,12 @@ class _NotificationSettingsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           Column(
             children: [
@@ -81,7 +73,7 @@ class _NotificationSettingsContent extends StatelessWidget {
                           child: Text(
                             'Notification Settings',
                             style: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.userProfileTextColor,
@@ -98,19 +90,7 @@ class _NotificationSettingsContent extends StatelessWidget {
                         padding: EdgeInsets.all(
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 30.0 : 20.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.blackColor.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 30.0 : 20.0), )),
                         child: _NotificationBody(state: state),
                       ),
                       const SizedBox(height: 24),
@@ -143,16 +123,23 @@ class _NotificationBody extends StatelessWidget {
       );
     }
 
+    if (state.groups.isEmpty && state.errorMessage != null) {
+      return AppErrorState(
+        title: state.errorMessage!,
+        onRetry: () => context.read<NotificationPreferenceGroupsCubit>().load(),
+      );
+    }
+
     if (state.groups.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           children: [
-            Text(
-              state.errorMessage ?? 'No notification preferences available.',
+            const Text(
+              'No notification preferences available.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: Fonts.manrope,
+              style: TextStyle(
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
@@ -230,7 +217,7 @@ class _HeaderLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontFamily: Fonts.manrope,
+        fontFamily: AppFonts.body,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,

@@ -1,13 +1,11 @@
 import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
@@ -24,6 +22,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/communication/model/communication_route_args.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/view/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -34,6 +33,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 part 'admin_chat_host_lists.dart';
 part 'admin_chat_host_states.dart';
 
@@ -518,11 +518,6 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                     child: CustomSearchBar(
                                       controller: _searchController,
                                       hintText: AppStrings.searchConversationsEllipsis,
-                                      searchBarColor:
-                                          const WidgetStatePropertyAll(
-                                            AppColors.transparentColor,
-                                          ),
-                                      borderColor: AppColors.transparentColor,
                                     ),
                                   ),
                                 ),
@@ -578,10 +573,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                       child: Stack(
                                         clipBehavior: Clip.none,
                                         children: [
-                                          SvgPicture.asset(
-                                            MediaRes.filterIcon,
-                                            height: 20,
-                                          ),
+                                          FilterGlyph(size: 20),
                                           if (_hasVisibleFilters)
                                             Positioned(
                                               top: -2,

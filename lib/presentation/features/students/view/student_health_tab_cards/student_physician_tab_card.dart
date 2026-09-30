@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_physician.dart';
@@ -154,7 +155,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         'Failed to load physicians',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: MaterialHues.redAccent,
                         ),
                       ),
                     );
@@ -260,7 +261,7 @@ class _PhysicianCard extends StatelessWidget {
         width: double.infinity,
         // Match the Family/Pickup cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),

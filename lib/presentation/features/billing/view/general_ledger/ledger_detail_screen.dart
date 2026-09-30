@@ -16,6 +16,7 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/add
 import 'package:wowcare/presentation/features/billing/model/ledger_account_model.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -136,7 +137,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                       Text(
                                         ledger.name,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: titleFontSize,
                                           fontWeight: FontWeight.w600,
                                           color: _kPrimary,
@@ -201,31 +202,11 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     }
 
     if (state.hasError && state.transactions.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 52,
-                color: AppColors.primaryColor.withValues(alpha: 0.3)),
-            const SizedBox(height: 12),
-            Text(
-              state.errorMessage ?? BillingStrings.errorLoadingTransactions,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: Fonts.manrope,
-                color: AppColors.billingTextSecondary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => _cubit.loadPage(0),
-              child: const Text(BillingStrings.retry),
-            ),
-          ],
-        ),
+      return AppErrorState(
+        title: BillingStrings.errorLoadingTransactions,
+        message: state.errorMessage,
+        retryLabel: BillingStrings.retry,
+        onRetry: () => _cubit.loadPage(0),
       );
     }
 
@@ -246,7 +227,7 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                 BillingStrings.noTransactionsFound,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   color: AppColors.billingTextSecondary,
                   fontSize: 14,
                 ),
@@ -298,7 +279,7 @@ class _LedgerSubtitle extends StatelessWidget {
         '${balType != null ? ' $balType' : ''}';
 
     const style = TextStyle(
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontSize: 13,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextSecondary,
@@ -359,7 +340,7 @@ class _LedgerEntryCard extends StatelessWidget {
               child: Text(
                 tx.type!,
                 style: const TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingLedgerTypeChipColor,

@@ -16,6 +16,7 @@ class StudentClassroomItemModel {
     required this.medication,
     required this.allergies,
     required this.dietaryRestriction,
+    this.dob,
   });
 
   final String classroomCode;
@@ -34,6 +35,7 @@ class StudentClassroomItemModel {
   final bool medication;
   final bool allergies;
   final bool dietaryRestriction;
+  final String? dob;
 
   factory StudentClassroomItemModel.fromJson(Map<String, dynamic> json) {
     final student = json['student'] is Map<String, dynamic>
@@ -60,8 +62,10 @@ class StudentClassroomItemModel {
     final displayName = pick(json, student, 'displayName');
 
     if (firstName.isEmpty && lastName.isEmpty && displayName.isNotEmpty) {
-      final parts =
-          displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+      final parts = displayName
+          .split(RegExp(r'\s+'))
+          .where((s) => s.isNotEmpty)
+          .toList();
       if (parts.isNotEmpty) {
         firstName = parts.first;
         lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -98,6 +102,7 @@ class StudentClassroomItemModel {
     }
 
     final profileRaw = pick(json, student, 'profilePictureUrl');
+    final dobRaw = pick(json, student, 'dob');
 
     return StudentClassroomItemModel(
       classroomCode: classroomCode,
@@ -111,13 +116,16 @@ class StudentClassroomItemModel {
       absent: asBool(json['absent'] ?? student?['absent']),
       notMarked: asBool(json['notMarked'] ?? student?['notMarked']),
       nap: asBool(json['nap'] ?? student?['nap']),
-      photoPermission:
-          asBool(json['photoPermission'] ?? student?['photoPermission']),
+      photoPermission: asBool(
+        json['photoPermission'] ?? student?['photoPermission'],
+      ),
       notes: asBool(json['notes'] ?? student?['notes']),
       medication: hasValue(json['medication'] ?? student?['medication']),
       allergies: hasValue(json['allergies'] ?? student?['allergies']),
       dietaryRestriction: hasValue(
-          json['dietaryRestriction'] ?? student?['dietaryRestriction']),
+        json['dietaryRestriction'] ?? student?['dietaryRestriction'],
+      ),
+      dob: dobRaw.isEmpty ? null : dobRaw,
     );
   }
 
@@ -143,14 +151,13 @@ class StudentClassroomItemModel {
       'medication': medication,
       'allergies': allergies,
       'dietaryRestriction': dietaryRestriction,
+      'dob': dob,
     };
   }
 }
 
 class StudentClassroomListModel {
-  StudentClassroomListModel({
-    required this.items,
-  });
+  StudentClassroomListModel({required this.items});
 
   final List<StudentClassroomItemModel> items;
 
@@ -158,17 +165,17 @@ class StudentClassroomListModel {
     final list = json['items'] as List<dynamic>? ?? const [];
     return StudentClassroomListModel(
       items: list
-          .map((e) => StudentClassroomItemModel.fromCacheJson(
-                (e as Map<String, dynamic>),
-              ))
+          .map(
+            (e) => StudentClassroomItemModel.fromCacheJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'items': items.map((e) => e.toJson()).toList(),
-    };
+    return {'items': items.map((e) => e.toJson()).toList()};
   }
 }
 
@@ -193,5 +200,3 @@ class StudentClassroomAssignResponseModel {
     );
   }
 }
-
-

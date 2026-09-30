@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -1015,11 +1016,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           color = null;
           label = null;
         } else {
-          color = Colors.green;
+          color = MaterialHues.green;
           label = 'Signed in';
         }
       } else if (normalized == 'ABSENT') {
-        color = Colors.red;
+        color = MaterialHues.red;
         label = 'Absent';
       } else {
         color = null;
@@ -1095,13 +1096,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withValues(alpha: 0.95),
+              color: AppPalette.surfaceInverse.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(
-              color: Colors.white,
+              color: AppPalette.textOnDark,
               fontSize: 12,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w600,
             ),
             child: Container(
@@ -1110,7 +1111,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
               decoration: BoxDecoration(
                 color: dotColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1),
+                border: Border.all(color: AppPalette.surfaceCard, width: 1),
               ),
             ),
           ),
@@ -1162,7 +1163,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: widget.fontSize,
-          color: Colors.white,
+          color: AppPalette.textOnDark,
         ),
       ),
     );
@@ -1214,7 +1215,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: widget.fontSize,
-            color: Colors.white,
+            color: AppPalette.textOnDark,
           ),
         ),
       );
@@ -1227,6 +1228,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       width: widget.size,
       height: widget.size,
       fit: widget.fit,
+      // Until the first bytes arrive, loadingProgress is still null, so the
+      // loadingBuilder alone hands back the empty image and the avatar is a
+      // blank gap on the card. Hold the shimmer until a frame has decoded.
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+          frame == null && !wasSynchronouslyLoaded ? _buildShimmer() : child,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return _buildShimmer();
@@ -1243,13 +1249,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   Widget _buildShimmer() {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: MaterialHues.grey300,
+      highlightColor: MaterialHues.grey100,
       child: Container(
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(
-          color: Colors.grey[300],
+          color: MaterialHues.grey300,
           shape: widget.shape,
           borderRadius: widget.shape == BoxShape.rectangle
               ? (widget.borderRadius ?? BorderRadius.circular(8))

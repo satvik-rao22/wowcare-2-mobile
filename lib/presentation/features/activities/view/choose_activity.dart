@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -19,6 +20,7 @@ import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
@@ -38,6 +40,7 @@ class ChooseActivity extends StatefulWidget {
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };
@@ -82,6 +85,10 @@ class ChooseActivity extends StatefulWidget {
     ),
     'Notes': (students) => (
       NotesActivityScreen.routeName,
+      ActivityTypeScreenArgs(selectedStudents: students),
+    ),
+    'Observation': (students) => (
+      ObservationActivityScreen.routeName,
       ActivityTypeScreenArgs(selectedStudents: students),
     ),
     'Outdoor': (students) => (
@@ -356,7 +363,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                     ? AppColors.activityMutedGreyColor
                                           .withValues(alpha: 0.1)
                                     : isSelected
-                                    ? const Color.fromARGB(255, 249, 245, 250)
+                                    ? AppPalette.surfaceSelected
                                     : AppColors.transparentColor,
                               ),
                               child: Row(

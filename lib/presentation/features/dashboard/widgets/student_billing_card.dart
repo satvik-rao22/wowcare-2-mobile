@@ -7,9 +7,11 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 // ---------------------------------------------------------------------------
 // StudentBillingCard (parent dashboard)
@@ -322,7 +324,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               'Refund',
               style: TextStyle(
                 fontSize: 16,
-                color: Color.fromRGBO(55, 65, 88, 1),
+                color: AppPalette.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
@@ -457,7 +459,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.whiteColor,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -489,28 +491,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                   }
 
                   if (state.errorMessage != null && state.ledger == null) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        children: [
-                          Text(
-                            state.errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.7,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () =>
-                                context.read<ParentBillingCubit>().refresh(),
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
+                    return AppErrorState(
+                      title: state.errorMessage!,
+                      onRetry: () =>
+                          context.read<ParentBillingCubit>().refresh(),
+                      compact: true,
                     );
                   }
 
@@ -568,7 +553,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                                   'Current\nBalance',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: Color.fromRGBO(65, 65, 76, 0.8),
+                                    color: AppPalette.textSecondary,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),

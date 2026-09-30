@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/newsletter/model/newsletter_preview_args.dart';
 import 'package:wowcare/data/features/newsletter/mappers/newsletter_entity_mapper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -67,7 +68,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
       onRetry: _refresh,
       child: Card(
         elevation: 0,
-        color: Colors.white,
+        color: AppColors.whiteColor,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -216,7 +217,7 @@ class _NewsletterRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: MaterialHues.grey600,
                             fontSize: 13,
                           ),
                         ),
@@ -298,7 +299,7 @@ class _MetaRow extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: MaterialHues.grey600, fontSize: 13),
                 ),
               ),
               const SizedBox(width: 8),

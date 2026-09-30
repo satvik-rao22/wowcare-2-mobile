@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
@@ -201,13 +204,7 @@ class _DeleteConfirmationBottomSheetState
             top: verticalPadding,
             bottom: verticalPadding + bottomSafe,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(borderRadius),
-              topRight: Radius.circular(borderRadius),
-            ),
-          ),
+          decoration: AppSurfaces.sheet(topRadius: borderRadius),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -215,16 +212,18 @@ class _DeleteConfirmationBottomSheetState
               // Delete icon at the top center
               Center(
                 child: isActivityApprove
-                    ? SvgPicture.asset(
+                    ? AppIcon(
                         MediaRes.greenCheckCircleIcon,
                         width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        tone: IconTone.success,
                       )
                     : isActivityReject
-                    ? SvgPicture.asset(
+                    ? AppIcon(
                         MediaRes.redCrossCircleIcon,
                         width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        tone: IconTone.danger,
                       )
                     : Image.asset(
                         'assets/icons/delete.png',
@@ -240,23 +239,16 @@ class _DeleteConfirmationBottomSheetState
                                 ? 80.0
                                 : (isTablet ? 70.0 : 60.0),
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF85A5A),
+                              color: AppPalette.statusError,
                               shape: BoxShape.circle,
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: SvgPicture.asset(
+                              child: AppIcon(
                                 MediaRes.formDeleteIcon,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
-                                  BlendMode.srcIn,
-                                ),
-                                width: isLargeTablet
-                                    ? 32.0
-                                    : (isTablet ? 28.0 : 24.0),
-                                height: isLargeTablet
-                                    ? 32.0
-                                    : (isTablet ? 28.0 : 24.0),
+                                color: AppPalette.onBrand,
+                                width: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
+                                height: isLargeTablet ? 32.0 : (isTablet ? 28.0 : 24.0),
                               ),
                             ),
                           );
@@ -272,10 +264,10 @@ class _DeleteConfirmationBottomSheetState
                 child: Text(
                   typeText,
                   style: TextStyle(
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: AppColors.primaryColor,
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,

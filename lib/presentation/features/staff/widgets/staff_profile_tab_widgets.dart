@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// A work/break time chip shown in [StaffProfileTab]'s schedule section.
 class ScheduleChip extends StatelessWidget {
@@ -37,7 +38,7 @@ class ScheduleChip extends StatelessWidget {
         maxLines: isTimeChip ? 2 : 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           fontSize: 15,
           fontWeight: FontWeight.w600,
           color: labelColor,
@@ -67,7 +68,7 @@ class ProfileField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
@@ -78,7 +79,7 @@ class ProfileField extends StatelessWidget {
           Text(
             value ?? '-',
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 15,
               color: AppColors.primaryColor,
               fontWeight: FontWeight.w400,
@@ -131,7 +132,7 @@ class ProfileChip extends StatelessWidget {
               label,
               softWrap: true,
               style: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
                 color: labelColor,

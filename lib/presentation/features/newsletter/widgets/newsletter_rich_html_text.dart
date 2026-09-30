@@ -7,6 +7,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_color_theme.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_html_normalizer.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_link_launcher.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 /// Renders newsletter HTML from `contentJson` text parts.
 ///
@@ -62,8 +63,9 @@ class NewsletterRichHtmlText extends StatelessWidget {
     final bool opened = await openNewsletterHyperlink(url);
     if (opened || !context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: SnackBar(
         content: Text(
           url == null || url.trim().isEmpty
               ? AppStrings.newsletterLinkOpenFailed
@@ -86,7 +88,7 @@ class NewsletterRichHtmlText extends StatelessWidget {
         // KEPT, unlike the other Manrope lines: flutter_html builds its own
         // text styles and does NOT inherit ThemeData.fontFamily, so deleting
         // this would silently change every newsletter's body font.
-        fontFamily: defaults.fontFamily ?? Fonts.manrope,
+        fontFamily: defaults.fontFamily ?? AppFonts.body,
         color: defaults.color,
         fontWeight: defaults.fontWeight,
         lineHeight: html.LineHeight(defaults.height ?? 1.45),
@@ -202,12 +204,12 @@ class NewsletterRichHtmlText extends StatelessWidget {
         ),
       ),
       'code': html.Style(
-        fontFamily: 'monospace',
+        fontFamily: AppFonts.mono,
         backgroundColor: theme.divider.withValues(alpha: 0.25),
         padding: html.HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
       ),
       'pre': html.Style(
-        fontFamily: 'monospace',
+        fontFamily: AppFonts.mono,
         whiteSpace: html.WhiteSpace.pre,
         margin: html.Margins.symmetric(vertical: 8),
         padding: html.HtmlPaddings.all(10),

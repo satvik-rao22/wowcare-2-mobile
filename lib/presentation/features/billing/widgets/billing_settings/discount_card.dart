@@ -38,15 +38,11 @@ class DiscountCard extends StatelessWidget {
       expandedChildren: [
         StaffCardDetailRow(
           label: BillingStrings.percentage,
-          valueWidget: ShaderMask(
-            shaderCallback: (bounds) => AppColors.buildPrimaryGradient()
-                .createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-            child: Text(
+          valueWidget: Text(
               '${percentage.toStringAsFixed(1)}%',
               textAlign: TextAlign.right,
-              style: BillingCardText.value.copyWith(color: AppColors.billingCardOnColorText),
+              style: BillingCardText.value.copyWith(color: AppColors.themeColor),
             ),
-          ),
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(

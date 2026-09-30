@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -183,7 +184,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
             splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: SvgPicture.asset(MediaRes.calender_icon),
+              child: AppIcon(MediaRes.calender_icon),
             ),
           ),
         ),
@@ -301,7 +302,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             'No classroom data available',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: MaterialHues.grey500),
           ),
         ),
       );
@@ -319,7 +320,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Table(
@@ -402,15 +403,15 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
       children: [
         _buildHeaderCell(
           mainText: 'Classroom',
-          backgroundColor: const Color.fromRGBO(249, 245, 250, 1),
+          backgroundColor: AppPalette.surfaceSelected,
         ),
         _buildHeaderCell(
           mainText: 'Morning',
-          backgroundColor: const Color.fromRGBO(249, 241, 255, 1),
+          backgroundColor: AppPalette.surfaceSunken,
         ),
         _buildHeaderCell(
           mainText: 'Afternoon',
-          backgroundColor: const Color.fromRGBO(249, 241, 255, 1),
+          backgroundColor: AppPalette.surfaceSunken,
         ),
       ],
     );
@@ -433,7 +434,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
-              color: Color.fromRGBO(87, 51, 83, 1),
+              color: AppColors.primaryColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -457,7 +458,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           ),
           child: Container(
             height: cellHeightRow,
-            color: Colors.white,
+            color: AppColors.whiteColor,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -481,7 +482,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: Color.fromRGBO(87, 51, 83, 1),
+                          color: AppColors.primaryColor,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -496,7 +497,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         // Morning shift count cell
         Container(
           height: cellHeightRow,
-          color: const Color.fromRGBO(249, 241, 255, 1),
+          color: AppPalette.surfaceSunken,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
@@ -518,7 +519,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
         Container(
           height: cellHeightRow,
           decoration: BoxDecoration(
-            color: const Color.fromRGBO(249, 241, 255, 1),
+            color: AppPalette.surfaceSunken,
             borderRadius: isLast
                 ? const BorderRadius.only(bottomRight: Radius.circular(8))
                 : BorderRadius.zero,
@@ -578,7 +579,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   // -------------------------------------------------------------------------
 
   Color _getCountColor(int count) {
-    if (count < 0) return Colors.red;
-    return Colors.teal;
+    if (count < 0) return MaterialHues.red;
+    return MaterialHues.teal;
   }
 }

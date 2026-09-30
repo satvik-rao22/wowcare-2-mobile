@@ -1,16 +1,18 @@
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CalendarDialog extends StatefulWidget {
   final bool isRangePicker;
@@ -143,18 +145,21 @@ class _CalendarDialogState extends State<CalendarDialog> {
         : (calHelper.isTablet ? 400 : calHelper.calendarWidth);
     final double maxDialogHeight = MediaQuery.of(context).size.height * 0.95;
 
-    final double controlsFontSize =
-        calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
-    final double dayFontSize =
-        calHelper.isLargeTablet ? 16 : (calHelper.isTablet ? 15 : 13);
-    final double yearFontSize =
-        calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
+    final double controlsFontSize = calHelper.isLargeTablet
+        ? 18
+        : (calHelper.isTablet ? 16 : 14);
+    final double dayFontSize = calHelper.isLargeTablet
+        ? 16
+        : (calHelper.isTablet ? 15 : 13);
+    final double yearFontSize = calHelper.isLargeTablet
+        ? 18
+        : (calHelper.isTablet ? 16 : 14);
     final double controlsHeight = calHelper.isTablet ? 50 : 44;
     final double hourMinuteFieldWidth = calHelper.isTablet ? 56 : 46;
     final double amPmMinWidth = calHelper.isTablet ? 80 : 64;
 
     return Dialog(
-      backgroundColor: widget.whiteBgColor ? Colors.white : null,
+      backgroundColor: widget.whiteBgColor ? AppPalette.surfaceCard : null,
       insetPadding: EdgeInsets.symmetric(
         vertical: calHelper.calendarMargin * 0.5,
         horizontal: calHelper.calendarMargin,
@@ -185,8 +190,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         widget.isRangePicker
                             ? 'Select date range'
                             : (widget.isTimePicker
-                                ? 'Select date & time'
-                                : 'Select date'),
+                                  ? 'Select date & time'
+                                  : 'Select date'),
                         style: TextStyle(
                           fontSize: calHelper.headerFontSize * 0.8,
                           fontWeight: FontWeight.w500,
@@ -210,10 +215,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                     ],
                   ),
                   SizedBox(height: calHelper.calendarPadding * 0.4),
-                  const Divider(
-                    height: 2,
-                    color: Color(0xFFE0E0E0),
-                  ),
+                  const Divider(height: 2, color: MaterialHues.grey300),
                   SizedBox(height: calHelper.calendarPadding * 0.4),
                   SizedBox(
                     height: calHelper.isTablet ? 320 : 280,
@@ -223,8 +225,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         calendarType: widget.isRangePicker
                             ? CalendarDatePicker2Type.range
                             : CalendarDatePicker2Type.single,
-                        selectedDayHighlightColor:
-                            AppColors.primaryGradientColors.first,
+                        selectedDayHighlightColor: AppPalette.brand,
                         centerAlignModePicker: true,
                         firstDate: widget.firstDate ?? DateTime(2000),
                         lastDate: widget.lastDate ?? DateTime(2100),
@@ -240,7 +241,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                         selectedDayTextStyle: TextStyle(
                           fontSize: dayFontSize,
                           fontWeight: FontWeight.w400,
-                          color: Colors.white,
+                          color: AppPalette.onBrand,
                         ),
                         yearTextStyle: TextStyle(
                           fontSize: yearFontSize,
@@ -252,16 +253,17 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       ),
                       value: widget.isRangePicker
                           ? (_rangeEndDate != null
-                              ? [_rangeStartDate, _rangeEndDate]
-                              : [_rangeStartDate])
+                                ? [_rangeStartDate, _rangeEndDate]
+                                : [_rangeStartDate])
                           : (_selectedDate == null ? [] : [_selectedDate!]),
                       onValueChanged: (dates) {
                         setState(() {
                           if (dates.isNotEmpty) {
                             if (widget.isRangePicker) {
                               _rangeStartDate = dates.first;
-                              _rangeEndDate =
-                                  dates.length > 1 ? dates[1] : null;
+                              _rangeEndDate = dates.length > 1
+                                  ? dates[1]
+                                  : null;
                             } else {
                               _selectedDate = dates.first;
                             }
@@ -283,10 +285,12 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: AppPalette.border,
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 0),
+                                  horizontal: 8,
+                                  vertical: 0,
+                                ),
                                 child: SizedBox(
                                   width: hourMinuteFieldWidth,
                                   child: TextField(
@@ -295,23 +299,29 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.allow(
-                                          RegExp(r'^[0-9]*$')),
+                                        RegExp(r'^[0-9]*$'),
+                                      ),
                                       LengthLimitingTextInputFormatter(2),
-                                      TextInputFormatter.withFunction(
-                                          (oldValue, newValue) {
+                                      TextInputFormatter.withFunction((
+                                        oldValue,
+                                        newValue,
+                                      ) {
                                         if (newValue.text.isEmpty) {
                                           return newValue;
                                         }
-                                        final value =
-                                            int.tryParse(newValue.text);
+                                        final value = int.tryParse(
+                                          newValue.text,
+                                        );
                                         if (value == null) return oldValue;
                                         if (value < 1) {
                                           return const TextEditingValue(
-                                              text: '1');
+                                            text: '1',
+                                          );
                                         }
                                         if (value > 12) {
                                           return const TextEditingValue(
-                                              text: '12');
+                                            text: '12',
+                                          );
                                         }
                                         return newValue;
                                       }),
@@ -319,12 +329,12 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     decoration: const InputDecoration(
                                       hintText: 'HH',
                                       border: InputBorder.none,
-                                      contentPadding:
-                                          EdgeInsets.symmetric(vertical: 12),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                     ),
                                     style: TextStyle(
-                                      fontSize:
-                                          calHelper.isTablet ? 20 : 18,
+                                      fontSize: calHelper.isTablet ? 20 : 18,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     onChanged: (value) {
@@ -335,7 +345,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                           hour <= 12) {
                                         setState(() {
                                           _selectedTime = TimeOfDay(
-                                            hour: hour % 12 +
+                                            hour:
+                                                hour % 12 +
                                                 (_selectedTime.period ==
                                                         DayPeriod.pm
                                                     ? 12
@@ -362,7 +373,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           Column(
                             children: [
                               const SizedBox(height: 10),
-                              SvgPicture.asset(MediaRes.saperator),
+                              AppIcon(MediaRes.saperator, tone: IconTone.muted),
                             ],
                           ),
                           const SizedBox(width: 10),
@@ -371,10 +382,12 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: AppPalette.border,
                                 ),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 0),
+                                  horizontal: 8,
+                                  vertical: 0,
+                                ),
                                 child: SizedBox(
                                   width: hourMinuteFieldWidth,
                                   child: TextField(
@@ -383,19 +396,24 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.allow(
-                                          RegExp(r'^[0-9]*$')),
+                                        RegExp(r'^[0-9]*$'),
+                                      ),
                                       LengthLimitingTextInputFormatter(2),
-                                      TextInputFormatter.withFunction(
-                                          (oldValue, newValue) {
+                                      TextInputFormatter.withFunction((
+                                        oldValue,
+                                        newValue,
+                                      ) {
                                         if (newValue.text.isEmpty) {
                                           return newValue;
                                         }
-                                        final value =
-                                            int.tryParse(newValue.text);
+                                        final value = int.tryParse(
+                                          newValue.text,
+                                        );
                                         if (value == null) return oldValue;
                                         if (value > 59) {
                                           return const TextEditingValue(
-                                              text: '59');
+                                            text: '59',
+                                          );
                                         }
                                         return newValue;
                                       }),
@@ -403,12 +421,12 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     decoration: const InputDecoration(
                                       hintText: 'MM',
                                       border: InputBorder.none,
-                                      contentPadding:
-                                          EdgeInsets.symmetric(vertical: 12),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
                                     ),
                                     style: TextStyle(
-                                      fontSize:
-                                          calHelper.isTablet ? 20 : 18,
+                                      fontSize: calHelper.isTablet ? 20 : 18,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     onChanged: (value) {
@@ -457,7 +475,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                   onPressed: (index) {
                                     setState(() {
                                       _selectedTime = TimeOfDay(
-                                        hour: _selectedTime.hour % 12 +
+                                        hour:
+                                            _selectedTime.hour % 12 +
                                             (index == 1 ? 12 : 0),
                                         minute: _selectedTime.minute,
                                       );
@@ -467,12 +486,14 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     Text(
                                       'AM',
                                       style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     Text(
                                       'PM',
                                       style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -491,7 +512,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              side: const BorderSide(color: AppPalette.brand),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -500,10 +521,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             child: const Text(
                               'Cancel',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF6C7FD8),
+                                color: AppPalette.brand,
                                 height: 1,
                               ),
                             ),
@@ -512,26 +533,24 @@ class _CalendarDialogState extends State<CalendarDialog> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Container(
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 8,
                           height: 40,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            gradient: AppColors.buildPrimaryGradient(),
-                          ),
                           child: TextButton(
                             onPressed: () {
                               if (widget.isRangePicker) {
                                 final DateTime? formattedEndDate =
                                     _rangeEndDate != null
-                                        ? DateTime(
-                                            _rangeEndDate!.year,
-                                            _rangeEndDate!.month,
-                                            _rangeEndDate!.day,
-                                            23,
-                                            59,
-                                            59,
-                                          )
-                                        : null;
+                                    ? DateTime(
+                                        _rangeEndDate!.year,
+                                        _rangeEndDate!.month,
+                                        _rangeEndDate!.day,
+                                        23,
+                                        59,
+                                        59,
+                                      )
+                                    : null;
                                 Navigator.pop(context, {
                                   'startDate': _rangeStartDate,
                                   'endDate': formattedEndDate,
@@ -549,10 +568,10 @@ class _CalendarDialogState extends State<CalendarDialog> {
                             child: const Text(
                               'OK',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppPalette.onBrand,
                                 height: 1,
                               ),
                             ),
@@ -570,7 +589,3 @@ class _CalendarDialogState extends State<CalendarDialog> {
     );
   }
 }
-
-
-
-

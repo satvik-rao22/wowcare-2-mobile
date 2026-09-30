@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Compact gradient-bordered `+ / -` button used by dashboard cards to
 /// collapse or expand their body.
@@ -31,27 +33,25 @@ class DashboardCardToggle extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             // Gradient border.
-            Container(
+            SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: 8,
               width: 26,
               height: 26,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(8),
-              ),
             ),
             // White inner background.
             Container(
               width: 21,
               height: 21,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
             // Icon.
             Icon(
               minimized ? Icons.add : Icons.remove,
-              color: AppColors.primaryGradientColors.first,
+              color: AppColors.themeColor,
               size: 18,
             ),
           ],

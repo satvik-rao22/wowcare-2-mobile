@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/newsletter/view_model/newsletter_a
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_attachment_open_mode.dart';
 import 'package:wowcare/presentation/features/newsletter/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 /// Displays newsletter attachment placeholders from list payload.
 /// Image URLs will be wired when the document/media API is integrated.
@@ -173,8 +174,9 @@ class _AttachmentTileState extends State<_AttachmentTile> {
   /// Every failure path here was otherwise silent.
   void _reportOpenFailed() {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: context,
+      snackBar: const SnackBar(
         content: Text(AppStrings.newsletterAttachmentOpenFailed),
         backgroundColor: AppColors.warningColor,
       ),

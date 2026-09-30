@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
@@ -18,6 +14,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/attendance_p
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -124,17 +121,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
           ),
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.s2),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.allMd,
-              gradient: AppColors.buildPrimaryGradient(),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.attendanceCardShadowColor,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: AppSurfaces.key(KeyVariant.primary, radius: AppRadius.md),
             child: Container(
               width: 50,
               constraints: BoxConstraints(
@@ -267,10 +254,11 @@ class _StudentPopupMenuItem extends StatelessWidget {
                 color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(
+              child: AppIcon(
                 svgPath,
                 height: AppDimensions.iconMd,
                 width: AppDimensions.iconMd,
+                tone: IconTone.action,
               ),
             ),
           ),

@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/view_model/forgot_password_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -92,19 +94,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               width: screenHeight * 0.12,
                             ),
                             SizedBox(height: screenHeight * 0.01),
-                            ShaderMask(
-                              shaderCallback: (Rect bounds) {
-                                return AppColors.buildPrimaryGradient()
-                                    .createShader(bounds);
-                              },
-                              blendMode: BlendMode.srcIn,
-                              child: Text(
-                                'WowCare',
-                                style: TextStyle(
-                                  fontSize: screenHeight * 0.03,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.cardColor,
-                                ),
+                            Text(
+                              'WowCare',
+                              style: TextStyle(
+                                fontSize: screenHeight * 0.03,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.themeColor,
                               ),
                             ),
                             SizedBox(height: screenHeight * 0.05),
@@ -113,7 +108,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: Text(
                                 'Forgot Password',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                   height: 2 / 6,
                                   fontWeight: FontWeight.w500,
@@ -127,7 +122,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               child: Text(
                                 "Enter the email that's associated with your account.",
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.016,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.authPrimaryTextColor,
@@ -153,7 +148,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 hintText: 'Email Address',
                                 hintStyle: TextStyle(
                                   color: AppColors.authPrimaryTextColor,
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                 ),
                                 prefixIcon: Padding(
@@ -182,18 +177,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   ),
                                 ),
                                 filled: true,
-                                fillColor: AppColors.authSurfaceLight,
+                                fillColor: AppSurfaces.fieldFill,
                                 border: const OutlineInputBorder(
                                   borderSide: BorderSide.none,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(12),
                                   ),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: AppColors.themeColor,
-                                  ),
+                                focusedBorder: AppSurfaces.fieldBorder(
+                                  radius: 12,
                                 ),
                                 contentPadding: EdgeInsets.symmetric(
                                   vertical: screenHeight * 0.018,
@@ -203,7 +195,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               // Solid color (a gradient `foreground` shader breaks
                               // tap-to-position-cursor on editable fields).
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.022,
                                 color: AppColors.primaryColor,
                               ),
@@ -225,11 +217,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             : () => context.read<ForgotPasswordCubit>().submit(
                                 _emailController.text,
                               ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: AppColors.buildPrimaryGradient(),
-                          ),
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 12,
                           child: Center(
                             child: isLoading
                                 ? SizedBox(
@@ -253,7 +243,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                         color: AppColors.cardColor,
                                         fontSize: screenHeight * 0.022,
                                         fontWeight: FontWeight.w600,
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                       ),
                                     ),
                                   ),

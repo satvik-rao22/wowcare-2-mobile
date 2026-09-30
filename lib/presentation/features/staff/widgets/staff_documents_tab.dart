@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:gal/gal.dart';
@@ -25,6 +26,9 @@ import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffDocumentsTab extends StatelessWidget {
   const StaffDocumentsTab({
@@ -32,6 +36,7 @@ class StaffDocumentsTab extends StatelessWidget {
     required this.staffCode,
     this.canEdit = false,
     this.highlightCode,
+    this.onRefreshSettings,
   });
 
   final String staffCode;
@@ -44,6 +49,12 @@ class StaffDocumentsTab extends StatelessWidget {
   /// the matching document card scrolls into view, expands, and flashes.
   final String? highlightCode;
 
+  /// Re-fetches the school's `canStaffEditTheirOwnHealthRecords` setting that
+  /// [canEdit] is derived from, so pull-to-refresh here also picks up an
+  /// admin toggling "Allow Staff Upload Document" without needing to leave
+  /// and reopen this profile.
+  final Future<void> Function()? onRefreshSettings;
+
   @override
   Widget build(BuildContext context) {
     // Cubits are created by the route builder (§1.6), not here.
@@ -51,6 +62,7 @@ class StaffDocumentsTab extends StatelessWidget {
       staffCode: staffCode,
       canEdit: canEdit,
       highlightCode: highlightCode,
+      onRefreshSettings: onRefreshSettings,
     );
   }
 }
@@ -60,11 +72,13 @@ class _StaffDocumentsTabView extends StatefulWidget {
     required this.staffCode,
     this.canEdit = false,
     this.highlightCode,
+    this.onRefreshSettings,
   });
 
   final String staffCode;
   final bool canEdit;
   final String? highlightCode;
+  final Future<void> Function()? onRefreshSettings;
 
   @override
   State<_StaffDocumentsTabView> createState() => _StaffDocumentsTabViewState();
@@ -406,10 +420,14 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
 
             return CustomRefreshIndicator(
               onRefresh: () async {
-                await _documentsListCubit.refresh(
-                  widget.staffCode,
-                  expired: _showExpired ? true : null,
-                );
+                await Future.wait([
+                  _documentsListCubit.refresh(
+                    widget.staffCode,
+                    expired: _showExpired ? true : null,
+                  ),
+                  if (widget.onRefreshSettings != null)
+                    widget.onRefreshSettings!(),
+                ]);
               },
               child: NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
@@ -452,28 +470,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                           ),
                           child: Column(
                             children: [
-                              TextField(
+                              CustomSearchBar(
                                 controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText: 'Search documents...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  suffixIcon:
-                                      _searchController.text.trim().isEmpty
-                                      ? null
-                                      : IconButton(
-                                          onPressed: () => setState(() {
-                                            _searchController.clear();
-                                          }),
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                  filled: true,
-                                  fillColor:
-                                      AppColors.staffLightBackgroundColor,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
+                                hintText: 'Search documents...',
+                                showClearButton: true,
                                 onChanged: (_) => setState(() {}),
                               ),
                               const SizedBox(height: 12),
@@ -587,7 +587,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: const TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w600,
                                                   color: AppColors.primaryColor,
@@ -598,7 +598,7 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                             Text(
                                               doc.documentType,
                                               style: TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: AppFonts.body,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w500,
                                                 color: AppColors.primaryColor
@@ -638,16 +638,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                             Row(
                                               children: [
                                                 Expanded(
-                                                  child: Container(
+                                                  child: SkeuKeyBox(
+                                                    variant: KeyVariant.primary,
+                                                    radius: 8,
                                                     height: 40,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                      gradient:
-                                                          AppColors.buildPrimaryGradient(),
-                                                    ),
                                                     child: TextButton(
                                                       onPressed: () =>
                                                           _handleEdit(
@@ -662,7 +656,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Edit',
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -701,7 +696,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                       child: const Text(
                                                         'Delete',
                                                         style: TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
@@ -768,7 +764,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                                     'View',
                                                                     style: TextStyle(
                                                                       fontFamily:
-                                                                          'Manrope',
+                                                                          AppFonts
+                                                                              .body,
                                                                       fontSize:
                                                                           16,
                                                                       fontWeight:
@@ -786,16 +783,10 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                               ),
                                               const SizedBox(width: 12),
                                               Expanded(
-                                                child: Container(
+                                                child: SkeuKeyBox(
+                                                  variant: KeyVariant.primary,
+                                                  radius: 8,
                                                   height: 40,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                    gradient:
-                                                        AppColors.buildPrimaryGradient(),
-                                                  ),
                                                   child: TextButton(
                                                     onPressed: () =>
                                                         _handleDownload(
@@ -808,7 +799,8 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
                                                     child: const Text(
                                                       'Download',
                                                       style: TextStyle(
-                                                        fontFamily: 'Manrope',
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 16,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -889,7 +881,7 @@ class _DocumentDetailRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -903,7 +895,7 @@ class _DocumentDetailRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,

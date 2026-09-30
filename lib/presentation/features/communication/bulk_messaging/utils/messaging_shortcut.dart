@@ -142,9 +142,31 @@ Future<void> _openSingleRecipientConversation(
     // generic ConversationThreadScreen — matches the existing staff
     // conversation experience exactly (designation/online-status chrome,
     // staff-specific composer behavior, etc).
-    final name = conversation.title.isNotEmpty
-        ? conversation.title
+    // `conversation.title` for STAFF_DIRECT is frozen at creation time to
+    // whoever CREATED the conversation's counterpart name — it does not
+    // update per-viewer. If this conversation already existed (created by
+    // someone else, e.g. the staff member messaging this recipient first),
+    // rendering it verbatim shows the wrong name to everyone who isn't that
+    // original creator. Resolve the actual staff participant's own name
+    // from the roster instead; it's always correct regardless of who
+    // created the conversation.
+    final staffParticipant = conversation.participants
+        .where((p) => p.userCode == staffParticipantCode)
+        .firstOrNull;
+    final staffParticipantName = (staffParticipant?.userName ?? '').trim();
+    final name = staffParticipantName.isNotEmpty
+        ? staffParticipantName
         : recipient.name;
+    // Conversation-level avatarUrl is never populated for STAFF_DIRECT chats
+    // (it only carries a nested `student` fallback for ROOM_CHAT) — resolve
+    // the staff participant's own avatar first, falling back to whatever
+    // avatar the caller already resolved for this recipient.
+    final staffParticipantAvatar = (staffParticipant?.avatarUrl ?? '').trim();
+    final resolvedAvatar = conversation.avatarUrl.trim().isNotEmpty
+        ? conversation.avatarUrl
+        : staffParticipantAvatar.isNotEmpty
+        ? staffParticipantAvatar
+        : recipient.avatar;
     // Total active participants minus the viewer themselves (always one of
     // them, having just created/opened this conversation) — seeded so the
     // fresh per-thread CommunicationCubit's read/delivered-by-all tick
@@ -161,8 +183,9 @@ Future<void> _openSingleRecipientConversation(
         recipientCount: recipientCount,
         staffInfo: StaffThreadInfo(
           name: name,
-          avatar: conversation.avatarUrl,
+          avatar: resolvedAvatar,
           code: conversation.code,
+          staffUserCode: staffParticipantCode,
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -73,7 +74,7 @@ class KioskQrSectionWidget extends StatelessWidget {
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: MaterialHues.white70,
           ),
           textAlign: TextAlign.center,
         ),
@@ -124,8 +125,8 @@ class KioskQrSectionWidget extends StatelessWidget {
             height: 250,
             width: 250,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black, width: 2),
+              color: AppColors.whiteColor,
+              border: Border.all(color: AppColors.blackColor, width: 2),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(12),
@@ -175,7 +176,7 @@ class KioskQrSectionWidget extends StatelessWidget {
             reason,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.black,
+              color: AppColors.blackColor,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -188,7 +189,7 @@ class KioskQrSectionWidget extends StatelessWidget {
                   BlocProvider.of<KioskDashboardCubit>(context).loadQrCode(),
                 );
               },
-              icon: const Icon(Icons.refresh, size: 32, color: Colors.grey),
+              icon: const Icon(Icons.refresh, size: 32, color: MaterialHues.grey500),
             ),
         ],
       ),

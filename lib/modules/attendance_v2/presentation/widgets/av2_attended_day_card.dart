@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -64,17 +66,10 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Av2Colors.surface,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
-        border: Border.all(color: Av2Colors.borderStrong),
-      ),
+      decoration: AppSurfaces.card(radius: Av2Spacing.radiusLg),
       clipBehavior: Clip.antiAlias,
       child: Column(
-        children: [
-          _header(widget.day),
-          if (_expanded) _expandedBody(),
-        ],
+        children: [_header(widget.day), if (_expanded) _expandedBody()],
       ),
     );
   }
@@ -98,10 +93,16 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
                 ),
                 const SizedBox(width: 8),
               ],
-              Text(Av2DurationFormatter.hm(day.totalMinutes), style: Av2Text.bodyMedium),
+              Text(
+                Av2DurationFormatter.hm(day.totalMinutes),
+                style: Av2Text.bodyMedium,
+              ),
               const SizedBox(width: 2),
-              Icon(_expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 18, color: Av2Colors.textSecondary),
+              Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: Av2Colors.textSecondary,
+              ),
             ],
           ),
         ),
@@ -114,10 +115,18 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(Av2DateFormatter.monthDay(day.date),
-            style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-        Text(Av2DateFormatter.weekday(day.date),
-            style: Av2Text.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(
+          Av2DateFormatter.monthDay(day.date),
+          style: Av2Text.bodyMedium,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          Av2DateFormatter.weekday(day.date),
+          style: Av2Text.caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
@@ -130,10 +139,7 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(
-              child: SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
-              ),
+              child: PrimaryCircularLoader(size: 20, strokeWidth: 2),
             ),
           );
         }
@@ -142,14 +148,23 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.error_outline, size: 16, color: Av2Colors.textTertiary),
+                const Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: Av2Colors.textTertiary,
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Couldn’t load details', style: Av2Text.caption)),
+                Expanded(
+                  child: Text('Couldn’t load details', style: Av2Text.caption),
+                ),
                 TextButton(
                   onPressed: () => setState(
-                      () => _future = widget.loadDetail(widget.day.date)),
-                  child: Text('Retry',
-                      style: Av2Text.caption.copyWith(color: Av2Colors.theme)),
+                    () => _future = widget.loadDetail(widget.day.date),
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: Av2Text.caption.copyWith(color: Av2Colors.theme),
+                  ),
                 ),
               ],
             ),
@@ -171,6 +186,8 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
     final breakByStart = {
       for (final b in d.breaks) b.start.millisecondsSinceEpoch: b,
     };
+    // Break = the gaps between this day's sessions (server rollup can be wrong).
+    final totalBreak = d.breaks.fold<int>(0, (t, b) => t + b.minutes);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
       child: Column(
@@ -185,19 +202,26 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
             ),
             if (i < sessions.length - 1 && sessions[i].signOutAt != null)
               ...(() {
-                final b = breakByStart[sessions[i].signOutAt!.millisecondsSinceEpoch];
+                final b =
+                    breakByStart[sessions[i].signOutAt!.millisecondsSinceEpoch];
                 return b == null
                     ? const <Widget>[]
-                    : [Av2BreakRow(minutes: b.minutes, start: b.start, end: b.end)];
+                    : [
+                        Av2BreakRow(
+                          minutes: b.minutes,
+                          start: b.start,
+                          end: b.end,
+                        ),
+                      ];
               })(),
           ],
-          if (widget.day.hasBreaks) _totalBreak(),
+          if (totalBreak > 0) _totalBreak(totalBreak),
         ],
       ),
     );
   }
 
-  Widget _totalBreak() {
+  Widget _totalBreak(int minutes) {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.only(top: 8),
@@ -206,15 +230,24 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.free_breakfast_outlined, size: 15, color: Av2Colors.breakTime),
+          const Icon(
+            Icons.free_breakfast_outlined,
+            size: 15,
+            color: Av2Colors.breakTime,
+          ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text('Total break',
-                style: Av2Text.caption.copyWith(color: Av2Colors.breakTime)),
+            child: Text(
+              'Total break',
+              style: Av2Text.caption.copyWith(color: Av2Colors.breakTime),
+            ),
           ),
           Text(
-            Av2DurationFormatter.hm(widget.day.breakMinutes),
-            style: Av2Text.bodyMedium.copyWith(fontSize: 13, color: Av2Colors.breakTime),
+            Av2DurationFormatter.hm(minutes),
+            style: Av2Text.bodyMedium.copyWith(
+              fontSize: 13,
+              color: Av2Colors.breakTime,
+            ),
           ),
         ],
       ),

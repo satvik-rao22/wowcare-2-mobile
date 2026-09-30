@@ -17,9 +17,10 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/presentation/features/communication/model/messaging_recipient.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -64,9 +65,7 @@ class _MessageCompositionBulkMessagingState
     if (!mounted) return;
     if (anyTooLarge) {
       _showWarningMessage(
-        valid.isEmpty
-            ? AppStrings.fileTooLarge
-            : AppStrings.someFilesSkipped,
+        valid.isEmpty ? AppStrings.fileTooLarge : AppStrings.someFilesSkipped,
       );
     }
     if (valid.isEmpty) return;
@@ -98,9 +97,7 @@ class _MessageCompositionBulkMessagingState
     if (!mounted) return;
     if (anyTooLarge) {
       _showWarningMessage(
-        valid.isEmpty
-            ? AppStrings.fileTooLarge
-            : AppStrings.someFilesSkipped,
+        valid.isEmpty ? AppStrings.fileTooLarge : AppStrings.someFilesSkipped,
       );
     }
     if (valid.isEmpty) return;
@@ -150,7 +147,11 @@ class _MessageCompositionBulkMessagingState
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -162,7 +163,7 @@ class _MessageCompositionBulkMessagingState
       child: BlocBuilder<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
         builder: (context, compositionState) {
           return Scaffold(
-            backgroundColor: AppColors.cardColor,
+            backgroundColor: AppColors.pageBackgroundColor,
             resizeToAvoidBottomInset: true,
             appBar: const CustomAppBar(hasBackButton: true),
             body: GestureDetector(
@@ -179,8 +180,7 @@ class _MessageCompositionBulkMessagingState
                     CoreUtils.showTopSnackBar(
                       context: context,
                       isSuccess: true,
-                      message:
-                          AppStrings.bulkMessageProcessing,
+                      message: AppStrings.bulkMessageProcessing,
                     );
                   } else if (state.errorMessage != null) {
                     CoreUtils.showTopSnackBar(
@@ -193,16 +193,7 @@ class _MessageCompositionBulkMessagingState
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.buildScaffoldGradient(),
-                        ),
-                        child: Image.asset(
-                          MediaRes.wowcareMobileBg,
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                        ),
-                      ),
+                      child: Container(color: AppColors.pageBackgroundColor),
                     ),
                     Column(
                       children: [
@@ -236,22 +227,12 @@ class _MessageCompositionBulkMessagingState
                                   padding: EdgeInsets.all(
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.cardColor,
+                                  decoration: AppSurfaces.card(
                                     borderRadius: BorderRadius.all(
                                       Radius.circular(
                                         responsive.isTablet ? 30.0 : 20.0,
                                       ),
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.blackColor.withValues(
-                                          alpha: 0.05,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
                                   ),
                                   child: Column(
                                     crossAxisAlignment:
@@ -261,7 +242,9 @@ class _MessageCompositionBulkMessagingState
                                         physics:
                                             const NeverScrollableScrollPhysics(),
                                         shrinkWrap: true,
-                                        padding: const EdgeInsets.all(AppSizes.xsPlus),
+                                        padding: const EdgeInsets.all(
+                                          AppSizes.xsPlus,
+                                        ),
                                         gridDelegate:
                                             SliverGridDelegateWithFixedCrossAxisCount(
                                               crossAxisCount:
@@ -279,12 +262,14 @@ class _MessageCompositionBulkMessagingState
                                         itemBuilder: (context, index) {
                                           final String name = compositionState
                                               .selectedRecipientNames[index];
-                                          final avatar = index <
+                                          final avatar =
+                                              index <
                                                   compositionState
                                                       .selectedRecipients
                                                       .length
                                               ? compositionState
-                                                      .selectedRecipients[index].avatar
+                                                    .selectedRecipients[index]
+                                                    .avatar
                                               : null;
 
                                           return SelectedStudentTile(
@@ -344,9 +329,11 @@ class _MessageCompositionBulkMessagingState
                                               // (tags stripped), matching the
                                               // 1:1 chat composer.
                                               contextMenuBuilder:
-                                                  (context, editableTextState) =>
-                                                      HtmlAwareTextSelectionControls
-                                                          .buildContextMenu(
+                                                  (
+                                                    context,
+                                                    editableTextState,
+                                                  ) =>
+                                                      HtmlAwareTextSelectionControls.buildContextMenu(
                                                         context,
                                                         editableTextState,
                                                         _controller,
@@ -375,7 +362,8 @@ class _MessageCompositionBulkMessagingState
                                             color:
                                                 compositionState.charCount >
                                                     maxChars
-                                                ? AppColors.messagingCounterExceeded
+                                                ? AppColors
+                                                      .messagingCounterExceeded
                                                 : AppColors.messagingMetaStrong,
                                           ),
                                         ),
@@ -464,15 +452,7 @@ class _MessageCompositionBulkMessagingState
         right: 16,
         top: 16,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
+      decoration: AppSurfaces.card(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
@@ -482,43 +462,21 @@ class _MessageCompositionBulkMessagingState
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.secondary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparentColor,
                 ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(1),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    borderRadius: BorderRadius.circular(
-                      responsive.isTablet ? 16.0 : 8.0,
-                    ),
-                  ),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      overlayColor: AppColors.transparentColor,
-                    ),
-                    child: ShaderMask(
-                      shaderCallback: (bounds) {
-                        return AppColors.buildPrimaryGradient().createShader(
-                          bounds,
-                        );
-                      },
-                      child: Text(
-                        AppStrings.cancel,
-                        style: AppTextStyles.size14.copyWith(
-                          fontSize: responsive.buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.messagingOnAccent,
-                        ),
-                      ),
-                    ),
+                child: Text(
+                  AppStrings.cancel,
+                  style: AppTextStyles.size14.copyWith(
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppSurfaces.keyInk(KeyVariant.secondary),
                   ),
                 ),
               ),
@@ -526,14 +484,10 @@ class _MessageCompositionBulkMessagingState
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
-                ),
-              ),
               child: TextButton(
                 onPressed: () {
                   if (compositionState.canSend) {
@@ -546,7 +500,9 @@ class _MessageCompositionBulkMessagingState
                     );
                   }
                 },
-                style: TextButton.styleFrom(overlayColor: AppColors.transparentColor),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparentColor,
+                ),
                 child: Text(
                   AppStrings.send,
                   style: AppTextStyles.size14.copyWith(
@@ -614,7 +570,11 @@ class _MessageCompositionBulkMessagingState
             child: CircleAvatar(
               radius: 12,
               backgroundColor: AppColors.messagingRemoveBadge,
-              child: const Icon(Icons.close, size: 14, color: AppColors.messagingOnAccent),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: AppColors.messagingOnAccent,
+              ),
             ),
           ),
         ),

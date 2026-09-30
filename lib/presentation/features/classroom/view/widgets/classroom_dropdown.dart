@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/classroom_visibility.dart';
 
 class ClassroomDropdown extends StatefulWidget {
@@ -51,7 +52,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     color: AppColors.primaryColor,
                     fontSize: 18,
                     letterSpacing: 18 * (-3 / 100),
@@ -122,7 +123,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
                         title: Text(
                           visibleItems[index],
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             color: AppColors.primaryColor,
                             fontSize: 16,
                           ),

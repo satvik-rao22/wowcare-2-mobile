@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/utils/billing_money.dart';
+import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/dashboard_attention_cubit.dart';
@@ -24,6 +27,7 @@ enum _AttentionTone { danger, warning, neutral }
 
 enum _AttentionCardRoute {
   regularizationApproval,
+  totalOutstanding,
   incidentApproval,
   classroomRatio,
   classroomShifts,
@@ -209,6 +213,9 @@ class _AttentionGridState extends State<AttentionGrid> {
               if (mounted) context.read<DashboardAttentionCubit>().refresh();
             });
 
+      case _AttentionCardRoute.totalOutstanding:
+        context.go(BillingScreen.routeName);
+
       case _AttentionCardRoute.incidentApproval:
         if (widget.onIncidentCardTap != null) {
           widget.onIncidentCardTap!();
@@ -337,6 +344,16 @@ class _AttentionGridState extends State<AttentionGrid> {
         : 0;
 
     return [
+      // Total Outstanding — currency card, all-time balance (no date range).
+      AttentionCardModel(
+        label: 'Total Outstanding',
+        count: attentionState.outstandingAmount > 0 ? 1 : 0,
+        route: _AttentionCardRoute.totalOutstanding,
+        isCurrency: true,
+        valueText: attentionState.outstandingAmount > 0
+            ? billingAmount(attentionState.outstandingAmount)
+            : null,
+      ),
       // Attendance corrections. Unlike the other cards this one stays visible
       // at zero: it is also the only route to the approved history, and an
       // admin should not lose it by clearing the queue.
@@ -526,13 +543,13 @@ class _AttentionShimmerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: MaterialHues.grey300,
+        highlightColor: MaterialHues.grey100,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,7 +560,7 @@ class _AttentionShimmerCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -552,7 +569,7 @@ class _AttentionShimmerCard extends StatelessWidget {
                   width: 80,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -563,7 +580,7 @@ class _AttentionShimmerCard extends StatelessWidget {
               width: 100,
               height: 24,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -590,7 +607,7 @@ class _AttentionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(10),
         ),
@@ -755,7 +772,12 @@ class _StatusPill extends StatelessWidget {
           ),
           if (showThumbDown) ...[
             const SizedBox(width: 6),
-            SvgPicture.asset(MediaRes.thumbDown, width: 14, height: 14),
+            AppIcon(
+              MediaRes.thumbDown,
+              width: 14,
+              height: 14,
+              tone: IconTone.danger,
+            ),
           ],
         ],
       ),

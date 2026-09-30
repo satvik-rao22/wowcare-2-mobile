@@ -20,7 +20,6 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/safe_state_mixin.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
@@ -31,6 +30,8 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/widgets/selection_shimmer.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -206,7 +207,8 @@ class _StaffOrStudentSelectionBulkMessagingState
   late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase =
       resolveGetTagNamesForSchoolUseCase();
   late final GetTagNameCodeMapForSchoolUseCase
-  _getTagNameCodeMapForSchoolUseCase = resolveGetTagNameCodeMapForSchoolUseCase();
+  _getTagNameCodeMapForSchoolUseCase =
+      resolveGetTagNameCodeMapForSchoolUseCase();
 
   Future<void> _loadTags() async {
     try {
@@ -351,13 +353,10 @@ class _StaffOrStudentSelectionBulkMessagingState
     // selected — "Select All" only needs every SELECTABLE student picked to
     // count as fully checked, or it could never show as checked at all
     // whenever such a student is present in the filtered list.
-    final selectable = list.where(
-      (entry) => entry.value.hasGuardian,
-    );
+    final selectable = list.where((entry) => entry.value.hasGuardian);
     return selectable.isNotEmpty &&
         selectable.every(
-          (entry) =>
-              selection.selectedStudentCodes.contains(entry.value.code),
+          (entry) => selection.selectedStudentCodes.contains(entry.value.code),
         );
   }
 
@@ -465,7 +464,7 @@ class _StaffOrStudentSelectionBulkMessagingState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       resizeToAvoidBottomInset: true,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
@@ -512,15 +511,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                               children: [
                                 Positioned.fill(
                                   child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient:
-                                          AppColors.buildScaffoldGradient(),
-                                    ),
-                                    child: Image.asset(
-                                      MediaRes.wowcareMobileBg,
-                                      fit: BoxFit.cover,
-                                      alignment: Alignment.topCenter,
-                                    ),
+                                    color: AppColors.pageBackgroundColor,
                                   ),
                                 ),
                                 Column(
@@ -538,7 +529,8 @@ class _StaffOrStudentSelectionBulkMessagingState
                                           style: AppTextStyles.size14.copyWith(
                                             fontSize: responsive.titleFontSize,
                                             fontWeight: FontWeight.w600,
-                                            color: AppColors.messagingHeadingPlum,
+                                            color:
+                                                AppColors.messagingHeadingPlum,
                                           ),
                                         ),
                                       ),
@@ -557,22 +549,12 @@ class _StaffOrStudentSelectionBulkMessagingState
                                         padding: EdgeInsets.all(
                                           responsive.isTablet ? 32.0 : 16.0,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.cardColor,
+                                        decoration: AppSurfaces.card(
                                           borderRadius: BorderRadius.all(
                                             Radius.circular(
                                               responsive.isTablet ? 30.0 : 20.0,
                                             ),
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.blackColor.withValues(
-                                                alpha: 0.05,
-                                              ),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
                                         ),
                                         child: Column(
                                           children: [
@@ -585,15 +567,21 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                 child: Text(
                                                   widget.isStaffSelection
                                                       ? AppStrings.selectStaff
-                                                      : AppStrings.selectStudents,
-                                                  style: AppTextStyles.size14.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppColors.messagingHeadingPlum,
-                                                  ),
+                                                      : AppStrings
+                                                            .selectStudents,
+                                                  style: AppTextStyles.size14
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: AppColors
+                                                            .messagingHeadingPlum,
+                                                      ),
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(height: AppSizes.xsPlus),
+                                            const SizedBox(
+                                              height: AppSizes.xsPlus,
+                                            ),
                                             Row(
                                               children: [
                                                 Expanded(
@@ -603,10 +591,13 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                     hintText:
                                                         widget.isStaffSelection
                                                         ? AppStrings.searchStaff
-                                                        : AppStrings.searchStudents,
+                                                        : AppStrings
+                                                              .searchStudents,
                                                   ),
                                                 ),
-                                                const SizedBox(width: AppSizes.xs),
+                                                const SizedBox(
+                                                  width: AppSizes.xs,
+                                                ),
                                                 SizedBox(
                                                   height: 38,
                                                   child: CustomClearAllChip(
@@ -627,14 +618,16 @@ class _StaffOrStudentSelectionBulkMessagingState
                                               ],
                                             ),
                                             if (!widget.hideFilters) ...[
-                                              const SizedBox(height: AppSizes.xsPlus),
+                                              const SizedBox(
+                                                height: AppSizes.xsPlus,
+                                              ),
                                               Row(
                                                 children: [
                                                   Expanded(
                                                     child: CustomMultiSelectDropdown(
                                                       showSelectAll: true,
-                                                      hintText:
-                                                          AppStrings.selectClassroom,
+                                                      hintText: AppStrings
+                                                          .selectClassroom,
                                                       items: _classroomOptions,
                                                       selectedItems: _selection
                                                           .state
@@ -651,13 +644,15 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                       },
                                                     ),
                                                   ),
-                                                  const SizedBox(width: AppSizes.xs),
+                                                  const SizedBox(
+                                                    width: AppSizes.xs,
+                                                  ),
                                                   if (widget.isStaffSelection)
                                                     Expanded(
                                                       child: CustomMultiSelectDropdown(
                                                         showSelectAll: true,
-                                                        hintText:
-                                                            AppStrings.selectDesignation,
+                                                        hintText: AppStrings
+                                                            .selectDesignation,
                                                         items:
                                                             _designationOptions,
                                                         selectedItems: _selection
@@ -679,7 +674,8 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                     Expanded(
                                                       child: CustomMultiSelectDropdown(
                                                         showSelectAll: true,
-                                                        hintText: AppStrings.selectTags,
+                                                        hintText: AppStrings
+                                                            .selectTags,
                                                         items: _selection
                                                             .state
                                                             .tagOptions,
@@ -700,7 +696,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                     ),
                                                 ],
                                               ),
-                                              const SizedBox(height: AppSizes.sm),
+                                              const SizedBox(
+                                                height: AppSizes.sm,
+                                              ),
                                               MessagingFilterDropdown(
                                                 hintText: AppStrings.status,
                                                 items: _statusOptions,
@@ -715,7 +713,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                   );
                                                 },
                                               ),
-                                              const SizedBox(height: AppSizes.sm),
+                                              const SizedBox(
+                                                height: AppSizes.sm,
+                                              ),
                                             ],
                                             // Select All
                                             Align(
@@ -754,10 +754,12 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                                   ..._selection
                                                                       .state
                                                                       .selectedStaffCodes,
-                                                                  ..._filteredList.map(
-                                                                    (e) =>
-                                                                        e.value.code,
-                                                                  ),
+                                                                  ..._filteredList
+                                                                      .map(
+                                                                        (e) => e
+                                                                            .value
+                                                                            .code,
+                                                                      ),
                                                                 });
                                                               } else {
                                                                 // Skip students with
@@ -772,12 +774,14 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                                       .selectedStudentCodes,
                                                                   ..._filteredList
                                                                       .where(
-                                                                        (e) =>
-                                                                            e.value.hasGuardian,
+                                                                        (e) => e
+                                                                            .value
+                                                                            .hasGuardian,
                                                                       )
                                                                       .map(
-                                                                        (e) =>
-                                                                            e.value.code,
+                                                                        (e) => e
+                                                                            .value
+                                                                            .code,
                                                                       ),
                                                                 });
                                                               }
@@ -804,7 +808,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                   if (_selection
                                                       .state
                                                       .isSelectingAll) ...[
-                                                    const SizedBox(width: AppSizes.xs),
+                                                    const SizedBox(
+                                                      width: AppSizes.xs,
+                                                    ),
                                                     const PrimaryCircularLoader(
                                                       size: 14,
                                                       strokeWidth: 2,
@@ -819,11 +825,16 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                   ? Center(
                                                       child: Text(
                                                         widget.isStaffSelection
-                                                            ? AppStrings.noStaffMatchFilters
-                                                            : AppStrings.noStudentMatchFilters,
-                                                        style: AppTextStyles.size14.copyWith(
-                                                          color: AppColors.messagingTextMeta,
-                                                        ),
+                                                            ? AppStrings
+                                                                  .noStaffMatchFilters
+                                                            : AppStrings
+                                                                  .noStudentMatchFilters,
+                                                        style: AppTextStyles
+                                                            .size14
+                                                            .copyWith(
+                                                              color: AppColors
+                                                                  .messagingTextMeta,
+                                                            ),
                                                       ),
                                                     )
                                                   : GridView.builder(
@@ -888,7 +899,8 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                           disabledReason:
                                                               isEnabled
                                                               ? null
-                                                              : AppStrings.noParentLinked,
+                                                              : AppStrings
+                                                                    .noParentLinked,
                                                           onSelectionChanged:
                                                               (bool? selected) {
                                                                 final code =
@@ -949,15 +961,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         right: AppSizes.md,
         top: AppSizes.md,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
+      decoration: AppSurfaces.card(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
           topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
@@ -967,44 +971,21 @@ class _StaffOrStudentSelectionBulkMessagingState
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.secondary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparentColor,
                 ),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(1),
-                child: Container(
-                  //alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardColor,
-                    borderRadius: BorderRadius.circular(
-                      responsive.isTablet ? 16.0 : 8.0,
-                    ),
-                  ),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      overlayColor: AppColors.transparentColor,
-                    ),
-                    child: ShaderMask(
-                      shaderCallback: (bounds) {
-                        return AppColors.buildPrimaryGradient().createShader(
-                          bounds,
-                        );
-                      },
-                      child: Text(
-                        AppStrings.cancel,
-                        style: AppTextStyles.size14.copyWith(
-                          fontSize: responsive.buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.messagingOnAccent,
-                        ),
-                      ),
-                    ),
+                child: Text(
+                  AppStrings.cancel,
+                  style: AppTextStyles.size14.copyWith(
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppSurfaces.keyInk(KeyVariant.secondary),
                   ),
                 ),
               ),
@@ -1012,14 +993,10 @@ class _StaffOrStudentSelectionBulkMessagingState
           ),
           const SizedBox(width: AppSizes.xsPlus),
           Expanded(
-            child: Container(
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: responsive.isTablet ? 16.0 : 8.0,
               height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(
-                  responsive.isTablet ? 16.0 : 8.0,
-                ),
-              ),
               child: TextButton(
                 onPressed: () {
                   if (widget.isStaffSelection) {
@@ -1063,7 +1040,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                     }
                   }
                 },
-                style: TextButton.styleFrom(overlayColor: AppColors.transparentColor),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparentColor,
+                ),
                 child: Text(
                   AppStrings.next,
                   style: AppTextStyles.size14.copyWith(

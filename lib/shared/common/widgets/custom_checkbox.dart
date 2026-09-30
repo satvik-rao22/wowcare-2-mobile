@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomCheckbox extends StatelessWidget {
   const CustomCheckbox({
@@ -33,8 +34,8 @@ class CustomCheckbox extends StatelessWidget {
               Transform.scale(
                 scale: scale ?? 1.2,
                 child: Checkbox(
-                  activeColor: AppColors.themeColor,
-                  checkColor: Colors.white,
+                  activeColor: AppPalette.brand,
+                  checkColor: AppPalette.onBrand,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   side: BorderSide(
                     color:
@@ -49,9 +50,13 @@ class CustomCheckbox extends StatelessWidget {
                   // Override disabled state to prevent grey overlay
                   fillColor: WidgetStateProperty.resolveWith<Color>((states) {
                     if (states.contains(WidgetState.disabled)) {
-                      return value ? AppColors.themeColor : Colors.transparent;
+                      return value
+                          ? AppPalette.brand
+                          : AppColors.transparentColor;
                     }
-                    return value ? AppColors.themeColor : Colors.transparent;
+                    return value
+                        ? AppPalette.brand
+                        : AppColors.transparentColor;
                   }),
                   // Optional: remove ripple when disabled
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -84,7 +89,7 @@ class CustomCheckbox extends StatelessWidget {
                 Transform.scale(
                   scale: scale ?? 1.2,
                   child: Checkbox(
-                    activeColor: AppColors.themeColor,
+                    activeColor: AppPalette.brand,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     side: BorderSide(
                       color:

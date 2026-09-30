@@ -3,7 +3,6 @@ import 'package:wowcare/presentation/features/students/model/student_sibling_inf
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/src/app_router.dart'
     show AppRoutes, goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -30,6 +29,9 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/core/utils/login_persona_util.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -686,21 +688,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                 MainAxisAlignment
                                                                     .center,
                                                             children: [
-                                                              SvgPicture.asset(
+                                                              AppIcon(
                                                                 MediaRes
                                                                     .uploadIcon,
-                                                                height: 10,
-                                                                width: 10,
-                                                                colorFilter: ColorFilter.mode(
-                                                                  AppColors
-                                                                      .cardColor
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.92,
-                                                                      ),
-                                                                  BlendMode
-                                                                      .srcIn,
-                                                                ),
+                                                                size: 10,
+                                                                color: AppColors
+                                                                    .cardColor
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.92,
+                                                                    ),
                                                               ),
                                                               const SizedBox(
                                                                 width: 3,
@@ -737,36 +734,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               child: Container(
                                                 width: 32,
                                                 height: 32,
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.cardColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: AppColors
-                                                          .blackColor
-                                                          .withValues(
-                                                            alpha: 0.08,
-                                                          ),
-                                                      blurRadius: 6,
-                                                      offset: const Offset(
-                                                        0,
-                                                        2,
-                                                      ),
-                                                    ),
-                                                  ],
+                                                decoration: AppSurfaces.card(
+                                                  radius: 16,
                                                 ),
-                                                child: Container(
+                                                child: SkeuKeyBox(
+                                                  variant: KeyVariant.primary,
+                                                  radius: 14,
                                                   margin: const EdgeInsets.all(
                                                     2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    gradient:
-                                                        AppColors.buildPrimaryGradient(),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
                                                   ),
                                                   child: const Icon(
                                                     Icons.camera_alt,
@@ -828,12 +803,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     Expanded(
                                       child: Container(
                                         height: 48,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          gradient:
-                                              AppColors.buildPrimaryGradient(),
+                                        decoration: AppSurfaces.key(
+                                          KeyVariant.primary,
+                                          radius: 8,
                                         ),
                                         child: ValueListenableBuilder<bool>(
                                           valueListenable: _openingProfile,
@@ -889,7 +861,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                         ? 'View Student Profile'
                                                         : 'View Staff Profile',
                                                     textStyle: TextStyle(
-                                                      fontFamily: Fonts.manrope,
+                                                      fontFamily: AppFonts.body,
                                                       fontSize: 16,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -914,25 +886,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     // "My Profile" card with 4px gap from screen edge and gradient border
                     Container(
                       margin: const EdgeInsets.fromLTRB(4, 6, 4, 12),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(10),
+                      decoration: AppSurfaces.key(
+                        KeyVariant.primary,
+                        radius: 10,
                       ),
                       child: Container(
                         margin: const EdgeInsets.all(1),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.circular(9),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.blackColor.withValues(
-                                alpha: 0.06,
-                              ),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(radius: 9),
                         child: Column(
                           children: [
                             Padding(
@@ -1037,15 +997,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               );
                                             }
                                           },
-                                          child: Container(
+                                          child: SkeuKeyBox(
+                                            variant: KeyVariant.primary,
+                                            radius: 8,
                                             width: 38,
                                             height: 38,
-                                            decoration: BoxDecoration(
-                                              gradient:
-                                                  AppColors.buildPrimaryGradient(),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
                                             alignment: Alignment.center,
                                             child: const Icon(
                                               Icons.edit,

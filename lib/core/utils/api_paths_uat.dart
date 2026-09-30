@@ -64,6 +64,7 @@ class ApiPathsUat {
       'staff-attendance',
       'staff-absence-records',
       'staff-attendance-records',
+      'staff-overtime-records',
       'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
       'kiosk', // Kiosk PIN verification: /api/v1/kiosk/verify-pin
     },
@@ -170,8 +171,11 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
-      case 'staff-attendance-regularizations':
+      // Attendance V2 (staff overtime). Missing here meant every overtime
+      // call fell through to the default `user` host — the whole screen was
+      // dead on any gateway environment, which is all of them.
       case 'staff-overtime-records':
+      case 'staff-attendance-regularizations':
       case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':
@@ -208,6 +212,18 @@ class ApiPathsUat {
       case 'media-assets':
       case 'upload-sessions':
         return ApiMicroservices.document;
+      // Events-Todo MS — Events, Tasks & School Calendar (holidays). Unlike
+      // every other microservice, the gateway exposes these as their own
+      // top-level routes with no `/events-todo/` or `/scheduler/` segment —
+      // confirmed live against the DEV gateway (see ApiConstantsDev). Mirrors
+      // the direct-microservice [ApiPaths.microserviceKeyFromPath] case of
+      // the same name.
+      case 'events':
+      case 'holidays':
+      case 'occurrences':
+      case 'calendar':
+      case 'tasks':
+        return ApiMicroservices.eventsTodo;
       case 'reports':
         // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
         if (nextSeg == 'billing') return ApiMicroservices.billing;
@@ -258,6 +274,17 @@ class ApiPathsUat {
     // (no live sync). See firebase_auth_service.dart.
     if (p == '/api/v1/firebase/token') {
       return '/api/v1/messaging/firebase/token';
+    }
+
+    // Events-Todo MS (events/tasks/holidays/occurrences/calendar) is exposed
+    // unprefixed at the gateway root — no segment to insert or double, unlike
+    // every other microservice. Returning early here keeps
+    // `/api/v1/events/{code}/occurrences` etc. from falling through to the
+    // generic rewrite below, which would default the unknown `events`/`tasks`
+    // segment to the `user` microservice and mangle it into
+    // `/api/v1/user/events/...`.
+    if (microserviceKeyFromPath(p) == ApiMicroservices.eventsTodo) {
+      return p;
     }
 
     // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.

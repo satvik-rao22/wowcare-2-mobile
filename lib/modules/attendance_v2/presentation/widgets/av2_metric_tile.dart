@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/av2_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 
@@ -21,10 +21,7 @@ class Av2MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: Av2Colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-      ),
+      decoration: AppSurfaces.well(radius: Av2Spacing.radiusSm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -44,12 +41,7 @@ class Av2MetricTile extends StatelessWidget {
               style: Av2Text.metricValue,
               children: suffix == null
                   ? null
-                  : [
-                      TextSpan(
-                        text: ' $suffix',
-                        style: Av2Text.caption,
-                      ),
-                    ],
+                  : [TextSpan(text: ' $suffix', style: Av2Text.caption)],
             ),
           ),
         ],

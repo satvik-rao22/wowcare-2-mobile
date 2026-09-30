@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/modules/attendance_regularization/regularization.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/responsive/av2_breakpoints.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
 import '../../domain/entities/attendance_session.dart';
+import '../../domain/entities/av2_staff_summary.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
@@ -19,26 +22,29 @@ import '../widgets/av2_filter_chips.dart';
 import '../widgets/av2_hero_card.dart';
 import '../widgets/av2_identity_row.dart';
 import '../widgets/av2_period_sheet.dart';
+import '../widgets/av2_staff_switcher_sheet.dart';
 
 /// Edits a session: returns true on success so the screen can toast.
-typedef Av2EditSession = Future<void> Function({
-  required String recordCode,
-  required DateTime signInLocal,
-  DateTime? signOutLocal,
-});
+typedef Av2EditSession =
+    Future<void> Function({
+      required String recordCode,
+      required DateTime signInLocal,
+      DateTime? signOutLocal,
+    });
 
 /// Deletes a session by record code.
 typedef Av2DeleteSession = Future<void> Function(String recordCode);
 
-/// Edits an absence record.
-typedef Av2EditAbsence = Future<void> Function({
-  required String code,
-  required DateTime fromDate,
-  required DateTime toDate,
-  required String reason,
-  required String type,
-  required String note,
-});
+/// Edits an absence record (date + note; reason/type carried through).
+typedef Av2EditAbsence =
+    Future<void> Function({
+      required String code,
+      required DateTime fromDate,
+      required DateTime toDate,
+      required String reason,
+      required String type,
+      required String note,
+    });
 
 /// Deletes an absence record by code.
 typedef Av2DeleteAbsence = Future<void> Function(String code);
@@ -46,6 +52,12 @@ typedef Av2DeleteAbsence = Future<void> Function(String code);
 /// Pure presentation of a loaded [StaffOvertimeProfile]. Day sessions load
 /// lazily through [loadDetail] when a row expands. Responsive: card timeline on
 /// mobile/tablet, data table on desktop.
+///
+/// Filtering + pagination are *controlled* when [onFilterSelected] is provided
+/// (server-side): the parent supplies already-filtered [profile] days and a
+/// page at a time, and [onLoadMore] fetches the next page on scroll. When
+/// [onFilterSelected] is null the view filters [profile] days client-side (used
+/// by the static preview / tests).
 class StaffDetailView extends StatefulWidget {
   const StaffDetailView({
     super.key,
@@ -55,11 +67,17 @@ class StaffDetailView extends StatefulWidget {
     this.reloadId = 0,
     this.onPeriodChanged,
     this.canEdit = false,
-    this.initialFilter = Av2DayFilter.all,
     this.onEditSession,
     this.onDeleteSession,
     this.onEditAbsence,
     this.onDeleteAbsence,
+    this.filter = Av2DayFilter.all,
+    this.onFilterSelected,
+    this.onLoadMore,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.staff = const [],
+    this.onStaffSelected,
   });
 
   final StaffOvertimeProfile profile;
@@ -73,26 +91,83 @@ class StaffDetailView extends StatefulWidget {
 
   /// Admin-only: when false, no edit/delete affordance is shown on rows.
   final bool canEdit;
-
-  /// Which chip the screen opens on. A regularization notification is about
-  /// one request, so it lands on Requests rather than making the reader find
-  /// it.
-  final Av2DayFilter initialFilter;
   final Av2EditSession? onEditSession;
   final Av2DeleteSession? onDeleteSession;
   final Av2EditAbsence? onEditAbsence;
   final Av2DeleteAbsence? onDeleteAbsence;
+
+  /// Selected filter (for chip highlight in controlled mode).
+  final Av2DayFilter filter;
+
+  /// When non-null, filtering is server-side: the parent refetches on change.
+  final ValueChanged<Av2DayFilter>? onFilterSelected;
+
+  /// Fetches the next page (scroll pagination). No-op when null.
+  final VoidCallback? onLoadMore;
+  final bool hasMore;
+  final bool loadingMore;
+
+  /// School staff + handler for the admin "switch staff" picker. When [staff]
+  /// is non-empty and [onStaffSelected] is set, the identity row is tappable.
+  final List<Av2StaffSummary> staff;
+  final ValueChanged<Av2StaffSummary>? onStaffSelected;
 
   @override
   State<StaffDetailView> createState() => _StaffDetailViewState();
 }
 
 class _StaffDetailViewState extends State<StaffDetailView> {
-  late Av2DayFilter _filter = widget.initialFilter;
+  late Av2DayFilter _filter = widget.filter;
 
+  bool get _controlled => widget.onFilterSelected != null;
   StaffOvertimeProfile get _profile => widget.profile;
 
-  void _setFilter(Av2DayFilter f) => setState(() => _filter = f);
+  /// Days to show: server already filtered them in controlled mode; otherwise
+  /// apply the chip filter locally.
+  List<AttendanceDay> get _days =>
+      _controlled ? _profile.days : _filter.apply(_profile.days);
+
+  @override
+  void didUpdateWidget(covariant StaffDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep the chip in sync when the parent resets the filter (e.g. on reload).
+    if (_controlled && widget.filter != oldWidget.filter) {
+      _filter = widget.filter;
+    }
+  }
+
+  void _onFilter(Av2DayFilter f) {
+    setState(() => _filter = f);
+    widget.onFilterSelected?.call(f);
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (widget.onLoadMore == null || !widget.hasMore || widget.loadingMore) {
+      return false;
+    }
+    if (n.metrics.pixels >= n.metrics.maxScrollExtent - 320) {
+      widget.onLoadMore!();
+    }
+    return false;
+  }
+
+  bool get _canSwitchStaff =>
+      widget.onStaffSelected != null && widget.staff.isNotEmpty;
+
+  Widget _identity() => Av2IdentityRow(
+    profile: _profile,
+    onTap: _canSwitchStaff ? _onSwitchStaff : null,
+  );
+
+  Future<void> _onSwitchStaff() async {
+    final picked = await showAv2StaffSwitcherSheet(
+      context,
+      staff: widget.staff,
+      currentCode: _profile.staffCode,
+    );
+    if (picked == null || !mounted || picked.code == _profile.staffCode) return;
+    widget.onStaffSelected?.call(picked);
+  }
 
   Future<void> _pickPeriod() async {
     final picked = await showAv2PeriodSheet(context, current: widget.period);
@@ -120,7 +195,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     final confirmed = await showAv2ConfirmDialog(
       context,
       title: 'Delete attendance?',
-      message: '$summary\n\nThis removes the record and recalculates the day. '
+      message:
+          '$summary\n\nThis removes the record and recalculates the day. '
           'This can’t be undone.',
     );
     if (!confirmed || !mounted) return;
@@ -129,26 +205,31 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     try {
       await del(session.recordCode);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance deleted')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Attendance deleted',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t delete attendance. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t delete attendance. Try again.',
+        isError: true,
       );
     }
   }
 
   Future<void> _onAbsentAction(AttendanceDay day) async {
     if (!day.canEditAbsence) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Absence record id unavailable from server')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence record id unavailable from server',
+        isError: true,
       );
       return;
     }
-    final action = await showAv2ActionSheet(context, title: 'Edit absence');
+    final action = await showAv2ActionSheet(context, title: 'Edit absent');
     if (action == null || !mounted) return;
     if (action == Av2RecordAction.edit) {
       await _editAbsence(day);
@@ -172,13 +253,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         note: result.note,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Absence updated')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence updated',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t update absence. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t update absence. Try again.',
+        isError: true,
       );
     }
   }
@@ -187,7 +272,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     final confirmed = await showAv2ConfirmDialog(
       context,
       title: 'Delete absence?',
-      message: '${Av2DateFormatter.monthDay(day.date)} · Absent\n\nThis removes '
+      message:
+          '${Av2DateFormatter.monthDay(day.date)} · Absent\n\nThis removes '
           'the absence and recalculates the day. This can’t be undone.',
     );
     if (!confirmed || !mounted) return;
@@ -196,13 +282,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     try {
       await del(day.absenceCode!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Absence deleted')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Absence deleted',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t delete absence. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t delete absence. Try again.',
+        isError: true,
       );
     }
   }
@@ -219,35 +309,47 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         signOutLocal: result.signOutLocal,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance updated')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Attendance updated',
+        isSuccess: true,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t update attendance. Try again.')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Couldn’t update attendance. Try again.',
+        isError: true,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Av2Breakpoints.ofContext(context) == Av2FormFactor.desktop
+    final body = Av2Breakpoints.ofContext(context) == Av2FormFactor.desktop
         ? _desktopBody(context)
         : _mobileBody(context);
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: body,
+    );
   }
 
   Widget _hero() => Av2HeroCard(
-        profile: _profile,
-        periodLabel: widget.period.label,
-        onPickRange: _pickPeriod,
-        onTapNeedsAttention: () => _setFilter(Av2DayFilter.requests),
-      );
+    profile: _profile,
+    periodLabel: widget.period.label,
+    onPickRange: _pickPeriod,
+    onTapNeedsAttention: () => _onFilter(Av2DayFilter.requests),
+  );
+
+  Widget _bottomLoader() => const Padding(
+    padding: EdgeInsets.symmetric(vertical: Av2Spacing.md),
+    child: Center(child: PrimaryCircularLoader(size: 22, strokeWidth: 2)),
+  );
 
   Widget _mobileBody(BuildContext context) {
     final f = Av2Breakpoints.ofContext(context);
     final pad = Av2Breakpoints.screenPadding(f);
-    final filtered = _filter.apply(_profile.days);
 
     return Align(
       alignment: Alignment.topCenter,
@@ -259,23 +361,25 @@ class _StaffDetailViewState extends State<StaffDetailView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Av2IdentityRow(profile: _profile),
+              _identity(),
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),
-              Av2FilterChips(selected: _filter, onSelected: _setFilter),
+              Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
               if (_filter == Av2DayFilter.requests)
                 Regularization.requestsList(staffCode: _profile.staffCode)
-              else
+              else ...[
                 Av2DayTimeline(
-                  days: filtered,
+                  days: _days,
                   loadDetail: widget.loadDetail,
                   reloadId: widget.reloadId,
                   emptyMessage: _emptyMessage(),
                   onSessionAction: widget.canEdit ? _onSessionAction : null,
                   onAbsentAction: widget.canEdit ? _onAbsentAction : null,
                 ),
+                if (widget.loadingMore) _bottomLoader(),
+              ],
             ],
           ),
         ),
@@ -284,39 +388,46 @@ class _StaffDetailViewState extends State<StaffDetailView> {
   }
 
   Widget _desktopBody(BuildContext context) {
-    final filtered = _filter.apply(_profile.days);
+    final days = _days;
     const pad = Av2Spacing.screenPadDesktop;
 
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(pad, Av2Spacing.xs, pad, Av2Spacing.xl),
+      padding: const EdgeInsets.fromLTRB(
+        pad,
+        Av2Spacing.xs,
+        pad,
+        Av2Spacing.xl,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1080),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Av2IdentityRow(profile: _profile),
+              _identity(),
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),
-              Av2FilterChips(selected: _filter, onSelected: _setFilter),
+              Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
               if (_filter == Av2DayFilter.requests)
                 Regularization.requestsList(staffCode: _profile.staffCode)
-              else if (filtered.isEmpty)
+              else if (days.isEmpty)
                 Av2DayTimeline(
-                  days: filtered,
+                  days: days,
                   loadDetail: widget.loadDetail,
                   emptyMessage: _emptyMessage(),
                 )
               else
                 Av2DayTable(
-                  days: filtered,
+                  days: days,
                   loadDetail: widget.loadDetail,
                   reloadId: widget.reloadId,
                   onSessionAction: widget.canEdit ? _onSessionAction : null,
                 ),
+              if (_filter != Av2DayFilter.requests && widget.loadingMore)
+                _bottomLoader(),
             ],
           ),
         ),

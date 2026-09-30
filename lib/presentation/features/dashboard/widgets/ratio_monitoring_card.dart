@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -15,8 +17,10 @@ import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
+import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
@@ -72,42 +76,97 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   RatioMonitoringCubit? _cubit;
 
   // ── Notes (CLASSROOM_CHAT) unread badges ──────────────────────────────────
-  // Firestore-backed, one live stream per classroom code — mirrors
+  // Firestore-backed, one live subscription per classroom code — mirrors
   // ClassroomScreen's own Notes-tab badge (_maybeSyncNotesUnread /
-  // getClassroomNotesUnreadCountStream), generalized to resolve several
-  // classrooms at once since this card lists every classroom in one table.
-  final Map<String, Stream<int>> _notesUnreadStreams = {};
+  // getClassroomNotesUnreadCountStream), generalized to resolve every
+  // classroom in this table, not just the ones currently rendered: sorting
+  // (see [build]'s unread-first sort) needs every classroom's count up
+  // front, not only the ~7 that happen to be visible before "Show More" is
+  // tapped — otherwise a classroom with unread notes that sorts past the
+  // initial page never gets queried at all and its badge can never appear,
+  // which is exactly the bug this replaced (aggregate header badge correct,
+  // every individual row silently 0 because most classrooms were never in
+  // the rendered/displayed subset that used to be the only thing driving
+  // resolution).
+  final Map<String, int> _notesUnreadCounts = {};
   final Set<String> _notesUnreadResolving = {};
+  final Map<String, StreamSubscription<int>> _notesUnreadSubscriptions = {};
 
-  /// Returns the live Firestore unread-count stream for [classroomCode]'s
-  /// Notes chat, resolving (and caching) it on first request. Returns a
-  /// constant 0 stream until resolution completes or if the classroom has
-  /// no Notes chat yet — never touches REST.
-  Stream<int> _notesUnreadStreamFor(String classroomCode) {
-    final cached = _notesUnreadStreams[classroomCode];
-    if (cached != null) return cached;
+  // Backoff delays for [_resolveNotesUnreadCount]'s retry-on-failure —
+  // mirrors UnreadBadgeCubit's own _retryDelays for the identical class of
+  // problem (a transient Firestore/REST hiccup must not permanently blank a
+  // badge).
+  static const _notesUnreadRetryDelays = [2, 4, 8];
+
+  /// Current known unread-notes count for [classroomCode] — 0 until
+  /// resolution completes or if the classroom has no Notes chat yet. Kicks
+  /// off resolution (deduped) on first request.
+  int _notesUnreadCountFor(String classroomCode) {
     if (classroomCode.isNotEmpty &&
+        !_notesUnreadCounts.containsKey(classroomCode) &&
         !_notesUnreadResolving.contains(classroomCode)) {
       _notesUnreadResolving.add(classroomCode);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        try {
-          final conv = await serviceLocator<GetOrCreateClassroomChatUseCase>()
-              .findExisting(classroomCode);
-          final code = conv?.code ?? '';
-          if (!mounted || code.isEmpty) return;
-          setState(() {
-            _notesUnreadStreams[classroomCode] =
-                serviceLocator<ConversationEntityRepository>()
-                    .watchUnreadCountForConversation(code)
-                    .asBroadcastStream();
-          });
-        } catch (_) {
-          // No chat yet / transient failure — badge stays hidden.
-        }
-      });
+      unawaited(_resolveNotesUnreadCount(classroomCode));
     }
-    return Stream.value(0);
+    return _notesUnreadCounts[classroomCode] ?? 0;
+  }
+
+  /// Resolves [classroomCode]'s Notes conversation code and starts watching
+  /// its unread count, pushing every emission into [_notesUnreadCounts] via
+  /// setState so both the badge and the unread-first sort stay live. On
+  /// failure (e.g. a network hiccup), retries with backoff instead of
+  /// leaving [_notesUnreadResolving] marking it "already tried" forever,
+  /// which previously meant one bad REST call permanently hid that
+  /// classroom's badge for the rest of the session.
+  Future<void> _resolveNotesUnreadCount(
+    String classroomCode, {
+    int attempt = 0,
+  }) async {
+    if (attempt == 0) {
+      // Never touch serviceLocator/setState mid-build.
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!mounted) return;
+    try {
+      final conv = await serviceLocator<GetOrCreateClassroomChatUseCase>()
+          .findExisting(classroomCode);
+      final code = conv?.code ?? '';
+      if (!mounted) return;
+      if (code.isEmpty) {
+        // No Notes chat exists for this classroom yet — nothing to watch,
+        // not a failure, so no retry. Record a known 0 so this classroom
+        // doesn't keep re-triggering resolution on every build.
+        setState(() => _notesUnreadCounts[classroomCode] = 0);
+        return;
+      }
+      _notesUnreadSubscriptions[classroomCode]?.cancel();
+      _notesUnreadSubscriptions[classroomCode] =
+          serviceLocator<ConversationEntityRepository>()
+              .watchUnreadCountForConversation(code)
+              .listen((count) {
+                if (!mounted) return;
+                setState(() => _notesUnreadCounts[classroomCode] = count);
+              });
+    } catch (_) {
+      if (!mounted) return;
+      if (attempt < _notesUnreadRetryDelays.length) {
+        Future.delayed(
+          Duration(seconds: _notesUnreadRetryDelays[attempt]),
+          () {
+            if (mounted) {
+              unawaited(
+                _resolveNotesUnreadCount(classroomCode, attempt: attempt + 1),
+              );
+            }
+          },
+        );
+      } else {
+        // Out of retries — allow a later rebuild (pull-to-refresh, date
+        // change, returning to this tab) to try again from scratch rather
+        // than staying permanently stuck.
+        _notesUnreadResolving.remove(classroomCode);
+      }
+    }
   }
 
   /// Opens [room]'s classroom screen straight on the Notes tab (index 2).
@@ -156,6 +215,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    for (final sub in _notesUnreadSubscriptions.values) {
+      sub.cancel();
+    }
     super.dispose();
   }
 
@@ -242,22 +304,22 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
         _buildHeaderCell(
           mainText: 'Classroom',
           subText: '',
-          bg: const Color.fromRGBO(249, 245, 250, 1),
+          bg: AppPalette.surfaceSelected,
         ),
         _buildHeaderCell(
           mainText: 'Students',
           subText: 'Present',
-          bg: const Color.fromRGBO(234, 240, 253, 1),
+          bg: AppPalette.domainStudentSoft,
         ),
         _buildHeaderCell(
           mainText: 'Staff',
           subText: 'Present',
-          bg: const Color.fromRGBO(234, 251, 255, 1),
+          bg: AppPalette.domainStaffSoft,
         ),
         _buildHeaderCell(
           mainText: 'Ratio',
           subText: 'Current',
-          bg: const Color.fromRGBO(255, 245, 234, 1),
+          bg: AppPalette.statusWarningSoft,
         ),
       ],
     );
@@ -283,7 +345,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: const TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(87, 51, 83, 1),
+                color: AppColors.primaryColor,
               ),
             ),
             const SizedBox(height: 20),
@@ -295,7 +357,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: MaterialHues.grey800,
               ),
             ),
           ] else
@@ -307,7 +369,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: MaterialHues.grey800,
               ),
             ),
           const SizedBox(height: 12),
@@ -397,17 +459,19 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToClassroomNotes(context, room),
           child: Container(
             height: _cellH,
-            color: Colors.white,
+            color: AppColors.whiteColor,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  // Firestore-sourced Notes (CLASSROOM_CHAT) unread count.
-                  StreamBuilder<int>(
-                    stream: _notesUnreadStreamFor(room.code),
-                    builder: (context, snapshot) {
-                      final unread = snapshot.data ?? 0;
-                      return Stack(
+              // Firestore-sourced Notes (CLASSROOM_CHAT) unread count for
+              // this one classroom — already resolved (or resolving) for
+              // every classroom in the table by [build]'s sort step, so
+              // this is a plain lookup, not a fresh subscription per row.
+              child: Builder(
+                builder: (context) {
+                  final unread = _notesUnreadCountFor(room.code);
+                  return Row(
+                    children: [
+                      Stack(
                         clipBehavior: Clip.none,
                         children: [
                           DocumentImageWidget(
@@ -432,10 +496,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                                   minHeight: 16,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.red,
+                                  color: MaterialHues.red,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: Colors.white,
+                                    color: AppColors.whiteColor,
                                     width: 1,
                                   ),
                                 ),
@@ -445,30 +509,51 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                                   style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: AppColors.whiteColor,
                                     height: 1,
                                   ),
                                 ),
                               ),
                             ),
                         ],
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8.0),
-                  Expanded(
-                    child: Text(
-                      room.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w600,
-                        color: Color.fromRGBO(87, 51, 83, 1),
                       ),
-                    ),
-                  ),
-                ],
+                      const SizedBox(width: 8.0),
+                      Flexible(
+                        child: Text(
+                          room.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.0,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      ),
+                      if (unread > 0) ...[
+                        const SizedBox(width: 6.0),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.successColor,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unread > 99 ? AppStrings.unreadCountOverflow : '$unread',
+                            style: const TextStyle(
+                              color: AppColors.textOnDarkColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -480,7 +565,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToStudentAttendance(context, room),
           child: Container(
             height: _cellH,
-            color: const Color.fromRGBO(234, 240, 253, 1),
+            color: AppPalette.domainStudentSoft,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
@@ -488,7 +573,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14.0,
-                  color: Color.fromRGBO(87, 51, 83, 1),
+                  color: AppColors.primaryColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -502,7 +587,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToStaffAttendance(context, room),
           child: Container(
             height: _cellH,
-            color: const Color.fromRGBO(234, 251, 255, 1),
+            color: AppPalette.domainStaffSoft,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
               child: Text(
@@ -510,7 +595,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14.0,
-                  color: Color.fromRGBO(87, 51, 83, 1),
+                  color: AppColors.primaryColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -521,12 +606,13 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
         // ── Ratio indicator (thumb up / down) ───────────────────────────────
         Container(
           height: _cellH,
-          color: const Color.fromRGBO(255, 245, 234, 1),
+          color: AppPalette.statusWarningSoft,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 8),
             child: Center(
-              child: SvgPicture.asset(
+              child: AppIcon(
                 room.isRatioGood ? MediaRes.thumbUp : MediaRes.thumbDown,
+                tone: room.isRatioGood ? IconTone.success : IconTone.danger,
               ),
             ),
           ),
@@ -554,9 +640,25 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           return const _RatioMonitoringCardShimmer();
         }
 
-        final classrooms = [
-          ...state.classrooms,
-        ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        final classrooms = [...state.classrooms];
+
+        // Resolve every classroom's unread-notes count up front — not just
+        // the ones about to be displayed — then sort classrooms with
+        // unread notes first (alphabetical within each bucket). Without
+        // this, a classroom whose name alphabetically sorted past the
+        // "Show More" cutoff never got its unread-notes resolution kicked
+        // off at all, so its badge could never appear even though the
+        // header's Firestore aggregate correctly counted it — see
+        // [_notesUnreadCountFor]'s own doc.
+        final notesUnreadByCode = {
+          for (final c in classrooms) c.code: _notesUnreadCountFor(c.code),
+        };
+        classrooms.sort((a, b) {
+          final aUnread = (notesUnreadByCode[a.code] ?? 0) > 0;
+          final bUnread = (notesUnreadByCode[b.code] ?? 0) > 0;
+          if (aUnread != bUnread) return aUnread ? -1 : 1;
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
         final displayed = (_showAllClassrooms || !widget.isDashboard)
             ? classrooms
             : classrooms.take(_initialDisplayCount).toList();
@@ -582,6 +684,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                     minimized: _minimized,
                     onToggle: () => setState(() => _minimized = !_minimized),
                     trailing: _buildDateNavigator(),
+                    badgeCount: context
+                        .watch<UnreadBadgeCubit>()
+                        .state
+                        .unreadFor(ConversationType.classroomChat),
                   ),
                 ),
 
@@ -685,8 +791,8 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
         color: AppColors.cardColor,
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: MaterialHues.grey300,
+        highlightColor: MaterialHues.grey100,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -700,7 +806,7 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
                     height: 20,
                     width: 150,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -708,7 +814,7 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
                     height: 20,
                     width: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -716,14 +822,14 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
               ),
             ),
             // Column headers
-            Container(height: 90, color: Colors.white.withValues(alpha: 0.6)),
+            Container(height: 90, color: AppColors.whiteColor.withValues(alpha: 0.6)),
             // Data rows
             ...List.generate(
               _shimmerRows,
               (_) => Container(
                 height: _rowH,
                 margin: const EdgeInsets.only(top: 1),
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppColors.whiteColor.withValues(alpha: 0.5),
               ),
             ),
           ],

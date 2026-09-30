@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_spacing.dart';
 import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
@@ -146,7 +148,7 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
                     child: Ink(
                       height: 46,
                       decoration: BoxDecoration(
-                        gradient: Av2Colors.primaryGradient,
+                        color: Av2Colors.primaryFill,
                         borderRadius: BorderRadius.circular(
                           Av2Spacing.radiusSm,
                         ),
@@ -155,7 +157,7 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
                         child: Text(
                           'Approve',
                           style: Av2Text.bodyMedium.copyWith(
-                            color: Colors.white,
+                            color: Av2Colors.onPrimary,
                           ),
                         ),
                       ),
@@ -217,32 +219,23 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   }
 
   Widget _noteField() {
-    return TextField(
-      controller: _note,
-      maxLines: 2,
-      maxLength: RegConfig.reasonMaxLength,
-      style: Av2Text.body,
-      decoration: InputDecoration(
-        hintText: 'Optional · why you adjusted the time',
-        hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
-        filled: true,
-        fillColor: Av2Colors.surfaceMuted,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          borderSide: const BorderSide(color: Av2Colors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          borderSide: const BorderSide(color: Av2Colors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          borderSide: const BorderSide(color: Av2Colors.theme),
-        ),
+    return SkeuFieldWell(
+      // A field you type into is a well: no edge at rest, none on focus.
+      radius: Av2Spacing.radiusSm,
+      child: TextField(
+        controller: _note,
+        maxLines: 2,
+        maxLength: RegConfig.reasonMaxLength,
+        style: Av2Text.body,
+        decoration: AppSurfaces.fieldDecoration(radius: Av2Spacing.radiusSm)
+            .copyWith(
+              hintText: 'Optional · why you adjusted the time',
+              hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 12,
+              ),
+            ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,9 +30,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 part 'message_bubble_parts.dart';
 part 'message_bubble_reaction_parts.dart';
-
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -358,11 +361,18 @@ class _MessageBubbleState extends State<MessageBubble>
       return ChatReactionsConfig(
         availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
         menuItems: [
-          const MenuItem(label: AppStrings.menuReply, icon: Icons.reply_rounded),
+          const MenuItem(
+            label: AppStrings.menuReply,
+            icon: Icons.reply_rounded,
+          ),
           const MenuItem(label: AppStrings.menuCopy, icon: Icons.copy_outlined),
           // Delivered/read info only makes sense for a message THIS user
           // sent — never shown on a received (left-side) bubble.
-          if (isMe) const MenuItem(label: AppStrings.menuInfo, icon: Icons.info_outline),
+          if (isMe)
+            const MenuItem(
+              label: AppStrings.menuInfo,
+              icon: Icons.info_outline,
+            ),
         ],
         enableLongPress: true,
         enableDoubleTap: true,
@@ -376,7 +386,8 @@ class _MessageBubbleState extends State<MessageBubble>
     return ChatReactionsConfig(
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
       menuItems: [
-        if (isMe) const MenuItem(label: AppStrings.menuEdit, icon: Icons.edit_outlined),
+        if (isMe)
+          const MenuItem(label: AppStrings.menuEdit, icon: Icons.edit_outlined),
         if (_canDelete(isMe))
           const MenuItem(
             label: AppStrings.menuDelete,
@@ -387,7 +398,8 @@ class _MessageBubbleState extends State<MessageBubble>
         const MenuItem(label: AppStrings.menuCopy, icon: Icons.copy_outlined),
         // Delivered/read info only makes sense for a message THIS user sent
         // — never shown on a received (left-side) bubble.
-        if (isMe) const MenuItem(label: AppStrings.menuInfo, icon: Icons.info_outline),
+        if (isMe)
+          const MenuItem(label: AppStrings.menuInfo, icon: Icons.info_outline),
       ],
       enableLongPress: true,
       enableDoubleTap: true,
@@ -510,7 +522,10 @@ class _MessageBubbleState extends State<MessageBubble>
       ),
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: AppSizes.xl, horizontal: AppSizes.md),
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSizes.xl,
+            horizontal: AppSizes.md,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -536,19 +551,9 @@ class _MessageBubbleState extends State<MessageBubble>
                   Navigator.pop(context);
                   widget.onDelete?.call();
                 },
-                child: Container(
+                child: SkeuKeyBox(
+                  variant: KeyVariant.destructive,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppColors.messagingConfirmGradientStart,
-                        AppColors.messagingConfirmGradientEnd,
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                   alignment: Alignment.center,
                   child: Text(
                     AppStrings.delete,
@@ -977,16 +982,15 @@ class _MessageBubbleState extends State<MessageBubble>
       return _buildEmojiOnlyBubble(alignRight, isMe, emojiCount);
     }
 
-    Color? bubbleColor;
-    LinearGradient? bubbleGradient;
-    if (orgSide == null) {
-      // Staff Direct (1:1) — legacy "my message vs. their message" look.
-      bubbleColor = isMe ? null : AppColors.messagingBubbleIncomingLegacy;
-      bubbleGradient = isMe ? AppColors.buildPrimaryGradient() : null;
-    } else if (isMe) {
-      bubbleGradient = AppColors.buildPrimaryGradient();
-    } else if (isOppositeRoleGuardian) {
-      bubbleGradient = AppColors.buildPinkGradient();
+    // Three flat faces, no gradients: my own message is the pink action
+    // face, a guardian read by staff is the navy impact face, and every
+    // other message is the plain card face. Pink and navy carry the two
+    // voices that matter; nothing else needs a colour to be read.
+    final Color bubbleColor;
+    if (isMe) {
+      bubbleColor = AppColors.messagingBubbleMine;
+    } else if (orgSide != null && isOppositeRoleGuardian) {
+      bubbleColor = AppColors.messagingBubbleGuardian;
     } else {
       bubbleColor = AppColors.messagingBubbleReceived;
     }
@@ -997,15 +1001,8 @@ class _MessageBubbleState extends State<MessageBubble>
         child: Container(
           decoration: BoxDecoration(
             color: bubbleColor,
-            gradient: bubbleGradient,
             borderRadius: _buildBubbleBorderRadius(alignRight),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.08),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
+            boxShadow: AppElevation.card,
           ),
           child: Padding(
             padding: hasOnlyEmoji
@@ -1357,7 +1354,7 @@ class _MessageBubbleState extends State<MessageBubble>
           margin: html.Margins.zero,
           padding: html.HtmlPaddings.zero,
           fontSize: html.FontSize(15.5),
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: textColor,
         ),
         'p': html.Style(
@@ -1433,7 +1430,7 @@ class _MessageBubbleState extends State<MessageBubble>
               margin: html.Margins.zero,
               padding: html.HtmlPaddings.zero,
               fontSize: html.FontSize(13.5),
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: isMe
                   ? AppColors.messagingOnAccent.withValues(alpha: 0.92)
                   : AppColors.primaryColor,
@@ -1761,7 +1758,8 @@ class _MessageBubbleState extends State<MessageBubble>
                                       errorIconSize: 50,
                                     )
                                   : Container(
-                                      color: AppColors.messagingThumbPlaceholderBg,
+                                      color:
+                                          AppColors.messagingThumbPlaceholderBg,
                                       child: Center(
                                         child: isLoading
                                             ? const PrimaryCircularLoader(
@@ -1775,7 +1773,8 @@ class _MessageBubbleState extends State<MessageBubble>
                                             : const Icon(
                                                 Icons.broken_image,
                                                 size: 50,
-                                                color: AppColors.messagingIconMuted,
+                                                color: AppColors
+                                                    .messagingIconMuted,
                                               ),
                                       ),
                                     ),
@@ -1783,7 +1782,9 @@ class _MessageBubbleState extends State<MessageBubble>
                             if (hasMoreImages && isLast)
                               Container(
                                 decoration: BoxDecoration(
-                                  color: AppColors.blackColor.withValues(alpha: 0.55),
+                                  color: AppColors.blackColor.withValues(
+                                    alpha: 0.55,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(

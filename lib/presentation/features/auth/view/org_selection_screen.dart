@@ -12,7 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/src/app_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
   const OrganizationSelectionScreen({super.key, this.isSwitchFlow = false});
@@ -164,21 +164,14 @@ class _OrganizationSelectionScreenState
                                 width: screenHeight * 0.12,
                               ),
                               SizedBox(height: screenHeight * 0.01),
-                              ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return AppColors.buildPrimaryGradient()
-                                      .createShader(bounds);
-                                },
-                                blendMode: BlendMode.srcIn,
-                                child: Text(
+                              Text(
                                   'WowCare',
                                   style: TextStyle(
                                     fontSize: screenHeight * 0.03,
                                     fontWeight: FontWeight.w500,
-                                    color: AppColors.cardColor,
+                                    color: AppColors.themeColor,
                                   ),
                                 ),
-                              ),
                               SizedBox(height: screenHeight * 0.03),
                               // Profile avatar + name/role in a row (like design)
                               Row(
@@ -198,7 +191,7 @@ class _OrganizationSelectionScreenState
                                       Text(
                                         userName,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.022,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.authAccentTextColor,
@@ -208,7 +201,7 @@ class _OrganizationSelectionScreenState
                                       Text(
                                         userRole,
                                         style: TextStyle(
-                                          fontFamily: Fonts.manrope,
+                                          fontFamily: AppFonts.body,
                                           fontSize: screenHeight * 0.016,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.authSecondaryTextColor,
@@ -224,7 +217,7 @@ class _OrganizationSelectionScreenState
                                 child: Text(
                                   'Select Organization',
                                   style: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.022,
                                     height: 2 / 6,
                                     fontWeight: FontWeight.w500,
@@ -238,7 +231,7 @@ class _OrganizationSelectionScreenState
                                 child: Text(
                                   "Choose the organization you want to continue with.",
                                   style: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.016,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.authPrimaryTextColor,
@@ -277,23 +270,20 @@ class _OrganizationSelectionScreenState
                                     vertical: screenHeight * 0.01,
                                     horizontal: screenWidth * 0.04,
                                   ),
-                                  leadingIcon: SvgPicture.asset(
+                                  leadingIcon: AppIcon(
                                     MediaRes.homeIcon,
                                     height: screenHeight * 0.022,
                                     width: screenHeight * 0.022,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.authAccentTextColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppColors.authAccentTextColor,
                                   ),
                                   selectedTextStyle: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.022,
                                     fontWeight: FontWeight.w500,
                                     color: AppColors.authPrimaryTextColor,
                                   ),
                                   popupItemTextStyle: TextStyle(
-                                    fontFamily: Fonts.manrope,
+                                    fontFamily: AppFonts.body,
                                     fontSize: screenHeight * 0.02,
                                     fontWeight: FontWeight.w400,
                                     color: AppColors.authPrimaryTextColor,

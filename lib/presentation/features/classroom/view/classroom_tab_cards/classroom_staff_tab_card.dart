@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -15,7 +16,9 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.d
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
@@ -31,10 +34,13 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -676,7 +682,7 @@ class _ClassroomStaffTabCardViewState
         child: Text(
           _statusChipLabel(apiStatus),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.secondaryColor,
             fontSize: 12,
           ),
@@ -737,18 +743,21 @@ class _ClassroomStaffTabCardViewState
       return;
     }
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StaffProfileScreen(
-          staffCode: staff.staffCode.trim(),
-          userCode: staff.userCode,
-          name: staff.name,
-          classroom: widget.selectedRoom?.name ?? '',
-          designation: staff.designation,
-          phoneNumber: '',
-          employmentStatus: _employmentStatusForProfile(staff),
-        ),
+    // Routed via `context.push`, not `Navigator.push`, so the destination
+    // picks up the `_staffProfileScope` MultiBlocProvider that the route
+    // builder wraps it in (StaffProfileCubit, StaffClassroomNameCubit, etc.).
+    // Pushing `StaffProfileScreen` directly here left those providers missing
+    // and the screen failed to build (blank screen on tap).
+    await context.push(
+      StaffRoutes.profile,
+      extra: StaffProfileArgs(
+        staffCode: staff.staffCode.trim(),
+        userCode: staff.userCode,
+        name: staff.name,
+        classroom: widget.selectedRoom?.name ?? '',
+        designation: staff.designation,
+        phoneNumber: '',
+        employmentStatus: _employmentStatusForProfile(staff),
       ),
     );
     if (!mounted) return;
@@ -842,50 +851,15 @@ class _ClassroomStaffTabCardViewState
                             Row(
                               children: [
                                 Expanded(
-                                  child: SearchBar(
+                                  child: CustomSearchBar(
                                     controller: _searchController,
-                                    constraints: const BoxConstraints(
-                                      minHeight: 36,
-                                    ),
-                                    backgroundColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                          AppColors.cardColor,
-                                        ),
-                                    surfaceTintColor:
-                                        const WidgetStatePropertyAll<Color>(
-                                          AppColors.cardColor,
-                                        ),
                                     hintText: 'Search',
-                                    hintStyle: WidgetStatePropertyAll(
-                                      TextStyle(
-                                        fontFamily: 'Manrope',
-                                        color: AppColors
-                                            .classroomSearchHintTextColor,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    leading: const Icon(
-                                      Icons.search,
-                                      color: AppColors.primaryColor,
-                                      size: 18,
-                                    ),
-                                    elevation: const WidgetStatePropertyAll(0),
-                                    side: const WidgetStatePropertyAll(
-                                      BorderSide(
-                                        width: 1,
-                                        color: AppColors.classroomBorderColor,
-                                      ),
-                                    ),
-                                    shape: WidgetStatePropertyAll(
-                                      RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
+                                    density: SearchFieldDensity.compact,
+                                    radius: 10,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 FilterIconButton(
-                                  iconAsset: MediaRes.filterIcon,
                                   isActive: _isStaffFilterActive,
                                   onPressed: _openFilterScreen,
                                 ),
@@ -899,13 +873,11 @@ class _ClassroomStaffTabCardViewState
                                   _buildStatusChip(status),
                                   const SizedBox(width: 8),
                                 ],
-                                Container(
+                                SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 6,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: AppColors.buildPrimaryGradient(),
                                   ),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
@@ -925,7 +897,7 @@ class _ClassroomStaffTabCardViewState
                                     child: const Text(
                                       'Clear All',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -968,7 +940,8 @@ class _ClassroomStaffTabCardViewState
                                                     child: Text(
                                                       'No staff assigned.',
                                                       style: TextStyle(
-                                                        fontFamily: 'Manrope',
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 16,
                                                         color: AppColors
                                                             .primaryColor
@@ -1270,7 +1243,7 @@ class _StaffListItem extends StatelessWidget {
                     Text(
                       staff.name,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: AppColors.primaryColor,
@@ -1279,7 +1252,7 @@ class _StaffListItem extends StatelessWidget {
                     Text(
                       designationLabel,
                       style: const TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         color: AppColors.classroomTextColor,
                       ),
                     ),
@@ -1345,32 +1318,27 @@ class _DesignationMultiSelectDropdownState
         ? widget.hintText
         : '${_localSelectedItems.length} selected';
 
-    return SizedBox(
+    // A dropdown is not typed into, so it keeps the well's inset.
+    return SkeuFieldWell(
+      radius: 8,
+      child: SizedBox(
       height: 32,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.cardColor,
+          fillColor: AppSurfaces.fieldFill,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
+            borderSide: BorderSide.none,
           ),
         ),
         icon: const Icon(Icons.keyboard_arrow_down),
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
@@ -1414,7 +1382,7 @@ class _DesignationMultiSelectDropdownState
                         child: Text(
                           item,
                           style: const TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: 14,
                             color: AppColors.classroomTextColor,
                           ),
@@ -1433,7 +1401,7 @@ class _DesignationMultiSelectDropdownState
         hint: Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: _localSelectedItems.isEmpty
                 ? AppColors.classroomPlaceholderTextColor
                 : AppColors.classroomTextColor,
@@ -1441,6 +1409,7 @@ class _DesignationMultiSelectDropdownState
           ),
           overflow: TextOverflow.ellipsis,
         ),
+      ),
       ),
     );
   }

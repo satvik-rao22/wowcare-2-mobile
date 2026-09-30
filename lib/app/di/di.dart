@@ -47,10 +47,8 @@ import '../../core/cache/isar_cache_service.dart';
 import '../../data/features/auth/datasources/auth_local_datasource.dart';
 import '../../data/features/auth/datasources/auth_remote_datasource.dart';
 import '../../data/features/auth/repositories/auth_repository_impl.dart';
-import '../../data/features/onboarding/datasources/onboarding_remote_datasource.dart';
 import '../../data/features/classroom/datasources/classroom_remote_datasource.dart';
 import '../../data/features/classroom/repositories/classroom_repository_impl.dart';
-import '../../data/features/onboarding/repositories/onboarding_repository_impl.dart';
 import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
@@ -88,10 +86,7 @@ import '../../domain/features/classroom/usecases/finalize_classroom_logo_usecase
 import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
 import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
-import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
-import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
 import '../../presentation/features/billing/view_model/parent_billing_cubit.dart';
-import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user_profile/view_model/profile_menu_header_cubit.dart';
 import '../../presentation/features/reports/view_model/reports_cubit.dart';
 import '../../data/features/reports/datasources/reports_remote_datasource.dart';
@@ -294,7 +289,10 @@ import '../../domain/features/student/usecases/update_pickup_usecase.dart';
 import '../../domain/features/student/usecases/delete_pickup_usecase.dart';
 import '../../domain/features/student/usecases/get_guardians_raw_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_guardians_usecase.dart';
+import '../../domain/features/student/usecases/change_guardian_pin_usecase.dart';
 import '../../domain/features/student/usecases/delete_guardian_usecase.dart';
+import '../../domain/features/student/usecases/generate_guardian_pin_usecase.dart';
+import '../../domain/features/student/usecases/resend_guardian_invite_usecase.dart';
 import '../../domain/features/student/usecases/get_student_health_usecase.dart';
 import '../../domain/features/student/usecases/get_student_settings_usecase.dart';
 import '../../domain/features/student/usecases/update_student_health_usecase.dart';
@@ -603,6 +601,7 @@ import '../../presentation/features/billing/view_model/transaction_details_cubit
 import '../../presentation/features/billing/view_model/receive_payment_refund_cubit.dart';
 import '../../presentation/features/billing/view_model/add_credit_cubit.dart';
 import '../../presentation/features/billing/view_model/view_invoice_cubit.dart';
+import '../../presentation/features/billing/view_model/view_receipt_cubit.dart';
 import '../../presentation/features/billing/view_model/send_invoice_cubit.dart';
 import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
@@ -634,6 +633,51 @@ import '../../presentation/features/billing/view_model/ledger_form_cubit.dart';
 import '../../presentation/features/billing/view_model/billing_school_header_cubit.dart';
 import '../../domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_analytics_usecase.dart';
+import '../../data/features/events/datasources/event_remote_datasource.dart';
+import '../../data/features/events/datasources/holiday_remote_datasource.dart';
+import '../../data/features/events/repositories/event_repository_impl.dart';
+import '../../domain/features/events/repositories/event_repository.dart';
+import '../../domain/features/events/usecases/cancel_occurrence_usecase.dart';
+import '../../domain/features/events/usecases/create_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
+import '../../domain/features/events/usecases/get_calendar_feed_usecase.dart';
+import '../../domain/features/events/usecases/get_event_by_code_usecase.dart';
+import '../../domain/features/events/usecases/get_events_usecase.dart';
+import '../../domain/features/events/usecases/get_holidays_usecase.dart';
+import '../../domain/features/events/usecases/update_occurrence_usecase.dart';
+import '../../domain/features/events/usecases/save_holiday_usecase.dart';
+import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
+import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
+import '../../domain/features/events/usecases/update_event_usecase.dart';
+import '../../domain/features/events/usecases/upload_event_attachments_usecase.dart';
+import '../../data/features/tasks/datasources/task_remote_datasource.dart';
+import '../../data/features/tasks/repositories/task_repository_impl.dart';
+import '../../domain/features/tasks/repositories/task_repository.dart';
+import '../../domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/create_task_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_board_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_series_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignee_priority_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
+import '../../presentation/features/events/view_model/events_cubit.dart';
+import '../../presentation/features/tasks/view_model/tasks_cubit.dart';
+import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
+import '../../shared/services/attachment_view/attachment_asset_service.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -798,18 +842,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Onboarding Data Sources
-  serviceLocator.registerLazySingleton<OnboardingRemoteDataSource>(
-    () => OnboardingRemoteDataSourceMock(),
-  );
-
   // Communication Data Sources
   serviceLocator.registerLazySingleton<CommunicationRemoteDataSource>(
     () => CommunicationRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<CommunicationSettingsRemoteDataSource>(
-    () => CommunicationSettingsRemoteDataSourceImpl(apiClient: serviceLocator()),
+    () =>
+        CommunicationSettingsRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<NewsletterRemoteDataSource>(
@@ -823,9 +863,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
       serviceLocator(),
     ),
-  );
-  serviceLocator.registerLazySingleton<OnboardingRepository>(
-    () => OnboardingRepositoryImpl(serviceLocator()),
   );
   serviceLocator.registerLazySingleton<StaffRepository>(
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -855,6 +892,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Attendance Regularization module. Also installs the sign-in gate as a Dio
   // interceptor, which is why no sign-in call site needs editing.
   Regularization.register(serviceLocator);
+  // Attendance V2 module (staff overtime detail) — reuses AttendanceRepository.
+  registerAttendanceV2(serviceLocator);
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
     () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
@@ -929,7 +968,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerLazySingleton<CommunicationSettingsRepository>(
-    () => CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
+    () =>
+        CommunicationSettingsRepositoryImpl(remoteDataSource: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<ResolveMessageDeletePermissionUseCase>(
@@ -1036,12 +1076,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<SwitchActiveSchoolPersonaUseCase>(
     () => SwitchActiveSchoolPersonaUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<GetOnboardingContent>(
-    () => GetOnboardingContent(serviceLocator()),
-  );
-  serviceLocator.registerFactory<OnboardingCubit>(
-    () => OnboardingCubit(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
     () => ProfileMenuHeaderCubit(serviceLocator()),
@@ -1681,6 +1715,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteGuardianUseCase>(
     () => DeleteGuardianUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<ResendGuardianInviteUseCase>(
+    () => ResendGuardianInviteUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ChangeGuardianPinUseCase>(
+    () => ChangeGuardianPinUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GenerateGuardianPinUseCase>(
+    () => GenerateGuardianPinUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentHealthUseCase>(
     () => GetStudentHealthUseCase(serviceLocator()),
   );
@@ -1886,14 +1929,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffTodaySignInStatusUseCase:
           serviceLocator<GetStaffTodaySignInStatusUseCase>(),
       storageService: serviceLocator<StorageService>(),
-      uploadActivityAssetsUseCase: serviceLocator<UploadActivityAssetsUseCase>(),
+      uploadActivityAssetsUseCase:
+          serviceLocator<UploadActivityAssetsUseCase>(),
       getActivityUploadAssetStatusesUseCase:
           serviceLocator<GetActivityUploadAssetStatusesUseCase>(),
       waitActivityAssetsReadyUseCase:
           serviceLocator<WaitActivityAssetsReadyUseCase>(),
       retrieveLostMediaUseCase: serviceLocator<RetrieveLostMediaUseCase>(),
-      stageMediaForUploadUseCase:
-          serviceLocator<StageMediaForUploadUseCase>(),
+      stageMediaForUploadUseCase: serviceLocator<StageMediaForUploadUseCase>(),
       validateVideoForUploadUseCase:
           serviceLocator<ValidateVideoForUploadUseCase>(),
       discardStagedMediaUseCase: serviceLocator<DiscardStagedMediaUseCase>(),
@@ -2369,6 +2412,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       studentRepository: serviceLocator(),
       storageService: serviceLocator(),
+      getInvoiceOverview: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<RatioMonitoringCubit>(
@@ -2470,6 +2514,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffProfileCubit(
       getStaffProfileUseCase: serviceLocator(),
       loadCachedStaffProfileUseCase: serviceLocator(),
+      getStudentSettingsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<ImportantDatesCubit>(
@@ -2747,6 +2792,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentGuardianCubit(
       getStudentGuardiansUseCase: serviceLocator(),
       deleteGuardianUseCase: serviceLocator(),
+      resendGuardianInviteUseCase: serviceLocator(),
+      changeGuardianPinUseCase: serviceLocator(),
+      generateGuardianPinUseCase: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentHealthCubit>(
@@ -3367,6 +3416,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
+    ),
+  );
+  serviceLocator.registerFactory<ViewReceiptCubit>(
+    () => ViewReceiptCubit(
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+      createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<SendInvoiceCubit>(
@@ -3544,6 +3601,201 @@ Future<void> configureDependencies({String? baseUrl}) async {
       updateInvoice: serviceLocator<UpdateInvoiceUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
       storage: serviceLocator<StorageService>(),
+    ),
+  );
+
+  // ===== ATTACHMENTS (shared by Events + Tasks) =====
+  // Resolves an asset code to a display URL; shared app-wide so a code
+  // resolved on a list screen paints instantly on the detail screen.
+  serviceLocator.registerLazySingleton<AttachmentAssetService>(
+    () => AttachmentAssetService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerLazySingleton<AttachmentUploadManager>(
+    () => AttachmentUploadManager(
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // ===== EVENTS & HOLIDAYS (remote-only, scheduler MS) =====
+  serviceLocator.registerLazySingleton<EventRemoteDataSource>(
+    () => EventRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<HolidayRemoteDataSource>(
+    () => HolidayRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<EventRepository>(
+    () => EventRepositoryImpl(
+      serviceLocator<EventRemoteDataSource>(),
+      serviceLocator<HolidayRemoteDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetEventsUseCase>(
+    () => GetEventsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateEventUseCase>(
+    () => CreateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadEventAttachmentsUseCase>(
+    () => UploadEventAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
+  serviceLocator.registerFactory<UpdateEventUseCase>(
+    () => UpdateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteEventUseCase>(
+    () => DeleteEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RespondToEventUseCase>(
+    () => RespondToEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetEventByCodeUseCase>(
+    () => GetEventByCodeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCalendarFeedUseCase>(
+    () => GetCalendarFeedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateOccurrenceUseCase>(
+    () => UpdateOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelOccurrenceUseCase>(
+    () => CancelOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetHolidaysUseCase>(
+    () => GetHolidaysUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateHolidayUseCase>(
+    () => CreateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateHolidayUseCase>(
+    () => UpdateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SetHolidayStatusUseCase>(
+    () => SetHolidayStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteHolidayUseCase>(
+    () => DeleteHolidayUseCase(serviceLocator()),
+  );
+  // Singleton so the events list, detail and form screens (separate routes)
+  // share one state and edits/RSVPs reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<EventsCubit>(
+    () => EventsCubit(
+      serviceLocator<GetEventsUseCase>(),
+      serviceLocator<GetEventByCodeUseCase>(),
+      serviceLocator<GetCalendarFeedUseCase>(),
+      serviceLocator<CreateEventUseCase>(),
+      serviceLocator<UpdateEventUseCase>(),
+      serviceLocator<DeleteEventUseCase>(),
+      serviceLocator<RespondToEventUseCase>(),
+      serviceLocator<UpdateOccurrenceUseCase>(),
+      serviceLocator<CancelOccurrenceUseCase>(),
+      serviceLocator<GetHolidaysUseCase>(),
+      serviceLocator<CreateHolidayUseCase>(),
+      serviceLocator<UpdateHolidayUseCase>(),
+      serviceLocator<SetHolidayStatusUseCase>(),
+      serviceLocator<DeleteHolidayUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UploadEventAttachmentsUseCase>(),
+    ),
+  );
+
+  // ===== TASKS (remote-only, events-todo MS) =====
+  serviceLocator.registerLazySingleton<TaskRemoteDataSource>(
+    () => TaskRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<TaskRepository>(
+    () => TaskRepositoryImpl(serviceLocator<TaskRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetTasksUseCase>(
+    () => GetTasksUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskSeriesUseCase>(
+    () => GetTaskSeriesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskBoardUseCase>(
+    () => GetTaskBoardUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateTaskUseCase>(
+    () => CreateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskUseCase>(
+    () => UpdateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskUseCase>(
+    () => DeleteTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveTaskAssigneeUseCase>(
+    () => RemoveTaskAssigneeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
+    () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskAttachmentsUseCase>(
+    () => GetTaskAttachmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DetachTaskAttachmentUseCase>(
+    () => DetachTaskAttachmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+    () => UploadTaskAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetTaskUseCase>(
+    () => GetTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssigneePriorityUseCase>(
+    () => UpdateTaskAssigneePriorityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskAssignmentUseCase>(
+    () => GetTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentUseCase>(
+    () => UpdateTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskAssignmentUseCase>(
+    () => DeleteTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrencesUseCase>(
+    () => GetTaskOccurrencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrenceUseCase>(
+    () => GetTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskOccurrenceUseCase>(
+    () => UpdateTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelTaskOccurrenceUseCase>(
+    () => CancelTaskOccurrenceUseCase(serviceLocator()),
+  );
+  // Singleton so the tasks board, detail and form screens (separate routes)
+  // share one state and edits reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<TasksCubit>(
+    () => TasksCubit(
+      serviceLocator<GetTasksUseCase>(),
+      serviceLocator<CreateTaskUseCase>(),
+      serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<RemoveTaskAssigneeUseCase>(),
+      serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<UploadTaskAttachmentsUseCase>(),
+      serviceLocator<GetTaskAttachmentsUseCase>(),
+      serviceLocator<DetachTaskAttachmentUseCase>(),
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<GetAllStaffUseCase>(),
+      serviceLocator<StorageService>(),
+      serviceLocator<UpdateTaskAssignmentUseCase>(),
+      serviceLocator<DeleteTaskAssignmentUseCase>(),
+      serviceLocator<GetTaskUseCase>(),
+      serviceLocator<GetTaskOccurrencesUseCase>(),
+      serviceLocator<UpdateTaskOccurrenceUseCase>(),
+      serviceLocator<CancelTaskOccurrenceUseCase>(),
+      serviceLocator<UpdateTaskUseCase>(),
     ),
   );
 }

@@ -19,10 +19,9 @@ import 'package:wowcare/shared/common/view/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StudentsAccountingSection extends StatefulWidget {
   const StudentsAccountingSection({
@@ -248,17 +247,16 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                               child: Center(
                                 // Dot marks an applied filter, which is
                                 // otherwise invisible once the sheet closes.
-                                child: BlocSelector<FamilySummaryCubit,
-                                    FamilySummaryState, bool>(
+                                child: BlocSelector<
+                                  FamilySummaryCubit,
+                                  FamilySummaryState,
+                                  bool
+                                >(
                                   selector: (s) => s.hasActiveFilters,
                                   builder: (context, hasActiveFilters) => Stack(
                                     clipBehavior: Clip.none,
                                     children: [
-                                      SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        width: 20,
-                                        height: 20,
-                                      ),
+                                      FilterGlyph(size: 20),
                                       if (hasActiveFilters)
                                         Positioned(
                                           right: -2,
@@ -270,8 +268,8 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                                               color: AppColors.errorColor,
                                               shape: BoxShape.circle,
                                               border: Border.all(
-                                                color: AppColors
-                                                    .billingCardColor,
+                                                color:
+                                                    AppColors.billingCardColor,
                                                 width: 1.2,
                                               ),
                                             ),

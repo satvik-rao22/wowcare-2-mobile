@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
@@ -8,6 +7,8 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// simple year-nav + 3-column month grid (per the report form designs).
 class ReportMonthYearField extends StatefulWidget {
@@ -91,10 +92,7 @@ class _ReportMonthYearFieldState extends State<ReportMonthYearField> {
           child: Container(
             constraints: BoxConstraints(minHeight: dayCellSize * 1.2),
             padding: EdgeInsets.symmetric(horizontal: calendarPadding),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: AppColors.fieldBackgroundColor,
-            ),
+            decoration: AppSurfaces.well(radius: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -107,14 +105,11 @@ class _ReportMonthYearFieldState extends State<ReportMonthYearField> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SvgPicture.asset(
+                AppIcon(
                   MediaRes.calender_icon,
                   width: dayCellSize * 0.7,
                   height: dayCellSize * 0.7,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.primaryColor,
-                    BlendMode.srcIn,
-                  ),
+                  color: AppColors.primaryColor,
                 ),
               ],
             ),

@@ -9,6 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 
 class AddEditIndividualMovementScreen extends StatefulWidget {
   const AddEditIndividualMovementScreen({
@@ -105,9 +107,10 @@ class _AddEditIndividualMovementScreenState
           excludeId: widget.editingMovementId,
         );
     if (error != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: SnackBar(content: Text(error)),
+      );
       return;
     }
 
@@ -133,15 +136,7 @@ class _AddEditIndividualMovementScreenState
         Text('Comment', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(
-              color: AppColors.primaryColor.withValues(alpha: 0.4),
-            ),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _commentController,
             keyboardType: TextInputType.multiline,
@@ -198,20 +193,7 @@ class _AddEditIndividualMovementScreenState
           right: 16,
           top: 8,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
         child: CustomConfirmButton(label: 'Save', onPressed: _onSavePressed),
       ),
       child: SingleChildScrollView(

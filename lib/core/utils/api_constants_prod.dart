@@ -18,6 +18,8 @@ abstract final class ApiMicroservicesProd {
   static const String communication = 'communication';
   static const String notification = 'notification';
   static const String newsLatter = 'newslatter';
+  static const String scheduler = 'scheduler';
+  static const String eventsTodo = 'events-todo';
 }
 
 class ApiConstantsProd {
@@ -51,6 +53,8 @@ class ApiConstantsProd {
   static const String communicationBaseUrl = _host;
   static const String billingBaseUrl = _host;
   static const String newsLatterBaseUrl = _host;
+  static const String schedulerBaseUrl = _host;
+  static const String eventsTodoBaseUrl = _host;
 
   // ─── Forte (auto-pay tokenization) ─────────────────────────────────────────
   /// Forte environment used by the auto-pay webview in PROD. The Forte JS SDK
@@ -87,6 +91,10 @@ class ApiConstantsProd {
         return newsLatterBaseUrl;
       case ApiMicroservicesProd.notification:
         return notificationBaseUrl;
+      case ApiMicroservicesProd.scheduler:
+        return schedulerBaseUrl;
+      case ApiMicroservicesProd.eventsTodo:
+        return eventsTodoBaseUrl;
       default:
         return baseUrl;
     }

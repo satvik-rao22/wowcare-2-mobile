@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/scheduling/view_model/publish_shifts_cubit.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Result returned by [PublishShiftsScreen] on success. The screen also pops
 /// with `true` if the caller only cares about "did we publish?". Kept for
@@ -183,22 +185,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
               right: 16,
               top: 8,
             ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft:
-                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                topRight:
-                    Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              ),
-            ),
+            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
             child: CustomButtonLayout(
               confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
               onPressedConfirm: (state.isFormValid && !isSubmitting)
@@ -283,7 +270,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
             style: labelStyle,
             children: const [
               TextSpan(text: 'Until Date'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(text: ' *', style: TextStyle(color: MaterialHues.red)),
             ],
           ),
         ),

@@ -4,7 +4,6 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/router/app_routes.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -27,6 +26,7 @@ import '../navigation/scheduling_shift_navigator.dart';
 import '../widgets/day_classroom_section.dart';
 import '../widgets/scheduling_filter_bar.dart';
 import '../widgets/week_classroom_row.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class SchedulingScreen extends StatelessWidget {
   const SchedulingScreen({
@@ -528,8 +528,8 @@ class _ClassroomListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0x33162831)),
+        color: AppColors.whiteColor,
+        border: Border.all(color: AppPalette.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(
@@ -598,8 +598,8 @@ class _DailyClassroomListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0x33162831)),
+        color: AppColors.whiteColor,
+        border: Border.all(color: AppPalette.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: ClipRRect(

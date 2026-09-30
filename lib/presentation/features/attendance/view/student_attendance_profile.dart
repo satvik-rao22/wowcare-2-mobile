@@ -4,7 +4,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -53,66 +53,51 @@ Widget _absentMethodIcon(ProfileAbsentMarkMethod method) {
     case ProfileAbsentMarkMethod.gps:
       return Tooltip(
         message: 'GPS',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.gpsMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case ProfileAbsentMarkMethod.qr:
       return Tooltip(
         message: 'QR',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.qrAttendanceIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case ProfileAbsentMarkMethod.kiosk:
       return Tooltip(
         message: 'Kiosk',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.kioskAttendenceIcons,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case ProfileAbsentMarkMethod.app:
       return Tooltip(
         message: 'APP',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case ProfileAbsentMarkMethod.web:
       return Tooltip(
         message: 'WEB',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
     case ProfileAbsentMarkMethod.system:
@@ -120,14 +105,11 @@ Widget _absentMethodIcon(ProfileAbsentMarkMethod method) {
       // gear/"System" indicator.
       return Tooltip(
         message: 'System',
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.systemMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
-          ),
+          color: AppColors.themeColor,
         ),
       );
   }
@@ -1174,7 +1156,7 @@ class _StudentIconItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.s2),
       child: isSvg
-          ? SvgPicture.asset(icon, height: 20)
+          ? AppArtwork(icon, height: 20)
           : Image.asset(icon, height: 20),
     );
   }
@@ -1194,7 +1176,7 @@ class _StudentIconDetail extends StatelessWidget {
       child: Row(
         children: [
           isSvg
-              ? SvgPicture.asset(iconPath, height: 24)
+              ? AppArtwork(iconPath, height: 24)
               : Image.asset(iconPath, height: 24),
           const SizedBox(width: AppSpacing.md),
           Expanded(

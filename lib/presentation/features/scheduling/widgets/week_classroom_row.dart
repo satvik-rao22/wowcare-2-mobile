@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'day_classroom_section.dart';
-import 'staff_schedule_tile.dart';
 
 export 'staff_schedule_tile.dart' show ClassroomRowLeft, StaffRowLeft;
 

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_elevation.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class InfoRowItem {
   final String label;
@@ -59,11 +62,11 @@ class ExpandableInfoCard extends StatefulWidget {
     this.onTap,
     required this.rows,
     this.actions,
-    this.cardColor = Colors.white,
+    this.cardColor = AppPalette.surfaceCard,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.border,
     this.boxShadow,
-    this.dividerColor = const Color(0xFFE9ECEF),
+    this.dividerColor = AppPalette.borderHairline,
     this.dividerIndent = 16,
     this.dividerEndIndent = 16,
   }) : super(key: key);
@@ -103,17 +106,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
               color: widget.cardColor,
               borderRadius: widget.borderRadius,
               border:
-                  widget.border ??
-                  Border.all(color: const Color(0x1A162831), width: 1),
-              boxShadow:
-                  widget.boxShadow ??
-                  [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  widget.border ?? Border.all(color: AppPalette.borderHairline),
+              boxShadow: widget.boxShadow ?? AppElevation.card,
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
@@ -149,10 +143,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                         style:
                                             widget.titleStyle ??
                                             const TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: AppFonts.body,
                                               fontWeight: FontWeight.w500,
                                               fontSize: 14,
-                                              color: Color(0xff573353),
+                                              color: AppColors.primaryColor,
                                               height: 19 / 14,
                                             ),
                                         overflow: TextOverflow.ellipsis,
@@ -164,10 +158,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                           style:
                                               widget.subtitleStyle ??
                                               const TextStyle(
-                                                fontFamily: 'Manrope',
+                                                fontFamily: AppFonts.body,
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w500,
-                                                color: Color(0xff573353),
+                                                color: AppColors.primaryColor,
                                                 height: 14 / 10,
                                               ),
                                           overflow: TextOverflow.ellipsis,
@@ -182,10 +176,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                       style:
                                           widget.titleStyle ??
                                           const TextStyle(
-                                            fontFamily: 'Manrope',
+                                            fontFamily: AppFonts.body,
                                             fontWeight: FontWeight.w500,
                                             fontSize: 14,
-                                            color: Color(0xff573353),
+                                            color: AppColors.primaryColor,
                                             height: 19 / 14,
                                           ),
                                       overflow: TextOverflow.ellipsis,
@@ -219,10 +213,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                     Text(
                                       row.label,
                                       style: const TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
-                                        color: Color(0xff573353),
+                                        color: AppColors.primaryColor,
                                         height: 16 / 12,
                                       ),
                                     ),
@@ -238,10 +232,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                             style:
                                                 row.valueStyle ??
                                                 const TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.w600,
-                                                  color: Color(0xff573353),
+                                                  color: AppColors.primaryColor,
                                                 ),
                                           ),
                                         if (row.noteText != null)
@@ -250,10 +244,10 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                             style:
                                                 row.noteStyle ??
                                                 const TextStyle(
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.w500,
-                                                  color: Color(0xff573353),
+                                                  color: AppColors.primaryColor,
                                                   height: 14 / 10,
                                                 ),
                                           ),

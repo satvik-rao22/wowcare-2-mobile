@@ -3,6 +3,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/presentation/features/reports/widgets/selection_row.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The dropdown popup of [MultiSelectFilterField]: an optional search box, an
 /// optional "Select All" row, and the filtered item list.
@@ -85,13 +86,13 @@ class _MultiSelectOverlayPanelState<T>
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppSurfaces.fieldFill,
                       hintText:
                           widget.searchHintText ??
                           'Search ${widget.pluralLabel}',
                       prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: AppSurfaces.fieldBorder(radius: 8),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,

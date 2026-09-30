@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/communication_providers.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/router/app_routes.dart' show DashboardRoutes;
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -193,8 +194,11 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       // Classroom Notes — staff-internal (each classroom's
                       // Notes chat). Gated to non-parents so it is hidden
                       // from the Guardian persona, mirroring the web.
-                      // Routes to the Classrooms list (itself staff/admin
-                      // only); each classroom's Notes tab is its chat.
+                      // Routes to the Dashboard's Ratio Monitoring section
+                      // (every classroom's notes badge at a glance) rather
+                      // than dropping straight into one classroom's Notes
+                      // tab — mirrors the Classroom Notes notification
+                      // routing in NotificationRouteResolver.
                       if (!isParent) ...[
                         SizedBox(height: responsive.verticalSpacing),
                         CommunicationLauncherButton(
@@ -208,9 +212,22 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                           verticalPadding: responsive.isTablet ? 26 : 22,
                           onTap: () {
                             Navigator.of(context).pop();
-                            context.go(AppRoutes.classroom);
+                            context.go(
+                              Uri(
+                                path: DashboardRoutes.root,
+                                queryParameters: const {
+                                  'focus': 'ratioMonitoring',
+                                },
+                              ).toString(),
+                            );
                           },
                         ),
+                      ],
+                      // Parents never filter by staff/student active status,
+                      // so the notice would be meaningless noise for them.
+                      if (!isParent) ...[
+                        SizedBox(height: responsive.verticalSpacing),
+                        const _InactiveUnreadNotice(),
                       ],
                     ],
                   );
@@ -219,6 +236,46 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Info note explaining that unread badges above still count messages for
+/// Students/Staff who have since been made inactive — the messaging screens
+/// filter to active participants by default, so those unread threads would
+/// otherwise look like they've vanished.
+class _InactiveUnreadNotice extends StatelessWidget {
+  const _InactiveUnreadNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.studentInfoBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: AppColors.studentInfoColor,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              AppStrings.messagingInactiveUnreadNotice,
+              style: AppTextStyles.size16.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor.withValues(alpha: 0.75),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

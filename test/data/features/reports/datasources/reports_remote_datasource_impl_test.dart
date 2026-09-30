@@ -110,7 +110,9 @@ void main() {
           };
 
           fakeDio.responseBuilder = (path) {
-            if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
+            if (path.endsWith(
+              '/api/v1/attendance/student-attendance/reports/generate',
+            )) {
               return responseData;
             }
             return null;
@@ -133,7 +135,9 @@ void main() {
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
+          if (path.endsWith(
+            '/api/v1/attendance/student-attendance/reports/generate',
+          )) {
             return {
               'reportId': 'report-789',
               'reportType': 'STUDENT_ABSENT',
@@ -156,7 +160,9 @@ void main() {
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/staff-attendance/reports/generate')) {
+          if (path.endsWith(
+            '/api/v1/attendance/staff-attendance/reports/generate',
+          )) {
             return {
               'reportId': 'report-555',
               'reportType': 'STAFF_ABSENT',
@@ -181,7 +187,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/staff/reports/generate')) {
+          if (path.endsWith('/api/v1/staff/staff/reports/generate')) {
             return {
               'reportId': 'report-dir-1',
               'reportType': 'STAFF_DETAILS',
@@ -206,7 +212,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/reports/generate')) {
+          if (path.endsWith('/api/v1/student/student/reports/generate')) {
             return {
               'reportId': 'report-family-1',
               'reportType': 'STUDENTS_AND_FAMILY',
@@ -229,7 +235,7 @@ void main() {
         final requestBody = <String, dynamic>{};
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/reports/generate')) {
+          if (path.endsWith('/api/v1/student/student/reports/generate')) {
             return {
               'reportId': 'report-emergency-1',
               'reportType': 'EMERGENCY_CONTACTS',
@@ -254,7 +260,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/reports/generate')) {
+          if (path.endsWith('/api/v1/student/student/reports/generate')) {
             return {
               'reportId': 'report-immun-1',
               'reportType': 'IMMUNIZATION',
@@ -297,7 +303,7 @@ void main() {
           String? capturedPath;
           fakeDio.responseBuilder = (path) {
             capturedPath = path;
-            if (path.endsWith('/api/v1/reports/billing/TRANSACTION')) {
+            if (path.endsWith('/api/v1/accounts/reports/billing/TRANSACTION')) {
               return responseData;
             }
             return null;
@@ -308,7 +314,10 @@ void main() {
             payload: _RawPayload(requestBody),
           );
 
-          expect(capturedPath, endsWith('/api/v1/reports/billing/TRANSACTION'));
+          expect(
+            capturedPath,
+            endsWith('/api/v1/accounts/reports/billing/TRANSACTION'),
+          );
           // The datasource stamps ReportType.billingTransaction.backendValue,
           // which is 'TRANSACTION'.
           expect(result.reportType, 'TRANSACTION');
@@ -372,7 +381,9 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
+          if (path.endsWith(
+            '/api/v1/attendance/student-attendance/reports/recent',
+          )) {
             return responseData;
           }
           return null;
@@ -401,7 +412,9 @@ void main() {
           };
 
           fakeDio.responseBuilder = (path) {
-            if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
+            if (path.endsWith(
+              '/api/v1/attendance/student-attendance/reports/recent',
+            )) {
               return responseData;
             }
             return null;
@@ -452,7 +465,9 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/staff-attendance/reports/recent')) {
+          if (path.endsWith(
+            '/api/v1/attendance/staff-attendance/reports/recent',
+          )) {
             return responseData;
           }
           return null;
@@ -486,7 +501,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/staff/reports/recent')) {
+          if (path.endsWith('/api/v1/staff/staff/reports/recent')) {
             return responseData;
           }
           return null;
@@ -517,7 +532,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/reports/recent')) {
+          if (path.endsWith('/api/v1/student/student/reports/recent')) {
             return responseData;
           }
           return null;
@@ -538,7 +553,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-tags')) {
+          if (path.endsWith('/api/v1/student/student-tags')) {
             return responseData;
           }
           return null;

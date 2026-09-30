@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -21,7 +20,6 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/contact_filter_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/contact_filter_state.dart';
@@ -38,6 +36,8 @@ import 'package:wowcare/data/features/communication/mappers/participant_mapper.d
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_list_tile.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 
 class StaffMessagingTab extends StatefulWidget {
   const StaffMessagingTab({super.key, this.isStaffMessaging = true});
@@ -769,10 +769,6 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               hintText: widget.isStaffMessaging
                                   ? AppStrings.searchStaff
                                   : AppStrings.searchStudent,
-                              searchBarColor: WidgetStatePropertyAll(
-                                AppColors.transparentColor,
-                              ),
-                              borderColor: AppColors.transparentColor,
                             ),
                           ),
                         ),
@@ -1027,10 +1023,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  SvgPicture.asset(
-                                    MediaRes.filterIcon,
-                                    height: 20,
-                                  ),
+                                  FilterGlyph(size: 20),
                                   if (_hasActiveContactFilters)
                                     Positioned(
                                       top: -2,
@@ -1115,8 +1108,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 
                           if (communicationState is CommunicationError) {
                             return SliverFillRemaining(
-                              child: Center(
-                                child: Text(communicationState.message),
+                              hasScrollBody: false,
+                              child: AppErrorState(
+                                title: AppStrings.unableToLoadMessages,
+                                message: communicationState.message,
+                                onRetry: () => unawaited(
+                                  _refreshConversationsAndClassroomDefault(),
+                                ),
                               ),
                             );
                           }
@@ -1465,6 +1463,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final counterpart = participants
         .where((p) => p.userCode != _contactFilter.state.currentAccountCode)
         .firstOrNull;
+    // Conversation-level avatarUrl is never populated for STAFF_DIRECT chats
+    // — resolve the counterpart's own participant avatar when the caller
+    // didn't already pass one.
+    final resolvedAvatar = avatar.trim().isNotEmpty
+        ? avatar
+        : (counterpart?.avatarUrl ?? '').trim();
     // How many OTHER active participants this conversation has — seeded
     // into the fresh per-thread CommunicationCubit instance below so its
     // read/delivered-by-all tick aggregation has something to work with
@@ -1485,8 +1489,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             recipientCount: recipientCount,
             staffInfo: StaffThreadInfo(
               name: name,
-              avatar: avatar,
+              avatar: resolvedAvatar,
               code: code,
+              staffUserCode: counterpart?.userCode,
               // Passed explicitly so the Firestore watch path matches the
               // conversation's own org/school, not the viewer's stored
               // active org/school (which may differ after a school switch).

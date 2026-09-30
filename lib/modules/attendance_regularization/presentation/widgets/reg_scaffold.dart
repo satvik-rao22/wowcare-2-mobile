@@ -13,7 +13,7 @@ class RegScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: Av2Colors.scaffoldGradient),
+      decoration: const BoxDecoration(color: Av2Colors.scaffoldFill),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(

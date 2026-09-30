@@ -5,7 +5,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -42,6 +42,8 @@ import 'package:wowcare/domain/features/communication/usecases/get_cached_conver
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -903,17 +905,11 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SvgPicture.asset(MediaRes.notificationsGradientIcon),
+          AppIcon(MediaRes.notificationsGradientIcon),
           const SizedBox(width: 8),
-          ShaderMask(
-            shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-            child: Text(
-              _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: Colors.white),
-            ),
+          Text(
+            _isReminder ? 'Turn off reminder' : 'Send reminder',
+            style: const TextStyle(color: AppColors.themeColor),
           ),
         ],
       ),
@@ -927,18 +923,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        ShaderMask(
-          shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-          child: const Text(
-            'Your Sign-In Pin : ',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+        const Text(
+          'Your Sign-In Pin : ',
+          style: TextStyle(
+            color: AppColors.themeColor,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
         ),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
@@ -947,20 +937,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               prev.status != curr.status,
           builder: (context, state) {
             final pin = state.guardianClockPin.trim();
-            return ShaderMask(
-              shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-              child: Text(
-                pin.isEmpty ? '—' : pin,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+            return Text(
+              pin.isEmpty ? '—' : pin,
+              style: const TextStyle(
+                color: AppColors.themeColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             );
           },
         ),
@@ -975,9 +959,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final isError =
-        context.watch<MyChildsDayCubit>().state.status ==
-        MyChildsDayStatus.error;
+    // select, not watch: the cubit re-emits every second for its clock, and
+    // a watch here rebuilt this whole card on each tick. Only the error flag
+    // is read at the root, so only a change in it should rebuild the root.
+    final isError = context.select<MyChildsDayCubit, bool>(
+      (cubit) => cubit.state.status == MyChildsDayStatus.error,
+    );
     return DashboardCardErrorOverlay(
       show: isError,
       onRetry: () => context.read<MyChildsDayCubit>().loadForChild(
@@ -999,7 +986,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                color: Colors.white,
+                color: AppColors.whiteColor,
               ),
               child: BlocBuilder<ParentChildCubit, ParentChildState>(
                 builder: (context, state) {
@@ -1582,7 +1569,7 @@ class _MyChildsDayChatPreviewRowState
         // per-row margin — rounded only at the bottom to match the card's
         // own shape.
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
+        color: AppColors.chatPreviewSurface,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1656,19 +1643,17 @@ class _ChatActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
+      child: SkeuKeyBox(
+        variant: KeyVariant.primary,
+        radius: 14,
         width: 44,
         height: 44,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(14),
-        ),
         alignment: Alignment.center,
-        child: SvgPicture.asset(
+        child: AppIcon(
           MediaRes.communicationIcon,
           width: 24,
           height: 24,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          color: AppColors.whiteColor,
         ),
       ),
     );

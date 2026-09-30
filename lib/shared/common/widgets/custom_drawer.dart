@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+// ignore: unused_import — kept for the temporary gate below
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+// ignore: unused_import — kept for the temporary gate below
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
@@ -51,6 +60,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:wowcare/core/theme/app_dimensions.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -206,7 +216,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppPalette.surfaceCard,
               radius: 28,
               backgroundImage: AssetImage(MediaRes.appLogo),
             ),
@@ -219,7 +229,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   const Text(
                     'WowCare',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppPalette.textPrimary,
                       fontSize: 19,
                       fontWeight: FontWeight.w900,
                     ),
@@ -292,7 +302,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -302,7 +312,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 _isSchoolDropdownOpen
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down,
-                color: Colors.white,
+                color: AppPalette.textSecondary,
                 size: 18,
               ),
             ],
@@ -311,14 +321,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         if (_isSchoolDropdownOpen) ...[
           const SizedBox(height: 8),
           Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
+            decoration: AppSurfaces.sub(radius: 12, bordered: true),
             child: ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -338,8 +341,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withValues(alpha: 0.15)
-                          : Colors.transparent,
+                          ? AppPalette.surfaceSelected
+                          : AppColors.transparentColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -350,7 +353,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: isSelected
+                                  ? AppPalette.brandDark
+                                  : AppPalette.textPrimary,
                               fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.w600
@@ -362,7 +367,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           const Icon(
                             Icons.check,
                             size: 16,
-                            color: Colors.white,
+                            color: AppPalette.brandDark,
                           ),
                       ],
                     ),
@@ -467,8 +472,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
   void _showSnackOnRoot(String message, {bool isError = false}) {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return;
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(
+    CoreUtils.showTopSnackBarFromSnackBar(
+      context: ctx,
+      snackBar: SnackBar(
         content: Text(message),
         backgroundColor: isError
             ? AppColors.errorColor
@@ -599,8 +605,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isEmpty) {
-        ScaffoldMessenger.of(navigator.context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: navigator.context,
+          snackBar: const SnackBar(
             content: Text(
               'Unable to resolve your staff profile. Please re-login.',
             ),
@@ -635,8 +642,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         ),
       );
     } catch (_) {
-      ScaffoldMessenger.of(navigator.context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: navigator.context,
+        snackBar: const SnackBar(
           content: Text('Unable to open your profile right now.'),
           backgroundColor: AppColors.errorColor,
         ),
@@ -650,8 +658,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isEmpty) {
-        ScaffoldMessenger.of(navigator.context).showSnackBar(
-          const SnackBar(
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: navigator.context,
+          snackBar: const SnackBar(
             content: Text(
               'Unable to resolve your attendance profile. Please re-login.',
             ),
@@ -687,8 +696,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
         },
       );
     } catch (_) {
-      ScaffoldMessenger.of(navigator.context).showSnackBar(
-        const SnackBar(
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: navigator.context,
+        snackBar: const SnackBar(
           content: Text('Unable to open your attendance right now.'),
           backgroundColor: AppColors.errorColor,
         ),
@@ -749,6 +759,23 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final canViewActivities = roleProvider.canReadModule(
       AppAccessModules.dailyActivity,
     );
+    // TEMPORARY: Events and Tasks are forced visible in the drawer.
+    //
+    // The backend's `users/details` payload does not list EVENT / EVENT_RSVP /
+    // HOLIDAY / CALENDAR / TASK for any school on this org, even though the
+    // events-todo service happily serves the same account (GET calendar/feed,
+    // occurrences, holidays and tasks/assignments all 200, POST events and
+    // tasks both 201). The gate below is therefore hiding a module that works.
+    //
+    // Restore both lines once the permission payload includes those modules.
+    // NOTE: this unhides the drawer entries only. The router's module guard in
+    // lib/src/app_router.dart and the per-tab `canReadModule` checks inside
+    // events_screen.dart / tasks_screen.dart are untouched, so tapping either
+    // entry still bounces back to the dashboard.
+    // final canViewEvents = EventAccess.canOpenModule(roleProvider);
+    // final canViewTasks = TaskAccess.canAccessModule(roleProvider);
+    const canViewEvents = true;
+    const canViewTasks = true;
     final showParentMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.parentMessaging,
     );
@@ -777,9 +804,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showDashboardDrawer =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.dashboard);
-    final showSettingsMenu =
-        !roleProvider.usesGranularModuleAccess ||
-        roleProvider.canOpenModule(AppAccessModules.settings);
     final showReportsDrawer =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.reports);
@@ -803,13 +827,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       width: MediaQuery.of(context).size.width * 2 / 3,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+        decoration: AppSurfaces.tray(),
         child: Column(
           children: [
             _header(),
             const Divider(
-              color: Colors.white,
-              thickness: 0.3,
+              color: AppPalette.borderHairline,
+              thickness: 1,
               indent: 8,
               endIndent: 8,
             ),
@@ -884,6 +908,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             onTap: () =>
                                 _navigate(ActivityFeedScreen.routeName),
                           ),
+                        if (canViewEvents)
+                          _CustomExpansionTile(
+                            title: 'Events',
+                            icon: MediaRes.calenderClockIcon,
+                            isCurrentRoute:
+                                _currentRoute == EventsScreen.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () => _navigate(EventsScreen.routeName),
+                          ),
                         if (showParentMessagingDrawer ||
                             showParentNewsletterDrawer ||
                             showAdminChatDrawer)
@@ -911,12 +945,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Room Chat',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.classroom_drawer_icon,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.classroom_drawer_icon,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -933,12 +964,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showAdminChatDrawer)
                                 DrawerListTile(
                                   title: 'Admin Chat',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.parentMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.parentMessaging,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -953,12 +981,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.newsletter,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.newsletter,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     ParentNewsletterScreen.routeName,
@@ -1044,12 +1069,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStudentAttendance)
                                 DrawerListTile(
                                   title: 'Student Attendance',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.studentAttendanceDrawer,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.studentAttendanceDrawer,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     StudentAttendanceTabbedView.routeName,
@@ -1060,12 +1082,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: isStaff
                                       ? 'My Attendance'
                                       : 'Staff Attendance',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.staffAttendanceDrawer,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staffAttendanceDrawer,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () {
                                     if (isStaff) {
@@ -1106,7 +1125,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: 'Individual Movement',
                                   leading: const Icon(
                                     Icons.directions_walk,
-                                    color: AppColors.themeColor,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     IndividualMovementScreen.routeName,
@@ -1117,7 +1136,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   title: 'Future Availability',
                                   leading: const Icon(
                                     Icons.calendar_month,
-                                    color: AppColors.themeColor,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     FutureAvailabilityScreen.routeName,
@@ -1135,6 +1154,29 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 _expandedDrawerSection != null,
                             onTap: () =>
                                 _navigate(ActivityFeedScreen.routeName),
+                          ),
+                        if (canViewEvents)
+                          _CustomExpansionTile(
+                            title: 'Events',
+                            icon: MediaRes.calenderClockIcon,
+                            isCurrentRoute:
+                                _currentRoute == EventsScreen.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () => _navigate(EventsScreen.routeName),
+                          ),
+                        // Guardians/parents have no Tasks access at all, so
+                        // the entry point itself must not exist for them —
+                        // this block is the non-parent (staff/admin) branch.
+                        if (canViewTasks)
+                          _CustomExpansionTile(
+                            title: 'Tasks',
+                            icon: MediaRes.tasksIcon,
+                            isCurrentRoute:
+                                _currentRoute == TasksScreen.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () => _navigate(TasksScreen.routeName),
                           ),
                         if (showStaffMessagingDrawer ||
                             showParentMessagingDrawer ||
@@ -1155,12 +1197,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffMessagingDrawer)
                                 DrawerListTile(
                                   title: 'Staff Messaging',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.staffMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staffMessaging,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   trailing: _UnreadBadge(
                                     count: unreadState.unreadFor(
@@ -1183,12 +1222,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showParentMessagingDrawer)
                                       DrawerListTile(
                                         title: 'Room Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
+                                        leading: _DrawerGlyph(
+                                          asset: MediaRes.parentMessaging,
+                                          color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
                                           count: unreadState.unreadFor(
@@ -1206,12 +1242,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     if (showAdminChatDrawer)
                                       DrawerListTile(
                                         title: 'Admin Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
+                                        leading: _DrawerGlyph(
+                                          asset: MediaRes.parentMessaging,
+                                          color: AppPalette.textPrimary,
                                         ),
                                         trailing: _UnreadBadge(
                                           count: unreadState.unreadFor(
@@ -1230,12 +1263,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.newsletter,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.newsletter,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     MessagingScreen.newsletterRoute,
@@ -1260,8 +1290,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showClassroomScheduling)
                                 DrawerListTile(
                                   title: 'Classroom Scheduling',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.classroom_Schedule_drawer_icon,
+                                  leading: _DrawerGlyph(
+                                    asset:
+                                        MediaRes.classroom_Schedule_drawer_icon,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () =>
                                       _navigate(SchedulingScreen.routeName),
@@ -1269,8 +1301,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               if (showStaffScheduling)
                                 DrawerListTile(
                                   title: 'Staff Scheduling',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.staff_Schedule_drawer_icon,
+                                  leading: _DrawerGlyph(
+                                    asset: MediaRes.staff_Schedule_drawer_icon,
+                                    color: AppPalette.textPrimary,
                                   ),
                                   onTap: () => _navigate(
                                     StaffSchedulingScreen.routeName,
@@ -1288,51 +1321,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Reports',
                             icon: MediaRes.documents_drawer_Icon,
-                            preserveIconColors: true,
                             isCurrentRoute:
                                 _currentRoute == ReportsScreen.routeName,
                             suppressRouteHighlight:
                                 _expandedDrawerSection != null,
                             onTap: () => _navigate(ReportsScreen.routeName),
                           ),
-                        // if (showSettingsMenu)
-                        //   _CustomExpansionTile(
-                        //     title: 'Settings',
-                        //     icon: MediaRes.settings_drawer_Blue,
-                        //     isExpansionEnabled: true,
-                        //     expandedOverride:
-                        //         _expandedDrawerSection == 'Settings',
-                        //     onExpansionChanged: (expanded) =>
-                        //         _onDrawerSectionExpansionChanged(
-                        //           'Settings',
-                        //           expanded,
-                        //         ),
-                        //     children: [
-                        //       DrawerListTile(
-                        //         title: 'Privacy Policy',
-                        //         leading: SvgPicture.asset(
-                        //           MediaRes.settings_drawer_Blue,
-                        //           colorFilter: const ColorFilter.mode(
-                        //             AppColors.themeColor,
-                        //             BlendMode.srcIn,
-                        //           ),
-                        //         ),
-                        //         onTap: () {},
-                        //       ),
-                        //       DrawerListTile(
-                        //         title: 'Terms & Conditions',
-                        //         leading: SvgPicture.asset(
-                        //           MediaRes.settings_drawer_Blue,
-                        //           colorFilter: const ColorFilter.mode(
-                        //             AppColors.themeColor,
-                        //             BlendMode.srcIn,
-                        //           ),
-                        //         ),
-                        //         onTap: () {},
-                        //       ),
-                        //     ],
-                        //   ),
-
+                        // Privacy Policy and Terms & Conditions replaced a
+                        // 'Settings' expansion tile whose two children did
+                        // nothing. They are legal links, so unlike that tile
+                        // they are not gated on the settings module.
                         _CustomExpansionTile(
                           title: 'Privacy Policy',
                           icon: MediaRes.settings_drawer_Blue,
@@ -1374,7 +1372,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           return Text(
                             version.isNotEmpty ? "Version : $version" : "",
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(color: AppPalette.textMuted),
                           );
                         },
                       ),
@@ -1390,6 +1388,33 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 }
 
+/// One drawer destination's glyph, in a box the same size on every row.
+///
+/// The drawer's assets do not agree on a size: most are 24x25, billing is
+/// 17x25, the classroom one 24x26, the calendar 26x26 and logout 18x18. Drawn
+/// at their intrinsic size no two rows put the glyph in the same place, and a
+/// narrow one pulls its label left with it, because a `ListTile` sizes its
+/// leading slot to whatever it is given. A fixed box fixes both.
+class _DrawerGlyph extends StatelessWidget {
+  const _DrawerGlyph({required this.asset, required this.color});
+
+  final String asset;
+  final Color color;
+
+  /// Matches `AppDimensions.iconMd`, which is what the bottom bar uses, so
+  /// the two pieces of chrome agree.
+  static const double _box = AppDimensions.iconMd;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: _box,
+    height: _box,
+    child: Center(
+      child: AppIcon(asset, size: _box, color: color),
+    ),
+  );
+}
+
 class _CustomExpansionTile extends StatefulWidget {
   final String title;
   final String icon;
@@ -1398,12 +1423,6 @@ class _CustomExpansionTile extends StatefulWidget {
   final bool isCurrentRoute;
   final VoidCallback? onTap;
   final bool isDashboard;
-
-  /// When true, the icon's native colors (e.g. gradient fills, multi-color
-  /// strokes) are preserved instead of being flattened by a single
-  /// [ColorFilter]. Use for SVGs that ship their own gradient like the
-  /// Reports/Documents drawer icon.
-  final bool preserveIconColors;
 
   /// When non-null, this tile's expanded/collapsed state is driven by the
   /// parent (accordion behavior — only one top-level drawer section open at
@@ -1431,7 +1450,6 @@ class _CustomExpansionTile extends StatefulWidget {
     this.isCurrentRoute = false,
     this.onTap,
     this.isDashboard = false,
-    this.preserveIconColors = false,
     this.expandedOverride,
     this.onExpansionChanged,
     this.suppressRouteHighlight = false,
@@ -1486,19 +1504,16 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
     }
   }
 
-  Color _getIconColor() {
-    if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
-    }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
-  }
+  /// True when this tile is the solid pink squircle: the route you are on,
+  /// and not opened out into a panel. An expanded section is a well holding
+  /// its children, so it takes navy ink like the tray does.
+  bool get _isActiveTile => _effectiveIsCurrentRoute && !_isExpanded;
 
-  Color _getTextColor() {
-    if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
-    }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
-  }
+  Color _getIconColor() =>
+      _isActiveTile ? AppPalette.onBrand : AppPalette.textPrimary;
+
+  Color _getTextColor() =>
+      _isActiveTile ? AppPalette.onBrand : AppPalette.textPrimary;
 
   @override
   Widget build(BuildContext context) {
@@ -1506,25 +1521,16 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
       onTap: _handleTap,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
-        decoration: BoxDecoration(
-          color: _effectiveIsCurrentRoute || _isExpanded
-              ? Colors.white
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            if (_effectiveIsCurrentRoute || _isExpanded)
-              const BoxShadow(
-                blurRadius: 4,
-                color: Colors.black26,
-                offset: Offset(0, 4),
-              ),
-          ],
-        ),
+        decoration: _isActiveTile
+            ? AppSurfaces.navActive(radius: 12)
+            : _isExpanded
+            ? AppSurfaces.sub(radius: 12)
+            : const SkeuDecoration(),
         child: widget.isExpansionEnabled
             ? ExpansionTile(
                 controller: _expansionController,
-                backgroundColor: Colors.white,
-                collapsedBackgroundColor: Colors.transparent,
+                backgroundColor: AppColors.transparentColor,
+                collapsedBackgroundColor: AppColors.transparentColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1538,14 +1544,12 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                     _isExpanded = expanded;
                   });
                 },
-                leading: SvgPicture.asset(
-                  widget.icon,
-                  colorFilter: widget.preserveIconColors
-                      ? null
-                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
+                leading: _DrawerGlyph(
+                  asset: widget.icon,
+                  color: _getIconColor(),
                 ),
-                iconColor: AppColors.themeColor,
-                collapsedIconColor: Colors.white,
+                iconColor: AppPalette.textPrimary,
+                collapsedIconColor: _getIconColor(),
                 title: Text(
                   widget.title,
                   maxLines: 1,
@@ -1555,31 +1559,20 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 trailing: const Icon(Icons.keyboard_arrow_down),
               )
             : ListTile(
-                leading: SvgPicture.asset(
-                  widget.icon,
-                  colorFilter: widget.preserveIconColors
-                      ? null
-                      : ColorFilter.mode(
-                          _effectiveIsCurrentRoute
-                              ? AppColors.themeColor
-                              : Colors.white,
-                          BlendMode.srcIn,
-                        ),
+                leading: _DrawerGlyph(
+                  asset: widget.icon,
+                  color: _getIconColor(),
                 ),
                 title: Text(
                   widget.title,
                   maxLines: 1,
-                  style: TextStyle(
-                    color: _effectiveIsCurrentRoute
-                        ? AppColors.themeColor
-                        : Colors.white,
-                  ),
+                  style: TextStyle(color: _getTextColor()),
                 ),
-                tileColor: _effectiveIsCurrentRoute
-                    ? Colors.white
-                    : Colors.transparent,
+                // The pink squircle is painted by the Container above, so the
+                // tile itself stays clear and never doubles the fill.
+                tileColor: AppColors.transparentColor,
                 selected: _effectiveIsCurrentRoute,
-                selectedTileColor: Colors.white,
+                selectedTileColor: AppColors.transparentColor,
               ),
       ),
     );
@@ -1596,13 +1589,13 @@ class _UnreadBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.paidLegendColor,
+        color: AppPalette.brand,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppPalette.textOnDark,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -1625,7 +1618,7 @@ class DrawerListTile extends StatelessWidget {
     required this.leading,
     required this.onTap,
     this.horizontalTitleGap = 16,
-    this.textColor = AppColors.themeColor,
+    this.textColor = AppPalette.textPrimary,
     this.trailing,
   });
 
@@ -1643,11 +1636,10 @@ class DrawerListTile extends StatelessWidget {
 
 /// A sub-menu expansion tile for nesting inside an already-expanded
 /// [_CustomExpansionTile] panel (e.g. "Parent Messaging" inside
-/// "Communication"). Unlike [_CustomExpansionTile] — which toggles between
-/// white/themeColor text+icon to stay legible against the drawer's own
-/// colored background when collapsed — this always uses [AppColors.themeColor],
-/// matching the sibling [DrawerListTile] items (e.g. "Staff Messaging") it
-/// sits alongside on the panel's white background.
+/// "Communication"). Unlike [_CustomExpansionTile] — which flips to warm
+/// white on the pink squircle when it is the active route — this always uses
+/// navy ink, matching the sibling [DrawerListTile] items (e.g. "Staff
+/// Messaging") it sits alongside inside the panel's well.
 class _NestedExpansionTile extends StatelessWidget {
   final String title;
   final String icon;
@@ -1663,25 +1655,21 @@ class _NestedExpansionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-      backgroundColor: Colors.white,
-      collapsedBackgroundColor: Colors.white,
+      // Clear, so the panel's own well shows through rather than stacking a
+      // second tone on top of it.
+      backgroundColor: AppColors.transparentColor,
+      collapsedBackgroundColor: AppColors.transparentColor,
       // Suppresses Flutter's default top/bottom divider border that
       // ExpansionTile draws while expanded.
       shape: const Border(),
       collapsedShape: const Border(),
-      iconColor: AppColors.themeColor,
-      collapsedIconColor: AppColors.themeColor,
-      leading: SvgPicture.asset(
-        icon,
-        colorFilter: const ColorFilter.mode(
-          AppColors.themeColor,
-          BlendMode.srcIn,
-        ),
-      ),
+      iconColor: AppPalette.textPrimary,
+      collapsedIconColor: AppPalette.textPrimary,
+      leading: _DrawerGlyph(asset: icon, color: AppPalette.textPrimary),
       title: Text(
         title,
         maxLines: 1,
-        style: const TextStyle(color: AppColors.themeColor),
+        style: const TextStyle(color: AppPalette.textPrimary),
       ),
       // Indent sub-items relative to this tile's own leading icon so they
       // read as nested children (e.g. "Room Chat"/"Admin Chat" under

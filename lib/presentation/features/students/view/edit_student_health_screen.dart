@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_health
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentHealthScreen extends StatefulWidget {
   const EditStudentHealthScreen({
@@ -144,20 +145,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           right: AppSpacing.md,
           top: AppSpacing.xs,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.whiteColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
+        decoration: AppSurfaces.card(borderRadius: const BorderRadius.only( topLeft: Radius.circular(24), topRight: Radius.circular(24), )),
         child: BlocBuilder<StudentHealthCubit, StudentHealthState>(
           bloc: _healthCubit,
           buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
@@ -184,7 +172,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 15,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
@@ -203,7 +191,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             keyboardType: TextInputType.multiline,
             inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'^\s'))],
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -211,7 +199,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: AppColors.attendanceMutedTextColor,

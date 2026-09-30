@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,7 +9,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/staff/view_model/important_dates_cubit.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -17,6 +17,8 @@ import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
@@ -503,7 +505,7 @@ class _EditImportantDatesScreenViewState
                   selectedItem: _selectedPhysicalCheckupStatus,
                   labelStyle: TextStyle(
                     fontSize: responsive.labelFontSize,
-                    fontFamily: "Manrope",
+                    fontFamily: AppFonts.body,
                     fontWeight: FontWeight.w400,
                     color: AppColors.primaryColor,
                   ),
@@ -558,20 +560,7 @@ class _EditImportantDatesScreenViewState
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.billingShadowColorLight,
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: CustomButtonLayout(
                 confirmButtonLabel: 'Save',
                 onPressedConfirm: isSubmitting ? null : _saveImportantDates,
@@ -594,7 +583,7 @@ class _EditImportantDatesScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -636,13 +625,10 @@ class _EditImportantDatesScreenViewState
                     ),
                   ),
                   const SizedBox(width: 4),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

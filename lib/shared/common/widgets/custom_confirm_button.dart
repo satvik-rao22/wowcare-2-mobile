@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -23,6 +27,7 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
 
   Future<void> _handlePress() async {
     if (widget.onPressed == null || _isLoading) return;
+    AppHaptics.tap();
 
     setState(() {
       _isLoading = true;
@@ -43,24 +48,21 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
   Widget build(BuildContext context) {
     final bool isEnabled = widget.onPressed != null;
 
-    return Container(
+    return SkeuKeyBox(
+      variant: isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+      radius: 8,
       width: double.infinity,
       height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : Colors.grey[300],
-      ),
       child: TextButton(
         onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
-          disabledForegroundColor: Colors.grey[600],
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+          backgroundColor: AppColors.transparentColor,
+          foregroundColor: AppSurfaces.keyInk(
+            isEnabled ? KeyVariant.primary : KeyVariant.disabled,
           ),
+          disabledForegroundColor: AppSurfaces.keyInk(KeyVariant.disabled),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -68,18 +70,20 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppPalette.onBrand),
                 ),
               )
             : widget.widget ??
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? Colors.white : Colors.grey[600],
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppSurfaces.keyInk(
+                        isEnabled ? KeyVariant.primary : KeyVariant.disabled,
+                      ),
+                    ),
                   ),
-                ),
       ),
     );
   }

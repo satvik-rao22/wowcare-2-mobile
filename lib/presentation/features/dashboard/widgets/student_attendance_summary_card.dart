@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -170,7 +171,7 @@ class _StudentAttendanceSummaryCardState
                 color: AppColors.primaryColor,
               ),
               borderRadius: BorderRadius.circular(12),
-              dropdownColor: Colors.white,
+              dropdownColor: AppColors.whiteColor,
               onChanged: (next) {
                 if (next == null) return;
                 context.read<ParentChildCubit>().selectByCode(next.code);
@@ -260,12 +261,12 @@ class _StudentAttendanceSummaryCardState
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: MaterialHues.black12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -330,7 +331,7 @@ class _StudentAttendanceSummaryCardState
           icon: MediaRes.calenderClockIcon,
           label: 'Attended Days',
           value: '${state.attendedDays}',
-          valueColor: const Color(0xFF4CAF50),
+          valueColor: MaterialHues.green,
         ),
         const SizedBox(height: 16),
         _buildAttendanceHoursItem(
@@ -338,14 +339,14 @@ class _StudentAttendanceSummaryCardState
           label: 'Attended Hours',
           hours: hours,
           minutes: minutes,
-          valueColor: const Color(0xFF4285F4),
+          valueColor: AppPalette.statusInfo,
         ),
         const SizedBox(height: 16),
         _buildStatItem(
           icon: MediaRes.calenderClockIcon,
           label: 'Absent Days',
           value: '${state.absentDays}',
-          valueColor: Colors.red,
+          valueColor: MaterialHues.red,
         ),
       ],
     );
@@ -383,12 +384,12 @@ class _StudentAttendanceSummaryCardState
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: MaterialHues.black12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          SvgPicture.asset(icon, height: 30),
+          AppIcon(icon, height: 30),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -440,7 +441,7 @@ class _StudentAttendanceSummaryCardState
       child: Card(
         margin: EdgeInsets.zero,
         elevation: 0,
-        color: Colors.white,
+        color: AppColors.whiteColor,
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),

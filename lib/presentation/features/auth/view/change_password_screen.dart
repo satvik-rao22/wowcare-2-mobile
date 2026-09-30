@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/validators/app_validators.dart';
 import 'package:wowcare/presentation/features/auth/view_model/change_password_cubit.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -32,8 +34,7 @@ class ChangePasswordScreen extends StatefulWidget {
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final TextEditingController _currentPasswordController =
       TextEditingController();
-  final TextEditingController _newPasswordController =
-      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
@@ -135,7 +136,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               child: Text(
                                 'Change Password',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: screenHeight * 0.022,
                                   height: 2 / 6,
                                   fontWeight: FontWeight.w500,
@@ -156,7 +157,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'Current Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -176,7 +177,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'New Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -196,7 +197,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             Text(
                               'Confirm New Password',
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: screenHeight * 0.016,
                                 fontWeight: FontWeight.w400,
                                 color: AppColors.authFieldLabelColor,
@@ -222,8 +223,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   value.text,
                                 );
                                 return Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Icon(
                                       isValid
@@ -240,7 +240,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                           vertical: 8,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: AppColors.authSuccessBackgroundColor,
+                                          color: AppColors
+                                              .authSuccessBackgroundColor,
                                           borderRadius: BorderRadius.circular(
                                             8,
                                           ),
@@ -250,7 +251,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                           style: TextStyle(
                                             fontSize: screenHeight * 0.015,
                                             color: AppColors.authSuccessColor,
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                           ),
                                         ),
                                       ),
@@ -287,11 +288,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       height: screenHeight * 0.06,
                       child: InkWell(
                         onTap: isLoading ? null : _handleSubmit,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: AppColors.buildPrimaryGradient(),
-                          ),
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 12,
                           child: Center(
                             child: isLoading
                                 ? SizedBox(
@@ -310,7 +309,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                       color: AppColors.cardColor,
                                       fontSize: screenHeight * 0.022,
                                       fontWeight: FontWeight.w600,
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                     ),
                                   ),
                           ),
@@ -346,11 +345,7 @@ class _PasswordField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.authSurfaceLight,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.authInputBorderColor),
-      ),
+      decoration: AppSurfaces.field(radius: 12),
       child: ValueListenableBuilder<bool>(
         valueListenable: isVisible,
         builder: (context, visible, _) => TextField(
@@ -361,7 +356,7 @@ class _PasswordField extends StatelessWidget {
             hintText: hintText,
             hintStyle: TextStyle(
               color: AppColors.authHintTextColor,
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: screenHeight * 0.022,
             ),
             prefixIcon: Padding(
@@ -398,14 +393,13 @@ class _PasswordField extends StatelessWidget {
               onPressed: () => isVisible.value = !isVisible.value,
             ),
             filled: true,
-            fillColor: AppColors.authSurfaceLight,
+            fillColor: AppColors.transparentColor,
             border: const OutlineInputBorder(
               borderSide: BorderSide.none,
               borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.themeColor),
+            focusedBorder: AppSurfaces.fieldBorder(
+              radius: 12,
             ),
             contentPadding: EdgeInsets.symmetric(
               vertical: screenHeight * 0.018,
@@ -415,7 +409,7 @@ class _PasswordField extends StatelessWidget {
           // Solid color (a gradient `foreground` shader breaks
           // tap-to-position-cursor on editable fields).
           style: TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: screenHeight * 0.022,
             color: AppColors.primaryColor,
           ),

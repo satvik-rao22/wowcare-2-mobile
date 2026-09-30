@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/src/app_router.dart';
 
@@ -100,21 +101,19 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (mounted) context.pop();
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppPalette.surfacePage,
+        // The flat skin gives the bar the page ground and dark ink, like
+        // CustomAppBar — no gradient flexibleSpace behind it.
         appBar: AppBar(
           title: Text(
             widget.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
+          backgroundColor: AppPalette.surfacePage,
+          foregroundColor: AppPalette.textPrimary,
           elevation: 0,
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-            ),
-          ),
+          scrolledUnderElevation: 0,
         ),
         body: SafeArea(
           child: _hasError ? _buildError() : _buildWebView(),
@@ -164,32 +163,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.wifi_off_rounded,
-              size: 64,
-              color: Colors.black26,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Unable to load this page.\nPlease check your connection.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 15),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _reload,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
+    return AppErrorState(
+      title: 'Unable to load this page.',
+      message: 'Please check your connection.',
+      onRetry: _reload,
     );
   }
 }

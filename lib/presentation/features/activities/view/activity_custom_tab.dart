@@ -1,12 +1,12 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -54,8 +54,10 @@ import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class ActivityCustomTab extends StatelessWidget {
   const ActivityCustomTab({
@@ -68,6 +70,8 @@ class ActivityCustomTab extends StatelessWidget {
     this.onRefreshStaffSignInStatus,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -94,6 +98,13 @@ class ActivityCustomTab extends StatelessWidget {
   /// Pre-selected classrooms.
   final List<String>? initialClassrooms;
 
+  /// Pre-selected approval statuses (e.g. `['PENDING_ADMIN_APPROVAL']` from
+  /// the Incidents attention card).
+  final List<String>? initialApprovalStatuses;
+
+  /// Widens the date filter to all time instead of the current-month default.
+  final bool initialAllTime;
+
   /// Used to force state reset in didUpdateWidget when navigating repeatedly.
   final String? resetKey;
 
@@ -119,6 +130,8 @@ class ActivityCustomTab extends StatelessWidget {
         onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
         initialActivityTypes: initialActivityTypes,
         initialClassrooms: initialClassrooms,
+        initialApprovalStatuses: initialApprovalStatuses,
+        initialAllTime: initialAllTime,
         resetKey: resetKey,
       ),
     );
@@ -135,6 +148,8 @@ class _ActivityCustomTabView extends StatefulWidget {
     this.onRefreshStaffSignInStatus,
     this.initialActivityTypes,
     this.initialClassrooms,
+    this.initialApprovalStatuses,
+    this.initialAllTime = false,
     this.resetKey,
   });
 
@@ -146,6 +161,8 @@ class _ActivityCustomTabView extends StatefulWidget {
   final Future<void> Function()? onRefreshStaffSignInStatus;
   final List<String>? initialActivityTypes;
   final List<String>? initialClassrooms;
+  final List<String>? initialApprovalStatuses;
+  final bool initialAllTime;
   final String? resetKey;
 
   @override
@@ -209,6 +226,16 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
   bool _forceAllClassroomsOnLoad = false;
+
+  /// True while the current date range came from [_applyAllTimeDateRange]
+  /// (the Incidents attention card's all-time override) rather than a
+  /// picked/default range. The picker stays in the layout and tappable —
+  /// only its displayed value is suppressed (shows "Select Date" instead of
+  /// the underlying "5 years ago – tomorrow" span), since showing that
+  /// span reads as a bug rather than the intentional "no date filter" it
+  /// stands in for. Cleared by [_resetDateRangeToCurrentMonth] (Clear All),
+  /// which restores the picker's normal displayed value.
+  bool _dateRangeShownAsUnselected = false;
   String? _lastFeedRequestKey;
   String? _lastGlobalSelectedStudentCode;
   DateTime? _lastFeedCompletedAt;
@@ -405,6 +432,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       NotesActivityScreen.routeName,
       ActivityTypeScreenArgs(activityData: activity, isEdit: true),
     ),
+    'Observation': (activity) => (
+      ObservationActivityScreen.routeName,
+      ActivityTypeScreenArgs(activityData: activity, isEdit: true),
+    ),
     'Outdoor': (activity) => (
       OutdoorActivityScreen.routeName,
       ActivityTypeScreenArgs(activityData: activity, isEdit: true),
@@ -499,6 +530,14 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         readOnly: true,
       ),
     ),
+    'Observation': (activity) => (
+      ObservationActivityScreen.routeName,
+      ActivityTypeScreenArgs(
+        activityData: activity,
+        isEdit: true,
+        readOnly: true,
+      ),
+    ),
     'Outdoor': (activity) => (
       OutdoorActivityScreen.routeName,
       ActivityTypeScreenArgs(
@@ -528,6 +567,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
     'Sign-in': MediaRes.dailyActivitySignInIcon,
@@ -575,6 +615,21 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
       }
     }
 
+    if (forceReset ||
+        widget.initialApprovalStatuses != oldWidget.initialApprovalStatuses) {
+      if (widget.initialApprovalStatuses != null &&
+          widget.initialApprovalStatuses!.isNotEmpty) {
+        _filterApprovalStatuses = List.from(widget.initialApprovalStatuses!);
+        changed = true;
+      }
+    }
+
+    if ((forceReset || widget.initialAllTime != oldWidget.initialAllTime) &&
+        widget.initialAllTime) {
+      _applyAllTimeDateRange();
+      changed = true;
+    }
+
     if (changed) {
       // Re-run filter logic and fetch feed
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -583,6 +638,20 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         }
       });
     }
+  }
+
+  /// Widens the date filter to effectively cover the school's whole history
+  /// instead of the current-month default — used when a destination (e.g. the
+  /// Incidents attention card) counts rows with no date bound of its own, so
+  /// scoping its landing list to a month would hide older matches the count
+  /// still includes. A fixed 5-year lookback (rather than a literal null
+  /// start/end) keeps the request within what the range-search API and its
+  /// existing non-nullable `startDate`/`endDate` contract already support.
+  void _applyAllTimeDateRange() {
+    final today = AppTime.now();
+    _selectedStartDate = DateTime(today.year - 5, today.month, today.day);
+    _selectedEndDate = DateTime(today.year, today.month, today.day + 1);
+    _dateRangeShownAsUnselected = true;
   }
 
   @override
@@ -622,9 +691,27 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
         _selectdClassroom = _selectedClassrooms.first;
       }
     }
+    if (widget.initialApprovalStatuses != null &&
+        widget.initialApprovalStatuses!.isNotEmpty) {
+      _filterApprovalStatuses = List.from(widget.initialApprovalStatuses!);
+    }
+    if (widget.initialAllTime) {
+      _applyAllTimeDateRange();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // _bootstrapSchoolZone unconditionally resets the date range to the
+      // school-calendar current month once the timezone resolves — it runs
+      // AFTER the initState-time _applyAllTimeDateRange() call above (this
+      // whole block is a deferred post-frame callback), so without this the
+      // Incidents attention card's all-time override was silently clobbered
+      // back to "this month" a moment after being applied, hiding any
+      // pending incident from a previous month even though the dashboard's
+      // count still included it.
+      if (widget.initialAllTime && mounted) {
+        setState(_applyAllTimeDateRange);
+      }
       // Feed is locked to the profile student's code + classroom already, so
       // load it right away rather than waiting for the classroom/student
       // bootstrap; _loadRangeFeed de-dupes so the later bootstrap won't refetch.
@@ -1303,6 +1390,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     final today = SchoolZoneDateTime.schoolCalendarTodayOnly(_schoolIana);
     _selectedStartDate = DateTime(today.year, today.month, 1);
     _selectedEndDate = DateTime(today.year, today.month + 1, 0);
+    _dateRangeShownAsUnselected = false;
   }
 
   Future<void> _loadTagFilterOptions({bool forceRefresh = false}) async {
@@ -1423,7 +1511,19 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
     var list = items;
-    if (_filterActivityTypes.length > 1) {
+    // A single non-attendance type (e.g. the Incidents attention card's
+    // ['Incident']) used to be trusted entirely to the server's
+    // activityTypeCodes filter and skipped this client-side narrowing — but
+    // the range-search endpoint doesn't strictly enforce it, so unrelated
+    // types (Nap Start, Bathroom, …) leaked through whenever exactly one type
+    // was selected. A single ATTENDANCE-event pseudo-type (Sign-in/Sign-out/
+    // Transfer/Marked Absent) is still exempt: those route through a
+    // dedicated attendance API call whose returned items don't carry a
+    // matching activityTypeCode/name to re-filter by.
+    final bool isSingleAttendanceEvent =
+        _filterActivityTypes.length == 1 &&
+        _isAttendanceEventLabel(_filterActivityTypes.first.trim());
+    if (_filterActivityTypes.isNotEmpty && !isSingleAttendanceEvent) {
       final codes = _filterActivityTypes
           .map(_activityTypeCodeForLabel)
           .whereType<String>()
@@ -2557,10 +2657,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                   children: [
                                     Padding(
                                       padding: const EdgeInsets.all(8),
-                                      child: SvgPicture.asset(
-                                        MediaRes.filterIcon,
-                                        height: 20,
-                                      ),
+                                      child: FilterGlyph(size: 20),
                                     ),
                                     Builder(
                                       builder: (context) {
@@ -2578,12 +2675,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color.fromRGBO(
-                                                179,
-                                                38,
-                                                30,
-                                                1,
-                                              ),
+                                              color: AppPalette.statusErrorStrong,
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
@@ -2610,8 +2702,12 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                           children: [
                             Expanded(
                               child: _datePickerFilter(
-                                selectedStartDate: _selectedStartDate,
-                                selectedEndDate: _selectedEndDate,
+                                selectedStartDate: _dateRangeShownAsUnselected
+                                    ? null
+                                    : _selectedStartDate,
+                                selectedEndDate: _dateRangeShownAsUnselected
+                                    ? null
+                                    : _selectedEndDate,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -2877,10 +2973,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                       .endsWith(
                                                                         '.svg',
                                                                       )) {
-                                                                    return SvgPicture.asset(
+                                                                    return AppArtwork(
                                                                       iconPath,
-                                                                      fit: BoxFit
-                                                                          .contain,
+                                                                      fit: BoxFit.contain,
                                                                     );
                                                                   }
                                                                   return Image.asset(
@@ -3232,7 +3327,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                             ),
                                                         strutStyle: StrutStyle(
                                                           fontFamily:
-                                                              Fonts.manrope,
+                                                              AppFonts.body,
                                                           fontSize: 14,
                                                           height: 1.0,
                                                           leading: 0,
@@ -3315,6 +3410,9 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
             _selectedStartDate = result['startDate'] as DateTime?;
             if (result['endDate'] != null)
               _selectedEndDate = result['endDate'] as DateTime?;
+            // A manual pick always shows its own value, even if the range
+            // was previously displayed as unselected (all-time override).
+            _dateRangeShownAsUnselected = false;
           });
           _loadRangeFeed(refresh: true);
         }
@@ -3337,7 +3435,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 child: Text(
                   selectedStartDate != null
                       ? '${DateFormat('MMM dd, yyyy').format(selectedStartDate)} - ${DateFormat('MMM dd, yyyy').format(selectedEndDate ?? selectedStartDate)}'
-                      : 'Select Date',
+                      : 'Select Date Range',
                   style: AppTextStyles.activityDropdownValueText(
                     hasValue: selectedStartDate != null,
                   ),
@@ -3345,13 +3443,10 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                 ),
               ),
               const SizedBox(width: 4),
-              SvgPicture.asset(
+              AppIcon(
                 MediaRes.calender_icon,
                 height: 20.0,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.primaryColor,
-                  BlendMode.srcIn,
-                ),
+                color: AppColors.primaryColor,
               ),
             ],
           ),

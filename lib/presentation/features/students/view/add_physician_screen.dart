@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -16,6 +15,7 @@ import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddPhysicianScreen extends StatefulWidget {
   const AddPhysicianScreen({
@@ -173,21 +173,12 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: AppColors.whiteColor,
+        backgroundColor: AppColors.pageBackgroundColor,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
+              child: ColoredBox(color: AppColors.pageBackgroundColor),
             ),
             Column(
               children: [
@@ -203,7 +194,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           ? StudentStrings.editPhysician
                           : StudentStrings.addPhysician,
                       style: TextStyle(
-                        fontFamily: Fonts.manrope,
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryColor,
@@ -219,19 +210,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.whiteColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -303,20 +282,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             right: AppSpacing.md,
             top: AppSpacing.xs,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withValues(alpha: 0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
             bloc: _physicianCubit,
             buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
@@ -348,7 +314,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -372,13 +338,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
@@ -396,7 +356,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
               ),
             ),
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,

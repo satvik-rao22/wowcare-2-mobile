@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
@@ -13,10 +14,6 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
-
-/// Colours for the breakdown bar segments that have no exact theme constant.
-const Color _signedOutColor = Color(0xFF8BB4EF);
-const Color _notMarkedColor = Color(0xFFEBC398);
 
 /// One labelled segment of a breakdown bar (name + count + colour + filter).
 class _Seg {
@@ -116,7 +113,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.whiteColor,
               border: Border.all(color: AppColors.cardBorderColor),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -245,25 +242,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                         _Seg(
                           'Signed-in',
                           state.studentPresent,
-                          AppColors.colorBox,
+                          AppColors.lightGreenProgressBar,
                           'Present',
                         ),
                         _Seg(
                           'Absent',
                           state.studentAbsent,
-                          AppColors.colorBox2,
+                          AppColors.redProgressBar,
                           'Absent',
                         ),
                         _Seg(
                           'Signed-out',
                           state.studentSignOut,
-                          _signedOutColor,
+                          AppColors.lightBlueProgressBar,
                           'Signed Out',
                         ),
                         _Seg(
                           'Not Marked',
                           state.studentNotMarked,
-                          _notMarkedColor,
+                          AppColors.mustardProgressBar,
                           'Not Marked',
                         ),
                       ],
@@ -297,25 +294,25 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                         _Seg(
                           'Signed-in',
                           state.staffPresent,
-                          AppColors.colorBox,
+                          AppColors.lightGreenProgressBar,
                           'Present',
                         ),
                         _Seg(
                           'Absent',
                           state.staffAbsent,
-                          AppColors.colorBox2,
+                          AppColors.redProgressBar,
                           'Absent',
                         ),
                         _Seg(
                           'Signed-out',
                           state.staffSignOut,
-                          _signedOutColor,
+                          AppColors.lightBlueProgressBar,
                           'Signed Out',
                         ),
                         _Seg(
                           'Not Marked',
                           state.staffNotMarked,
-                          _notMarkedColor,
+                          AppColors.mustardProgressBar,
                           'Not Marked',
                         ),
                       ],
@@ -384,13 +381,13 @@ class _EnrollmentCardShimmer extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.whiteColor,
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: MaterialHues.grey300,
+        highlightColor: MaterialHues.grey100,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -402,7 +399,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 160,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -410,7 +407,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 20,
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.whiteColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -470,7 +467,7 @@ class _StatColumnShimmer extends StatelessWidget {
           height: 24,
           width: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -494,7 +491,7 @@ class _StatColumnShimmer extends StatelessWidget {
                 height: 12,
                 width: 70,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.whiteColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -534,7 +531,7 @@ class _StatBarShimmer extends StatelessWidget {
               height: 22,
               width: 38,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.whiteColor,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -546,7 +543,7 @@ class _StatBarShimmer extends StatelessWidget {
           child: Container(
             height: 20,
             width: double.infinity,
-            color: Colors.white,
+            color: AppColors.whiteColor,
           ),
         ),
         const SizedBox(height: 12),
@@ -564,7 +561,7 @@ class _StatBarShimmer extends StatelessWidget {
                         width: 10,
                         height: 10,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -573,7 +570,7 @@ class _StatBarShimmer extends StatelessWidget {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -585,7 +582,7 @@ class _StatBarShimmer extends StatelessWidget {
                         width: 10,
                         height: 10,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -594,7 +591,7 @@ class _StatBarShimmer extends StatelessWidget {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.whiteColor,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),

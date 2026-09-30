@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 // import 'package:provider/provider.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/simmer_loader.dart';
@@ -77,24 +78,24 @@ class CustomProfileAvatar extends StatelessWidget {
           //           },
           //         ),
           //       )
-          //     : 
+          //     :
           CircleAvatar(
-            backgroundColor: Colors.blue, // ColorUtils.getColorFromName(
-              // context.isPersonnel
-              //     ? context.currentStaff!.name
-              //     : context.currentGuardian!.fullName,
+            backgroundColor: MaterialHues.blue, // ColorUtils.getColorFromName(
+            // context.isPersonnel
+            //     ? context.currentStaff!.name
+            //     : context.currentGuardian!.fullName,
             // ),
             radius: radius,
             child: Text(
               'U', // StringUtils.getInitials(
-                // context.isPersonnel
-                //     ? context.currentStaff!.name
-                //     : context.currentGuardian!.fullName,
+              // context.isPersonnel
+              //     ? context.currentStaff!.name
+              //     : context.currentGuardian!.fullName,
               // ),
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: fontSize,
-                color: Colors.white,
+                color: AppPalette.textOnDark,
               ),
             ),
           ),
@@ -110,9 +111,9 @@ class CustomProfileAvatar extends StatelessWidget {
           //         color: context.currentStaff!.profileStatus == 'Upcoming'
           //             ? const Color.fromARGB(255, 253, 205, 22)
           //             : context.currentStaff!.isSignedIn
-          //                 ? const Color.fromRGBO(0, 177, 21, 1)
+          //                 ? AppPalette.statusSuccess
           //                 : context.currentStaff!.isAbsent
-          //                     ? const Color.fromRGBO(200, 32, 32, 1)
+          //                     ? AppPalette.statusErrorStrong
           //                     : null,
           //         borderRadius: BorderRadius.circular(100),
           //         border: Border.all(

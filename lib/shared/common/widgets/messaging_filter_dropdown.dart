@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'custom_dropdown.dart';
 
@@ -33,26 +35,26 @@ class MessagingFilterDropdown extends StatelessWidget {
       showAsterisk: isRequired,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: 40,
       selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
         color: selectedItem != null
-            ? const Color(0xff573353)
-            : Colors.grey[600],
+            ? AppColors.primaryColor
+            : MaterialHues.grey600,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: AppColors.primaryColor,
       ),
     );
   }

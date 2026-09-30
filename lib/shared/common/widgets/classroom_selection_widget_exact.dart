@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -114,7 +115,7 @@ class _ClassroomSelectionWidgetExactState
           child: Container(
             constraints: const BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppPalette.surfaceCard,
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.builder(
@@ -134,8 +135,8 @@ class _ClassroomSelectionWidgetExactState
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0x1A573353)
-                          : Colors.white,
+                          ? AppPalette.surfaceSelected
+                          : AppPalette.surfaceCard,
                     ),
                     child: Row(
                       children: [
@@ -143,10 +144,10 @@ class _ClassroomSelectionWidgetExactState
                           child: Text(
                             classroom,
                             style: const TextStyle(
-                              fontFamily: "Manrope",
+                              fontFamily: AppFonts.body,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: AppColors.primaryColor,
                             ),
                           ),
                         ),
@@ -154,7 +155,7 @@ class _ClassroomSelectionWidgetExactState
                           const Icon(
                             Icons.check,
                             size: 18,
-                            color: Color(0xff573353),
+                            color: AppColors.primaryColor,
                           ),
                       ],
                     ),
@@ -260,7 +261,7 @@ class _ClassroomSelectionWidgetExactState
                       return Container(
                         height: updatedHeight,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppPalette.surfaceCard,
                           borderRadius: BorderRadius.all(Radius.circular(8)),
                         ),
                         child: Column(
@@ -277,7 +278,7 @@ class _ClassroomSelectionWidgetExactState
                                   border: InputBorder.none,
                                   prefixIcon: Icon(
                                     Icons.search,
-                                    color: Color(0xff573353),
+                                    color: AppColors.primaryColor,
                                   ),
                                 ),
                                 onChanged: (value) {
@@ -337,7 +338,7 @@ class _ClassroomSelectionWidgetExactState
                                                     horizontal: 16,
                                                   ),
                                               decoration: const BoxDecoration(
-                                                color: Colors.white,
+                                                color: AppPalette.surfaceCard,
                                               ),
                                               child: Row(
                                                 children: [
@@ -350,7 +351,8 @@ class _ClassroomSelectionWidgetExactState
                                                     child: Text(
                                                       classroom,
                                                       style: const TextStyle(
-                                                        fontFamily: "Manrope",
+                                                        fontFamily:
+                                                            AppFonts.body,
                                                         fontSize: 14,
                                                         fontWeight:
                                                             FontWeight.w500,
@@ -406,16 +408,16 @@ class _ClassroomSelectionWidgetExactState
             text: TextSpan(
               style: TextStyle(
                 fontSize: labelFontSize,
-                fontFamily: "Manrope",
+                fontFamily: AppFonts.body,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
+                color: AppColors.primaryColor,
               ),
               children: [
                 const TextSpan(text: 'Primary Classroom'),
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: MaterialHues.red),
                   ),
               ],
             ),
@@ -433,13 +435,15 @@ class _ClassroomSelectionWidgetExactState
               decoration: BoxDecoration(
                 border: Border.all(
                   color: widget.primaryClassroomError != null
-                      ? Colors.red
-                      : const Color(0x66573353),
+                      ? MaterialHues.red
+                      : AppPalette.borderField,
                 ),
                 borderRadius: BorderRadius.circular(
                   responsive.isTablet ? 12.0 : 8.0,
                 ),
-                color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
+                color: widget.isEnabled
+                    ? AppPalette.surfaceField
+                    : AppPalette.surfaceMuted,
               ),
               child: Row(
                 children: [
@@ -448,10 +452,10 @@ class _ClassroomSelectionWidgetExactState
                       widget.primaryClassroom ?? 'Select Primary Classroom',
                       style: TextStyle(
                         color: widget.primaryClassroom == null
-                            ? const Color(0xff573353)
-                            : Colors.black,
+                            ? AppPalette.textMuted
+                            : AppPalette.textPrimary,
                         fontSize: inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -461,7 +465,7 @@ class _ClassroomSelectionWidgetExactState
                       _isPrimaryDropdownOpen
                           ? Icons.keyboard_arrow_up_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                       size: responsive.isTablet ? 28.0 : 24.0,
                     ),
                 ],
@@ -473,9 +477,9 @@ class _ClassroomSelectionWidgetExactState
             Text(
               widget.primaryClassroomError!,
               style: const TextStyle(
-                color: Colors.red,
+                color: MaterialHues.red,
                 fontSize: 12,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
               ),
             ),
           ],
@@ -487,15 +491,15 @@ class _ClassroomSelectionWidgetExactState
           text: TextSpan(
             style: TextStyle(
               fontSize: labelFontSize,
-              fontFamily: "Manrope",
+              fontFamily: AppFonts.body,
               fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
             ),
             children: const [
               TextSpan(text: "Allowed Classrooms"),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: MaterialHues.red),
               ),
             ],
           ),
@@ -549,15 +553,15 @@ class _ClassroomSelectionWidgetExactState
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: widget.allowedClassroomsError != null
-                          ? Colors.red
-                          : const Color(0x66573353),
+                          ? MaterialHues.red
+                          : AppPalette.borderField,
                     ),
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 12.0 : 8.0,
                     ),
                     color: widget.isEnabled
-                        ? Colors.white
-                        : Colors.grey.shade200,
+                        ? AppPalette.surfaceField
+                        : AppPalette.surfaceMuted,
                   ),
                   child: Stack(
                     children: [
@@ -571,9 +575,9 @@ class _ClassroomSelectionWidgetExactState
                                 child: Text(
                                   "Select",
                                   style: TextStyle(
-                                    color: const Color(0xff573353),
+                                    color: AppColors.primaryColor,
                                     fontSize: inputFontSize,
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -595,16 +599,16 @@ class _ClassroomSelectionWidgetExactState
                                       label: Text(
                                         classroom,
                                         style: TextStyle(
-                                          color: const Color(0xff573353),
+                                          color: AppColors.primaryColor,
                                           fontSize: inputFontSize,
-                                          fontFamily: 'Manrope',
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                       deleteIcon: Icon(
                                         Icons.close,
                                         size: responsive.isTablet ? 20.0 : 18.0,
-                                        color: const Color(0xff573353),
+                                        color: AppColors.primaryColor,
                                       ),
                                       backgroundColor: chipColor,
                                       onDeleted: widget.isEnabled
@@ -638,7 +642,7 @@ class _ClassroomSelectionWidgetExactState
                             _isAllowedDropdownOpen
                                 ? Icons.keyboard_arrow_up_rounded
                                 : Icons.keyboard_arrow_down_rounded,
-                            color: const Color(0xff573353),
+                            color: AppColors.primaryColor,
                             size: responsive.isTablet ? 28.0 : 24.0,
                           ),
                         ),
@@ -654,9 +658,9 @@ class _ClassroomSelectionWidgetExactState
           Text(
             widget.allowedClassroomsError!,
             style: const TextStyle(
-              color: Colors.red,
+              color: MaterialHues.red,
               fontSize: 12,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
             ),
           ),
         ],
@@ -685,14 +689,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : Colors.grey,
+          color: value ? AppColors.transparentColor : AppPalette.borderStrong,
           width: 2,
         ),
-        gradient: value ? AppColors.buildPrimaryGradient() : null,
-        color: value ? null : Colors.transparent,
+        color: value ? AppPalette.brand : AppColors.transparentColor,
       ),
       child: value
-          ? const Icon(Icons.check, size: 18, color: Colors.white)
+          ? const Icon(Icons.check, size: 18, color: AppPalette.onBrand)
           : null,
     );
   }

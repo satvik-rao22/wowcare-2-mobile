@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -12,16 +12,20 @@ import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/core/utils/upcoming_birthday.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentCard extends StatefulWidget {
   const StudentCard({
@@ -177,6 +181,7 @@ class _StudentCardState extends State<StudentCard> {
     // not the inactive set (Reactivate + Delete + Edit).
     final bool showActiveActions =
         widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.birthDate);
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -261,7 +266,7 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Tooltip(
                                     message: StudentStrings
                                         .studentIsCurrentlyNapping,
-                                    child: SvgPicture.asset(
+                                    child: AppArtwork(
                                       MediaRes.napIcon.isNotEmpty
                                           ? MediaRes.napIcon
                                           : MediaRes.sleepIcon,
@@ -278,16 +283,29 @@ class _StudentCardState extends State<StudentCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    widget.name,
-                                    style: TextStyle(
-                                      fontFamily: Fonts.manrope,
-                                      fontSize: isTablet ? 16 : 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.primaryColor,
-                                      height: 19 / 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          widget.name,
+                                          style: TextStyle(
+                                            fontFamily: AppFonts.body,
+                                            fontSize: isTablet ? 16 : 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.primaryColor,
+                                            height: 19 / 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (birthdayDaysUntil != null) ...[
+                                        AppSpacing.gapHXs,
+                                        BirthdayCountdownChip(
+                                          daysUntil: birthdayDaysUntil,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 AppSpacing.gapHXs,
@@ -295,7 +313,7 @@ class _StudentCardState extends State<StudentCard> {
                                   child: Text(
                                     widget.classroom,
                                     style: TextStyle(
-                                      fontFamily: Fonts.manrope,
+                                      fontFamily: AppFonts.body,
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
                                       color: AppColors.primaryColor,
@@ -357,7 +375,7 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Text(
                                               tags[0],
                                               style: const TextStyle(
-                                                fontFamily: Fonts.manrope,
+                                                fontFamily: AppFonts.body,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: AppColors
@@ -379,7 +397,7 @@ class _StudentCardState extends State<StudentCard> {
                                             child: Text(
                                               tags[1],
                                               style: const TextStyle(
-                                                fontFamily: Fonts.manrope,
+                                                fontFamily: AppFonts.body,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: AppColors
@@ -404,7 +422,7 @@ class _StudentCardState extends State<StudentCard> {
                                               child: Text(
                                                 '+${tags.length - 2}',
                                                 style: const TextStyle(
-                                                  fontFamily: Fonts.inter,
+                                                  fontFamily: AppFonts.body,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
                                                   color:
@@ -482,7 +500,7 @@ class _StudentCardState extends State<StudentCard> {
                                           child: Text(
                                             day,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
+                                              fontFamily: AppFonts.body,
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
@@ -597,7 +615,7 @@ class _StudentCardState extends State<StudentCard> {
                                               ? StudentStrings.deactivate
                                               : StudentStrings.reactivate,
                                           style: const TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors
@@ -649,7 +667,7 @@ class _StudentCardState extends State<StudentCard> {
                                           child: const Text(
                                             StudentStrings.delete,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
+                                              fontFamily: AppFonts.body,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               color: AppColors
@@ -663,13 +681,10 @@ class _StudentCardState extends State<StudentCard> {
                                   ],
                                   AppSpacing.gapHMd,
                                   Expanded(
-                                    child: Container(
+                                    child: SkeuKeyBox(
+                                      variant: KeyVariant.primary,
+                                      radius: AppRadius.sm,
                                       height: 40,
-                                      decoration: BoxDecoration(
-                                        borderRadius: AppRadius.allSm,
-                                        gradient:
-                                            AppColors.buildPrimaryGradient(),
-                                      ),
                                       child: TextButton(
                                         onPressed: widget.onEdit,
                                         style: TextButton.styleFrom(
@@ -678,7 +693,7 @@ class _StudentCardState extends State<StudentCard> {
                                         child: const Text(
                                           StudentStrings.edit,
                                           style: TextStyle(
-                                            fontFamily: Fonts.manrope,
+                                            fontFamily: AppFonts.body,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.whiteColor,

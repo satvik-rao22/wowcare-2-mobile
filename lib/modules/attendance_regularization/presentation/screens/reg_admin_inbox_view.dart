@@ -242,7 +242,7 @@ class _RegAdminInboxViewState extends State<RegAdminInboxView> {
               child: Ink(
                 height: 48,
                 decoration: BoxDecoration(
-                  gradient: Av2Colors.primaryGradient,
+                  color: Av2Colors.primaryFill,
                   borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
                 ),
                 child: Center(
@@ -252,13 +252,13 @@ class _RegAdminInboxViewState extends State<RegAdminInboxView> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: Av2Colors.onPrimary,
                           ),
                         )
                       : Text(
                           'Approve selected (${_selected.length})',
                           style: Av2Text.bodyMedium.copyWith(
-                            color: Colors.white,
+                            color: Av2Colors.onPrimary,
                           ),
                         ),
                 ),

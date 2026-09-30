@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -95,12 +95,13 @@ class AttendanceRemoveTile extends StatelessWidget {
             GestureDetector(
               onTap: onRemove,
               child: deleteIconSize != null
-                  ? SvgPicture.asset(
+                  ? AppIcon(
                       MediaRes.delete_icon,
                       height: deleteIconSize,
                       width: deleteIconSize,
+                      tone: IconTone.danger,
                     )
-                  : SvgPicture.asset(MediaRes.delete_icon),
+                  : AppIcon(MediaRes.delete_icon, tone: IconTone.danger),
             ),
         ],
       ),

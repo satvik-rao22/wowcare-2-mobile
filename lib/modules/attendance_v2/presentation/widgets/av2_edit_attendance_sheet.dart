@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
@@ -21,11 +23,7 @@ Future<Av2EditResult?> showAv2EditAttendanceSheet(
   return showModalBottomSheet<Av2EditResult>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Av2Colors.surface,
-    shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(Av2Spacing.radiusLg)),
-    ),
+    // Ground and corners come from ThemeData.bottomSheetTheme.
     builder: (context) => _Av2EditAttendanceSheet(session: session),
   );
 }
@@ -86,7 +84,9 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
     final hasOutDate = _outDate != null;
     final hasOutTime = _outTime != null;
     if (hasOutDate != hasOutTime) {
-      setState(() => _error = 'Set both sign-out date and time, or leave both empty.');
+      setState(
+        () => _error = 'Set both sign-out date and time, or leave both empty.',
+      );
       return;
     }
     if (hasOutDate && hasOutTime) {
@@ -96,7 +96,10 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
         return;
       }
     }
-    Navigator.pop(context, Av2EditResult(signInLocal: signIn, signOutLocal: signOut));
+    Navigator.pop(
+      context,
+      Av2EditResult(signInLocal: signIn, signOutLocal: signOut),
+    );
   }
 
   DateTime _combine(DateTime d, TimeOfDay t) =>
@@ -111,7 +114,11 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
         top: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
-              Av2Spacing.md, Av2Spacing.sm, Av2Spacing.md, Av2Spacing.md),
+            Av2Spacing.md,
+            Av2Spacing.sm,
+            Av2Spacing.md,
+            Av2Spacing.md,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,60 +150,26 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
                 dateText: _outDate == null
                     ? 'dd-mm-yyyy'
                     : DateFormat('dd-MM-yyyy').format(_outDate!),
-                timeText: _outTime == null ? '--:--' : _outTime!.format(context),
+                timeText: _outTime == null
+                    ? '--:--'
+                    : _outTime!.format(context),
                 onDate: () => _pickDate(isIn: false),
                 onTime: () => _pickTime(isIn: false),
                 muted: _outDate == null && _outTime == null,
               ),
               if (_error != null) ...[
                 const SizedBox(height: Av2Spacing.sm),
-                Text(_error!,
-                    style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
+                Text(
+                  _error!,
+                  style: Av2Text.caption.copyWith(color: Av2Colors.danger),
+                ),
               ],
               const SizedBox(height: Av2Spacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Av2Colors.borderStrong),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(Av2Spacing.radiusSm),
-                        ),
-                      ),
-                      child: Text('Cancel',
-                          style: Av2Text.bodyMedium
-                              .copyWith(color: Av2Colors.textPrimary)),
-                    ),
-                  ),
-                  const SizedBox(width: Av2Spacing.sm),
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                      child: InkWell(
-                        onTap: _submit,
-                        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                        child: Ink(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            gradient: Av2Colors.primaryGradient,
-                            borderRadius:
-                                BorderRadius.circular(Av2Spacing.radiusSm),
-                          ),
-                          child: Center(
-                            child: Text('Submit',
-                                style: Av2Text.bodyMedium
-                                    .copyWith(color: Colors.white)),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              CustomButtonLayout(
+                isForm: false,
+                confirmButtonLabel: 'Submit',
+                onPressedConfirm: _submit,
+                onPressedCancel: () => Navigator.pop(context),
               ),
             ],
           ),
@@ -222,18 +195,20 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
           children: [
             Expanded(
               child: _field(
-                  icon: Icons.calendar_today_outlined,
-                  text: dateText,
-                  muted: muted,
-                  onTap: onDate),
+                icon: Icons.calendar_today_outlined,
+                text: dateText,
+                muted: muted,
+                onTap: onDate,
+              ),
             ),
             const SizedBox(width: Av2Spacing.xs),
             Expanded(
               child: _field(
-                  icon: Icons.access_time,
-                  text: timeText,
-                  muted: muted,
-                  onTap: onTime),
+                icon: Icons.access_time,
+                text: timeText,
+                muted: muted,
+                onTap: onTime,
+              ),
             ),
           ],
         ),
@@ -252,11 +227,8 @@ class _Av2EditAttendanceSheetState extends State<_Av2EditAttendanceSheet> {
       borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        decoration: BoxDecoration(
-          color: Av2Colors.surfaceMuted,
-          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-          border: Border.all(color: Av2Colors.border),
-        ),
+        // A picker you tap rather than type into: the full well, edgeless.
+        decoration: AppSurfaces.well(radius: Av2Spacing.radiusSm),
         child: Row(
           children: [
             Icon(icon, size: 16, color: Av2Colors.textSecondary),

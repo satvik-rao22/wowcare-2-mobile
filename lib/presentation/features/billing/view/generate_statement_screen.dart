@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/admin_statements_cubit.dart';
@@ -354,12 +355,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
             Container(
               constraints:
                   BoxConstraints(minHeight: responsive.inputFieldHeight * 2.4),
-              decoration: BoxDecoration(
-                color: AppColors.billingCardColor,
-                border: Border.all(color: AppColors.billingBorderHeavy),
-                borderRadius: BorderRadius.circular(
-                    responsive.isTablet ? 12.0 : 8.0),
-              ),
+              decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
               child: TextField(
                 controller: _descriptionController,
                 maxLines: null,

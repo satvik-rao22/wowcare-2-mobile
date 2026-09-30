@@ -21,7 +21,9 @@ import 'package:wowcare/presentation/features/students/view/edit_student_physica
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StudentDatesTabCard extends StatefulWidget {
   const StudentDatesTabCard({
@@ -200,7 +202,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             child: Text(
                               StudentStrings.editPhysicalExamination,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
@@ -227,13 +229,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final result =
@@ -282,13 +281,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
                                   : '',
-                              suffix: SvgPicture.asset(
+                              suffix: AppIcon(
                                 MediaRes.calender_icon,
                                 height: 20.0,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
+                                color: AppColors.primaryColor,
                               ),
                               onTap: () async {
                                 final result =
@@ -518,25 +514,22 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               StudentStrings.physicalExams,
                               style: AppTextStyles.title,
                             ),
-                            Container(
+                            SkeuKeyBox(
+                              variant: _disableAddPhysicalExam
+                                  ? KeyVariant.disabled
+                                  : KeyVariant.primary,
+                              radius: AppRadius.sm,
                               width: 38,
                               height: 38,
-                              decoration: BoxDecoration(
-                                gradient: _disableAddPhysicalExam
-                                    ? const LinearGradient(
-                                        colors: [
-                                          AppColors.studentBorderGrey,
-                                          AppColors.studentDisabledGrey,
-                                        ],
-                                      )
-                                    : AppColors.buildPrimaryGradient(),
-                                borderRadius: AppRadius.allSm,
-                              ),
                               alignment: Alignment.center,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: AppColors.whiteColor,
+                                color: AppSurfaces.keyInk(
+                                  _disableAddPhysicalExam
+                                      ? KeyVariant.disabled
+                                      : KeyVariant.primary,
+                                ),
                               ),
                             ),
                           ],
@@ -776,17 +769,14 @@ class _DialogField extends StatelessWidget {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(AppRadius.r10),
-            ),
+            decoration: AppSurfaces.well(radius: AppRadius.r10),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -840,10 +830,7 @@ class _DialogDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(AppRadius.r10),
-          ),
+          decoration: AppSurfaces.well(radius: AppRadius.r10),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
@@ -859,7 +846,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

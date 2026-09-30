@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/presentation/features/activities/utils/activity_feed_display_rules.dart';
+import 'package:wowcare/domain/features/activity/services/activity_feed_display_rules.dart';
 
 /// The two rules that decide what a parent sees in the moments after tapping an
 /// activity notification: whether the screen may claim there are no activities,

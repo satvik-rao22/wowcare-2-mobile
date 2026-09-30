@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/billing/view_model/parent_statemen
 import 'package:wowcare/presentation/features/billing/view/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -310,31 +311,10 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                       ),
                     )
                   else if (state.errorMessage.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 40,
-                              color: AppColors.billingErrorIconColor,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              state.errorMessage,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: AppColors.billingErrorTextColor),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton(
-                              onPressed: () => _cubit.refresh(),
-                              child: const Text(BillingStrings.retry),
-                            ),
-                          ],
-                        ),
-                      ),
+                    AppErrorState(
+                      title: state.errorMessage,
+                      retryLabel: BillingStrings.retry,
+                      onRetry: () => _cubit.refresh(),
                     )
                   else if (state.filteredStatements.isEmpty)
                     Padding(

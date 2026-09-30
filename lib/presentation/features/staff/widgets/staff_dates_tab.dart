@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -14,10 +15,12 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab_widgets.dart';
 import 'package:wowcare/core/router/app_routes.dart' show StaffRoutes;
 import 'package:wowcare/presentation/features/staff/model/staff_route_args.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffDatesTab extends StatelessWidget {
   const StaffDatesTab({
@@ -169,14 +172,14 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
       return const SizedBox.shrink();
     }
 
-    const completedColor = Color.fromRGBO(56, 200, 32, 1);
-    const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
-    const dueColor = Color.fromRGBO(234, 186, 0, 1);
-    const dueBg = Color.fromRGBO(234, 186, 0, 0.12);
-    const overdueColor = Color.fromRGBO(232, 45, 45, 1);
-    const overdueBg = Color.fromRGBO(232, 45, 45, 0.12);
-    const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
-    const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
+    const completedColor = AppPalette.statusSuccess;
+    const completedBg = AppPalette.statusSuccessSoft;
+    const dueColor = AppPalette.statusWarning;
+    const dueBg = AppPalette.statusWarningSoft;
+    const overdueColor = AppPalette.statusError;
+    const overdueBg = AppPalette.statusErrorSoft;
+    const scheduledColor = AppPalette.statusInfo;
+    const scheduledBg = AppPalette.statusInfoSoft;
 
     final statusUpper = (physical.status ?? '').toUpperCase();
     final dueDate = physical.dueDate.trim();
@@ -337,7 +340,7 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                             child: Text(
                               'Edit Physical Examination',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
@@ -363,13 +366,10 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final now = AppTime.now();
@@ -498,13 +498,10 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
                                   : '',
-                              suffix: SvgPicture.asset(
+                              suffix: AppIcon(
                                 MediaRes.calender_icon,
                                 height: 20.0,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
+                                color: AppColors.primaryColor,
                               ),
                               onTap: () async {
                                 final now = AppTime.now();
@@ -841,13 +838,11 @@ class _StaffDatesTabViewState extends State<_StaffDatesTabView> {
                                 if (mounted) _loadDates(useCache: false);
                               });
                         },
-                        child: Container(
+                        child: SkeuKeyBox(
+                          variant: KeyVariant.primary,
+                          radius: 8,
                           width: 38,
                           height: 38,
-                          decoration: BoxDecoration(
-                            gradient: AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
                           alignment: Alignment.center,
                           child: const Icon(
                             Icons.edit,

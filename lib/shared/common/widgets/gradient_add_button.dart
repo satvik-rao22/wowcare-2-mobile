@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class GradientAddButton extends StatelessWidget {
   final VoidCallback? onTap;
@@ -27,6 +29,13 @@ class GradientAddButton extends StatelessWidget {
     this.wantedButtonSize,
     this.isDisabled = false,
   }) : super(key: key);
+
+  void _handleTap() {
+    // A disabled button still reports the tap so the caller can explain why,
+    // but nothing was added, so it gets no press feedback.
+    if (!isDisabled) AppHaptics.tap();
+    onTap?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,50 +66,32 @@ class GradientAddButton extends StatelessWidget {
         ? Container(
             width: wantedButtonSize ?? buttonSize,
             height: wantedButtonSize ?? buttonSize,
-            decoration: BoxDecoration(
+            decoration: AppSurfaces.fab().copyWith(
               shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
-              gradient:
-                  AppColors.buildPrimaryGradient(), // Use your app's gradient
               borderRadius: isRectangle
                   ? BorderRadius.circular(buttonBorderRadius)
-                  : null,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+                  : BorderRadius.zero,
             ),
-            child: Icon(Icons.add, color: Colors.white, size: buttonIconSize),
+            child: Icon(
+              Icons.add,
+              color: AppPalette.onBrand,
+              size: buttonIconSize,
+            ),
           )
         : GestureDetector(
-            onTap: onTap,
+            onTap: _handleTap,
             child: Container(
               width: wantedButtonSize ?? buttonSize,
               height: wantedButtonSize ?? buttonSize,
-              decoration: BoxDecoration(
+              decoration: AppSurfaces.fab(enabled: !isDisabled).copyWith(
                 shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
-                color: isDisabled ? Colors.grey.shade300 : null,
-                gradient: isDisabled
-                    ? null
-                    : AppColors.buildPrimaryGradient(), // Use your app's gradient
                 borderRadius: isRectangle
                     ? BorderRadius.circular(buttonBorderRadius)
-                    : null,
-                boxShadow: isDisabled
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                    : BorderRadius.zero,
               ),
               child: Icon(
                 Icons.add,
-                color: isDisabled ? Colors.grey.shade600 : Colors.white,
+                color: isDisabled ? AppPalette.textMuted : AppPalette.onBrand,
                 size: buttonIconSize,
               ),
             ),

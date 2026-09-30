@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_remove_tile.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -222,52 +224,13 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                                   ),
                                   fontSize: 15,
                                 ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r10,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: AppColors.inputBorderColor,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r10,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: AppColors.inputBorderColor,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r10,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: AppColors.inputBorderColor,
-                                    width: 2,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r10,
-                                  ),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.errorColor,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.r10,
-                                  ),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.errorColor,
-                                    width: 2,
-                                  ),
-                                ),
+                                border: AppSurfaces.fieldBorder(radius: AppRadius.r10),
+                                enabledBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
+                                focusedBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
+                                errorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
+                                focusedErrorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
                                 filled: true,
-                                fillColor: AppColors.cardColor,
+                                fillColor: AppSurfaces.fieldFill,
                               ),
                             ),
                             const SizedBox(height: AppSpacing.lg),

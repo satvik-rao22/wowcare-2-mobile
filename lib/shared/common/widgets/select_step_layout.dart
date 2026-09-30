@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class SelectStepLayout extends StatelessWidget {
   const SelectStepLayout({
@@ -29,7 +31,7 @@ class SelectStepLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.pageBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -68,7 +70,7 @@ class SelectStepLayout extends StatelessWidget {
                   Center(
                     child: SizedBox(
                       width: double.infinity,
-                      child: const Divider(height: 1, color: Color(0xFFE8E8E8)),
+                      child: const Divider(height: 1, color: AppPalette.divider),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -100,7 +102,7 @@ class SelectStepLayout extends StatelessWidget {
                 top: 8,
                 left: 8,
                 child: IconButton(
-                  icon: SvgPicture.asset(MediaRes.backButton),
+                  icon: AppIcon(MediaRes.backButton),
                   onPressed: () => Navigator.maybePop(context),
                   padding: const EdgeInsets.all(8),
                   constraints: const BoxConstraints(),

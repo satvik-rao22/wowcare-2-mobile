@@ -13,11 +13,14 @@ class SizerInit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
+    // Aspect reads, not MediaQuery.of: this only cares about size and
+    // orientation, and a full read would also rebuild it on every frame of
+    // a keyboard animation (viewInsets).
+    final Size size = MediaQuery.sizeOf(context);
     Device.setScreenSize(
       context,
-      BoxConstraints(maxWidth: mq.size.width, maxHeight: mq.size.height),
-      mq.orientation,
+      BoxConstraints(maxWidth: size.width, maxHeight: size.height),
+      MediaQuery.orientationOf(context),
       599,
     );
     return child;

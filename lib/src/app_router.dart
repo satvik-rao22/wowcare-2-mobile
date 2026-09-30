@@ -9,11 +9,8 @@ import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
-import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
-import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
-import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_filter_screen.dart';
@@ -28,6 +25,7 @@ import 'package:wowcare/presentation/features/activities/view/edit_create_activi
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/medication_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/notes_activity.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/observation_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/outdoor_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/photo_activity.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
@@ -47,8 +45,10 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
+import 'package:wowcare/modules/attendance_v2/core/config/av2_config.dart';
 import 'package:wowcare/modules/attendance_v2/presentation/controllers/av2_day_filter.dart';
 import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
     show FilterData, StaffFilterScreen;
@@ -96,6 +96,7 @@ import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_meth
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/add_credit_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/transactions/open_invoice_by_code_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/send_invoice_screen.dart';
@@ -156,8 +157,6 @@ import 'package:wowcare/presentation/features/dashboard/view_model/student_newsl
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/view_model/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
-import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
-import 'package:wowcare/presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_attendance_summary_cubit.dart';
@@ -213,6 +212,16 @@ import 'package:wowcare/presentation/features/user_profile/view/edit_user_profil
 import 'package:wowcare/presentation/features/user_profile/view_model/edit_user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/notification_preference_groups_cubit.dart';
 import 'package:wowcare/presentation/features/user_profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
+import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/model/user_persona.dart';
@@ -233,8 +242,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 /// existing call sites that read those constants keep working.
 class AppRoutes {
   static const String splash = '/';
-  static const String firstScreen = '/first-screen';
-  static const String onboarding = '/onboarding';
   static const String signIn = SignInScreen.routeName;
   static const String signOut = SignOutScreen.routeName;
   static const String forgotPassword = ForgotPasswordScreen.routeName;
@@ -253,6 +260,11 @@ class AppRoutes {
   // specific newsletter / pending-approval activity, not a generic list.
   static const String newsletterPreviewByCode = '/newsletter-preview-by-code';
   static const String activityApprovalByCode = '/activity-approval-by-code';
+
+  // Notification/email deep-link: open one invoice by code (self-loading —
+  // no in-memory TransactionItem required, unlike ViewInvoiceScreen's own
+  // route which navigates from an already-loaded billing list row).
+  static const String invoiceByCode = OpenInvoiceByCodeScreen.routeName;
 }
 
 /// Path lookups by branch index — used by the bottom nav when there is no
@@ -578,20 +590,6 @@ final GoRouter appRouter = GoRouter(
           authCubit: context.read<AuthCubit>(),
         )..resolve(),
         child: const SplashScreenWrapper(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.firstScreen,
-      builder: (context, state) => BlocProvider(
-        create: (_) => serviceLocator<OnboardingCubit>(),
-        child: const OnboardingScreen(),
-      ),
-    ),
-    GoRoute(
-      path: AppRoutes.onboarding,
-      builder: (context, state) => BlocProvider(
-        create: (_) => serviceLocator<OnboardingCubit>(),
-        child: const OnboardingScreen(),
       ),
     ),
     GoRoute(
@@ -1050,7 +1048,8 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
-              builder: (context, state) => const DashboardScreen(),
+              builder: (context, state) =>
+                  DashboardScreen(focus: state.uri.queryParameters['focus']),
               routes: [
                 GoRoute(
                   path: 'staff',
@@ -2004,13 +2003,21 @@ final GoRouter appRouter = GoRouter(
                     final q = state.uri.queryParameters;
                     return _fastPage(
                       state,
-                      StaffDetailScreen(
-                        staffCode: q['code'] ?? '',
-                        staffName: q['name'] ?? '',
-                        // Deep links (notifications) can name the chip to
-                        // open on; anything unknown falls back to All days.
-                        initialFilter: av2DayFilterFromName(q['tab']),
-                      ),
+                      // Deep links (notifications) can name the chip to open
+                      // on, which only the V2 screen has; behind the same
+                      // Av2Config.enabled switch as StaffAttendanceProfile.
+                      Av2Config.enabled
+                          ? StaffDetailScreen(
+                              staffCode: q['code'] ?? '',
+                              staffName: q['name'] ?? '',
+                              initialFilter: av2DayFilterFromName(q['tab']),
+                            )
+                          : StaffAttendanceProfile(
+                              staffCode: q['code'] ?? '',
+                              staffId: 0,
+                              staffName: q['name'] ?? '-',
+                              roomName: '-',
+                            ),
                     );
                   },
                 ),
@@ -2168,6 +2175,190 @@ final GoRouter appRouter = GoRouter(
                     child: const QrScanScreen(),
                   ),
                 ),
+
+                // Events: list/calendar plus detail and form drill-downs. All
+                // three share the singleton EventsCubit so RSVPs and edits
+                // made on the detail/form screens reflect on the calendar
+                // without a refetch. Read/write access is gated by the
+                // `EventRoutes.listSegment` entry in _dashboardModuleGuards
+                // above — list, detail and form all share it since they share
+                // that first path segment.
+                GoRoute(
+                  path: EventRoutes.listSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<EventsCubit>.value(
+                          value: serviceLocator<EventsCubit>()
+                            ..load(silent: true),
+                        ),
+                        BlocProvider<TasksCubit>.value(
+                          value: serviceLocator<TasksCubit>()
+                            ..applyPersona(context.read<RoleCubit>().role),
+                        ),
+                      ],
+                      // Holiday notifications deep-link here rather than to a
+                      // detail route: their payload carries no holiday code
+                      // and the Holiday List is a tab of this screen.
+                      child: EventsScreen.fromQuery(state.uri.queryParameters),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: EventRoutes.detailSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<EventsCubit>.value(
+                        value: serviceLocator<EventsCubit>()
+                          ..load(silent: true),
+                        child: EventDetailScreen(
+                          eventCode:
+                              (args?['eventCode'] as String?) ??
+                              state.uri.queryParameters[EventRoutes
+                                  .eventCodeParam] ??
+                              '',
+                          occurrenceCode:
+                              args?['occurrenceCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: EventRoutes.formSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final initialDate = DateTime.tryParse(
+                      args?['initialDate'] as String? ?? '',
+                    );
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<EventsCubit>.value(
+                            value: serviceLocator<EventsCubit>(),
+                          ),
+                          BlocProvider<ClassroomCubit>(
+                            create: (_) => serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(
+                                onlyTypeClassroom: false,
+                                applyAttendanceStaffScope: true,
+                              ),
+                          ),
+                          BlocProvider<StaffCubit>(
+                            create: (_) =>
+                                serviceLocator<StaffCubit>()..loadInitial(),
+                          ),
+                          BlocProvider<StudentCubit>(
+                            create: (_) =>
+                                serviceLocator<StudentCubit>()..loadInitial(),
+                          ),
+                        ],
+                        child: EventFormScreen(
+                          eventCode: args?['eventCode'] as String?,
+                          initialDate: initialDate,
+                          splitFromOccurrenceCode:
+                              args?['splitFromOccurrence'] as String?,
+                          splitFromDate: DateTime.tryParse(
+                            args?['splitFromDate'] as String? ?? '',
+                          ),
+                          editOccurrenceCode:
+                              args?['editOccurrence'] as String?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Tasks: board/list plus detail and form drill-downs. All
+                // three share the singleton TasksCubit so status/priority
+                // edits reflect everywhere without a refetch. Guarded by the
+                // `TaskRoutes.listSegment` entry in _dashboardModuleGuards.
+                GoRoute(
+                  path: TaskRoutes.listSegment,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<TasksCubit>.value(
+                      // Persona applied before the fetch so the read boundary
+                      // (staff see only their own tasks) is in place for the
+                      // very first frame, and the My/All default matches it.
+                      value: serviceLocator<TasksCubit>()
+                        ..applyPersona(context.read<RoleCubit>().role)
+                        ..load(silent: true),
+                      child: const TasksScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: TaskRoutes.detailSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<TasksCubit>.value(
+                        // Loaded silently too: opening this screen directly
+                        // from the calendar feed skips the Tasks tab, so the
+                        // list may still be empty and taskByCode would miss.
+                        value: serviceLocator<TasksCubit>()
+                          ..applyPersona(context.read<RoleCubit>().role)
+                          ..load(silent: true),
+                        child: TaskDetailScreen(
+                          // `extra` when pushed in-app (calendar / tasks
+                          // list); the query param when deep-linked from a
+                          // notification.
+                          taskCode:
+                              (args?['taskCode'] as String?) ??
+                              state.uri.queryParameters[TaskRoutes
+                                  .taskCodeParam] ??
+                              '',
+                          // Only ever arrives via the query param — a deep
+                          // link with just the series (TASK_ASSIGNED /
+                          // TASK_UPDATED); an in-app push always has the real
+                          // assignment code already.
+                          seriesCode: state
+                              .uri
+                              .queryParameters[TaskRoutes.seriesCodeParam],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: TaskRoutes.formSegment,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<TasksCubit>.value(
+                            value: serviceLocator<TasksCubit>()
+                              ..applyPersona(context.read<RoleCubit>().role),
+                          ),
+                          // Assignee picker shows ACTIVE staff only and is
+                          // otherwise unrestricted for every persona that can
+                          // reach this form — a staff/teacher persona may
+                          // assign to any colleague, not just their own
+                          // classrooms. See loadAssignableStaff.
+                          BlocProvider<StaffCubit>(
+                            create: (_) {
+                              final cubit = serviceLocator<StaffCubit>();
+                              loadAssignableStaff(cubit);
+                              return cubit;
+                            },
+                          ),
+                        ],
+                        child: TaskFormScreen(
+                          taskCode: args?['taskCode'] as String?,
+                          editScope: args?['editScope'] as TaskEditScope?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ],
@@ -2268,6 +2459,10 @@ final GoRouter appRouter = GoRouter(
                     initialClassrooms: q['classroom'] != null
                         ? [q['classroom']!]
                         : null,
+                    initialApprovalStatuses: q['approvalStatus'] != null
+                        ? [q['approvalStatus']!]
+                        : null,
+                    initialAllTime: q['dateRange'] == 'all',
                     resetKey: nonce?.value.toString(),
                   ),
                 );
@@ -2450,6 +2645,22 @@ final GoRouter appRouter = GoRouter(
                 studentCode: q['studentCode'],
               ),
             ),
+          ),
+        );
+      },
+    ),
+    // Notification/email deep-link (INV_GEN_GUARD_EML's paymentUrl): open one
+    // invoice by code — see OpenInvoiceByCodeScreen's own doc for why this is
+    // a separate self-loading route rather than ViewInvoiceScreen.routeName.
+    GoRoute(
+      path: AppRoutes.invoiceByCode,
+      pageBuilder: (context, state) {
+        final q = state.uri.queryParameters;
+        return _fastPage(
+          state,
+          OpenInvoiceByCodeScreen(
+            invoiceCode: q['invoiceCode'] ?? '',
+            studentCode: q['studentCode'],
           ),
         );
       },
@@ -2678,6 +2889,21 @@ final GoRouter appRouter = GoRouter(
         return BlocProvider<ActivityEditorCubit>(
           create: (_) => serviceLocator<ActivityEditorCubit>(),
           child: NotesActivityScreen(
+            selectedStudents: args.selectedStudents,
+            isEdit: args.isEdit,
+            activityData: args.activityData,
+            readOnly: args.readOnly,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: ObservationActivityScreen.routeName,
+      builder: (context, state) {
+        final args = state.extra! as ActivityTypeScreenArgs;
+        return BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+          child: ObservationActivityScreen(
             selectedStudents: args.selectedStudents,
             isEdit: args.isEdit,
             activityData: args.activityData,
@@ -3570,24 +3796,31 @@ Widget _studentAttendanceProfileScreen(Object? extra) {
 }
 
 Widget _staffAttendanceProfileScreen(Object? extra) {
-  // Attendance V2: staff selection opens the new overtime detail module,
-  // which self-loads everything from the staff code. The legacy
-  // StaffAttendanceProfile screen is kept in the codebase for rollback.
   // Typed args (Mandate 1) accepted alongside the legacy map — this route has
   // several callers and only the dashboard's has been migrated.
-  // Both branches route to the V2 detail screen, which self-loads everything
-  // from the staff code — so the extra identity/status fields the legacy
-  // screen needed are deliberately not forwarded.
   if (extra is StaffAttendanceProfileArgs) {
-    return StaffDetailScreen(
+    return StaffAttendanceProfile(
       staffCode: extra.staffCode,
+      staffId: extra.staffId,
       staffName: extra.staffName,
+      designationName: extra.designationName,
+      roomName: extra.roomName,
     );
   }
   final args = extra as Map<String, dynamic>? ?? const {};
-  return StaffDetailScreen(
+  return StaffAttendanceProfile(
     staffCode: args['staffCode'] as String? ?? '',
-    staffName: args['staffName'] as String? ?? '',
+    staffId: args['staffId'] as int? ?? 0,
+    staffName: args['staffName'] as String? ?? '-',
+    staffPhotoUuid: args['staffPhotoUuid'] as String?,
+    designationName: args['designationName'] as String? ?? '',
+    roomName: args['roomName'] as String? ?? '-',
+    isSignedIn: args['isSignedIn'] as bool? ?? false,
+    isAbsent: args['isAbsent'] as bool? ?? false,
+    isExpectedToday: args['isExpectedToday'] as bool? ?? true,
+    isPresentToday: args['isPresentToday'] as bool? ?? false,
+    profileStatus: args['profileStatus'] as String? ?? 'A',
+    initialShowAbsentDays: args['initialShowAbsentDays'] as bool? ?? false,
   );
 }
 
@@ -3621,6 +3854,17 @@ const Map<String, List<String>> _dashboardModuleGuards = <String, List<String>>{
     AppAccessModules.studentAttendance,
   ],
   'staff-attendance-tabbed-view': <String>[AppAccessModules.staffAttendance],
+  // TEMP-EVENTS-TASKS-UNLOCK: both routes are unguarded while the backend's
+  // users/details payload lists no EVENT / EVENT_RSVP / HOLIDAY / CALENDAR /
+  // TASK module. A segment absent from this map is simply not module-guarded,
+  // so commenting the entries is enough — every other route keeps its guard.
+  // Restore both once the payload is fixed.
+  // EventRoutes.listSegment: <String>[
+  //   AppAccessModules.event,
+  //   AppAccessModules.eventRsvp,
+  //   AppAccessModules.holiday,
+  // ],
+  // TaskRoutes.listSegment: <String>[AppAccessModules.task],
 };
 
 /// Segments under `/dashboard` that a guardian persona must never open,

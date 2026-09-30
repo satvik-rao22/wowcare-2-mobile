@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../model/scheduling_models.dart';
 
@@ -7,9 +8,9 @@ import '../model/scheduling_models.dart';
 class SchedulingStaffShiftStyle {
   const SchedulingStaffShiftStyle._();
 
-  static const Color workTimeColor = Color(0xFFACF3AA);
-  static const Color breakTimeColor = Color(0xFFF38D8D);
-  static const Color outsideShiftColor = Color(0xFFE9ECEF);
+  static const Color workTimeColor = AppPalette.statusSuccessSoft;
+  static const Color breakTimeColor = AppPalette.statusErrorSoft;
+  static const Color outsideShiftColor = AppPalette.borderHairline;
 
   static Color slotColor(StaffShiftSlotStatus status) {
     switch (status) {

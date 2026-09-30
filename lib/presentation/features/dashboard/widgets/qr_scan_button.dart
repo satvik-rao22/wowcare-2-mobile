@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 
 /// Tappable icon that opens the full-screen QR scanner.
@@ -20,7 +20,7 @@ class QrScanButton extends StatelessWidget {
         // the bottom-up transition and × leading icon are unchanged.
         unawaited(context.push<void>(DashboardRoutes.qrScanner));
       },
-      icon: SvgPicture.asset(MediaRes.scannerGradientIcon),
+      icon: AppIcon(MediaRes.scannerGradientIcon),
     );
   }
 }

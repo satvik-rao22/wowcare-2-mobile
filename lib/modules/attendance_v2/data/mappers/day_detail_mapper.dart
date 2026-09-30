@@ -1,5 +1,3 @@
-import 'package:wowcare/domain/features/attendance/entities/staff_attendance_profile_response.dart';
-
 import '../../domain/entities/attendance_day.dart';
 import '../../domain/entities/attendance_session.dart';
 import '../../domain/entities/day_detail.dart';
@@ -9,12 +7,16 @@ import '../../domain/entities/day_detail.dart';
 class DayDetailMapper {
   const DayDetailMapper._();
 
-  static DayDetail fromResponse(
-    StaffAttendanceProfileResponse? body,
-    DateTime date,
-  ) {
-    final sessions = (body?.records ?? const <StaffAttendanceProfileRecord>[])
-        .map((r) => _mapSession(r, date))
+  static DayDetail fromResponse(Map<String, dynamic>? body, DateTime date) {
+    // The detail endpoint may return either the raw object or a {data:{...}}
+    // envelope depending on the caller; handle both.
+    final root = _map(body?['data']).isNotEmpty ? _map(body?['data']) : _map(body);
+    final records = _map(root['records']);
+    final content = (records['content'] as List?) ?? const [];
+
+    final sessions = content
+        .whereType<Map>()
+        .map((e) => _mapSession(e.cast<String, dynamic>(), date))
         .whereType<AttendanceSession>()
         .toList()
       ..sort((a, b) => a.signInAt.compareTo(b.signInAt));
@@ -24,15 +26,15 @@ class DayDetailMapper {
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  static AttendanceSession? _mapSession(
-    StaffAttendanceProfileRecord r,
-    DateTime date,
-  ) {
-    final signInAt = _combine(date, r.signedInTime as String?);
+  static Map<String, dynamic> _map(dynamic v) =>
+      v is Map ? v.cast<String, dynamic>() : <String, dynamic>{};
+
+  static AttendanceSession? _mapSession(Map<String, dynamic> m, DateTime date) {
+    final signInAt = _combine(date, m['signedInTime'] as String?);
     if (signInAt == null) return null;
 
-    final signOutAt = _combine(date, r.signedOutTime as String?);
-    final outMethod = r.signedOutMethod?.toUpperCase();
+    final signOutAt = _combine(date, m['signedOutTime'] as String?);
+    final outMethod = (m['signedOutMethod'] as String?)?.toUpperCase();
     final SignOutSource source;
     if (signOutAt == null) {
       source = SignOutSource.open;
@@ -42,16 +44,17 @@ class DayDetailMapper {
       source = SignOutSource.staff;
     }
 
-    final signedOutBy = r.signedOutBy.trim();
+    final signedOutBy = (m['signedOutBy'] as String?)?.trim();
     return AttendanceSession(
-      recordCode: r.code ?? '',
-      classroomName: r.classroomName?.trim() ?? '',
+      recordCode: (m['code'] as String?) ?? '',
+      classroomName: (m['classroomName'] as String?)?.trim() ?? '',
       signInAt: signInAt,
       signOutAt: signOutAt,
-      signedInBy: r.signedInBy.trim(),
-      signedOutBy: signedOutBy.isEmpty ? null : signedOutBy,
+      signedInBy: (m['signedInBy'] as String?)?.trim() ?? '',
+      signedOutBy: (signedOutBy == null || signedOutBy.isEmpty) ? null : signedOutBy,
       signOutSource: source,
-      workedMinutes: r.attendedHours * 60 + r.attendedMinutes,
+      workedMinutes:
+          ((m['attendedHours'] as int?) ?? 0) * 60 + ((m['attendedMinutes'] as int?) ?? 0),
     );
   }
 

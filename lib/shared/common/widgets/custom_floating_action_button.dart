@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class CustomFloatingActionButton extends StatelessWidget {
   const CustomFloatingActionButton({
@@ -21,28 +23,29 @@ class CustomFloatingActionButton extends StatelessWidget {
     return Container(
       height: 50,
       width: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.rectangle,
-        borderRadius: BorderRadius.circular(borderRadius ?? 10),
-        gradient: AppColors.buildPrimaryGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-      ),
+      decoration: AppSurfaces.fab(
+        enabled: onPressed != null,
+      ).copyWith(borderRadius: BorderRadius.circular(borderRadius ?? 10)),
       child: FloatingActionButton(
         heroTag: null,
         onPressed: onPressed,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparentColor,
         elevation: 0,
+        // No permission, no handler: the key stays in place, recessed and
+        // plainly dead, rather than disappearing off the screen.
         child: svgIcon == null
             ? Icon(
                 icon,
                 size: 28,
+                color: onPressed == null
+                    ? AppPalette.textMuted
+                    : AppPalette.onBrand,
               )
-            : SvgPicture.asset(
-                svgIcon!,
-                height: 28,
-              ),
+            : AppIcon(
+              svgIcon!,
+              height: 28,
+              color: onPressed == null ? AppPalette.textMuted : AppPalette.onBrand,
+            ),
       ),
     );
   }

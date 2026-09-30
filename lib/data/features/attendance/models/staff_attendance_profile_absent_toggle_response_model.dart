@@ -20,11 +20,6 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_pro
 ///    model as [absentPage].
 class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
   const StaffAttendanceProfileAbsentToggleRecordModel({
-    this.code,
-    this.absenceFromDate,
-    this.absenceToDate,
-    this.absenceReason,
-    this.absenceType,
     required this.absenceDate,
     required this.markedAbsentTime,
     required this.markedAbsentByName,
@@ -33,13 +28,13 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     required this.markAbsentMethod,
     required this.classroomName,
     required this.classroomCode,
+    this.code,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceReason,
+    this.absenceType,
   });
 
-  final String? code;
-  final String? absenceFromDate;
-  final String? absenceToDate;
-  final String? absenceReason;
-  final String? absenceType;
   final String absenceDate;
   final dynamic markedAbsentTime;
   final dynamic markedAbsentByName;
@@ -49,15 +44,18 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
   final String? classroomName;
   final String? classroomCode;
 
+  // Carried for the Attendance V2 overtime module, which edits and deletes
+  // absences and so needs the record's own code and how it was filed.
+  final String? code;
+  final String? absenceFromDate;
+  final String? absenceToDate;
+  final String? absenceReason;
+  final String? absenceType;
+
   factory StaffAttendanceProfileAbsentToggleRecordModel.fromJson(
     Map<String, dynamic> m,
   ) {
     return StaffAttendanceProfileAbsentToggleRecordModel(
-      code: (m['code'] ?? m['absenceCode']) as String?,
-      absenceFromDate: m['absenceFromDate'] as String?,
-      absenceToDate: m['absenceToDate'] as String?,
-      absenceReason: m['absenceReason'] as String?,
-      absenceType: m['absenceType'] as String?,
       absenceDate: m['absenceDate'] as String? ?? '',
       markedAbsentTime: m['markedAbsentTime'],
       markedAbsentByName: m['markedAbsentByName'],
@@ -66,16 +64,16 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
       markAbsentMethod: m['markAbsentMethod'] as String?,
       classroomName: m['classroomName'] as String?,
       classroomCode: m['classroomCode'] as String?,
+      code: (m['code'] ?? m['absenceCode'])?.toString(),
+      absenceFromDate: m['absenceFromDate']?.toString(),
+      absenceToDate: m['absenceToDate']?.toString(),
+      absenceReason: m['absenceReason']?.toString(),
+      absenceType: m['absenceType']?.toString(),
     );
   }
 
   @override
   List<Object?> get props => [
-    code,
-    absenceFromDate,
-    absenceToDate,
-    absenceReason,
-    absenceType,
     absenceDate,
     markedAbsentTime,
     markedAbsentByName,
@@ -84,15 +82,15 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
     markAbsentMethod,
     classroomName,
     classroomCode,
+    code,
+    absenceFromDate,
+    absenceToDate,
+    absenceReason,
+    absenceType,
   ];
 
   StaffAttendanceProfileAbsentToggleRecord toEntity() {
     return StaffAttendanceProfileAbsentToggleRecord(
-      code: code,
-      absenceFromDate: absenceFromDate,
-      absenceToDate: absenceToDate,
-      absenceReason: absenceReason,
-      absenceType: absenceType,
       absenceDate: absenceDate,
       markedAbsentTime: markedAbsentTime,
       markedAbsentByName: markedAbsentByName,
@@ -101,6 +99,11 @@ class StaffAttendanceProfileAbsentToggleRecordModel extends Equatable {
       markAbsentMethod: markAbsentMethod,
       classroomName: classroomName,
       classroomCode: classroomCode,
+      code: code,
+      absenceFromDate: absenceFromDate,
+      absenceToDate: absenceToDate,
+      absenceReason: absenceReason,
+      absenceType: absenceType,
     );
   }
 }

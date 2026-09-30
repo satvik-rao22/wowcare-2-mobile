@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/responsive/responsive_scope.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 export 'package:wowcare/presentation/features/reports/widgets/report_month_year_field.dart';
 
 class ReportFormLayout extends StatelessWidget {
@@ -35,7 +36,7 @@ class ReportFormLayout extends StatelessWidget {
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -43,16 +44,7 @@ class ReportFormLayout extends StatelessWidget {
         child: Stack(
           children: [
             Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
+              child: ColoredBox(color: AppColors.pageBackgroundColor),
             ),
             Column(
               children: [
@@ -88,18 +80,10 @@ class ReportFormLayout extends StatelessWidget {
                       ),
                     ),
                     padding: EdgeInsets.all(context.isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardColor,
+                    decoration: AppSurfaces.card(
                       borderRadius: BorderRadius.all(
                         Radius.circular(context.isTablet ? 40.0 : 24.0),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: ListView(
                       padding: EdgeInsets.zero,
@@ -122,15 +106,7 @@ class ReportFormLayout extends StatelessWidget {
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blackColor.withValues(alpha: 0.05),
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
+              decoration: AppSurfaces.card(
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(context.isTablet ? 40.0 : 24.0),
                   topRight: Radius.circular(context.isTablet ? 40.0 : 24.0),
@@ -213,33 +189,41 @@ class ReportFormatSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedFormat,
-      decoration: InputDecoration(
-        labelText: showLabel ? 'Export Format *' : null,
-        filled: true,
-        fillColor: AppColors.fieldBackgroundColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
+    // A dropdown is not typed into, so it keeps the well's inset.
+    return SkeuFieldWell(
+      radius: 10,
+      child: DropdownButtonFormField<String>(
+        initialValue: selectedFormat,
+        decoration: InputDecoration(
+          labelText: showLabel ? 'Export Format *' : null,
+          filled: true,
+          fillColor: AppColors.fieldBackgroundColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          labelStyle: AppTextStyles.reportsFieldLabel(
+            fontSize: context.responsive(compact: 14.0, medium: 16.0),
+          ),
+          hintText: !showLabel ? ReportsStrings.selectFormat : null,
+          hintStyle: AppTextStyles.reportsFieldLabel(
+            fontSize: context.responsive(compact: 14.0, medium: 16.0),
+          ).copyWith(color: AppColors.primaryColor.withValues(alpha: 0.5)),
         ),
-        labelStyle: AppTextStyles.reportsFieldLabel(
-          fontSize: context.responsive(compact: 14.0, medium: 16.0),
-        ),
-        hintText: !showLabel ? ReportsStrings.selectFormat : null,
-        hintStyle: AppTextStyles.reportsFieldLabel(
-          fontSize: context.responsive(compact: 14.0, medium: 16.0),
-        ).copyWith(color: AppColors.primaryColor.withValues(alpha: 0.5)),
+        items: const [
+          // Values are the API's format codes; only the labels are user-facing.
+          DropdownMenuItem(value: 'PDF', child: Text(ReportsStrings.formatPdf)),
+          DropdownMenuItem(
+            value: 'XLSX',
+            child: Text(ReportsStrings.formatExcel),
+          ),
+        ],
+        onChanged: (value) {
+          if (value != null) {
+            onFormatChanged(value);
+          }
+        },
       ),
-      items: const [
-        DropdownMenuItem(value: 'PDF', child: Text('PDF')),
-        DropdownMenuItem(value: 'XLSX', child: Text('XLSX')),
-      ],
-      onChanged: (value) {
-        if (value != null) {
-          onFormatChanged(value);
-        }
-      },
     );
   }
 }

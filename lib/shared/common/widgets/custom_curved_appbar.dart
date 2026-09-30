@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomCurvedAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -33,17 +35,21 @@ class CustomCurvedAppBar extends StatelessWidget
     return ClipPath(
       clipper: CurvedAppBarClipper(),
       child: Container(
-        color: const Color.fromRGBO(252, 241, 251, 0).withValues(alpha: 1),
+        color: AppPalette.surfacePage,
         child: AppBar(
           title: GestureDetector(
             onTap: _toggleScrollPosition,
             child: Text(
               title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppPalette.textPrimary,
+              ),
             ),
           ),
           backgroundColor:
-              Colors.transparent, // Keep transparent for curved effect
+              AppColors.transparentColor, // Keep transparent for curved effect
           elevation: 0,
           actions: actions,
         ),
@@ -73,7 +79,11 @@ class CurvedAppBarClipper extends CustomClipper<Path> {
     path.quadraticBezierTo(0, size.height, size.width * 0.2, size.height);
     path.lineTo(size.width * 0.8, size.height);
     path.quadraticBezierTo(
-        size.width, size.height, size.width, size.height * 0.8);
+      size.width,
+      size.height,
+      size.width,
+      size.height * 0.8,
+    );
     path.lineTo(size.width, 0);
     path.close();
 

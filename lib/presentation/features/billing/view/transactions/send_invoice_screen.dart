@@ -11,6 +11,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/core/utils/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Locally-derived invoice header shown on the Send Invoice form (not parsed
 /// from any API response — built from [SendInvoiceScreen.transaction]).
@@ -42,8 +44,9 @@ class SendInvoiceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<SendInvoiceCubit>(
-      create: (_) => serviceLocator<SendInvoiceCubit>()
-        ..loadRoomName(transaction.studentCode),
+      create: (_) =>
+          serviceLocator<SendInvoiceCubit>()
+            ..loadRoomName(transaction.studentCode),
       child: _SendInvoiceForm(transaction: transaction),
     );
   }
@@ -450,11 +453,9 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+        child: SkeuKeyBox(
+          variant: KeyVariant.primary,
+          radius: 12,
           child: TextButton(
             onPressed: isSending ? null : _sendInvoice,
             style: TextButton.styleFrom(

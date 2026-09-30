@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
@@ -32,11 +33,7 @@ class Av2HeroCard extends StatelessWidget {
     final agg = profile.aggregation;
     return Container(
       padding: const EdgeInsets.all(Av2Spacing.md),
-      decoration: BoxDecoration(
-        color: Av2Colors.surface,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
-        border: Border.all(color: Av2Colors.border),
-      ),
+      decoration: AppSurfaces.card(radius: Av2Spacing.radiusLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -92,14 +89,22 @@ class Av2HeroCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.calendar_today_outlined,
-                  size: 14, color: Av2Colors.textSecondary),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 14,
+                color: Av2Colors.textSecondary,
+              ),
               const SizedBox(width: 6),
-              Text(periodLabel,
-                  style: Av2Text.label.copyWith(color: Av2Colors.textPrimary)),
+              Text(
+                periodLabel,
+                style: Av2Text.label.copyWith(color: Av2Colors.textPrimary),
+              ),
               const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down,
-                  size: 15, color: Av2Colors.textSecondary),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                size: 15,
+                color: Av2Colors.textSecondary,
+              ),
             ],
           ),
         ),
@@ -135,7 +140,8 @@ class Av2HeroCard extends StatelessWidget {
           children: [
             Av2LegendItem(
               color: Av2Colors.barRegular,
-              text: 'Regular (${Av2DurationFormatter.hm(agg.totalRegularMinutes)})',
+              text:
+                  'Regular (${Av2DurationFormatter.hm(agg.totalRegularMinutes)})',
               textStyle: Av2Text.caption.copyWith(color: Av2Colors.textPrimary),
             ),
             Av2LegendItem(

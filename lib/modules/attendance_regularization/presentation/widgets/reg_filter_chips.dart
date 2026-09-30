@@ -47,8 +47,7 @@ class RegFilterChips extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            gradient: isSel ? Av2Colors.primaryGradient : null,
-            color: isSel ? null : Av2Colors.surface,
+            color: isSel ? Av2Colors.primaryFill : Av2Colors.surface,
             borderRadius: BorderRadius.circular(Av2Spacing.radiusPill),
             border: Border.all(
               color: isSel ? Colors.transparent : Av2Colors.borderStrong,
@@ -57,7 +56,7 @@ class RegFilterChips extends StatelessWidget {
           child: Text(
             f.label,
             style: Av2Text.chip.copyWith(
-              color: isSel ? Colors.white : Av2Colors.textPrimary,
+              color: isSel ? Av2Colors.onPrimary : Av2Colors.textPrimary,
             ),
           ),
         ),

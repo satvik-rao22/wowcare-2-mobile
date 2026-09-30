@@ -96,7 +96,8 @@ void main() {
       });
     });
 
-    test('admin bulk: isExpectedToday-first shape with staffCodes + map', () {
+    test('admin bulk: isExpectedToday-first shape with staffCodes + map, and '
+        'method pinned to APP regardless of signInMethod', () {
       const request = StaffSignInRequest(
         mode: StaffSignInMode.adminBulk,
         staffCode: 'STF-1',
@@ -121,7 +122,10 @@ void main() {
         'staffCodes': ['STF-1', 'STF-2'],
         'classroomCode': 'CLS_1',
         'classroomCodeByStaffCode': {'STF-1': 'CLS_1', 'STF-2': 'CLS_2'},
-        'method': 'PIN',
+        // Not 'PIN': an admin signing several staff in from the roster is
+        // doing it in the app, not at a kiosk or a geofence, so bulk pins
+        // the method to APP. See the payload builder for the history.
+        'method': 'APP',
         'latitude': 1.1,
         'longitude': 2.2,
         'withinGeofence': false,

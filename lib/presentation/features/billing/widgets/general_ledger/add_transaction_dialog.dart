@@ -80,7 +80,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final TextStyle labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: Fonts.manrope,
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.billingTextColor,
     );
@@ -122,7 +122,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const Text(
               BillingStrings.dateIsRequired,
               style: TextStyle(
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 fontSize: 12,
                 color: AppColors.errorColor,
               ),
@@ -218,7 +218,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             inputFormatters: inputFormatters,
             maxLines: maxLines,
             style: TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.billingTextColor,
@@ -240,7 +240,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           Text(
             error,
             style: const TextStyle(
-              fontFamily: Fonts.manrope,
+              fontFamily: AppFonts.body,
               fontSize: 12,
               color: AppColors.errorColor,
             ),

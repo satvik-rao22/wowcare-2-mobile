@@ -59,7 +59,7 @@
 //           constraints: BoxConstraints(minHeight: widget.isField ? 40 : 30),
 //           width: double.infinity,
 //           decoration: BoxDecoration(
-//             color: const Color(0xFFF8F7FA),
+//             color: AppPalette.surfaceSunken,
 //             borderRadius: BorderRadius.circular(10),
 //           ),
 //           child: PopupMenuButton<String>(
@@ -125,6 +125,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class CustomDropdown extends StatefulWidget {
   const CustomDropdown({
@@ -225,14 +227,14 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 color: (widget.labelStyle?.color ?? AppColors.primaryColor),
                 fontSize: widget.labelStyle?.fontSize ?? 13,
                 fontWeight: widget.labelStyle?.fontWeight ?? FontWeight.w400,
-                fontFamily: widget.labelStyle?.fontFamily ?? 'Manrope',
+                fontFamily: widget.labelStyle?.fontFamily ?? AppFonts.body,
               ),
               children: [
                 TextSpan(text: widget.label!),
                 if (widget.showAsterisk)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: MaterialHues.red),
                   ),
               ],
             ),
@@ -249,11 +251,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     (widget.isField ? 40 : 30),
               ),
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
-                borderRadius: BorderRadius.circular(10),
-              ),
+              decoration: AppSurfaces.well(radius: 10),
               // Ensure dropdown interactions never trigger the software keyboard.
               // On some screens, after selecting an item the focus returns to a text field,
               // which causes the keyboard to pop open unexpectedly (e.g., State/Country).
@@ -328,14 +326,14 @@ class _CustomDropdownState extends State<CustomDropdown> {
                               style:
                                   widget.selectedTextStyle ??
                                   TextStyle(
-                                    fontFamily: 'Manrope',
+                                    fontFamily: AppFonts.body,
                                     fontSize: 14,
                                     fontWeight: selectedItem != null
                                         ? FontWeight.w600
                                         : FontWeight.w500,
                                     color: selectedItem != null
-                                        ? const Color(0xff573353)
-                                        : Colors.grey[600],
+                                        ? AppColors.primaryColor
+                                        : MaterialHues.grey600,
                                     height: 19 / 14,
                                   ),
                               overflow: TextOverflow.ellipsis,
@@ -454,17 +452,19 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                 autofocus: false,
                 onChanged: _onQueryChanged,
                 style: const TextStyle(
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
-                  color: Color(0xff573353),
+                  color: AppColors.primaryColor,
                 ),
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppSurfaces.fieldFill,
                   isDense: true,
                   hintText: 'Search',
                   hintStyle: TextStyle(
-                    fontFamily: 'Manrope',
+                    fontFamily: AppFonts.body,
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: MaterialHues.grey600,
                   ),
                   prefixIcon: Icon(
                     Icons.search,
@@ -475,22 +475,9 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                     vertical: 10,
                     horizontal: 8,
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.primaryColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                      color: AppColors.primaryColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppColors.themeColor),
-                  ),
+                  border: AppSurfaces.fieldBorder(radius: 8),
+                  enabledBorder: AppSurfaces.fieldBorder(radius: 8),
+                  focusedBorder: AppSurfaces.fieldBorder(radius: 8),
                 ),
               ),
             ),
@@ -501,7 +488,7 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                     child: Text(
                       'No matches found',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: 14,
                         color: AppColors.primaryColor.withValues(alpha: 0.7),
                       ),

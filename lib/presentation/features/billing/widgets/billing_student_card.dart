@@ -9,6 +9,9 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class BillingStudentCard extends StatefulWidget {
   const BillingStudentCard({
@@ -63,14 +66,17 @@ class BillingStudentCard extends StatefulWidget {
 }
 
 class _BillingStudentCardState extends State<BillingStudentCard> {
-  late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
+  late final BoolToggleCubit _cubit = BoolToggleCubit(
+    initial: widget.isSelected,
+  );
   bool get _localSelected => _cubit.state;
 
   final ValueNotifier<bool> _isExpanded = ValueNotifier<bool>(false);
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
-  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+  bool get _checkboxValue =>
+      _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
   void didUpdateWidget(covariant BillingStudentCard oldWidget) {
@@ -160,9 +166,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
           final bool hasPaymentMethod = widget.paymentMethod.trim().isNotEmpty;
           final String paymentStatusText =
               widget.lastPaymentStatus.trim().isNotEmpty
-                  ? widget.lastPaymentStatus
-                  : BillingStrings.notPaid;
-          final bool hasInvoice = widget.lastInvoiceAmount > 0 ||
+              ? widget.lastPaymentStatus
+              : BillingStrings.notPaid;
+          final bool hasInvoice =
+              widget.lastInvoiceAmount > 0 ||
               widget.lastInvoiceSent.trim() != '-';
 
           return LayoutBuilder(
@@ -170,250 +177,262 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               return ValueListenableBuilder<bool>(
                 valueListenable: _isExpanded,
                 builder: (context, isExpanded, _) => IntrinsicHeight(
-                child: Container(
-                  width: constraints.maxWidth,
-                  height: isExpanded ? null : 64.0,
-                  decoration: BoxDecoration(
-                    color: AppColors.billingCardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.cardBorderColor,
-                      width: 1,
+                  child: Container(
+                    width: constraints.maxWidth,
+                    height: isExpanded ? null : 64.0,
+                    decoration: BoxDecoration(
+                      color: AppColors.billingCardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.cardBorderColor,
+                        width: 1,
+                      ),
                     ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Material(
-                    color: AppColors.transparentColor,
-                    child: InkWell(
-                      onTap: () => _isExpanded.value = !_isExpanded.value,
-                      onLongPress: widget.onLongPress,
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 60,
-                            padding: EdgeInsets.symmetric(
-                                horizontal: isTablet ? 24 : 16),
-                            alignment: Alignment.center,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (!isExpanded && widget.showSelection) ...[
-                                  Builder(
-                                    builder: (context) => CustomCheckbox(
-                                      value: _checkboxValue,
-                                      onChanged: (value) =>
-                                          _handleSelectionChanged(
-                                              context, value),
-                                      scale: 1.2,
-                                      borderColor: null,
-                                      label: null,
+                    clipBehavior: Clip.antiAlias,
+                    child: Material(
+                      color: AppColors.transparentColor,
+                      child: InkWell(
+                        onTap: () => _isExpanded.value = !_isExpanded.value,
+                        onLongPress: widget.onLongPress,
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 60,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 24 : 16,
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (!isExpanded && widget.showSelection) ...[
+                                    Builder(
+                                      builder: (context) => CustomCheckbox(
+                                        value: _checkboxValue,
+                                        onChanged: (value) =>
+                                            _handleSelectionChanged(
+                                              context,
+                                              value,
+                                            ),
+                                        scale: 1.2,
+                                        borderColor: null,
+                                        label: null,
+                                      ),
                                     ),
+                                    SizedBox(width: isTablet ? 16 : 9),
+                                  ],
+                                  DocumentImageWidget(
+                                    fileUuid: widget.fileUuid ?? '',
+                                    studentCode: widget.studentCode,
+                                    mediaAssetCode: widget.mediaAssetCode,
+                                    name: widget.name,
+                                    size: 50,
+                                    shape: BoxShape.circle,
+                                    fit: BoxFit.cover,
+                                    // studentCode is only ever passed to resolve
+                                    // a photo (single-child families) — no
+                                    // status dot here regardless, since dots are
+                                    // reserved for attendance (present/absent)
+                                    // as elsewhere in the app, and a family row
+                                    // has no single attendance status.
+                                    disableAttendanceStatusLookup: true,
                                   ),
                                   SizedBox(width: isTablet ? 16 : 9),
-                                ],
-                                DocumentImageWidget(
-                                  fileUuid: widget.fileUuid ?? '',
-                                  studentCode: widget.studentCode,
-                                  mediaAssetCode: widget.mediaAssetCode,
-                                  name: widget.name,
-                                  size: 50,
-                                  shape: BoxShape.circle,
-                                  fit: BoxFit.cover,
-                                  // studentCode is only ever passed to resolve
-                                  // a photo (single-child families) — no
-                                  // status dot here regardless, since dots are
-                                  // reserved for attendance (present/absent)
-                                  // as elsewhere in the app, and a family row
-                                  // has no single attendance status.
-                                  disableAttendanceStatusLookup: true,
-                                ),
-                                SizedBox(width: isTablet ? 16 : 9),
-                                Expanded(
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          widget.name,
-                                          style: TextStyle(
-                                            fontFamily: Fonts.manrope,
-                                            fontSize: isTablet ? 16 : 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.billingTextColor,
-                                            height: 19 / 14,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        // Priority for the right-hand subtitle:
-                                        // guardian name → payment method (when
-                                        // billing is set up) → "Not setup".
-                                        child: hasGuardian
-                                            ? Text(
-                                                widget.classroom,
-                                                style: TextStyle(
-                                                  fontFamily: Fonts.manrope,
-                                                  fontSize: isTablet ? 16 : 14,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: AppColors.billingTextColor,
-                                                  height: 19 / 14,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                                textAlign: TextAlign.right,
-                                              )
-                                            : hasPaymentMethod
-                                                ? Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment.end,
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.center,
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        BillingStrings.payment,
-                                                        style: TextStyle(
-                                                          fontFamily: Fonts.manrope,
-                                                          fontSize:
-                                                              isTablet ? 14 : 12,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: const Color(
-                                                              0xff573353),
-                                                          height: 16 / 12,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        textAlign:
-                                                            TextAlign.right,
-                                                      ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        widget.paymentMethod,
-                                                        style: TextStyle(
-                                                          fontFamily: Fonts.manrope,
-                                                          fontSize:
-                                                              isTablet ? 14 : 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          color: AppColors
-                                                              .billingTextColor,
-                                                          height: 16 / 12,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        textAlign:
-                                                            TextAlign.right,
-                                                      ),
-                                                    ],
-                                                  )
-                                                : Text(
-                                                    BillingStrings.notSetup,
-                                                    style: TextStyle(
-                                                      fontFamily: Fonts.manrope,
-                                                      fontSize:
-                                                          isTablet ? 16 : 14,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color: const Color(
-                                                          0xff573353),
-                                                      height: 19 / 14,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isExpanded) ...[
-                            const Divider(
-                              height: 1,
-                              thickness: 1,
-                              indent: 16,
-                              endIndent: 16,
-                              color: AppColors.billingDividerLight,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildDetailRow(
-                                    label: BillingStrings.paymentMethod,
-                                    value: widget.paymentMethod,
-                                    note: widget.paymentNote,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    label: BillingStrings.lastPaymentStatus,
-                                    value: paymentStatusText,
-                                    valueColor: statusColor,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    label: BillingStrings.lastInvoice,
-                                    value: hasInvoice
-                                        ? billingAmount(
-                                            widget.lastInvoiceAmount)
-                                        : BillingStrings.noInvoice,
-                                    note: hasInvoice
-                                        ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildDetailRow(
-                                    label: BillingStrings.openBalance,
-                                    value: billingAmount(widget.openBalance),
-                                  ),
-                                  if (widget.onBillingProfile != null) ...[
-                                    const SizedBox(height: 16),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      height: 40,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          gradient:
-                                              AppColors.buildPrimaryGradient(),
-                                        ),
-                                        child: TextButton(
-                                          onPressed: widget.onBillingProfile,
-                                          style: TextButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                          ),
-                                          child: const Text(
-                                            BillingStrings.view,
+                                  Expanded(
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            widget.name,
                                             style: TextStyle(
-                                              fontFamily: Fonts.manrope,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.billingCardOnColorText,
-                                              height: 16 / 16,
+                                              fontFamily: AppFonts.body,
+                                              fontSize: isTablet ? 16 : 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.billingTextColor,
+                                              height: 19 / 14,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          // Priority for the right-hand subtitle:
+                                          // guardian name → payment method (when
+                                          // billing is set up) → "Not setup".
+                                          child: hasGuardian
+                                              ? Text(
+                                                  widget.classroom,
+                                                  style: TextStyle(
+                                                    fontFamily: AppFonts.body,
+                                                    fontSize: isTablet
+                                                        ? 16
+                                                        : 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: AppColors
+                                                        .billingTextColor,
+                                                    height: 19 / 14,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.right,
+                                                )
+                                              : hasPaymentMethod
+                                              ? Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      BillingStrings.payment,
+                                                      style: TextStyle(
+                                                        fontFamily:
+                                                            AppFonts.body,
+                                                        fontSize: isTablet
+                                                            ? 14
+                                                            : 12,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: AppPalette
+                                                            .textPrimary,
+                                                        height: 16 / 12,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      textAlign:
+                                                          TextAlign.right,
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      widget.paymentMethod,
+                                                      style: TextStyle(
+                                                        fontFamily:
+                                                            AppFonts.body,
+                                                        fontSize: isTablet
+                                                            ? 14
+                                                            : 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: AppColors
+                                                            .billingTextColor,
+                                                        height: 16 / 12,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      textAlign:
+                                                          TextAlign.right,
+                                                    ),
+                                                  ],
+                                                )
+                                              : Text(
+                                                  BillingStrings.notSetup,
+                                                  style: TextStyle(
+                                                    fontFamily: AppFonts.body,
+                                                    fontSize: isTablet
+                                                        ? 16
+                                                        : 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        AppPalette.textPrimary,
+                                                    height: 19 / 14,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isExpanded) ...[
+                              const Divider(
+                                height: 1,
+                                thickness: 1,
+                                indent: 16,
+                                endIndent: 16,
+                                color: AppColors.billingDividerLight,
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  16,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildDetailRow(
+                                      label: BillingStrings.paymentMethod,
+                                      value: widget.paymentMethod,
+                                      note: widget.paymentNote,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildDetailRow(
+                                      label: BillingStrings.lastPaymentStatus,
+                                      value: paymentStatusText,
+                                      valueColor: statusColor,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildDetailRow(
+                                      label: BillingStrings.lastInvoice,
+                                      value: hasInvoice
+                                          ? billingAmount(widget.lastInvoiceAmount)
+                                          : BillingStrings.noInvoice,
+                                      note: hasInvoice
+                                          ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
+                                          : null,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _buildDetailRow(
+                                      label: BillingStrings.openBalance,
+                                      value: billingAmount(widget.openBalance),
+                                    ),
+                                    if (widget.onBillingProfile != null) ...[
+                                      const SizedBox(height: 16),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 40,
+                                        child: SkeuKeyBox(
+                                          variant: KeyVariant.primary,
+                                          radius: 8,
+                                          child: TextButton(
+                                            onPressed: widget.onBillingProfile,
+                                            style: TextButton.styleFrom(
+                                              padding: EdgeInsets.zero,
+                                            ),
+                                            child: const Text(
+                                              BillingStrings.view,
+                                              style: TextStyle(
+                                                fontFamily: AppFonts.body,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors
+                                                    .billingCardOnColorText,
+                                                height: 16 / 16,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 ),
               );
             },
@@ -436,7 +455,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
         Text(
           label,
           style: const TextStyle(
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.billingTextColor,
@@ -451,7 +470,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               Text(
                 value,
                 style: TextStyle(
-                  fontFamily: Fonts.manrope,
+                  fontFamily: AppFonts.body,
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: valueColor ?? AppColors.billingTextColor,
@@ -464,7 +483,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                 Text(
                   note,
                   style: const TextStyle(
-                    fontFamily: Fonts.manrope,
+                    fontFamily: AppFonts.body,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: AppColors.billingTextColor,

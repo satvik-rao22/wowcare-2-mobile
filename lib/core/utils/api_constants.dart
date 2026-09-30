@@ -19,6 +19,12 @@ abstract final class ApiMicroservices {
   static const String newsLatter = 'newslatter';
   static const String notification = 'notification';
   static const String billing = 'billing';
+
+  /// Events, Tasks & School Calendar (holidays). DEV server exposes this and
+  /// [eventsTodo] as the same `events-todo` service — kept as two keys because
+  /// UAT/PROD's gateway may eventually split them.
+  static const String scheduler = 'scheduler';
+  static const String eventsTodo = 'events-todo';
 }
 
 class ApiConstants {
@@ -202,6 +208,31 @@ class ApiConstants {
       ? ApiConstantsUat.billingBaseUrl
       : _dev.gatewayUrl();
 
+  /// Scheduler MS — Events, Tasks & School Calendar (holidays).
+  /// DEV now goes through the shared gateway, same as UAT/PROD.
+  static String get schedulerBaseUrl => isDev
+      ? ApiConstantsDev.schedulerBaseUrl
+      : isProd
+      ? ApiConstantsProd.schedulerBaseUrl
+      : isUat
+      ? ApiConstantsUat.schedulerBaseUrl
+      : (_dev.schedulerPort != null
+            ? _dev.url(_dev.schedulerPort!, 'scheduler')
+            : _dev.gatewayUrl('scheduler'));
+
+  /// Events/Todo MS — Events, Tasks & School Calendar (holidays).
+  /// DEV now goes through the shared gateway, same as UAT/PROD. Kept
+  /// independent from [schedulerBaseUrl].
+  static String get eventsTodoBaseUrl => isDev
+      ? ApiConstantsDev.eventsTodoBaseUrl
+      : isProd
+      ? ApiConstantsProd.schedulerBaseUrl
+      : isUat
+      ? ApiConstantsUat.schedulerBaseUrl
+      : (_dev.schedulerPort != null
+            ? _dev.url(_dev.schedulerPort!, 'scheduler')
+            : _dev.gatewayUrl('scheduler'));
+
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 
   static String qrCodeValidateEndpoint(String schoolCode) =>
@@ -220,6 +251,7 @@ class ApiConstants {
       return ApiConstantsProd.baseUrlForMicroservice(microserviceKey);
     }
     if (isUat) return ApiConstantsUat.baseUrlForMicroservice(microserviceKey);
+    if (isDev) return ApiConstantsDev.baseUrlForMicroservice(microserviceKey);
     switch (microserviceKey) {
       case ApiMicroservices.user:
         return baseUrl;
@@ -246,6 +278,10 @@ class ApiConstants {
         return notificationBaseUrl;
       case ApiMicroservices.billing:
         return billingBaseUrl;
+      case ApiMicroservices.scheduler:
+        return schedulerBaseUrl;
+      case ApiMicroservices.eventsTodo:
+        return eventsTodoBaseUrl;
       default:
         return baseUrl;
     }
@@ -272,6 +308,7 @@ class _DevTunnel {
     required this.activityPort,
     required this.communicationPort,
     this.gatewayPort,
+    this.schedulerPort,
   });
 
   /// Tunnel prefix before `-PORT.inc1.devtunnels.ms`.
@@ -288,6 +325,10 @@ class _DevTunnel {
   /// Port for the shared gateway services (notification/billing/newsletter/
   /// document). When null, those services fall back to ngrok.
   final int? gatewayPort;
+
+  /// Scheduler MS (events/tasks/holidays) devtunnel port. When null, falls
+  /// back to the gateway (ngrok or [gatewayPort]).
+  final int? schedulerPort;
 
   /// `https://{id}-{port}.inc1.devtunnels.ms[/{path}]`
   String url(int port, [String? path]) {

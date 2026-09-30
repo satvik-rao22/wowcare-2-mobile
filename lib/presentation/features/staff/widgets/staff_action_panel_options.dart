@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// The attendance sub-action fan-out (Sign-In/Sign-Out/Transfer/Absent) shown
 /// when [StaffActionPanel]'s Attendance button is expanded.
@@ -45,18 +48,7 @@ class AttendanceOptionsPanel extends StatelessWidget {
       width: 70,
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.attendanceCardShadowColor,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -116,18 +108,7 @@ class ActivitiesOptionsPanel extends StatelessWidget {
       width: 70,
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-        color: AppColors.cardColor,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.attendanceCardShadowColor,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: 10),
       child: SingleChildScrollView(
         controller: ScrollController(),
         child: Column(
@@ -186,7 +167,12 @@ class AttendanceActionItem extends StatelessWidget {
                   color: AppColors.attendanceInfoHighlightColor,
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(svgPath, height: 24, width: 24),
+                child: AppIcon(
+                  svgPath,
+                  height: 24,
+                  width: 24,
+                  tone: IconTone.action,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
@@ -195,7 +181,7 @@ class AttendanceActionItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  fontFamily: 'Manrope',
+                  fontFamily: AppFonts.body,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -236,23 +222,9 @@ class ActionButton extends StatelessWidget {
           opacity: opacity,
           child: Column(
             children: [
-              SvgPicture.asset(
-                svgPath,
-                height: 24,
-                width: 24,
-                colorFilter: const ColorFilter.mode(
-                  AppColors.cardColor,
-                  BlendMode.srcIn,
-                ),
-              ),
+              AppIcon(svgPath, height: 24, width: 24, tone: IconTone.onBrand),
               const SizedBox(height: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.cardColor,
-                  fontSize: 12,
-                ),
-              ),
+              Text(label, style: AppTextStyles.actionPanelLabel),
             ],
           ),
         ),
@@ -288,7 +260,7 @@ class ActivityPngItem extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               color: AppColors.primaryColor,
             ),
           ),

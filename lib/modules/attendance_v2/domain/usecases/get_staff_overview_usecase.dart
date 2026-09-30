@@ -12,12 +12,20 @@ class GetStaffOverviewUseCase {
     String staffName = '',
     required DateTime from,
     required DateTime to,
+    int page = 0,
+    int size = 10,
+    bool overtimeOnly = false,
+    bool absentOnly = false,
   }) {
     return _repository.getOverview(
       staffCode: staffCode,
       staffName: staffName,
       from: from,
       to: to,
+      page: page,
+      size: size,
+      overtimeOnly: overtimeOnly,
+      absentOnly: absentOnly,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
@@ -21,6 +21,13 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cub
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/core/utils/storage_keys.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 
 class StaffProfileScreen extends StatelessWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -140,6 +147,11 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
   /// used to scope document edit/upload to a staff member's own profile.
   String? _ownStaffCode;
 
+  /// School-level settings gating whether staff may add/edit documents on
+  /// their own profile independent of the generic STAFF module permission —
+  /// see [_canEditStaffDocuments].
+  StudentSettings? _staffSettings;
+
   /// Formats enum-style strings from the API into human readable labels.
   /// Examples:
   /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
@@ -180,6 +192,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     _profileUserCode = widget.userCode.trim();
     _loadUploadContext();
     _loadOwnStaffCodeIfStaff();
+    _loadStaffSettings();
     // Deep-link case: opened by code straight to a non-Profile tab. The summary
     // (name/designation/classroom) is normally pushed up by the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on Dates or
@@ -195,20 +208,40 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
 
   /// Loads the staff profile at the screen level so the header (name,
   /// designation, classroom, photo) populates even when the user deep-links
-  /// straight to a tab other than Profile. Only runs when we were opened by code
-  /// without a pre-supplied name (the notification-redirect path).
+  /// straight to a tab other than Profile. Always runs: the caller (staff
+  /// list card, deep-link) never has the profile photo to pre-supply, so
+  /// this fetch is the ONLY source for [_profilePhotoUrl] — gating it on
+  /// "name not already supplied" (the old behaviour) meant the header photo
+  /// never loaded on the normal list -> profile navigation, since the list
+  /// always passes a name.
   Future<void> _ensureHeaderProfileLoaded() async {
     final code = widget.staffCode.trim();
-    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    if (code.isEmpty) return;
     try {
-      final profile = await _staffProfileCubit.fetchProfile(staffCode: code);
+      // forEditStaff:true hits `/staff/{code}/profile` (this staff member's
+      // actual record). The cubit's own default (false) hits
+      // `/staff/my-profile/{code}`, which the backend resolves to the
+      // LOGGED-IN user's own profile regardless of the code in the path —
+      // that mismatch is what showed the viewer's own name/photo instead
+      // of the staff member being viewed.
+      final profile = await _staffProfileCubit.fetchProfile(
+        staffCode: code,
+        forEditStaff: true,
+      );
       if (!mounted) return;
       setState(() {
-        final name = profile.fullName.trim();
-        if (name.isNotEmpty) _displayName = name;
-        final designation = profile.designation.trim();
-        if (designation.isNotEmpty) {
-          _displayDesignation = _formatEnumLabel(designation);
+        // Name/designation: only backfill when the caller didn't already
+        // supply them, so a pre-supplied value never flickers/changes once
+        // this slower fetch resolves.
+        if (_displayName.trim().isEmpty) {
+          final name = profile.fullName.trim();
+          if (name.isNotEmpty) _displayName = name;
+        }
+        if (widget.designation.trim().isEmpty) {
+          final designation = profile.designation.trim();
+          if (designation.isNotEmpty) {
+            _displayDesignation = _formatEnumLabel(designation);
+          }
         }
         final photo = profile.profilePhotoUrl.trim();
         if (photo.isNotEmpty) _profilePhotoUrl = photo;
@@ -260,6 +293,26 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     }
   }
 
+  /// Loads the school's `canStaffEditTheirOwnHealthRecords` toggle (the
+  /// "Allow Staff Upload Document" school setting — see [_canEditStaffDocuments]
+  /// and [StudentSettings]'s doc for why the name doesn't match the effect).
+  /// Best-effort: on failure, document edit for a staff member without the
+  /// generic STAFF module permission simply stays disabled, same as before
+  /// this toggle existed.
+  Future<void> _loadStaffSettings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      if (school.isEmpty) return;
+      final settings = await _staffProfileCubit.fetchSettings(school);
+      if (!mounted) return;
+      setState(() => _staffSettings = settings);
+    } catch (_) {
+      // Keep the module-permission-only gate on failure.
+    }
+  }
+
   /// Write access on the STAFF module as returned by `/users/details`.
   ///
   /// Every edit affordance on this screen hangs off it. Owning the profile is
@@ -282,6 +335,22 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       return own.isNotEmpty && own == widget.staffCode.trim();
     }
     return true;
+  }
+
+  /// Whether the current persona may add/edit/delete THIS staff member's
+  /// Documents specifically — a staff member viewing their own profile gets
+  /// an additional path beyond [_canEditStaffRecords]'s generic STAFF module
+  /// permission: the school's "Allow Staff Upload Document" setting
+  /// ([StudentSettings.canStaffEditTheirOwnHealthRecords], despite its name —
+  /// see that field's doc) grants document edit on its own, independent of
+  /// module write access. Photo and Important Dates are unaffected and stay
+  /// on [_canEditStaffRecords] alone.
+  bool _canEditStaffDocuments(RoleCubit role) {
+    if (_canEditStaffRecords(role)) return true;
+    if (!role.isStaff) return false;
+    final own = (_ownStaffCode ?? '').trim();
+    final isOwnProfile = own.isNotEmpty && own == widget.staffCode.trim();
+    return isOwnProfile && (_staffSettings?.canStaffEditTheirOwnHealthRecords ?? false);
   }
 
   bool _canMessageStaff() {
@@ -414,8 +483,12 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
           );
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      // forEditStaff:true — an admin/director can change another staff
+      // member's photo here (see `_canEditStaffRecords`), so this must read
+      // that staff member's own record, not fall back to my-profile.
       final refreshed = await _staffProfileCubit.fetchProfile(
         staffCode: staffCode,
+        forEditStaff: true,
       );
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -449,6 +522,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     final role = context.watch<RoleCubit>();
     // Photo / Important Dates / Documents are this staff member's own records.
     final canEditStaffRecords = _canEditStaffRecords(role);
+    // Documents specifically also honor the school's "Allow Staff Upload
+    // Document" setting — see [_canEditStaffDocuments].
+    final canEditStaffDocuments = _canEditStaffDocuments(role);
     // Profile Information and Schedule are manager-owned: the tab additionally
     // keeps them hidden on the logged-in user's own profile.
     final canEditManagedProfile = _hasStaffWriteAccess(role);
@@ -469,13 +545,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
                 color: AppColors.attendanceIconColor,
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
                 color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 16,
               ),
               labelColor: AppColors.attendanceIconColor,
@@ -517,8 +593,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                 ),
                 StaffDocumentsTab(
                   staffCode: widget.staffCode,
-                  canEdit: canEditStaffRecords,
+                  canEdit: canEditStaffDocuments,
                   highlightCode: widget.highlightCode,
+                  onRefreshSettings: _loadStaffSettings,
                 ),
               ],
             ),
@@ -613,7 +690,26 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                         children: [
                           DocumentImageWidget(
                             fileUuid: widget.staffCode,
-                            imageUrl: _profilePhotoUrl,
+                            // `_profilePhotoUrl` isn't always a resolved
+                            // http(s) URL — some responses hand back a raw
+                            // media-asset code instead. Feeding that
+                            // straight into `imageUrl` both fails to decode
+                            // (Image.network on a non-URL renders as
+                            // corrupted noise) and blocks the widget's own
+                            // staffCode-based photo resolution below, which
+                            // only runs when imageUrl/mediaAssetCode are
+                            // both empty.
+                            imageUrl:
+                                (_profilePhotoUrl ?? '').startsWith('http')
+                                ? _profilePhotoUrl
+                                : null,
+                            mediaAssetCode:
+                                (_profilePhotoUrl ?? '').isNotEmpty &&
+                                    !(_profilePhotoUrl ?? '').startsWith(
+                                      'http',
+                                    )
+                                ? _profilePhotoUrl
+                                : null,
                             // Use the resolved display name so the no-photo branch
                             // renders the coloured initials avatar. On a deep-link
                             // widget.name starts empty, which fell back to the grey
@@ -686,16 +782,12 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            SvgPicture.asset(
+                                            AppIcon(
                                               MediaRes.uploadIcon,
                                               height: 10,
                                               width: 10,
-                                              colorFilter: ColorFilter.mode(
-                                                AppColors.cardColor.withValues(
-                                                  alpha: 0.92,
-                                                ),
-                                                BlendMode.srcIn,
-                                              ),
+                                              color: AppColors.cardColor
+                                                  .withValues(alpha: 0.92),
                                             ),
                                             const SizedBox(width: 3),
                                             Text(
@@ -724,25 +816,11 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                               child: Container(
                                 width: 32,
                                 height: 32,
-                                decoration: BoxDecoration(
-                                  color: AppColors.cardColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.blackColor.withValues(
-                                        alpha: 0.08,
-                                      ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Container(
+                                decoration: AppSurfaces.card(radius: 16),
+                                child: SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 14,
                                   margin: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.buildPrimaryGradient(),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
                                   child: const Icon(
                                     Icons.camera_alt,
                                     color: AppColors.cardColor,
@@ -817,9 +895,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
+      decoration: AppSurfaces.key(
+        KeyVariant.primary,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-        gradient: AppColors.buildPrimaryGradient(),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -882,6 +960,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                       name: widget.name,
                       isStaff: true,
                       userCode: _profileUserCode,
+                      avatar: _profilePhotoUrl ?? '',
                       designation: widget.designation,
                     ),
                   ],
@@ -902,14 +981,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
           child: isSvg
-              ? SvgPicture.asset(
-                  asset,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.cardColor,
-                    BlendMode.srcIn,
-                  ),
-                )
+              ? AppIcon(asset, height: 28, color: AppColors.cardColor)
               : Image.asset(asset, height: 28, color: AppColors.cardColor),
         ),
       ),

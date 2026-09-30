@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -36,6 +37,7 @@ import 'package:wowcare/presentation/features/attendance/view_model/student_atte
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_responsive_detail_row.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 // Dummy data model for UI-only implementation
 class _AbsentStudentModel {
@@ -872,36 +874,10 @@ class _StudentAttendanceAbsentViewState
                   ),
                 )
               else if (errorMessage != null)
-                CustomSectionCard(
-                  padding: EdgeInsets.all(responsive.horizontalSpacing),
-                  backgroundColor: AppColors.errorColor.withValues(alpha: 0.1),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: AppColors.errorColor,
-                        size: 48,
-                      ),
-                      SizedBox(height: responsive.verticalSpacing / 2),
-                      AppText.body(
-                        errorMessage ?? 'Unable to load absent students.',
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.errorColor,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: responsive.verticalSpacing / 2),
-                      ElevatedButton(
-                        onPressed: () => _loadInitialData(reset: true),
-                        child: AppText.body(
-                          'Retry',
-                          style: AppTextStyles.body.copyWith(
-                            color: AppColors.cardColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                AppErrorState(
+                  title: 'Unable to load absent students.',
+                  message: errorMessage,
+                  onRetry: () => _loadInitialData(reset: true),
                 )
               else if (filtered.isEmpty)
                 Center(
@@ -1027,18 +1003,7 @@ class _AbsentStudentCardItem extends StatelessWidget {
           horizontal: responsive.isTablet ? 16 : 12,
           vertical: responsive.isTablet ? 14 : 10,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
-          border: Border.all(color: AppColors.cardBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.attendanceCardShadowLightColor,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+        decoration: AppSurfaces.card(radius: responsive.isTablet ? 18 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

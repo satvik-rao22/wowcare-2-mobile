@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/billing/model/billing_route_args.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 
 enum BillingPopupType { student, invoice, payment, refund }
 
@@ -66,17 +69,12 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       children: [
         Material(
-          borderRadius: BorderRadius.circular(10),
-          elevation: 3,
+          borderRadius: BorderRadius.circular(AppRadius.r10),
+          elevation: 0,
+          color: AppColors.transparentColor,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: AppSurfaces.actionPanel(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -344,16 +342,13 @@ class _PopupActionButton extends StatelessWidget {
                 width: 24,
                 child: Center(
                   child: iconPath != null
-                      ? SvgPicture.asset(
-                          iconPath!,
-                          height: iconSize,
-                          width: iconSize,
-                          fit: BoxFit.contain,
-                          colorFilter: const ColorFilter.mode(
-                            AppColors.billingCardOnColorText,
-                            BlendMode.srcIn,
-                          ),
-                        )
+                      ? AppIcon(
+                        iconPath!,
+                        height: iconSize,
+                        width: iconSize,
+                        fit: BoxFit.contain,
+                        color: AppColors.billingCardOnColorText,
+                      )
                       : Icon(
                           iconData,
                           color: AppColors.billingCardOnColorText,
@@ -367,10 +362,7 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.billingCardOnColorText,
-                  fontSize: 12,
-                ),
+                style: AppTextStyles.actionPanelLabel,
               ),
             ],
           ),
@@ -544,7 +536,7 @@ class _MoreOptionItem extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                fontFamily: Fonts.manrope,
+                fontFamily: AppFonts.body,
                 color: AppColors.primaryColor,
               ),
             ),
@@ -565,29 +557,18 @@ class _GradientIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return AppColors.buildPrimaryGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(bounds);
-      },
-      child: iconPath != null
-          ? SvgPicture.asset(
-              iconPath!,
-              height: size,
-              width: size,
-              colorFilter: const ColorFilter.mode(
-                AppColors.billingCardOnColorText,
-                BlendMode.srcIn,
-              ),
-            )
+    return iconPath != null
+          ? AppIcon(
+            iconPath!,
+            height: size,
+            width: size,
+            color: AppColors.themeColor,
+          )
           : Icon(
               iconData,
               size: size,
-              color: AppColors.billingCardOnColorText,
-            ),
-    );
+              color: AppColors.themeColor,
+            );
   }
 }
 

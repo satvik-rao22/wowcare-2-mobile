@@ -3,17 +3,19 @@
 /// Scenarios covered (see docs/messaging/06-ui-standards.md §6.1):
 ///
 /// Parent dashboard (viewerIsGuardian no longer used — alignment always by identity):
-///   • Current guardian (isMe=true)  → right-aligned, primary gradient, light text
-///   • Staff sender (isMe=false, orgSide=true) → left-aligned, white bubble
+///   • Current guardian (isMe=true)  → right-aligned, pink face, light text
+///   • Staff sender (isMe=false, orgSide=true) → left-aligned, card face
 ///
 /// Staff/Admin dashboard:
-///   • Guardian sender (isMe=false, orgSide=false) → left-aligned, pink gradient
-///   • Current staff user (isMe=true, orgSide=true) → right-aligned, primary gradient
-///   • Other staff (isMe=false, orgSide=true)       → left-aligned, white bubble
+///   • Guardian sender (isMe=false, orgSide=false) → left-aligned, navy face
+///   • Current staff user (isMe=true, orgSide=true) → right-aligned, pink face
+///   • Other staff (isMe=false, orgSide=true)       → left-aligned, card face
 ///
-/// Staff Direct (orgSide=null — legacy two-tone):
-///   • isMe=true  → right-aligned, primary gradient
-///   • isMe=false → left-aligned, flat light-blue color, no gradient
+/// Staff Direct (orgSide=null — no role colouring):
+///   • isMe=true  → right-aligned, pink face
+///   • isMe=false → left-aligned, card face
+///
+/// Every fill is flat: rule 3 of the design language forbids gradients.
 library;
 
 import 'package:flutter/material.dart';
@@ -29,22 +31,20 @@ const _currentUserCode = 'USR-ME';
 const _otherUserCode = 'USR-OTHER';
 
 Message _msg({required bool isMe}) => Message(
-      id: 'msg-1',
-      code: 'msg-1',
-      text: 'Hello world',
-      isSentByMe: false,
-      senderUserCode: isMe ? _currentUserCode : _otherUserCode,
-      time: DateTime(2026, 1, 1, 10),
-    );
+  id: 'msg-1',
+  code: 'msg-1',
+  text: 'Hello world',
+  isSentByMe: false,
+  senderUserCode: isMe ? _currentUserCode : _otherUserCode,
+  time: DateTime(2026, 1, 1, 10),
+);
 
 ReactionsController _reactions() =>
     ReactionsController(currentUserId: _currentUserCode);
 
 Widget _wrap(Widget child) => MaterialApp(
-      home: Scaffold(
-        body: SizedBox(width: 400, height: 600, child: child),
-      ),
-    );
+  home: Scaffold(body: SizedBox(width: 400, height: 600, child: child)),
+);
 
 Widget _bubble({
   required bool isMe,
@@ -94,16 +94,18 @@ BoxDecoration _bubbleDecoration(WidgetTester tester) {
 
 void main() {
   group('MessageBubble — alignment is always identity-based', () {
-    testWidgets('current user message is right-aligned regardless of role',
-        (tester) async {
+    testWidgets('current user message is right-aligned regardless of role', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _bubble(isMe: true, senderIsOrgSide: true), // staff viewer, own message
       );
       expect(_bubbleAlignment(tester), Alignment.centerRight);
     });
 
-    testWidgets('other-user message is left-aligned regardless of role',
-        (tester) async {
+    testWidgets('other-user message is left-aligned regardless of role', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _bubble(isMe: false, senderIsOrgSide: false), // guardian sender, not me
       );
@@ -111,69 +113,43 @@ void main() {
     });
   });
 
-  group('MessageBubble — Room/Admin Chat bubble fill', () {
-    testWidgets(
-        'current user (isMe) always gets primary gradient regardless of orgSide',
-        (tester) async {
-      // isMe=true, orgSide=true (current staff member's own message)
-      await tester.pumpWidget(_bubble(isMe: true, senderIsOrgSide: true));
+  group('MessageBubble — bubble fill', () {
+    // Three flat faces, no gradients anywhere: pink is my own voice, navy is
+    // a guardian's when staff read it, and the card face is everyone else.
+    void expectFlat(WidgetTester tester, Color face) {
       final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNotNull, reason: 'should have gradient');
-      expect(deco.color, isNull, reason: 'gradient, not flat color');
-      final grad = deco.gradient as LinearGradient;
-      expect(
-        grad.colors.first,
-        equals(AppColors.primaryGradientColors.first),
-        reason: 'should use primary gradient colors',
-      );
+      expect(deco.gradient, isNull, reason: 'the design language is flat');
+      expect(deco.color, equals(face));
+    }
+
+    testWidgets('my own message is the pink action face, whatever my role', (
+      tester,
+    ) async {
+      for (final bool? orgSide in <bool?>[true, false, null]) {
+        await tester.pumpWidget(_bubble(isMe: true, senderIsOrgSide: orgSide));
+        expectFlat(tester, AppColors.messagingBubbleMine);
+      }
     });
 
-    testWidgets(
-        'current guardian (isMe, orgSide=false) gets primary gradient',
-        (tester) async {
-      await tester.pumpWidget(_bubble(isMe: true, senderIsOrgSide: false));
-      final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNotNull);
-      final grad = deco.gradient as LinearGradient;
-      expect(grad.colors.first, equals(AppColors.primaryGradientColors.first));
-    });
-
-    testWidgets('other org-side sender (staff, not me) gets white bubble',
-        (tester) async {
-      await tester.pumpWidget(_bubble(isMe: false, senderIsOrgSide: true));
-      final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNull, reason: 'white bubble has no gradient');
-      expect(deco.color, equals(Colors.white),
-          reason: 'staff non-me bubble must be white');
-    });
-
-    testWidgets('guardian sender (not me) gets pink gradient', (tester) async {
+    testWidgets("a guardian's message read by staff is the navy impact face", (
+      tester,
+    ) async {
       await tester.pumpWidget(_bubble(isMe: false, senderIsOrgSide: false));
-      final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNotNull, reason: 'should have pink gradient');
-      expect(deco.color, isNull);
-      final grad = deco.gradient as LinearGradient;
-      expect(
-        grad.colors.first,
-        equals(AppColors.pinkGradientColors.first),
-        reason: 'should use pink gradient',
-      );
-    });
-  });
-
-  group('MessageBubble — Staff Direct (orgSide=null, legacy two-tone)', () {
-    testWidgets('own message gets gradient', (tester) async {
-      await tester.pumpWidget(_bubble(isMe: true, senderIsOrgSide: null));
-      final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNotNull);
+      expectFlat(tester, AppColors.messagingBubbleGuardian);
     });
 
-    testWidgets("other's message gets flat light-blue, no gradient",
-        (tester) async {
+    testWidgets('another staff member gets the plain card face', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_bubble(isMe: false, senderIsOrgSide: true));
+      expectFlat(tester, AppColors.messagingBubbleReceived);
+    });
+
+    testWidgets('Staff Direct (orgSide null) receiver gets the card face', (
+      tester,
+    ) async {
       await tester.pumpWidget(_bubble(isMe: false, senderIsOrgSide: null));
-      final deco = _bubbleDecoration(tester);
-      expect(deco.gradient, isNull, reason: 'no gradient for legacy receiver');
-      expect(deco.color, equals(const Color.fromRGBO(220, 230, 255, 1)));
+      expectFlat(tester, AppColors.messagingBubbleReceived);
     });
   });
 }

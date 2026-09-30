@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/domain/features/classroom/services/classroom_name_resolver.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
@@ -173,7 +174,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.07),
         border: const Border(
-          bottom: BorderSide(width: 1, color: Colors.grey),
+          bottom: BorderSide(width: 1, color: MaterialHues.grey500),
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -216,8 +217,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(width: 1, color: Colors.grey.shade300),
-          right: BorderSide(width: 1, color: Colors.grey.shade300),
+          bottom: BorderSide(width: 1, color: MaterialHues.grey300),
+          right: BorderSide(width: 1, color: MaterialHues.grey300),
         ),
       ),
       child: Center(
@@ -305,7 +306,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: MaterialHues.black87,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -343,7 +344,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.black87,
+              color: MaterialHues.black87,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -357,7 +358,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     return Container(
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: const Color.fromRGBO(254, 241, 199, 1),
+      color: AppPalette.statusWarningSoft,
       child: Text.rich(
         TextSpan(
           children: [
@@ -366,7 +367,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color: MaterialHues.black87,
                 height: 1.2,
               ),
             ),
@@ -376,7 +377,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: MaterialHues.black87,
                 height: 1.2,
               ),
             ),
@@ -418,7 +419,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     final shiftWidget = Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color.fromRGBO(234, 244, 255, 1),
+        color: AppPalette.statusInfoSoft,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.themeColor.withValues(alpha: 0.15),
@@ -468,9 +469,9 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       height: cellHeightRow * slotCount,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.whiteColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: MaterialHues.grey300),
         ),
         clipBehavior: Clip.antiAlias,
         child: GestureDetector(

@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -41,6 +42,10 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// Bumped by any screen/flow that mutates the classroom roster (e.g. the
 /// "Assign Students to Classroom" sheet). The Students-tab card listens and
@@ -430,7 +435,7 @@ class _ClassroomStudentsTabCardViewState
         child: Text(
           _statusChipLabel(apiStatus),
           style: const TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: AppColors.secondaryColor,
             fontSize: 12,
           ),
@@ -1210,47 +1215,15 @@ class _ClassroomStudentsTabCardViewState
                     Row(
                       children: [
                         Expanded(
-                          child: SearchBar(
+                          child: CustomSearchBar(
                             controller: _searchController,
-                            constraints: const BoxConstraints(minHeight: 36),
-                            backgroundColor:
-                                const WidgetStatePropertyAll<Color>(
-                                  AppColors.cardColor,
-                                ),
-                            surfaceTintColor:
-                                const WidgetStatePropertyAll<Color>(
-                                  AppColors.cardColor,
-                                ),
                             hintText: 'Search',
-                            hintStyle: WidgetStatePropertyAll(
-                              TextStyle(
-                                fontFamily: 'Manrope',
-                                color: AppColors.classroomSearchHintTextColor,
-                                fontSize: 13,
-                              ),
-                            ),
-                            leading: const Icon(
-                              Icons.search,
-                              color: AppColors.primaryColor,
-                              size: 18,
-                            ),
-                            elevation: const WidgetStatePropertyAll(0),
-                            side: const WidgetStatePropertyAll(
-                              BorderSide(
-                                width: 1,
-                                color: AppColors.classroomBorderColor,
-                              ),
-                            ),
-                            shape: WidgetStatePropertyAll(
-                              RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
+                            density: SearchFieldDensity.compact,
+                            radius: 10,
                           ),
                         ),
                         const SizedBox(width: 8),
                         FilterIconButton(
-                          iconAsset: MediaRes.filterIcon,
                           isActive: _isStudentFilterActive,
                           onPressed: _openClassroomStudentFilter,
                         ),
@@ -1280,7 +1253,7 @@ class _ClassroomStudentsTabCardViewState
                             const Text(
                               'Select All',
                               style: TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1294,13 +1267,11 @@ class _ClassroomStudentsTabCardViewState
                                   _buildStatusChip(status),
                                   const SizedBox(width: 8),
                                 ],
-                                Container(
+                                SkeuKeyBox(
+                                  variant: KeyVariant.primary,
+                                  radius: 6,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(6),
-                                    gradient: AppColors.buildPrimaryGradient(),
                                   ),
                                   child: TextButton(
                                     style: TextButton.styleFrom(
@@ -1320,7 +1291,7 @@ class _ClassroomStudentsTabCardViewState
                                     child: const Text(
                                       'Clear All',
                                       style: TextStyle(
-                                        fontFamily: 'Manrope',
+                                        fontFamily: AppFonts.body,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -1349,7 +1320,7 @@ class _ClassroomStudentsTabCardViewState
                                                 child: Row(
                                                   children: [
                                                     isSvg
-                                                        ? SvgPicture.asset(
+                                                        ? AppArtwork(
                                                             entry.key,
                                                             width: 24,
                                                             height: 24,
@@ -1364,7 +1335,8 @@ class _ClassroomStudentsTabCardViewState
                                                       child: Text(
                                                         entry.value,
                                                         style: const TextStyle(
-                                                          fontFamily: 'Manrope',
+                                                          fontFamily:
+                                                              AppFonts.body,
                                                           fontSize: 14,
                                                         ),
                                                       ),
@@ -1408,7 +1380,7 @@ class _ClassroomStudentsTabCardViewState
                                 });
                               },
                               labelStyle: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1422,7 +1394,7 @@ class _ClassroomStudentsTabCardViewState
                                 _applyNappingToggle(value);
                               },
                               labelStyle: const TextStyle(
-                                fontFamily: 'Manrope',
+                                fontFamily: AppFonts.body,
                                 color: AppColors.primaryColor,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -1459,7 +1431,7 @@ class _ClassroomStudentsTabCardViewState
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
                                             style: TextStyle(
-                                              fontFamily: 'Manrope',
+                                              fontFamily: AppFonts.body,
                                               fontSize: 16,
                                               color: AppColors.primaryColor
                                                   .withValues(alpha: 0.6),
@@ -1523,6 +1495,7 @@ class _ClassroomStudentsTabCardViewState
                                         ),
                                     name: student.fullName,
                                     imageUrl: student.profilePictureUrl ?? '',
+                                    dob: student.dob,
                                     icons: _getStudentIcons(student),
                                     forceUpcomingProfileStatusDot:
                                         upcomingOnlyFilter,
@@ -1736,33 +1709,28 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         ? widget.hintText
         : '${_localSelectedItems.length} selected';
 
-    return Container(
+    // A dropdown is not typed into, so it keeps the well's inset.
+    return SkeuFieldWell(
+      radius: 8,
+      child: Container(
       height: 32,
       width: widget.width,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.cardColor,
+          fillColor: AppSurfaces.fieldFill,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.classroomBorderColor),
+            borderSide: BorderSide.none,
           ),
         ),
         icon: const Icon(Icons.keyboard_arrow_down),
         iconSize: 24,
         elevation: 2,
         style: const TextStyle(
-          fontFamily: 'Manrope',
+          fontFamily: AppFonts.body,
           color: AppColors.classroomTextColor,
           fontSize: 16,
         ),
@@ -1810,7 +1778,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                           child: Text(
                             item,
                             style: const TextStyle(
-                              fontFamily: 'Manrope',
+                              fontFamily: AppFonts.body,
                               fontSize: 14,
                               color: AppColors.classroomTextColor,
                             ),
@@ -1830,7 +1798,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
         hint: Text(
           displayText,
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             color: _localSelectedItems.isEmpty
                 ? AppColors.classroomPlaceholderTextColor
                 : AppColors.classroomTextColor,
@@ -1838,6 +1806,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           ),
           overflow: TextOverflow.ellipsis,
         ),
+      ),
       ),
     );
   }

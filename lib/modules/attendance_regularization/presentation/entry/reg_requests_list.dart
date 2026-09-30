@@ -234,7 +234,7 @@ class _ApproveSelectedBar extends StatelessWidget {
         child: Ink(
           height: 46,
           decoration: BoxDecoration(
-            gradient: Av2Colors.primaryGradient,
+            color: Av2Colors.primaryFill,
             borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
           ),
           child: Center(
@@ -244,12 +244,12 @@ class _ApproveSelectedBar extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: Av2Colors.onPrimary,
                     ),
                   )
                 : Text(
                     'Approve selected ($count)',
-                    style: Av2Text.bodyMedium.copyWith(color: Colors.white),
+                    style: Av2Text.bodyMedium.copyWith(color: Av2Colors.onPrimary),
                   ),
           ),
         ),

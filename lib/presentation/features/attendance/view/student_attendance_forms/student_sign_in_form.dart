@@ -6,7 +6,6 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/utils/attendance_events.dart';
@@ -398,21 +397,38 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     // too), never UI state.
     _submitInFlight = true;
     try {
+      final absenceTargets = currentStudents
+          .map(
+            (s) => (
+              studentCode: s.studentCode,
+              classroomCode: s.classroomCode,
+              fullName: s.fullName,
+            ),
+          )
+          .toList();
       if (!isParent) {
         final staffCode = (request.staffCode ?? '').trim();
         if (staffCode.isNotEmpty) {
           await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
             attendanceDateYyyyMmDd: attendanceDate,
             staffCode: staffCode,
-            students: currentStudents
-                .map(
-                  (s) => (
-                    studentCode: s.studentCode,
-                    classroomCode: s.classroomCode,
-                    fullName: s.fullName,
-                  ),
-                )
-                .toList(),
+            students: absenceTargets,
+          );
+        }
+      } else {
+        // A parent who marked their child absent can still sign them in
+        // (e.g. from My Child's Day). Best-effort: if the absence can't be
+        // cleared, the sign-in POST still runs and the backend decides.
+        try {
+          await _submitCubit.clearTodaysAbsenceRecordsBeforeSignIn(
+            attendanceDateYyyyMmDd: attendanceDate,
+            staffCode: (request.staffCode ?? '').trim(),
+            students: absenceTargets,
+          );
+        } catch (e) {
+          AppLogger.d(
+            '[StudentSignIn] parent absence clear failed ($e); '
+            'proceeding to sign-in',
           );
         }
       }
@@ -622,8 +638,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                             const SizedBox(height: AppSpacing.xs),
                             IgnorePointer(
                               ignoring: !isStaffPersona,
-                              child: GradientTimePickerField(
-                                time: gate.selectedTime,
+                              child: CustomDateTimeField(
+                                isTime: true,
+                                initialTime: gate.selectedTime,
                                 onTimeSelected: (t) {
                                   _gateCubit.setSelectedTime(t);
                                 },

@@ -257,6 +257,19 @@ class ApiPaths {
         return nextSeg == 'billing'
             ? ApiMicroservices.billing
             : ApiMicroservices.user;
+      // Scheduler/Events-Todo MS — Events, Tasks & School Calendar.
+      // event_remote_datasource.dart et al. call [urlWithBase] with
+      // ApiConstants.eventsTodoBaseUrl as the (LOCAL/gateway-env-only)
+      // `baseUrl` argument, but [urlWithBase] ignores it outside gateway envs
+      // and defers to [url], which resolves the host from this map — so
+      // these paths need an entry here too, or they silently fall through to
+      // the `user` MS default.
+      case 'events':
+      case 'holidays':
+      case 'occurrences':
+      case 'calendar':
+      case 'tasks':
+        return ApiMicroservices.eventsTodo;
       default:
         return ApiMicroservices.user;
     }
@@ -349,6 +362,14 @@ class ApiPaths {
   static const String userDetails = '/api/v1/users/details';
   static String userEmailChange(String userCode) =>
       '$userRoot/$userCode/email-change';
+
+  /// Re-sends a guardian's app invitation email. Declared WITHOUT the leading
+  /// `user` segment on purpose: `invitations` falls through to the `user`
+  /// microservice by default, and [ApiPathsUat] prepends the segment itself —
+  /// so this resolves to `{gateway}/api/v1/user/invitations/resend-invite-guardian`.
+  /// Spelling it as `/api/v1/user/...` here would double it to `/user/user/...`.
+  static const String resendInviteGuardian =
+      '/api/v1/invitations/resend-invite-guardian';
 
   // —— Organization / school host ——
   static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
@@ -582,6 +603,16 @@ class ApiPaths {
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
   static String guardianProfilePhotoFinalizePath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/finalize';
+
+  /// `POST /api/v1/guardian/{code}/change-pin/{pin}` — sets a guardian's clock
+  /// PIN to an operator-supplied value (student MS).
+  static String guardianChangePinPath(String guardianCode, String pin) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}'
+      '/change-pin/${Uri.encodeComponent(pin.trim())}';
+
+  /// `POST /api/v1/guardian/{code}/generate-pin` — server picks a new clock PIN.
+  static String guardianGeneratePinPath(String guardianCode) =>
+      '$guardian/${Uri.encodeComponent(guardianCode.trim())}/generate-pin';
 
   /// POST `/api/v1/guardian/delete-profile-photo/{guardianCode}` (empty `{}` body).
   ///
@@ -1058,6 +1089,118 @@ class ApiPaths {
   /// GET /api/v1/newsletters/{code}
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
+
+  // —— Scheduler MS — Events (Events, Tasks & School Calendar) ——
+  /// `GET`/`POST` `/api/v1/events`. List supports
+  /// `?type=&fromDate=&toDate=&name=&recurringFlag=&createdBy=&page=&size=`.
+  static const String events = '/api/v1/events';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/events/{code}`.
+  static String eventByCode(String code) =>
+      '$events/${Uri.encodeComponent(code.trim())}';
+
+  /// `GET /api/v1/events/{code}/occurrences` — occurrence rows of a
+  /// series; carries `myRsvp` when `X-Party-Code` is sent.
+  static String eventOccurrences(String code) =>
+      '${eventByCode(code)}/occurrences';
+
+  /// `POST /api/v1/events/{code}/occurrences/{occ}/rsvp` — upsert RSVP.
+  static String occurrenceRsvp(String code, String occurrenceCode) =>
+      '${eventOccurrences(code)}/${Uri.encodeComponent(occurrenceCode.trim())}/rsvp';
+
+  /// `GET /api/v1/events/{code}/occurrences/{occ}/rsvps` — roster grouped
+  /// by party type (staffs/students/guardians) with counts.
+  static String occurrenceRsvps(String code, String occurrenceCode) =>
+      '${occurrenceRsvp(code, occurrenceCode)}s';
+
+  /// `GET /api/v1/occurrences?fromDate=&toDate=&type=&classroomCode=&`
+  /// `participantCode=&name=&status=&page=&size=&sort=` — the rich
+  /// occurrence view (display fields + myRsvp + rsvpSummary +
+  /// participants) that backs every read screen.
+  static const String occurrencesView = '/api/v1/occurrences';
+
+  /// `GET /api/v1/calendar/feed?fromDate=&toDate=&scope=&include=&...` —
+  /// unified calendar feed of events + tasks + holidays.
+  static const String calendarFeed = '/api/v1/calendar/feed';
+
+  // —— Scheduler MS — Holidays (Events, Tasks & School Calendar) ——
+  /// `GET`/`POST` `/api/v1/holidays`. List supports `?year=&type=&status=`.
+  static const String holidays = '/api/v1/holidays';
+
+  /// `PATCH`/`DELETE` `/api/v1/holidays/{code}`.
+  static String holidayByCode(String code) =>
+      '$holidays/${Uri.encodeComponent(code.trim())}';
+
+  /// `PATCH` `/api/v1/holidays/{code}/status` — approve/reject a federal holiday.
+  static String holidayStatus(String code) => '${holidayByCode(code)}/status';
+
+  // —— Events/Todo MS — Tasks ——
+  /// `GET`/`POST` `/api/v1/tasks`. List supports the series filters
+  /// `?seriesStatus=&recurring=&q=&page=&size=`.
+  static const String tasks = '/api/v1/tasks';
+
+  /// `PATCH`/`DELETE` `/api/v1/tasks/{code}` (series-level).
+  static String taskByCode(String code) =>
+      '$tasks/${Uri.encodeComponent(code.trim())}';
+
+  /// `DELETE` `/api/v1/tasks/{code}/assignees/{staffCode}` — remove one
+  /// assignee from a task's roster without touching the series (§4a).
+  /// Also `PATCH` — update one assignee's priority in isolation (§4b).
+  static String taskAssignee(String code, String staffCode) =>
+      '${taskByCode(code)}/assignees/${Uri.encodeComponent(staffCode.trim())}';
+
+  /// `GET` `/api/v1/tasks/{code}/occurrences` — every occurrence of one series
+  /// (§11a). The only endpoint that surfaces occurrence codes.
+  static String taskOccurrences(String code) =>
+      '${taskByCode(code)}/occurrences';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/tasks/{code}/occurrences/{occurrenceCode}`
+  /// — one occurrence's own detail / THIS_ONLY reschedule / cancel (§11b–d).
+  static String taskOccurrence(String code, String occurrenceCode) =>
+      '${taskOccurrences(code)}/${Uri.encodeComponent(occurrenceCode.trim())}';
+
+  /// `GET` `/api/v1/tasks/assignments` — flat, mixed-status page of task
+  /// assignments (same filters as the board, ungrouped).
+  static const String taskAssignments = '$tasks/assignments';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/tasks/assignments/{code}` — one specific
+  /// assignment: fetch (§5a), edit its own occurrenceDate/startTime/dueDate/
+  /// dueTime/priority (§5b), or remove one occurrence for one assignee (§5c).
+  static String taskAssignmentByCode(String code) =>
+      '$taskAssignments/${Uri.encodeComponent(code.trim())}';
+
+  /// `GET` `/api/v1/tasks/board` — Kanban board grouped into status columns.
+  static const String taskBoard = '$tasks/board';
+
+  /// `PATCH` `/api/v1/tasks/assignments/{code}/status` — quick status change
+  /// on a single assignment.
+  static String taskAssignmentStatus(String code) =>
+      '${taskAssignmentByCode(code)}/status';
+
+  /// `POST` `/api/v1/tasks/upload-session` — open a shared upload session for
+  /// task attachments (document-microservice, domain `TASK`).
+  static const String taskUploadSession = '$tasks/upload-session';
+
+  /// `GET` `/api/v1/tasks/{code}/attachments` — the series' current
+  /// attachments. Mirrors the events-todo endpoint of the same shape
+  /// (`GET /api/v1/events/{eventCode}/attachments`, `data.items[]`); the Tasks
+  /// samples only document the write side (`assetCodes` on §1/§3c), so callers
+  /// must tolerate a 404/405 from a backend that hasn't shipped it yet.
+  static String taskAttachments(String code) => '${taskByCode(code)}/attachments';
+
+  /// `DELETE` `/api/v1/tasks/{code}/attachments/{attachmentCode}` — detach one
+  /// attachment by its **attachment** code (not the document asset code).
+  static String taskAttachment(String code, String attachmentCode) =>
+      '${taskAttachments(code)}/${Uri.encodeComponent(attachmentCode.trim())}';
+
+  /// `POST` `/api/v1/events/upload-session` — open a shared upload session for
+  /// event attachments (document-microservice, domain `EVENT`).
+  ///
+  /// Events and tasks are the same microservice (Events/Todo MS), so this
+  /// mirrors [taskUploadSession] exactly: the owning service mints the session
+  /// with its own domain/owner scoping, then the generic document-service
+  /// presign → PUT → complete flow takes over.
+  static const String eventUploadSession = '$events/upload-session';
 
   // —— Notification service (FCM + delivery logs) ——
   static const String notificationFcmRegister =

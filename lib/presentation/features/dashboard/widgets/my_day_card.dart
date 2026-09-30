@@ -9,7 +9,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -165,6 +165,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
     isActiveProfile: true,
     todayStatusRaw: _myDay.todayStatusRaw,
+    // A staff member who marked themselves absent can still sign in from My
+    // Day; the sign-in form clears today's absence record first.
+    allowAbsentSignInOverride: true,
   );
 
   /// Geofencing is the first-class gate for every self-attendance action:
@@ -562,7 +565,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+      MaterialPageRoute(
+        builder: (_) => StaffMarkAbsentForm(staff: staff, popOnSuccess: true),
+      ),
     );
     if (mounted) {
       await _loadStaffIdentity();
@@ -1168,26 +1173,14 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    AppColors.buildPrimaryGradient()
-                                        .createShader(
-                                          Rect.fromLTWH(
-                                            0,
-                                            0,
-                                            bounds.width,
-                                            bounds.height,
-                                          ),
-                                        ),
-                                // Depends on exactly one field of MyDayState,
-                                // so it is selected rather than rebuilt with
-                                // the card (§2.2's BlocSelector rule).
-                                child: BlocSelector<MyDayCubit, MyDayState, String>(
-                                  selector: (state) => state.clockInPin,
-                                  builder: (context, clockInPin) => Text(
-                                    '${AppStrings.myDaySignInPinPrefix}${clockInPin.trim().isNotEmpty ? clockInPin : AppStrings.myDaySignInPinPlaceholder}',
-                                    style: AppTextStyles.myDayClockInPin,
-                                  ),
+                              // Depends on exactly one field of MyDayState,
+                              // so it is selected rather than rebuilt with
+                              // the card (§2.2's BlocSelector rule).
+                              BlocSelector<MyDayCubit, MyDayState, String>(
+                                selector: (state) => state.clockInPin,
+                                builder: (context, clockInPin) => Text(
+                                  '${AppStrings.myDaySignInPinPrefix}${clockInPin.trim().isNotEmpty ? clockInPin : AppStrings.myDaySignInPinPlaceholder}',
+                                  style: AppTextStyles.myDayClockInPin,
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -1772,29 +1765,22 @@ class _ReminderToggleButtonView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SvgPicture.asset(MediaRes.notificationsGradientIcon),
+                      AppIcon(MediaRes.notificationsGradientIcon),
                       const SizedBox(width: 8),
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.buildPrimaryGradient().createShader(
-                              Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                            ),
-                        child:
-                            BlocSelector<
-                              WorkBreakReminderCubit,
-                              WorkBreakReminderState,
-                              bool
-                            >(
-                              selector: (state) => state.enabled,
-                              builder: (context, enabled) => Text(
-                                enabled
-                                    ? AppStrings.reminderTurnOff
-                                    : AppStrings.reminderSend,
-                                style: AppTextStyles.mediumWeight.copyWith(
-                                  color: AppColors.cardColor,
-                                ),
-                              ),
-                            ),
+                      BlocSelector<
+                        WorkBreakReminderCubit,
+                        WorkBreakReminderState,
+                        bool
+                      >(
+                        selector: (state) => state.enabled,
+                        builder: (context, enabled) => Text(
+                          enabled
+                              ? AppStrings.reminderTurnOff
+                              : AppStrings.reminderSend,
+                          style: AppTextStyles.mediumWeight.copyWith(
+                            color: AppColors.themeColor,
+                          ),
+                        ),
                       ),
                     ],
                   ),

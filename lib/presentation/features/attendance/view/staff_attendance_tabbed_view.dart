@@ -3,7 +3,7 @@ import 'package:wowcare/core/router/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/communication/view_model/unread_badge_cubit.dart';
@@ -21,14 +21,6 @@ import 'package:wowcare/presentation/features/attendance/view/screens/staff_atte
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_absent_view.dart';
 import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_selection_mark_absent_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
@@ -37,6 +29,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
@@ -452,19 +446,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             left: ResponsiveHelper(context).screenWidth * 0.75,
             right: floatingButtonRight,
           ),
-          child: Container(
+          child: SkeuKeyBox(
+            variant: KeyVariant.primary,
+            radius: AppRadius.md,
             padding: const EdgeInsets.all(AppSpacing.s2),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.allMd,
-              gradient: AppColors.buildPrimaryGradient(),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.attendanceCardShadowColor,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
             child: Container(
               width: 50,
               constraints: const BoxConstraints(maxHeight: 400),
@@ -623,7 +608,12 @@ class _StaffMenuItem extends StatelessWidget {
               color: AppColors.attendanceInfoHighlightColor,
               shape: BoxShape.circle,
             ),
-            child: SvgPicture.asset(svgPath, height: 24, width: 24),
+            child: AppIcon(
+              svgPath,
+              height: 24,
+              width: 24,
+              tone: IconTone.action,
+            ),
           ),
           const SizedBox(height: AppSpacing.s5),
           Text(label, maxLines: 1, style: AppTextStyles.body),

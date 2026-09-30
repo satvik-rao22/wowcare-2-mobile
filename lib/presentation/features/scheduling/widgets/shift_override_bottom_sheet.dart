@@ -6,6 +6,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 import 'scheduling_bottom_sheet_scaffold.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Confirmation sheet shown after `GET /api/v1/staff/staff-shifts` returns
 /// conflicting shifts for the same staff/date range that the user is about to
@@ -63,7 +64,7 @@ class ShiftOverrideBottomSheet extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF8B7B89),
+              color: AppPalette.textSecondary,
             ),
           ),
           const SizedBox(height: 6),

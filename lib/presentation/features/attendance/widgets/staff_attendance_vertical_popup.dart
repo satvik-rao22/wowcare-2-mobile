@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
 
@@ -123,21 +124,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         maxHeight: ResponsiveHelper(context).screenHeight * 0.9,
       ),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor,
-        borderRadius: AppRadius.allMd,
-        border: Border.all(
-          color: AppColors.classroomStudentTabColor,
-          width: AppDimensions.borderThick,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.attendanceCardShadowColor,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppSurfaces.card(radius: AppRadius.md),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -223,10 +210,11 @@ class _StaffPopupMenuItem extends StatelessWidget {
                 color: AppColors.attendanceInfoHighlightColor,
                 shape: BoxShape.circle,
               ),
-              child: SvgPicture.asset(
+              child: AppIcon(
                 svgPath,
                 height: AppDimensions.iconMd,
                 width: AppDimensions.iconMd,
+                tone: IconTone.action,
               ),
             ),
           ),

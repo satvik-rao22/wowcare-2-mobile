@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/active_school_switcher.dart';
 import 'package:wowcare/core/utils/notification_events.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -23,6 +24,8 @@ import '../../../../domain/features/notifications/entities/push_notification.dar
 import '../view_model/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 /// The notification center opened from the app-bar bell.
 ///
@@ -58,7 +61,7 @@ class NotificationCenterScreen extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.pageBackgroundColor,
       appBar: const CustomAppBar(hasBackButton: true),
       // Same app-wide bottom nav as the shell. The bar handles being rendered
       // outside the shell: tapping a tab routes into that branch via
@@ -70,16 +73,7 @@ class NotificationCenterScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
+            child: ColoredBox(color: AppColors.pageBackgroundColor),
           ),
           SafeArea(
             top: false,
@@ -120,10 +114,10 @@ class _Header extends StatelessWidget {
           child: Text(
             'Notifications',
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.titleFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: AppColors.primaryColor,
             ),
           ),
         ),
@@ -179,7 +173,7 @@ class _Header extends StatelessWidget {
                           .read<NotificationCenterCubit>()
                           .setModuleFilter(null),
                       icon: const Icon(Icons.close_rounded, size: 20),
-                      color: const Color(0xff573353),
+                      color: AppColors.primaryColor,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -215,22 +209,20 @@ class _ActionsRow extends StatelessWidget {
               opacity: canMarkAll ? 1 : 0.5,
               child: GestureDetector(
                 onTap: canMarkAll ? cubit.markAllAsRead : null,
-                child: Container(
+                child: SkeuKeyBox(
+                  variant: KeyVariant.primary,
+                  radius: 10,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
                   child: const Text(
                     'Mark all as read',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
+                      fontFamily: AppFonts.body,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.whiteColor,
                     ),
                   ),
                 ),
@@ -243,7 +235,7 @@ class _ActionsRow extends StatelessWidget {
               onToggle: cubit.setOnlyUnread,
               labelOnLeftSide: false,
               labelStyle: TextStyle(
-                fontFamily: 'Manrope',
+                fontFamily: AppFonts.body,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor.withValues(alpha: 0.6),
@@ -366,8 +358,8 @@ class _NotificationsListState extends State<_NotificationsList> {
         }
 
         if (state.errorMessage != null && state.items.isEmpty) {
-          return _ErrorView(
-            message: state.errorMessage!,
+          return AppErrorState(
+            title: 'Couldn’t load notifications',
             onRetry: () => context.read<NotificationCenterCubit>().refresh(),
           );
         }
@@ -425,7 +417,7 @@ class _EmptyView extends StatelessWidget {
         Text(
           'You’re all caught up',
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor.withValues(alpha: 0.7),
@@ -435,51 +427,13 @@ class _EmptyView extends StatelessWidget {
         Text(
           'No notifications to show',
           style: TextStyle(
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor.withValues(alpha: 0.45),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 48,
-              color: AppColors.redProgressBar,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Couldn’t load notifications',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
     );
   }
 }

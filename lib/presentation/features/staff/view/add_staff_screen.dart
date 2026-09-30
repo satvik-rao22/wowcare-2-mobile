@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,7 +6,6 @@ import 'package:wowcare/presentation/features/staff/view/add_staff_screen_format
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'dart:io';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddStaffScreen extends StatelessWidget {
   const AddStaffScreen({
@@ -728,21 +729,12 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
             },
             child: Scaffold(
               key: _scaffoldKey,
-              backgroundColor: AppColors.cardColor,
+              backgroundColor: AppColors.pageBackgroundColor,
               appBar: const CustomAppBar(hasBackButton: true),
               body: Stack(
                 children: [
                   Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildScaffoldGradient(),
-                      ),
-                      child: Image.asset(
-                        MediaRes.wowcareMobileBg,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
-                      ),
-                    ),
+                    child: ColoredBox(color: AppColors.pageBackgroundColor),
                   ),
                   Column(
                     children: [
@@ -756,7 +748,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                           child: Text(
                             widget.isEdit ? "Edit Staff" : "Add Staff",
                             style: TextStyle(
-                              fontFamily: "Manrope",
+                              fontFamily: AppFonts.body,
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primaryColor,
@@ -774,21 +766,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                           padding: EdgeInsets.all(
                             responsive.isTablet ? 32.0 : 16.0,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardColor,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(
-                                responsive.isTablet ? 40.0 : 24.0,
-                              ),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.billingShadowColorLight,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
+                          decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                           child: Column(
                             children: [
                               if (_warningMessage != null)
@@ -848,7 +826,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                       selectedItem: _selectedRole,
                                       labelStyle: TextStyle(
                                         fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
+                                        fontFamily: AppFonts.body,
                                         fontWeight: FontWeight.w400,
                                         color: AppColors.primaryColor,
                                       ),
@@ -930,7 +908,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                       selectedItem: _selectedDesignation,
                                       labelStyle: TextStyle(
                                         fontSize: responsive.labelFontSize,
-                                        fontFamily: "Manrope",
+                                        fontFamily: AppFonts.body,
                                         fontWeight: FontWeight.w400,
                                         color: AppColors.primaryColor,
                                       ),
@@ -1019,7 +997,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                                   labelStyle: TextStyle(
                                                     fontSize: responsive
                                                         .labelFontSize,
-                                                    fontFamily: "Manrope",
+                                                    fontFamily: AppFonts.body,
                                                     fontWeight: FontWeight.w400,
                                                     color: const Color(
                                                       0xff573353,
@@ -1094,7 +1072,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                                 style: TextStyle(
                                                   fontSize:
                                                       responsive.labelFontSize,
-                                                  fontFamily: 'Manrope',
+                                                  fontFamily: AppFonts.body,
                                                   color: const Color(
                                                     0xff573353,
                                                   ),
@@ -1116,7 +1094,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                                         selectedItem: _selectedStatus,
                                         labelStyle: TextStyle(
                                           fontSize: responsive.labelFontSize,
-                                          fontFamily: "Manrope",
+                                          fontFamily: AppFonts.body,
                                           fontWeight: FontWeight.w400,
                                           color: AppColors.primaryColor,
                                         ),
@@ -1152,22 +1130,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                   right: 16,
                   top: 8,
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.cardColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.billingShadowColorLight,
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(
-                      responsive.isTablet ? 40.0 : 24.0,
-                    ),
-                  ),
-                ),
+                decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
                 child:
                     BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
                       bloc: _createSchoolUserCubit,
@@ -1236,7 +1199,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1259,13 +1222,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: controller,
             focusNode: focusNode,
@@ -1273,7 +1230,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
             keyboardType: keyboardType,
             inputFormatters: inputFormatters,
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600, // typing weight
               color: AppColors.primaryColor,

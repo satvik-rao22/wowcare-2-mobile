@@ -22,12 +22,14 @@ import 'package:wowcare/presentation/features/notifications/routing/notification
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart'
-    show consumePendingNotificationDeepLink, consumePendingNotificationOrgSchool;
+    show
+        consumePendingNotificationDeepLink,
+        consumePendingNotificationOrgSchool;
 
 part 'splash_state.dart';
 
-/// Decides where the app goes on launch: onboarding, sign-in, org/school
-/// selection, the dashboard, or a notification deep-link.
+/// Decides where the app goes on launch: sign-in, org/school selection, the
+/// dashboard, or a notification deep-link.
 ///
 /// MVVM golden rule (same as [RoleCubit]): this ViewModel has no View
 /// dependency (no BuildContext, widgets, navigation) — [SplashScreenWrapper]
@@ -84,9 +86,9 @@ class SplashCubit extends Cubit<SplashState> {
     try {
       final decoded = jsonDecode(rolesJson);
       if (decoded is List) {
-        final roles = decoded
-            .whereType<Map<String, dynamic>>()
-            .map(RoleModel.fromJson);
+        final roles = decoded.whereType<Map<String, dynamic>>().map(
+          RoleModel.fromJson,
+        );
         return roles.any((r) => r.role.toUpperCase().trim() == 'KIOSK');
       }
     } catch (e) {
@@ -124,27 +126,27 @@ class SplashCubit extends Cubit<SplashState> {
     await Future.delayed(const Duration(seconds: 1));
     if (isClosed) return;
 
-    final seenOnboarding =
+    // Kept under its original key so no existing install is treated as new.
+    // It no longer gates a screen; it only marks that first launch has been
+    // dealt with. See `StorageKeys.onboardingSeen`.
+    final isFirstLaunchHandled =
         await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
 
-    if (!seenOnboarding) {
-      // `onboardingSeen` is a plain SharedPreferences bool: its write on
-      // completing onboarding can lose the race with an abrupt task-kill
-      // (Android's Editor.apply() flushes asynchronously) and read back
-      // false/null on the very next cold launch even though the user is
-      // genuinely logged in. Only treat this as a true first launch — and
-      // only then destroy the cached session — when there is no cached
-      // login to protect; otherwise persist the flag now and fall through
-      // to the normal session-restore flow below instead of forcing a
-      // fresh sign-in.
-      final hasExistingLogin = await _authLocal.getCachedLoginResponse() != null;
+    if (!isFirstLaunchHandled) {
+      // A fresh install can still read back a cached session: Android hands
+      // an app its old Keychain entries after a reinstall. Wipe it, but only
+      // when there is no *live* login to protect — this flag is a plain
+      // SharedPreferences bool and its write can lose the race with an
+      // abrupt task-kill, reading back false on the next cold launch even
+      // though the user is genuinely signed in.
+      final hasExistingLogin =
+          await _authLocal.getCachedLoginResponse() != null;
       if (isClosed) return;
       if (!hasExistingLogin) {
         await _authLocal.clearCache();
-        _safeEmit(state.copyWith(route: SplashRoute.firstScreen));
-        return;
       }
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
+      if (isClosed) return;
     }
 
     String? redirectUrl;
@@ -180,8 +182,8 @@ class SplashCubit extends Cubit<SplashState> {
         // forced refresh (bypassing ensureFreshToken's "looks fine" guess)
         // and ONE retry, before concluding the session is genuinely dead.
         await TokenRefreshService.instance.ensureFreshToken();
-        final freshAccessToken =
-            await TokenRefreshService.instance.readAccessToken();
+        final freshAccessToken = await TokenRefreshService.instance
+            .readAccessToken();
 
         Future<Map<String, dynamic>?> fetchContext(String token) async {
           try {
@@ -223,8 +225,7 @@ class SplashCubit extends Cubit<SplashState> {
 
           if (orgCode.isNotEmpty) {
             final existingSchoolCode =
-                (await _storage.getString(StorageKeys.schoolCode) ?? '')
-                    .trim();
+                (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
             final effectiveSchoolCode = schoolCode.isNotEmpty
                 ? schoolCode
                 : existingSchoolCode;
@@ -304,8 +305,7 @@ class SplashCubit extends Cubit<SplashState> {
       if (isClosed) return;
 
       final orgCode =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '')
-              .trim();
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final schoolCode =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
@@ -344,8 +344,9 @@ class SplashCubit extends Cubit<SplashState> {
           // Login context still needs an org/school chosen — don't override the
           // routing with a notification deep-link (it has no school scope yet).
           // Drop the deep-link and continue to school selection.
-          final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
-              .trim();
+          final org =
+              (await _storage.getString(StorageKeys.organizationCode) ?? '')
+                  .trim();
           if (isClosed) return;
           await _authCubit.loadCachedData();
           if (isClosed) return;

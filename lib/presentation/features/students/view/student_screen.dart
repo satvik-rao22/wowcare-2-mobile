@@ -3,14 +3,13 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -27,7 +26,6 @@ import 'package:wowcare/presentation/features/students/view_model/student_cubit.
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/student_sign_out_form.dart'
@@ -59,6 +57,7 @@ import 'package:wowcare/shared/common/widgets/post_add_student_bottom_sheet.dart
 import 'package:wowcare/presentation/features/students/widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({
@@ -1236,7 +1235,7 @@ class _StudentScreenState extends State<StudentScreen> {
                             child: Text(
                               StudentStrings.students,
                               style: TextStyle(
-                                fontFamily: Fonts.manrope,
+                                fontFamily: AppFonts.body,
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.primaryColor,
@@ -1494,10 +1493,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                           padding: const EdgeInsets.all(
                                             AppSpacing.xs,
                                           ),
-                                          child: SvgPicture.asset(
-                                            MediaRes.filterIcon,
-                                            height: 20,
-                                          ),
+                                          child: FilterGlyph(size: 20),
                                         ),
                                         Builder(
                                           builder: (context) {
@@ -1621,7 +1617,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     const Text(
                                       StudentStrings.showInactive,
                                       style: TextStyle(
-                                        fontFamily: Fonts.manrope,
+                                        fontFamily: AppFonts.body,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                         color: AppColors.primaryColor,
@@ -1683,24 +1679,11 @@ class _StudentScreenState extends State<StudentScreen> {
                       if (state.isLoading && students.isEmpty)
                         const StudentListShimmer()
                       else if (state.errorMessage != null && students.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xxl),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Text(
-                                  StudentStrings.errorLoadingStudents,
-                                  style: TextStyle(color: AppColors.errorColor),
-                                ),
-                                AppSpacing.gapVXs,
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      context.read<StudentCubit>().refresh(),
-                                  child: Text(StudentStrings.retry),
-                                ),
-                              ],
-                            ),
-                          ),
+                        AppErrorState(
+                          title: StudentStrings.errorLoadingStudents,
+                          message: state.errorMessage,
+                          retryLabel: StudentStrings.retry,
+                          onRetry: () => context.read<StudentCubit>().refresh(),
                         )
                       else if (students.isEmpty)
                         Padding(

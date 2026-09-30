@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 /// A label/value row used throughout the student and staff attendance
 /// profile screens' expanded attendance/absence detail cards.
@@ -52,14 +52,11 @@ class AttendanceProfileField extends StatelessWidget {
               if (showTransferIcon) ...[
                 Tooltip(
                   message: 'Transfer',
-                  child: SvgPicture.asset(
+                  child: AppIcon(
                     MediaRes.transfer,
                     width: 16,
                     height: 16,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.themeColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.themeColor,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.s6),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -20,6 +20,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
 
 class StudentImmunizationTabCard extends StatefulWidget {
   const StudentImmunizationTabCard({
@@ -190,7 +191,7 @@ class _StudentImmunizationTabCardState
                               child: Text(
                                 'Dose ${model.doseNumber}',
                                 style: TextStyle(
-                                  fontFamily: Fonts.manrope,
+                                  fontFamily: AppFonts.body,
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryColor,
@@ -216,13 +217,10 @@ class _StudentImmunizationTabCardState
                                   value: selectedDate != null
                                       ? _apiFormatter.format(selectedDate!)
                                       : '',
-                                  suffix: SvgPicture.asset(
+                                  suffix: AppIcon(
                                     MediaRes.calender_icon,
                                     height: 20.0,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.primaryColor,
-                                      BlendMode.srcIn,
-                                    ),
+                                    color: AppColors.primaryColor,
                                   ),
                                   onTap: () async {
                                     final result =
@@ -268,13 +266,10 @@ class _StudentImmunizationTabCardState
                                 value: selectedDate != null
                                     ? _apiFormatter.format(selectedDate!)
                                     : '',
-                                suffix: SvgPicture.asset(
+                                suffix: AppIcon(
                                   MediaRes.calender_icon,
                                   height: 20.0,
-                                  colorFilter: const ColorFilter.mode(
-                                    AppColors.primaryColor,
-                                    BlendMode.srcIn,
-                                  ),
+                                  color: AppColors.primaryColor,
                                 ),
                                 onTap: () async {
                                   final result =
@@ -660,7 +655,7 @@ class _DialogField extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -672,17 +667,14 @@ class _DialogField extends StatelessWidget {
           child: Container(
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.staffLightBackgroundAltColor,
-              borderRadius: BorderRadius.circular(AppRadius.r10),
-            ),
+            decoration: AppSurfaces.well(radius: AppRadius.r10),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     value,
                     style: const TextStyle(
-                      fontFamily: Fonts.manrope,
+                      fontFamily: AppFonts.body,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
@@ -731,7 +723,7 @@ class _DialogDropdown extends StatelessWidget {
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.6),
-            fontFamily: Fonts.manrope,
+            fontFamily: AppFonts.body,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -740,10 +732,7 @@ class _DialogDropdown extends StatelessWidget {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: AppColors.staffLightBackgroundAltColor,
-            borderRadius: BorderRadius.circular(AppRadius.r10),
-          ),
+          decoration: AppSurfaces.well(radius: AppRadius.r10),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
@@ -759,7 +748,7 @@ class _DialogDropdown extends StatelessWidget {
                       child: Text(
                         o,
                         style: const TextStyle(
-                          fontFamily: Fonts.manrope,
+                          fontFamily: AppFonts.body,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,

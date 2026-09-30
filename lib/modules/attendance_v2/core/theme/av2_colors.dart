@@ -1,83 +1,80 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
-/// Semantic color tokens for the Attendance V2 module.
+/// Semantic colour tokens for the Attendance V2 module.
 ///
-/// Values mirror the host app's `AppColors` so the module feels native — punchy
-/// gradients, the brand plum text color (#573353), and the sky-blue / mustard
-/// progress palette. Kept self-contained (literal values) so the module stays
-/// isolated; when wired in, these can be pointed at `AppColors` in one place.
+/// Every value resolves to an [AppPalette] role, so this module re-skins with
+/// the rest of the app instead of carrying its own look. It was written
+/// against the previous palette (plum `#573353`, blue `#5978F7`, a pink page
+/// ground and two gradients) and is pointed at the flat skin here — the names
+/// below are the module's own vocabulary, kept so its 60-odd widgets did not
+/// all have to be rewritten, but none of them declares a colour any more.
 class Av2Colors {
   const Av2Colors._();
 
   // ── Brand ────────────────────────────────────────────────────────────────
-  static const Color primary = Color.fromRGBO(87, 51, 83, 1); // #573353 plum
-  static const Color theme = Color.fromRGBO(89, 120, 247, 1); // #5978F7 blue
-  static const Color secondary = Color.fromRGBO(27, 35, 126, 1); // #1B237E
-  static const Color accent = Color.fromRGBO(220, 156, 19, 1); // #DC9C13 amber
+  static const Color primary = AppPalette.textPrimary;
+  static const Color theme = AppPalette.brand;
+  static const Color secondary = AppPalette.actionSecondary;
+  static const Color accent = AppPalette.actionHighlight;
 
-  // ── Surfaces ──────────────────────────────────────────────────────────────
-  static const Color surface = Colors.white;
-  static const Color surfaceMuted = Color.fromRGBO(177, 175, 233, 0.1); // field bg
-  static const Color pageBackground = Color.fromRGBO(251, 238, 250, 1);
+  // ── Surfaces ─────────────────────────────────────────────────────────────
+  static const Color surface = AppPalette.surfaceCard;
+  static const Color surfaceMuted = AppPalette.surfaceField;
+  static const Color pageBackground = AppPalette.surfacePage;
 
-  // ── Text (brand plum, never pure black) ────────────────────────────────────
-  static const Color textPrimary = primary;
-  static const Color textSecondary = Color.fromRGBO(87, 51, 83, 0.62);
-  static const Color textTertiary = Color.fromRGBO(87, 51, 83, 0.42);
+  // ── Text ─────────────────────────────────────────────────────────────────
+  static const Color textPrimary = AppPalette.textPrimary;
+  static const Color textSecondary = AppPalette.textSecondary;
+  static const Color textTertiary = AppPalette.textMuted;
 
-  // ── Borders ─────────────────────────────────────────────────────────────────
-  static const Color border = Color.fromRGBO(87, 51, 83, 0.15);
-  static const Color borderStrong = Color.fromRGBO(87, 51, 83, 0.3);
+  // ── Borders ──────────────────────────────────────────────────────────────
+  static const Color border = AppPalette.borderHairline;
+  static const Color borderStrong = AppPalette.border;
 
-  // ── Regular hours (blue) ────────────────────────────────────────────────────
-  static const Color regular = theme; // icons, emphasis, hero number
-  static const Color regularFill = Color.fromRGBO(155, 232, 255, 0.35);
-  static const Color barRegular = Color.fromRGBO(155, 232, 255, 1); // #9BE8FF
+  // ── Regular hours ────────────────────────────────────────────────────────
+  static const Color regular = AppPalette.actionSecondary;
+  static const Color regularFill = AppPalette.domainStaffSoft;
+  static const Color barRegular = AppPalette.actionSecondary;
 
-  // ── Overtime (amber / mustard) ──────────────────────────────────────────────
-  static const Color overtime = accent; // OT text + system flag
-  static const Color barOvertime = Color.fromRGBO(253, 205, 22, 1); // #FDCD16
-  static const Color overtimeFill = Color.fromRGBO(253, 205, 22, 0.18);
+  // ── Overtime ─────────────────────────────────────────────────────────────
+  static const Color overtime = AppPalette.statusWarning;
+  static const Color barOvertime = AppPalette.statusWarning;
+  static const Color overtimeFill = AppPalette.statusWarningSoft;
 
-  // ── Present / success (green) ───────────────────────────────────────────────
-  static const Color success = Color.fromRGBO(56, 142, 60, 1); // #388E3C
-  static const Color successFill = Color.fromRGBO(151, 242, 148, 0.28);
+  // ── Present / success ────────────────────────────────────────────────────
+  static const Color success = AppPalette.statusSuccess;
+  static const Color successFill = AppPalette.statusSuccessSoft;
 
-  // ── Absent / alert (red) ────────────────────────────────────────────────────
-  static const Color danger = Color.fromRGBO(211, 47, 47, 1); // #D32F2F
-  static const Color dangerFill = Color.fromRGBO(240, 111, 111, 0.18);
+  // ── Absent / alert ───────────────────────────────────────────────────────
+  static const Color danger = AppPalette.statusError;
+  static const Color dangerFill = AppPalette.statusErrorSoft;
 
-  // ── Break (fresh, friendly teal — a "break", never grey) ─────────────
-  static const Color breakTime = Color(0xFF1F9D8B);
-  static const Color breakFill = Color.fromRGBO(31, 157, 139, 0.12);
+  // ── Break ────────────────────────────────────────────────────────────────
+  static const Color breakTime = AppPalette.actionSecondary;
+  static const Color breakFill = AppPalette.domainStaffSoft;
 
-  // ── Neutral ──────────────────────────────────────────────────────────────────
-  static const Color neutral = Color.fromRGBO(136, 135, 128, 1);
-  static const Color neutralFill = Color.fromRGBO(241, 239, 232, 1);
+  // ── Neutral ──────────────────────────────────────────────────────────────
+  static const Color neutral = AppPalette.textMuted;
+  static const Color neutralFill = AppPalette.surfaceMuted;
 
-  // ── Avatar (punchy sky blue, white initials) ───────────────────────────────
-  static const Color avatarBg = Color(0xFF87CEEB);
-  static const Color avatarText = Colors.white;
+  /// Ink on a saturated face: a primary key's label, a selected chip's
+  /// label, an avatar's initials. Warm white — the flat skin has no pure one.
+  static const Color onPrimary = AppPalette.textOnDark;
 
-  // ── Gradients ────────────────────────────────────────────────────────────────
-  static const List<Color> _scaffold = [
-    Color.fromRGBO(255, 255, 255, 1),
-    Color.fromRGBO(251, 238, 250, 1),
-  ];
-  static const List<Color> _primary = [
-    Color.fromRGBO(111, 140, 255, 1),
-    Color.fromRGBO(156, 132, 255, 1),
-  ];
+  // ── Avatar ───────────────────────────────────────────────────────────────
+  static const Color avatarBg = AppPalette.actionSecondary;
+  static const Color avatarText = AppPalette.textOnDark;
 
-  static const LinearGradient scaffoldGradient = LinearGradient(
-    colors: _scaffold,
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
+  // ── Retired gradients ────────────────────────────────────────────────────
+  // The skin is flat, so both former ramps are now the single face they
+  // resolve to. Kept as names (not deleted) because the widgets that used
+  // them read as "the page ground" and "the primary fill", which is exactly
+  // what these still mean.
 
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: _primary,
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
+  /// The page ground the detail scaffold paints. Was a white→pink ramp.
+  static const Color scaffoldFill = AppPalette.surfacePage;
+
+  /// The fill of a primary key or a selected chip. Was a blue→violet ramp.
+  static const Color primaryFill = AppPalette.brand;
 }

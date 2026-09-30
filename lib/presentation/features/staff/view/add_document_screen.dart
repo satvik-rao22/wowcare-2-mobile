@@ -1,3 +1,4 @@
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +10,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
@@ -19,6 +19,8 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_document_cu
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_upload_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class AddDocumentScreen extends StatelessWidget {
   const AddDocumentScreen({
@@ -401,20 +403,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
             right: 16,
             top: 8,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.billingShadowColorLight,
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
+          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
           child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
             builder: (context, state) {
               return BlocBuilder<
@@ -442,7 +431,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -465,13 +454,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _documentNameController,
             textCapitalization: TextCapitalization.sentences,
@@ -506,7 +489,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -546,17 +529,14 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
                             ? AppColors.billingGrey
                             : AppColors.attendanceIconColor,
                         fontSize: responsive.inputFontSize,
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                       ),
                     ),
                   ),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),
@@ -580,7 +560,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
               text: TextSpan(
                 style: TextStyle(
                   fontSize: responsive.labelFontSize,
-                  fontFamily: "Manrope",
+                  fontFamily: AppFonts.body,
                   fontWeight: FontWeight.w400,
                   color: AppColors.primaryColor,
                 ),
@@ -623,17 +603,14 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
                               ? AppColors.billingGrey
                               : AppColors.attendanceIconColor,
                           fontSize: responsive.inputFontSize,
-                          fontFamily: 'Manrope',
+                          fontFamily: AppFonts.body,
                         ),
                       ),
                     ),
-                    SvgPicture.asset(
+                    AppIcon(
                       MediaRes.uploadIcon,
                       height: responsive.isTablet ? 28.0 : 24.0,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.primaryColor,
-                        BlendMode.srcIn,
-                      ),
+                      color: AppColors.primaryColor,
                     ),
                   ],
                 ),
@@ -665,7 +642,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -680,13 +657,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
             minHeight: responsive.inputFieldHeight * 2,
             maxHeight: responsive.inputFieldHeight * 4,
           ),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: _notesController,
             maxLines: 4,

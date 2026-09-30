@@ -4,7 +4,6 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -30,7 +29,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
-import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_delete_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_daily_cubit.dart';
@@ -43,6 +41,7 @@ import 'package:wowcare/domain/features/attendance/entities/staff_attendance_dai
 import 'package:wowcare/domain/features/attendance/entities/staff_attendance_absent.dart'
     show StaffAttendanceAbsentItem;
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
+import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
 
 class StaffAttendanceDailyViewScreen extends StatefulWidget {
   const StaffAttendanceDailyViewScreen({
@@ -1456,10 +1455,7 @@ class _StaffDailyFilterCard extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: SvgPicture.asset(
-                          MediaRes.filterIcon,
-                          height: 20,
-                        ),
+                        child: FilterGlyph(size: 20),
                       ),
                       if (hasActiveFilters)
                         Positioned(

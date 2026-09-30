@@ -8,6 +8,9 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
+import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_radius.dart';
+import 'package:wowcare/core/theme/skeu_press.dart';
 
 class MessagingInputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -49,17 +52,7 @@ class MessagingInputArea extends StatelessWidget {
                   horizontal: AppSizes.sm,
                   vertical: AppSizes.xs,
                 ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppColors.messagingQuoteGradientStart,
-                      AppColors.messagingQuoteGradientEnd,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: AppSurfaces.sub(radius: AppRadius.md),
                 child: Row(
                   children: [
                     Expanded(
@@ -157,31 +150,15 @@ class MessagingInputArea extends StatelessWidget {
                   child: TextField(
                     controller: controller,
                     decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppSurfaces.fieldFill,
                       hintText: AppStrings.typeAMessage,
                       hintStyle: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingComposerHint,
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.messagingInputBorder,
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.messagingInputBorder,
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.primaryColor,
-                          width: 1.5,
-                        ),
-                      ),
+                      border: AppSurfaces.fieldBorder(radius: 12),
+                      enabledBorder: AppSurfaces.fieldBorder(radius: 12),
+                      focusedBorder: AppSurfaces.fieldBorder(radius: 12),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSizes.md,
                         vertical: AppSizes.sm,
@@ -195,11 +172,8 @@ class MessagingInputArea extends StatelessWidget {
                 const SizedBox(width: AppSizes.xs),
                 GestureDetector(
                   onTap: onSend,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  child: SkeuKeyBox(
+                    variant: KeyVariant.primary,
                     padding: const EdgeInsets.all(AppSizes.sm),
                     child: const Icon(
                       Icons.send,

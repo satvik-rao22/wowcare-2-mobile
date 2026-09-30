@@ -36,7 +36,6 @@ import 'package:wowcare/domain/features/communication/usecases/watch_conversatio
 import 'package:wowcare/domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import 'package:wowcare/data/services/pending_attachment_storage.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';

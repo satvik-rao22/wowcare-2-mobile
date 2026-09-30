@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:io';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -13,7 +14,6 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/classroom_selection_widget_exact.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile_update.dart';
@@ -28,6 +28,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditProfileDetailsScreen extends StatelessWidget {
   const EditProfileDetailsScreen({
@@ -561,7 +563,7 @@ class _EditProfileDetailsScreenViewState
           'Profile Photo',
           style: TextStyle(
             fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
             fontWeight: FontWeight.w400,
             color: AppColors.primaryColor,
           ),
@@ -608,7 +610,7 @@ class _EditProfileDetailsScreenViewState
           style: TextStyle(
             fontSize: 12,
             color: AppColors.attendanceDialogHintTextColor,
-            fontFamily: 'Manrope',
+            fontFamily: AppFonts.body,
           ),
         ),
       ],
@@ -1219,21 +1221,12 @@ class _EditProfileDetailsScreenViewState
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
           child: Scaffold(
             key: _scaffoldKey,
-            backgroundColor: AppColors.cardColor,
+            backgroundColor: AppColors.pageBackgroundColor,
             appBar: const CustomAppBar(hasBackButton: true),
             body: Stack(
               children: [
                 Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildScaffoldGradient(),
-                    ),
-                    child: Image.asset(
-                      MediaRes.wowcareMobileBg,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                    ),
-                  ),
+                  child: ColoredBox(color: AppColors.pageBackgroundColor),
                 ),
                 Column(
                   children: [
@@ -1247,7 +1240,7 @@ class _EditProfileDetailsScreenViewState
                         child: Text(
                           'Edit Staff',
                           style: TextStyle(
-                            fontFamily: 'Manrope',
+                            fontFamily: AppFonts.body,
                             fontSize: responsive.titleFontSize,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primaryColor,
@@ -1265,19 +1258,7 @@ class _EditProfileDetailsScreenViewState
                         padding: EdgeInsets.all(
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardColor,
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.billingShadowColorLight,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
                         child: ListView(
                           padding: EdgeInsets.zero,
                           children: [
@@ -1422,7 +1403,7 @@ class _EditProfileDetailsScreenViewState
                                     isEnabled: true,
                                     labelStyle: TextStyle(
                                       fontSize: responsive.labelFontSize,
-                                      fontFamily: "Manrope",
+                                      fontFamily: AppFonts.body,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.primaryColor,
                                     ),
@@ -1434,14 +1415,14 @@ class _EditProfileDetailsScreenViewState
                                         ? 64.0
                                         : 56.0,
                                     selectedTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: AppFonts.body,
                                       fontSize: responsive.inputFontSize,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.primaryColor,
                                       height: 19 / 14,
                                     ),
                                     popupItemTextStyle: TextStyle(
-                                      fontFamily: 'Manrope',
+                                      fontFamily: AppFonts.body,
                                       fontSize: responsive.inputFontSize,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.primaryColor,
@@ -1560,19 +1541,19 @@ class _EditProfileDetailsScreenViewState
                                 showAsterisk: true,
                                 labelStyle: TextStyle(
                                   fontSize: responsive.labelFontSize,
-                                  fontFamily: "Manrope",
+                                  fontFamily: AppFonts.body,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.primaryColor,
                                 ),
                                 selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: responsive.inputFontSize,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.billingGreyDark,
                                   height: 19 / 14,
                                 ),
                                 popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
+                                  fontFamily: AppFonts.body,
                                   fontSize: responsive.inputFontSize,
                                   fontWeight: FontWeight.w400,
                                   color: AppColors.primaryColor,
@@ -1620,20 +1601,7 @@ class _EditProfileDetailsScreenViewState
                 right: 16,
                 top: 8,
               ),
-              decoration: BoxDecoration(
-                color: AppColors.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.billingShadowColorLight,
-                    offset: const Offset(0, -4),
-                    blurRadius: 16,
-                  ),
-                ],
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
               child: ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, _) {
@@ -1665,7 +1633,7 @@ class _EditProfileDetailsScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1689,13 +1657,7 @@ class _EditProfileDetailsScreenViewState
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            border: Border.all(color: AppColors.inputBorderColor),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
+          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
@@ -1711,7 +1673,7 @@ class _EditProfileDetailsScreenViewState
               ),
             ),
             style: TextStyle(
-              fontFamily: 'Manrope',
+              fontFamily: AppFonts.body,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -1741,21 +1703,21 @@ class _EditProfileDetailsScreenViewState
       showAsterisk: isRequired,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
-        fontFamily: "Manrope",
+        fontFamily: AppFonts.body,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       selectedTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
         color: AppColors.primaryColor,
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
-        fontFamily: 'Manrope',
+        fontFamily: AppFonts.body,
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
         color: AppColors.primaryColor,
@@ -1771,7 +1733,7 @@ class _EditProfileDetailsScreenViewState
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
-      fontFamily: "Manrope",
+      fontFamily: AppFonts.body,
       fontWeight: FontWeight.w400,
       color: AppColors.primaryColor,
     );
@@ -1807,7 +1769,7 @@ class _EditProfileDetailsScreenViewState
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
+                        fontFamily: AppFonts.body,
                         fontSize: responsive.inputFontSize,
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
@@ -1819,13 +1781,10 @@ class _EditProfileDetailsScreenViewState
                     ),
                   ),
                   const SizedBox(width: 4),
-                  SvgPicture.asset(
+                  AppIcon(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
-                    ),
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

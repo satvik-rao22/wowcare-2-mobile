@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/app_error_state.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/attendance/widgets/attendance_search_field.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_select_all_row.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_staff_list_item.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -18,7 +19,6 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import '../../model/staff_entity.dart';
-import 'staff_sign_in_form.dart';
 
 class StaffSelectionSignInForm extends StatefulWidget {
   static const String routeName = '/staff-selection-sign-in-form';
@@ -206,7 +206,7 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
               children: [
                 const AppText.subtitle('Select Staff'),
                 const SizedBox(height: AppSpacing.sm),
-                AttendanceSearchField(
+                CustomSearchBar(
                   controller: _searchController,
                   hintText: 'Search Staff',
                   onChanged: (_) => _loadStaff(),
@@ -275,24 +275,10 @@ class _StaffSelectionSignInFormState extends State<StaffSelectionSignInForm> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : state.errorMessage != null
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              AppText.body(
-                                state.errorMessage ?? 'Failed to load staff',
-                                style: AppTextStyles.body.copyWith(
-                                  color: AppColors.errorColor,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              TextButton(
-                                onPressed: _loadStaff,
-                                child: const AppText.body('Retry'),
-                              ),
-                            ],
-                          ),
+                      ? AppErrorState(
+                          title: 'Failed to load staff',
+                          message: state.errorMessage,
+                          onRetry: _loadStaff,
                         )
                       : filteredStaff.isEmpty
                       ? const Center(child: AppText.body("No staff found"))

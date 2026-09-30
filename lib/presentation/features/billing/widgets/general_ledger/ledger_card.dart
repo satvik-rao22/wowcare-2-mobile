@@ -40,15 +40,11 @@ class LedgerCard extends StatelessWidget {
       expandedChildren: [
         StaffCardDetailRow(
           label: BillingStrings.type,
-          valueWidget: ShaderMask(
-            shaderCallback: (bounds) => AppColors.buildPrimaryGradient()
-                .createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
-            child: Text(
+          valueWidget: Text(
               type,
               textAlign: TextAlign.right,
-              style: BillingCardText.value.copyWith(color: AppColors.billingCardOnColorText),
+              style: BillingCardText.value.copyWith(color: AppColors.themeColor),
             ),
-          ),
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(

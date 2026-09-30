@@ -38,6 +38,7 @@ class StudentStrings {
   static const String caregiver = 'Caregiver';
   static const String carer = 'Carer';
   static const String carpool = 'Carpool';
+  static const String changePin = 'Change Pin';
   static const String checkupDate = 'Checkup Date';
   static const String childCustody = 'Child Custody';
   static const String childCustodyNotSelected = 'Child custody not selected';
@@ -97,7 +98,10 @@ class StudentStrings {
   static const String enable = 'Enable';
   static const String endTime = 'End Time';
   static const String enrollDate = 'Enroll Date';
+  static const String enter4DigitPin = 'Enter 4-digit PIN';
+  static const String enterA4DigitPin = 'Enter a 4-digit PIN';
   static const String enterAddress = 'Enter address';
+  static const String enterPinManually = 'Enter PIN manually';
   static const String errorLoadingStudents = 'Error loading students';
   static const String errorSelectingFilePleaseTryAgain = 'Error selecting file. Please try again.';
   static const String exempt = 'Exempt';
@@ -131,6 +135,7 @@ class StudentStrings {
   static const String friday = 'Friday';
   static const String fullTimeEquivalentFte = 'Full Time Equivalent (FTE)';
   static const String gender = 'Gender';
+  static const String generatingANewPinWillDeactivateTheCurrentPin = 'Generating a new PIN will deactivate the current PIN. Do you want to create a new PIN for this parent/guardian?';
   static const String graduated = 'Graduated';
   static const String grandfather = 'Grandfather';
   static const String grandmother = 'Grandmother';
@@ -173,6 +178,7 @@ class StudentStrings {
   static const String noActivitiesForThisClass = 'No activities for this class';
   static const String noAllergies = 'No Allergies';
   static const String noBillingProfileFoundForThisStudent = 'No billing profile found for this student.';
+  static const String noGuardiansAvailable = 'No guardians available';
   static const String noCda = 'no cda';
   static const String noDietRestriction = 'No Diet Restriction';
   static const String noDocumentsFound = 'No documents found';
@@ -201,6 +207,8 @@ class StudentStrings {
   static const String notes = 'Notes';
   static const String notesCannotExceed500Characters = 'Notes cannot exceed 500 characters';
   static const String organizationIsMissingReSelectYourSchoolFromThe = 'Organization is missing. Re-select your school from the menu and try again.';
+  static const String options = 'Options';
+  static const String orGenerateBySystem = 'Or generate by system';
   static const String other = 'Other';
   static const String overdue = 'Overdue';
   static const String parents = 'Parents';
@@ -244,9 +252,11 @@ class StudentStrings {
   static const String profilePhotoDeletedSuccessfully = 'Profile photo deleted successfully';
   static const String failedToDeleteProfilePhoto = 'Failed to delete profile photo:';
   static const String reactivate = 'Reactivate';
+  static const String regeneratePin = 'Regenerate PIN';
   static const String registrationForms = 'Registration Forms';
   static const String relation = 'Relation';
   static const String relationIsRequired = 'Relation is required';
+  static const String resendInvite = 'Resend Invite';
   static const String retry = 'Retry';
   static const String sat = 'Sat';
   static const String saturday = 'Saturday';
@@ -328,6 +338,7 @@ class StudentStrings {
   static const String theSchoolIsClosedThatDay = 'the school is closed that day.';
   static const String thisActivityIsCurrentlyDisabled = 'This activity is currently disabled';
   static const String thisGuardian = 'this guardian';
+  static const String thisParentHasNoEmailOnFileAddOneBeforeSending = 'This parent has no email on file. Add one before sending an invite.';
   static const String thu = 'Thu';
   static const String thursday = 'Thursday';
   static const String totalNstudents = 'Total\nStudents';
