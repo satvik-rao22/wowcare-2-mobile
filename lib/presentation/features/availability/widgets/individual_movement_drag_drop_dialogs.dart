@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 class MovementDragDropDecision {
   const MovementDragDropDecision({
@@ -195,7 +196,11 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
         color: Colors.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: AppSurfaces.card(radius: 16),
+          // Sheet ground, so the white cancel key reads against it.
+          decoration: AppSurfaces.card(
+            radius: 16,
+            color: AppPalette.surfaceSunken,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

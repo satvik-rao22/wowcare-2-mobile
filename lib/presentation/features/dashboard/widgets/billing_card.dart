@@ -13,17 +13,12 @@ import 'package:wowcare/presentation/features/billing/view_model/transactions_cu
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
-// ---------------------------------------------------------------------------
-// BillingCard widget (admin dashboard)
-//
-// Monthly totals (Amount Invoiced / Net Paid / In-Process / Outstanding) come
-// from the invoice overview API via [TransactionsCubit.loadOverview] scoped to
-// the selected month's date range. The yearly revenue chart comes from the
-// invoice analytics API via [AnalyticsCubit].
-// ---------------------------------------------------------------------------
+// BillingCard (admin dashboard): monthly totals from the invoice overview
+// API via [TransactionsCubit.loadOverview], yearly revenue via [AnalyticsCubit].
 
 class BillingCard extends StatelessWidget {
   const BillingCard({super.key});
@@ -165,41 +160,35 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
           const SizedBox(height: 16),
 
           // ── Custom date range (primary) ───────────────────────────────────────
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : AccountingDateRangeSelector(
-                    initialStartDate: _rangeStart,
-                    initialEndDate: _rangeEnd,
-                    onRangeChanged: (start, end) {
-                      if (start == null || end == null) return;
-                      _reloadOverviewForRange(start, end);
-                    },
-                  ),
+          DashboardCollapsible(
+            collapsed: _minimized,
+            child: AccountingDateRangeSelector(
+              initialStartDate: _rangeStart,
+              initialEndDate: _rangeEnd,
+              onRangeChanged: (start, end) {
+                if (start == null || end == null) return;
+                _reloadOverviewForRange(start, end);
+              },
+            ),
           ),
 
           const SizedBox(height: 10),
 
           // ── Monthly totals section ──────────────────────────────────────────
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : BlocBuilder<TransactionsCubit, TransactionsState>(
-                    builder: (context, state) {
-                      final overview = state.overview;
-                      if (overview == null) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: ShimmerLoader(height: 96),
-                        );
-                      }
-                      return _buildMonthlySection(overview);
-                    },
-                  ),
+          DashboardCollapsible(
+            collapsed: _minimized,
+            child: BlocBuilder<TransactionsCubit, TransactionsState>(
+              builder: (context, state) {
+                final overview = state.overview;
+                if (overview == null) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: ShimmerLoader(height: 96),
+                  );
+                }
+                return _buildMonthlySection(overview);
+              },
+            ),
           ),
 
           const SizedBox(height: 10),
@@ -213,59 +202,51 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
           const SizedBox(height: 10),
 
           // ── Year picker ─────────────────────────────────────────────────────
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : Row(
-                    children: [
-                      Expanded(
-                        child: CustomDropdown(
-                          hintText: 'Year',
-                          items: List.generate(
-                            30,
-                            (index) => (_selectedYear + index - 15).toString(),
-                          ),
-                          selectedItem: '$_selectedYear',
-                          isField: false,
-                          onSelect: (value) {
-                            if (value != null) {
-                              setState(() => _selectedYear = int.parse(value));
-                              context.read<AnalyticsCubit>().setYear(
-                                _selectedYear,
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                      const Expanded(flex: 2, child: SizedBox()),
-                    ],
+          DashboardCollapsible(
+            collapsed: _minimized,
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomDropdown(
+                    hintText: 'Year',
+                    items: List.generate(
+                      30,
+                      (index) => (_selectedYear + index - 15).toString(),
+                    ),
+                    selectedItem: '$_selectedYear',
+                    isField: false,
+                    onSelect: (value) {
+                      if (value != null) {
+                        setState(() => _selectedYear = int.parse(value));
+                        context.read<AnalyticsCubit>().setYear(_selectedYear);
+                      }
+                    },
                   ),
+                ),
+                const Expanded(flex: 2, child: SizedBox()),
+              ],
+            ),
           ),
 
           const SizedBox(height: 10),
 
           // ── Yearly revenue chart ────────────────────────────────────────────
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : BlocBuilder<AnalyticsCubit, AnalyticsState>(
-                    builder: (context, state) {
-                      if (state.isLoading && state.analytics == null) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: ShimmerLoader(height: 220),
-                        );
-                      }
-                      final revenue = _toMonthlyValues(
-                        state.analytics?.revenue ?? const [],
-                      );
-                      return _buildYearlySection(revenue);
-                    },
-                  ),
+          DashboardCollapsible(
+            collapsed: _minimized,
+            child: BlocBuilder<AnalyticsCubit, AnalyticsState>(
+              builder: (context, state) {
+                if (state.isLoading && state.analytics == null) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: ShimmerLoader(height: 220),
+                  );
+                }
+                final revenue = _toMonthlyValues(
+                  state.analytics?.revenue ?? const [],
+                );
+                return _buildYearlySection(revenue);
+              },
+            ),
           ),
         ],
       ),

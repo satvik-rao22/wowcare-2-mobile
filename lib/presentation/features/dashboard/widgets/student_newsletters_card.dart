@@ -13,6 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/domain/features/newsletter/services/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
@@ -88,67 +89,70 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                 minimized: _minimized,
                 onToggle: () => setState(() => _minimized = !_minimized),
               ),
-              if (!_minimized) ...[
-                const SizedBox(height: 8),
-                BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
-                  buildWhen: (prev, curr) =>
-                      prev.status != curr.status ||
-                      prev.items != curr.items ||
-                      prev.errorMessage != curr.errorMessage,
-                  builder: (context, state) {
-                    if (state.isLoading) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: StudentAttendanceCardShimmer(),
-                      );
-                    }
-
-                    // On error with no data, show the same empty-state UI as a
-                    // genuinely empty list instead of an error banner.
-
-                    final items = state.items;
-                    if (items.isEmpty) {
-                      return _NewslettersEmptyState(onRefresh: _refresh);
-                    }
-
-                    // Preserve original mock design density: show the first 3 rows.
-                    final visible = items.length > 3
-                        ? items.sublist(0, 3)
-                        : items;
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        color: AppColors.primaryColor.withValues(alpha: 0.08),
-                      ),
-                      itemBuilder: (context, index) {
-                        final selectedChild = Provider.of<ParentChildCubit>(
-                          context,
-                        ).selectedChild;
-                        final classroomName =
-                            (selectedChild?.primaryClassroomName ??
-                                    selectedChild?.classroom ??
-                                    '')
-                                .toString()
-                                .trim();
-                        return _NewsletterRow(
-                          item: visible[index],
-                          classroomName: classroomName.isEmpty
-                              ? '-'
-                              : classroomName,
-                        );
-                      },
-                    );
-                  },
-                ),
-              ],
+              DashboardCollapsible(collapsed: _minimized, child: _buildBody()),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
+          buildWhen: (prev, curr) =>
+              prev.status != curr.status ||
+              prev.items != curr.items ||
+              prev.errorMessage != curr.errorMessage,
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: StudentAttendanceCardShimmer(),
+              );
+            }
+
+            // On error with no data, show the same empty-state UI as a
+            // genuinely empty list instead of an error banner.
+
+            final items = state.items;
+            if (items.isEmpty) {
+              return _NewslettersEmptyState(onRefresh: _refresh);
+            }
+
+            // Preserve original mock design density: show the first 3 rows.
+            final visible = items.length > 3 ? items.sublist(0, 3) : items;
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: visible.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: AppColors.primaryColor.withValues(alpha: 0.08),
+              ),
+              itemBuilder: (context, index) {
+                final selectedChild = Provider.of<ParentChildCubit>(
+                  context,
+                ).selectedChild;
+                final classroomName =
+                    (selectedChild?.primaryClassroomName ??
+                            selectedChild?.classroom ??
+                            '')
+                        .toString()
+                        .trim();
+                return _NewsletterRow(
+                  item: visible[index],
+                  classroomName: classroomName.isEmpty ? '-' : classroomName,
+                );
+              },
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -324,13 +328,8 @@ class _MetaRow extends StatelessWidget {
   }
 }
 
-/// Renamed from `_EmptyState` under Mandate 6 §6.6 — communication declares two
-/// more classes of that name (`conversation_list_screen.dart`,
-/// `admin_chat_host_screen.dart`) and all three have different constructors:
-/// this one takes `onRefresh`, theirs take `ConversationType` and `bool
-/// hasFilters`. They are private, so nothing collided at compile time, but the
-/// name was unsearchable. Follows the repo's own `_GeneratedReportsEmptyState`
-/// convention.
+/// Named apart from communication's two private `_EmptyState` classes, which
+/// take different constructors.
 class _NewslettersEmptyState extends StatelessWidget {
   const _NewslettersEmptyState({required this.onRefresh});
 

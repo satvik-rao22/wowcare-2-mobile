@@ -14,6 +14,7 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/my_childs_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/qr_scan_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -127,14 +128,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // Children sign-in status map
   Map<String, String> _childrenSignInStatusMap = {};
 
-  // True once `_loadChildrenSignInStatus` has resolved (success or failure)
-  // at least once. `_childrenSignInStatusMap` (and therefore
-  // `_isSelectedChildSignedIn`) defaults to "not signed in" until then, so
-  // the geofence-entry popup must not decide "show" or "don't show" based
-  // on it until this is true — otherwise a guardian restarting the app
-  // inside the geofence with an already-signed-in child (e.g. GeofenceCubit
-  // reporting `withinRange` from a cached last-known location before the
-  // attendance API call resolves) would incorrectly see the Sign-In sheet.
+  // True once `_loadChildrenSignInStatus` has resolved at least once. Until
+  // then the sign-in map defaults to "not signed in", so the geofence popup
+  // must not act on it (a signed-in child would otherwise see the sheet).
   bool _signInStatusLoaded = false;
   bool _geofencePopupShownThisEntry = false;
 
@@ -350,12 +346,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     _maybeShowChildSignInPopup();
   }
 
-  /// Shows the geofence Sign-In sheet only when: the selected child is
-  /// currently within the school geofence, their today-sign-in status has
-  /// finished loading and shows them as not signed in. Called both from the
-  /// [GeofenceCubit] entry-transition listener and right after
-  /// [_loadChildrenSignInStatus]'s async fetch resolves, so whichever of the
-  /// two finishes last is the one that actually decides whether to show it.
+  /// Shows the geofence Sign-In sheet only when the selected child is inside
+  /// the geofence and their loaded today-status says not signed in. Called
+  /// from the geofence listener and after the status fetch, so whichever
+  /// finishes last decides.
   void _maybeShowChildSignInPopup() {
     if (!mounted) return;
     if (!_signInStatusLoaded) return;
@@ -452,15 +446,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
   }
 
-  /// Countdown using ONLY student schedules with school timezone.
-  ///
-  /// Uses school timezone for calculating current time.
-  /// Uses ONLY student schedules API (never school regular schedule).
-  /// Priority:
-  ///   1. Today's student schedule if it exists and hasn't passed
-  ///   2. Today's student schedule if currently active (count down to end)
-  ///   3. Nearest upcoming student schedule (within next 7 days)
-  ///   4. Empty state if no student schedules exist
+  /// Countdown from student schedules only, in school time. Priority: today's
+  /// schedule if not yet passed, today's if active (count down to its end),
+  /// the nearest within 7 days, else empty.
   ({String statusText, Duration duration}) _computeCountdownFromSchedule({
     required DateTime schoolNow,
     required String schoolTimeZone,
@@ -651,14 +639,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         final double totalRatio =
             (numUnits * unitRatio) + (numSeparators * separatorRatio);
 
-        // Account for user text scaling preferences.
-        //
-        // Mandate 7: field-scoped (`textScalerOf`), not `MediaQuery.of`, so
-        // this depends on the text scale alone and does not re-run when any
-        // other MediaQueryData field changes. The old `catch` fell back to the
-        // deprecated `.of(context).textScaleFactor` "for older Flutter
-        // versions" — unreachable, since both throw under exactly the same
-        // condition (no MediaQuery ancestor).
+        // Field-scoped text scale read, so only a scale change re-runs this.
         final double textScaleFactor = MediaQuery.textScalerOf(
           context,
         ).scale(1.0);
@@ -1111,175 +1092,197 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               onToggle: () =>
                                   setState(() => _isMinimized = !_isMinimized),
                             ),
-                            if (!_isMinimized) ...[
-                              const SizedBox(height: 12),
-                              if ((state.isLoading && state.children.isEmpty) ||
-                                  isLoading)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16),
-                                  child: MyChildsDayCardShimmer(),
-                                )
-                              else if (selectedChild == null)
-                                Center(
-                                  child: Text(
-                                    'No children linked',
-                                    style: TextStyle(
-                                      color: AppColors.primaryColor.withValues(
-                                        alpha: 0.7,
+                            DashboardCollapsible(
+                              collapsed: _isMinimized,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  if ((state.isLoading &&
+                                          state.children.isEmpty) ||
+                                      isLoading)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 16,
                                       ),
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                )
-                              else if (isError)
-                                Center(
-                                  child: Text(
-                                    'Failed to load student details',
-                                    style: TextStyle(
-                                      color: AppColors.primaryColor.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                )
-                              else ...[
-                                ValueListenableBuilder<String>(
-                                  valueListenable: _statusText,
-                                  builder: (context, statusText, _) {
-                                    return Center(
+                                      child: MyChildsDayCardShimmer(),
+                                    )
+                                  else if (selectedChild == null)
+                                    Center(
                                       child: Text(
-                                        statusText,
-                                        style: const TextStyle(
-                                          color: AppColors.primaryColor,
-                                          fontSize: 17,
+                                        'No children linked',
+                                        style: TextStyle(
+                                          color: AppColors.primaryColor
+                                              .withValues(alpha: 0.7),
+                                          fontSize: 14,
                                         ),
                                         textAlign: TextAlign.center,
                                       ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 4),
-                                ValueListenableBuilder<Duration>(
-                                  valueListenable: _duration,
-                                  builder: (context, duration, _) {
-                                    return _buildAlignedTimerDisplay(duration);
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                _buildReminderRow(),
-                                const SizedBox(height: 20),
-                                // _buildStudentDetailContainer(
-                                //   studentName: isLoaded
-                                //       ? myChildsDayState.fullName
-                                //       : selectedChild.name,
-                                //   classroomName: isLoaded
-                                //       ? myChildsDayState.classroomName
-                                _buildSignInPinRow(
-                                  selectedChild: selectedChild,
-                                ),
-                                const SizedBox(height: 16),
-                                BlocBuilder<GeofenceCubit, GeofenceState>(
-                                  builder: (context, geofenceState) {
-                                    return Column(
-                                      children: [
-                                        _buildSignInOutButton(
-                                          geofenceState: geofenceState,
-                                          parentChildState: state,
+                                    )
+                                  else if (isError)
+                                    Center(
+                                      child: Text(
+                                        'Failed to load student details',
+                                        style: TextStyle(
+                                          color: AppColors.primaryColor
+                                              .withValues(alpha: 0.7),
+                                          fontSize: 14,
                                         ),
-                                        if (geofenceState.status ==
-                                            GeofenceCubitStatus
-                                                .permissionDenied)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 12.0,
-                                              left: 24.0,
-                                              right: 24.0,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    )
+                                  else ...[
+                                    ValueListenableBuilder<String>(
+                                      valueListenable: _statusText,
+                                      builder: (context, statusText, _) {
+                                        return Center(
+                                          child: Text(
+                                            statusText,
+                                            style: const TextStyle(
+                                              color: AppColors.primaryColor,
+                                              fontSize: 17,
                                             ),
-                                            child: GestureDetector(
-                                              onTap: () => context
-                                                  .read<GeofenceCubit>()
-                                                  .retryPermission(),
-                                              child: Text(
-                                                'Location permission required. Tap to enable.',
-                                                style: TextStyle(
-                                                  color: AppColors.primaryColor
-                                                      .withValues(alpha: 0.65),
-                                                  fontSize: 12,
-                                                  decoration:
-                                                      TextDecoration.underline,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          )
-                                        else if (geofenceState.status ==
-                                            GeofenceCubitStatus
-                                                .locationDisabled)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 12.0,
-                                              left: 24.0,
-                                              right: 24.0,
-                                            ),
-                                            child: Text(
-                                              'Location services are disabled.',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          )
-                                        else if (geofenceState.status ==
-                                            GeofenceCubitStatus.outsideRange)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 12.0,
-                                              left: 24.0,
-                                              right: 24.0,
-                                            ),
-                                            child: Text(
-                                              'You are not within the school sign-in zone.',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          )
-                                        else if (geofenceState.status ==
-                                                GeofenceCubitStatus
-                                                    .checkingPermission ||
-                                            geofenceState.status ==
-                                                GeofenceCubitStatus
-                                                    .fetchingSchoolLocation)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 12.0,
-                                              left: 24.0,
-                                              right: 24.0,
-                                            ),
-                                            child: Text(
-                                              'Checking location...',
-                                              style: TextStyle(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.65),
-                                                fontSize: 12,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
+                                            textAlign: TextAlign.center,
                                           ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ],
-                            ],
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 4),
+                                    ValueListenableBuilder<Duration>(
+                                      valueListenable: _duration,
+                                      builder: (context, duration, _) {
+                                        return _buildAlignedTimerDisplay(
+                                          duration,
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildReminderRow(),
+                                    const SizedBox(height: 20),
+                                    // _buildStudentDetailContainer(
+                                    //   studentName: isLoaded
+                                    //       ? myChildsDayState.fullName
+                                    //       : selectedChild.name,
+                                    //   classroomName: isLoaded
+                                    //       ? myChildsDayState.classroomName
+                                    _buildSignInPinRow(
+                                      selectedChild: selectedChild,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    BlocBuilder<GeofenceCubit, GeofenceState>(
+                                      builder: (context, geofenceState) {
+                                        return Column(
+                                          children: [
+                                            _buildSignInOutButton(
+                                              geofenceState: geofenceState,
+                                              parentChildState: state,
+                                            ),
+                                            if (geofenceState.status ==
+                                                GeofenceCubitStatus
+                                                    .permissionDenied)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 12.0,
+                                                  left: 24.0,
+                                                  right: 24.0,
+                                                ),
+                                                child: GestureDetector(
+                                                  onTap: () => context
+                                                      .read<GeofenceCubit>()
+                                                      .retryPermission(),
+                                                  child: Text(
+                                                    'Location permission required. Tap to enable.',
+                                                    style: TextStyle(
+                                                      color: AppColors
+                                                          .primaryColor
+                                                          .withValues(
+                                                            alpha: 0.65,
+                                                          ),
+                                                      fontSize: 12,
+                                                      decoration: TextDecoration
+                                                          .underline,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ),
+                                              )
+                                            else if (geofenceState.status ==
+                                                GeofenceCubitStatus
+                                                    .locationDisabled)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 12.0,
+                                                  left: 24.0,
+                                                  right: 24.0,
+                                                ),
+                                                child: Text(
+                                                  'Location services are disabled.',
+                                                  style: TextStyle(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              )
+                                            else if (geofenceState.status ==
+                                                GeofenceCubitStatus
+                                                    .outsideRange)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 12.0,
+                                                  left: 24.0,
+                                                  right: 24.0,
+                                                ),
+                                                child: Text(
+                                                  'You are not within the school sign-in zone.',
+                                                  style: TextStyle(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              )
+                                            else if (geofenceState.status ==
+                                                    GeofenceCubitStatus
+                                                        .checkingPermission ||
+                                                geofenceState.status ==
+                                                    GeofenceCubitStatus
+                                                        .fetchingSchoolLocation)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 12.0,
+                                                  left: 24.0,
+                                                  right: 24.0,
+                                                ),
+                                                child: Text(
+                                                  'Checking location...',
+                                                  style: TextStyle(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
+                                                    fontSize: 12,
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
                         );
                       },
@@ -1290,19 +1293,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
 
             // if (!_isMinimized) _buildCommunicationSection(),
-            if (!_isMinimized)
-              // One row per child, not just the one selected in the schedule/
-              // sign-in switcher above — a guardian with multiple children
-              // previously had to flip through the switcher to see each
-              // child's latest chat; now every sibling's row shows at once,
-              // stacked in the order ParentChildCubit returns them, flush
-              // against each other and against the card above (no per-row
-              // gap/floating-card look). Which row ends up visually last
-              // isn't knowable here — each row resolves whether it has a
-              // conversation to show asynchronously and independently — so
-              // every row rounds its own bottom corners uniformly rather
-              // than trying to single out "the last one".
-              ..._buildCommunicationRows(context),
+            // One chat row per child, every sibling at once. Each row rounds
+            // its own bottom corners: which one ends up last is resolved async.
+            DashboardCollapsible(
+              collapsed: _isMinimized,
+              child: Column(children: _buildCommunicationRows(context)),
+            ),
           ],
         ),
       ),
@@ -1338,17 +1334,8 @@ class _MyChildsDayChatPreviewRow extends StatefulWidget {
     required this.childName,
   });
 
-  /// The child THIS card is currently showing. Admin Chat and Room Chat
-  /// conversations are both per-student — a parent with more than one
-  /// child can have one of each per sibling, so this row must only ever
-  /// consider conversations belonging to this specific child, across BOTH
-  /// types, and show whichever of the two was most recently active.
-  /// Previously unfiltered: it picked the single most-recently-active
-  /// Admin Chat conversation across ALL of the parent's children, so a
-  /// sibling's more recent message could show up on THIS child's day card
-  /// instead of this child's own conversation (or "No recent
-  /// conversations" when this child had one but a sibling's was more
-  /// recent).
+  /// The child this row shows. Admin Chat and Room Chat are per student, so
+  /// only this child's conversations count, across both types; newest wins.
   final String studentCode;
 
   /// Now that every sibling's row renders at once (not just the child
@@ -1373,11 +1360,9 @@ class _MyChildsDayChatPreviewRowState
     extends State<_MyChildsDayChatPreviewRow> {
   String _currentUserCode = '';
 
-  /// Most-recent conversation per type, filtered to [widget.studentCode].
-  /// Populated independently per type (each has its own cache/REST/watch
-  /// pipeline below) so one type resolving doesn't block or clobber the
-  /// other; [_conversation] recomputes the winner from both every time
-  /// either slot updates.
+  /// Most-recent conversation per type for [widget.studentCode], resolved
+  /// independently so one type never blocks the other; [_conversation] picks
+  /// the winner.
   final Map<ConversationType, ConversationEntity?> _byType = {};
 
   bool _loading = true;
@@ -1414,13 +1399,8 @@ class _MyChildsDayChatPreviewRowState
     super.dispose();
   }
 
-  /// Admin Chat and Room Chat are both v2-only (ConversationEntity) — never
-  /// part of the legacy CommunicationCubit/Conversation stack this row used
-  /// to read from, so `conversationsByType[null]` could never contain
-  /// either and the row always fell back to its "no chat" state even when a
-  /// real conversation existed. Mirrors the staff-persona "My Day" card's
-  /// equivalent row (my_day_card.dart), which already reads from this same
-  /// v2 source.
+  /// Both chat types are v2-only (ConversationEntity), never in the legacy
+  /// CommunicationCubit stack; mirrors the staff "My Day" row.
   Future<void> _init() async {
     _currentUserCode =
         (await serviceLocator<StorageService>().getString(
@@ -1522,11 +1502,8 @@ class _MyChildsDayChatPreviewRowState
   Widget build(BuildContext context) {
     final conversation = _conversation;
 
-    // No conversation to show, and we're done looking — the row itself
-    // (placeholder avatar, "No recent conversations", chat button) added
-    // nothing actionable, just dead space. Skip it entirely rather than
-    // rendering an empty-state row. While still loading, render nothing
-    // rather than a "Loading…" row that may immediately disappear.
+    // Nothing to show and done looking: skip the row rather than render an
+    // empty state. While loading, render nothing.
     if (conversation == null && !_loading) {
       return const SizedBox.shrink();
     }
@@ -1551,12 +1528,9 @@ class _MyChildsDayChatPreviewRowState
 
     final avatarUrl = conversation?.displayAvatar(_currentUserCode) ?? '';
 
-    // With every sibling's row now shown at once, the conversation title
-    // alone (often the other party's name, not the child's) doesn't say
-    // which child this is about — EXCEPT for Room Chat, whose stored title
-    // typically already IS the child's name, in which case a separate
-    // caption would just repeat it verbatim right above itself. Only show
-    // the caption when it adds information the title doesn't already have.
+    // With every sibling shown at once, the title alone may not name the
+    // child. Room Chat titles usually already are the child's name, so the
+    // caption only shows when it adds information.
     final showChildNameCaption =
         widget.childName.isNotEmpty &&
         widget.childName.trim().toLowerCase() !=
