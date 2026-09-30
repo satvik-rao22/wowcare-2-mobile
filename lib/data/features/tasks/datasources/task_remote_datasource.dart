@@ -490,8 +490,9 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
     );
     return TaskResponseParser.uploadSession(
       response.data,
-      fallbackDocumentBasePath:
-          ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1',
+      fallbackDocumentBasePath: ApiConstants.isGatewayEnv
+          ? '/api/v1/document'
+          : '/document-ms/api/v1',
     );
   }
 
