@@ -14,7 +14,6 @@ import 'package:wowcare/presentation/features/students/view_model/student_health
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentHealthScreen extends StatefulWidget {
   const EditStudentHealthScreen({
@@ -110,8 +109,6 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final bottomSafe = media.padding.bottom == 0 ? 16.0 : media.padding.bottom;
 
     return StaffFormLayout(
       title: StudentStrings.editHealthDetails,
@@ -138,24 +135,15 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           AppSpacing.gapVMd,
         ],
       ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: bottomSafe,
-          left: AppSpacing.md,
-          right: AppSpacing.md,
-          top: AppSpacing.xs,
-        ),
-        decoration: AppSurfaces.card(borderRadius: const BorderRadius.only( topLeft: Radius.circular(24), topRight: Radius.circular(24), )),
-        child: BlocBuilder<StudentHealthCubit, StudentHealthState>(
-          bloc: _healthCubit,
-          buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
-          builder: (context, state) => CustomButtonLayout(
-            confirmButtonLabel: StudentStrings.save,
-            onPressedConfirm: state.mutationInProgress ? null : _save,
-            showCancelButton: false,
-            isForm: false,
-            isLoading: state.mutationInProgress,
-          ),
+      bottomBar: BlocBuilder<StudentHealthCubit, StudentHealthState>(
+        bloc: _healthCubit,
+        buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
+        builder: (context, state) => CustomButtonLayout(
+          confirmButtonLabel: StudentStrings.save,
+          onPressedConfirm: state.mutationInProgress ? null : _save,
+          showCancelButton: false,
+          isForm: false,
+          isLoading: state.mutationInProgress,
         ),
       ),
     );

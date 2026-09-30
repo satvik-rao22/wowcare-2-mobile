@@ -81,49 +81,25 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
 
     return StaffFormLayout(
       title: BillingStrings.setAutoPayment,
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: (MediaQuery.of(context).padding.bottom > 0)
-              ? MediaQuery.of(context).padding.bottom
-              : 16,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.billingCardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        child: ListenableBuilder(
-          // Re-evaluate the Save button as the user types (the enabled state is
-          // derived from the controllers); the cubit drives error/loading state.
-          listenable: Listenable.merge(<Listenable>[
-            _cardNumberController,
-            _cvvController,
-            _accountNumberController,
-            _routingNumberController,
-          ]),
-          builder: (context, _) => AbsorbPointer(
-            absorbing: !_isSubmitEnabled,
-            child: Opacity(
-              opacity: _isSubmitEnabled ? 1 : 0.6,
-              child: CustomButtonLayout(
-                confirmButtonLabel: BillingStrings.saveDetails,
-                onPressedConfirm: _onSaveDetails,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: _isSaving,
-              ),
+      bottomBar: ListenableBuilder(
+        // Re-evaluate the Save button as the user types (the enabled state is
+        // derived from the controllers); the cubit drives error/loading state.
+        listenable: Listenable.merge(<Listenable>[
+          _cardNumberController,
+          _cvvController,
+          _accountNumberController,
+          _routingNumberController,
+        ]),
+        builder: (context, _) => AbsorbPointer(
+          absorbing: !_isSubmitEnabled,
+          child: Opacity(
+            opacity: _isSubmitEnabled ? 1 : 0.6,
+            child: CustomButtonLayout(
+              confirmButtonLabel: BillingStrings.saveDetails,
+              onPressedConfirm: _onSaveDetails,
+              showCancelButton: false,
+              isForm: false,
+              isLoading: _isSaving,
             ),
           ),
         ),

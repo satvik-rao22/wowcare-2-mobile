@@ -450,41 +450,36 @@ class _SendInvoiceFormState extends State<_SendInvoiceForm> {
   }
 
   Widget _buildBottomBar(bool isSending) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: SkeuKeyBox(
-          variant: KeyVariant.primary,
-          radius: 12,
-          child: TextButton(
-            onPressed: isSending ? null : _sendInvoice,
-            style: TextButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: isSending
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppColors.billingCardOnColorText,
-                    ),
-                  )
-                : Text(
-                    _isDraft
-                        ? BillingStrings.sendInvoice
-                        : BillingStrings.resendInvoice,
-                    style: TextStyle(
-                      color: AppColors.billingButtonTextColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+    return SkeuKeyBox(
+      variant: KeyVariant.primary,
+      radius: 12,
+      child: TextButton(
+        onPressed: isSending ? null : _sendInvoice,
+        style: TextButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
+        child: isSending
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.billingCardOnColorText,
+                ),
+              )
+            : Text(
+                _isDraft
+                    ? BillingStrings.sendInvoice
+                    : BillingStrings.resendInvoice,
+                style: TextStyle(
+                  color: AppColors.billingButtonTextColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
       ),
     );
   }

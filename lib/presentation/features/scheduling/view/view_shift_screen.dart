@@ -71,39 +71,26 @@ class ViewShiftScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = SchedulingResponsive(context);
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
     return StaffFormLayout(
       title: 'View Shift',
-      bottomBar: readOnly
-          ? const SizedBox.shrink()
-          : Container(
-              padding: EdgeInsets.only(
-                bottom: bottomPadding,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-              child: CustomButtonLayout(
-                cancelButtonLabel: 'Delete',
-                confirmButtonLabel: 'Edit',
-                onPressedCancel: () => _confirmAction(
-                  context,
-                  actionLabel: 'Delete',
-                  onThis: onDeleteThis,
-                  onSeries: onDeleteSeries,
-                ),
-                onPressedConfirm: () => _confirmAction(
-                  context,
-                  actionLabel: 'Edit',
-                  onThis: onEditThis,
-                  onSeries: onEditSeries,
-                ),
-                isForm: false,
-              ),
-            ),
+      bottomBar: readOnly ? null : CustomButtonLayout(
+        cancelButtonLabel: 'Delete',
+        confirmButtonLabel: 'Edit',
+        onPressedCancel: () => _confirmAction(
+          context,
+          actionLabel: 'Delete',
+          onThis: onDeleteThis,
+          onSeries: onDeleteSeries,
+        ),
+        onPressedConfirm: () => _confirmAction(
+          context,
+          actionLabel: 'Edit',
+          onThis: onEditThis,
+          onSeries: onEditSeries,
+        ),
+        isForm: false,
+      ),
       child: ListView(
         padding: EdgeInsets.zero,
         children: [

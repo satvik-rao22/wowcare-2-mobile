@@ -32,6 +32,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_cubit.
 import 'package:wowcare/presentation/features/communication/bulk_messaging/widgets/selection_shimmer.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -952,21 +953,7 @@ class _StaffOrStudentSelectionBulkMessagingState
   }
 
   Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: AppSizes.md,
-        right: AppSizes.md,
-        top: AppSizes.md,
-      ),
-      decoration: AppSurfaces.card(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
+    return BottomActionBar(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

@@ -56,7 +56,9 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
       });
     }
   } catch (e) {
-    AppLogger.d('roles JSON decode failed, falling back to substring match: $e');
+    AppLogger.d(
+      'roles JSON decode failed, falling back to substring match: $e',
+    );
   }
   final u = raw.toUpperCase();
   return u.contains('GUARDIAN') || u.contains('PARENT');
@@ -1139,7 +1141,9 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
           );
           schemaParams = typeDetails.parameters;
         } catch (e) {
-          AppLogger.d('getActivityTypeDetails failed for $activityTypeCode: $e');
+          AppLogger.d(
+            'getActivityTypeDetails failed for $activityTypeCode: $e',
+          );
         }
       }
 
@@ -3004,55 +3008,45 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? SafeArea(
-              child: _showGuardianAcknowledgeButton
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      child: CustomButtonLayout(
-                        confirmButtonLabel: _isAcknowledged
-                            ? 'Acknowledged'
-                            : 'Acknowledge',
-                        onPressedConfirm: _isAcknowledged
-                            ? null
-                            : _onAcknowledgePressed,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading: _isAcknowledging,
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            )
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ActivityAdminApproveRejectBar(
-                      visible: _showAdminApproveRejectActions,
-                      isLoading:
-                          _isApprovingOrRejecting ||
-                          _isSubmitting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail,
-                      onApprove: _approvePendingActivity,
-                      onReject: _rejectPendingActivity,
-                    ),
-                    if (!_showAdminApproveRejectActions)
-                      CustomButtonLayout(
-                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                        onPressedConfirm: _onSaveOrAddPressed,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading:
-                            _isSubmitting ||
-                            _isApprovingOrRejecting ||
-                            _isUploadingMedia ||
-                            _loadingActivityDetail,
-                      ),
-                  ],
+          ? (_showGuardianAcknowledgeButton
+                ? CustomButtonLayout(
+                    confirmButtonLabel: _isAcknowledged
+                        ? 'Acknowledged'
+                        : 'Acknowledge',
+                    onPressedConfirm: _isAcknowledged
+                        ? null
+                        : _onAcknowledgePressed,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading: _isAcknowledging,
+                  )
+                : null)
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ActivityAdminApproveRejectBar(
+                  visible: _showAdminApproveRejectActions,
+                  isLoading:
+                      _isApprovingOrRejecting ||
+                      _isSubmitting ||
+                      _isUploadingMedia ||
+                      _loadingActivityDetail,
+                  onApprove: _approvePendingActivity,
+                  onReject: _rejectPendingActivity,
                 ),
-              ),
+                if (!_showAdminApproveRejectActions)
+                  CustomButtonLayout(
+                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                    onPressedConfirm: _onSaveOrAddPressed,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading:
+                        _isSubmitting ||
+                        _isApprovingOrRejecting ||
+                        _isUploadingMedia ||
+                        _loadingActivityDetail,
+                  ),
+              ],
             ),
     );
   }

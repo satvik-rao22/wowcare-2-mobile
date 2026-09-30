@@ -18,7 +18,6 @@ import 'package:wowcare/data/features/staff/models/staff_important_dates_models.
 import 'package:wowcare/domain/features/staff/entities/staff_important_date.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditImportantDatesScreen extends StatelessWidget {
   const EditImportantDatesScreen({
@@ -443,8 +442,6 @@ class _EditImportantDatesScreenViewState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocListener<ImportantDatesCubit, ImportantDatesState>(
       listener: (context, state) {
@@ -553,21 +550,12 @@ class _EditImportantDatesScreenViewState
                 const SizedBox(height: 12),
               ],
             ),
-            bottomBar: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-              child: CustomButtonLayout(
-                confirmButtonLabel: 'Save',
-                onPressedConfirm: isSubmitting ? null : _saveImportantDates,
-                showCancelButton: false,
-                isForm: false,
-                isLoading: isSubmitting,
-              ),
+            bottomBar: CustomButtonLayout(
+              confirmButtonLabel: 'Save',
+              onPressedConfirm: isSubmitting ? null : _saveImportantDates,
+              showCancelButton: false,
+              isForm: false,
+              isLoading: isSubmitting,
             ),
           );
         },

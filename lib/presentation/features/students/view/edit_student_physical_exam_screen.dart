@@ -21,7 +21,6 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentPhysicalExamScreen extends StatefulWidget {
   const EditStudentPhysicalExamScreen({
@@ -223,8 +222,6 @@ class _EditStudentPhysicalExamScreenState
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final bottomSafe = media.padding.bottom == 0 ? 16.0 : media.padding.bottom;
 
     return BlocBuilder<StudentPhysicalExamCubit, StudentPhysicalExamState>(
       bloc: _examCubit,
@@ -309,21 +306,12 @@ class _EditStudentPhysicalExamScreenState
               ),
             ],
           ),
-          bottomBar: Container(
-            padding: EdgeInsets.only(
-              bottom: bottomSafe,
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              top: AppSpacing.xs,
-            ),
-            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(24), topRight: Radius.circular(24), )),
-            child: CustomButtonLayout(
-              confirmButtonLabel: StudentStrings.save,
-              onPressedConfirm: state.mutationInProgress ? null : _save,
-              showCancelButton: false,
-              isForm: false,
-              isLoading: state.mutationInProgress,
-            ),
+          bottomBar: CustomButtonLayout(
+            confirmButtonLabel: StudentStrings.save,
+            onPressedConfirm: state.mutationInProgress ? null : _save,
+            showCancelButton: false,
+            isForm: false,
+            isLoading: state.mutationInProgress,
           ),
         );
       },

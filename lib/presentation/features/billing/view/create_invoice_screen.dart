@@ -248,54 +248,27 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   Widget _buildBottomBar(ResponsiveHelper responsive) {
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0
-        ? MediaQuery.of(context).padding.bottom
-        : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 8,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.billingShadowColorLight,
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
-      child: ValueListenableBuilder<bool>(
-        valueListenable: _isSubmitting,
-        builder: (context, isSubmitting, _) {
-          final radius = BorderRadius.circular(
-            responsive.isTablet ? 16.0 : 8.0,
-          );
-          // Step 2 of 3 → continue to the invoice preview, where Save / Save &
-          // Send finalize the invoice.
-          return SkeuKeyBox(
-            variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
-            borderRadius: radius,
-            height: responsive.buttonHeight,
-            child: TextButton(
-              onPressed: isSubmitting ? null : _openPreview,
-              child: Text(
-                BillingStrings.previewInvoice,
-                style: AppTextStyles.button(
-                  color: AppColors.billingCardColor,
-                ).copyWith(fontSize: responsive.buttonFontSize),
-              ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isSubmitting,
+      builder: (context, isSubmitting, _) {
+        final radius = BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0);
+        // Step 2 of 3 → continue to the invoice preview, where Save / Save &
+        // Send finalize the invoice.
+        return SkeuKeyBox(
+          variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+          borderRadius: radius,
+          height: responsive.buttonHeight,
+          child: TextButton(
+            onPressed: isSubmitting ? null : _openPreview,
+            child: Text(
+              BillingStrings.previewInvoice,
+              style: AppTextStyles.button(
+                color: AppColors.billingCardColor,
+              ).copyWith(fontSize: responsive.buttonFontSize),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

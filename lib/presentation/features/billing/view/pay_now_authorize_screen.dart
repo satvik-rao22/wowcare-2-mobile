@@ -110,7 +110,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   Widget _buildContent(BuildContext context, PaymentSettingsEntity settings) {
     return StaffFormLayout(
       title: BillingStrings.payNow,
-      bottomBar: const SizedBox.shrink(),
+      bottomBar: null,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

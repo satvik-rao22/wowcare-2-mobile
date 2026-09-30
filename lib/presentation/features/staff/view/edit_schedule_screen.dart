@@ -500,8 +500,6 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return StaffFormLayout(
       title: "Edit Schedule",
@@ -584,40 +582,26 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
           const SizedBox(height: 12),
         ],
       ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: AppSurfaces.card(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: SkeuKeyBox(
-          variant: KeyVariant.primary,
-          radius: responsive.isTablet ? 16.0 : 8.0,
-          height: responsive.buttonHeight,
-          child: ValueListenableBuilder<bool>(
-            valueListenable: _isSubmitting,
-            builder: (context, isSubmitting, _) {
-              return TextButton(
-                onPressed: isSubmitting ? null : _saveSchedule,
-                child: Text(
-                  'Save',
-                  style: TextStyle(
-                    fontFamily: AppFonts.body,
-                    fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.cardColor,
-                  ),
+      bottomBar: SkeuKeyBox(
+        variant: KeyVariant.primary,
+        radius: responsive.isTablet ? 16.0 : 8.0,
+        height: responsive.buttonHeight,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: _isSubmitting,
+          builder: (context, isSubmitting, _) {
+            return TextButton(
+              onPressed: isSubmitting ? null : _saveSchedule,
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.cardColor,
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

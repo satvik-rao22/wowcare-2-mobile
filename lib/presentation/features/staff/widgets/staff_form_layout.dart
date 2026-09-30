@@ -6,6 +6,7 @@ import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class StaffFormLayout extends StatelessWidget {
   const StaffFormLayout({
@@ -157,7 +158,11 @@ class StaffFormLayout extends StatelessWidget {
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                    decoration: AppSurfaces.card(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                      ),
+                    ),
                     child: child,
                   ),
                 ),
@@ -167,7 +172,9 @@ class StaffFormLayout extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: bottomBar,
+      bottomNavigationBar: bottomBar == null
+          ? null
+          : BottomActionBar(child: bottomBar!),
     );
   }
 }

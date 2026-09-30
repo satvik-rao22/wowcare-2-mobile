@@ -38,6 +38,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -906,8 +907,6 @@ class _EditStudentProfileDetailsScreenState
 
   Widget _buildScreenBody(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     ClassroomState classroomState;
     try {
@@ -968,7 +967,11 @@ class _EditStudentProfileDetailsScreenState
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                    decoration: AppSurfaces.card(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                      ),
+                    ),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -1197,14 +1200,7 @@ class _EditStudentProfileDetailsScreenState
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            top: AppSpacing.xs,
-          ),
-          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+        bottomNavigationBar: BottomActionBar(
           child: CustomButtonLayout(
             confirmButtonLabel: StudentStrings.save,
             onPressedConfirm: _saveProfileDetails,
@@ -1253,7 +1249,9 @@ class _EditStudentProfileDetailsScreenState
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,

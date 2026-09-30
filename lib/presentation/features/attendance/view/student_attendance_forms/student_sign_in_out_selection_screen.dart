@@ -88,13 +88,16 @@ class _StudentSignInOutSelectionView extends StatelessWidget {
     final isKiosk = _isKioskMode();
     final cubit = context.read<StudentSignInOutSelectionCubit>();
 
-    return BlocBuilder<StudentSignInOutSelectionCubit, StudentSignInOutSelectionState>(
+    return BlocBuilder<
+      StudentSignInOutSelectionCubit,
+      StudentSignInOutSelectionState
+    >(
       builder: (context, state) {
         final isValidating = state.isValidating;
         return StaffFormLayout(
           title: 'Sign In / Sign Out',
           isKiosk: isKiosk,
-          bottomBar: const SizedBox.shrink(),
+          bottomBar: null,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -144,11 +147,15 @@ class _StudentSignInOutSelectionView extends StatelessWidget {
                               }
                             },
                             onInvalid: (message) {
-                              if (context.mounted) _showSnackBar(context, message);
+                              if (context.mounted)
+                                _showSnackBar(context, message);
                             },
                             onError: () {
                               if (context.mounted) {
-                                _showSnackBar(context, 'Failed to validate QR code');
+                                _showSnackBar(
+                                  context,
+                                  'Failed to validate QR code',
+                                );
                               }
                             },
                           );
@@ -199,11 +206,15 @@ class _StudentSignInOutSelectionView extends StatelessWidget {
                               }
                             },
                             onInvalid: (message) {
-                              if (context.mounted) _showSnackBar(context, message);
+                              if (context.mounted)
+                                _showSnackBar(context, message);
                             },
                             onError: () {
                               if (context.mounted) {
-                                _showSnackBar(context, 'Failed to validate QR code');
+                                _showSnackBar(
+                                  context,
+                                  'Failed to validate QR code',
+                                );
                               }
                             },
                           );

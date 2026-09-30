@@ -1283,36 +1283,31 @@ class _NapActivityViewState extends State<_NapActivityView> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ActivityAdminApproveRejectBar(
-                      visible: _showAdminApproveRejectActions,
-                      isLoading:
-                          _isApprovingOrRejecting ||
-                          _isSubmitting ||
-                          _loadingActivityDetail,
-                      onApprove: _approvePendingActivity,
-                      onReject: _rejectPendingActivity,
-                    ),
-                    if (!_showAdminApproveRejectActions)
-                      CustomButtonLayout(
-                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                        onPressedConfirm: _onPressedBottom,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading:
-                            _isSubmitting ||
-                            _isApprovingOrRejecting ||
-                            _loadingActivityDetail,
-                      ),
-                  ],
+          ? null
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ActivityAdminApproveRejectBar(
+                  visible: _showAdminApproveRejectActions,
+                  isLoading:
+                      _isApprovingOrRejecting ||
+                      _isSubmitting ||
+                      _loadingActivityDetail,
+                  onApprove: _approvePendingActivity,
+                  onReject: _rejectPendingActivity,
                 ),
-              ),
+                if (!_showAdminApproveRejectActions)
+                  CustomButtonLayout(
+                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                    onPressedConfirm: _onPressedBottom,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading:
+                        _isSubmitting ||
+                        _isApprovingOrRejecting ||
+                        _loadingActivityDetail,
+                  ),
+              ],
             ),
     );
   }

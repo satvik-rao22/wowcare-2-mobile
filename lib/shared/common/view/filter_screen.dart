@@ -62,7 +62,9 @@ class _FilterScreenState extends State<FilterScreen> {
       // Status once Type is picked) never contributes to the applied
       // filters, even if it holds a stale pick from before it was hidden.
       final visible = section.visibleWhen?.call(selections) ?? true;
-      result[section.label] = visible ? List.from(_selectedValues[i]) : const [];
+      result[section.label] = visible
+          ? List.from(_selectedValues[i])
+          : const [];
     }
     widget.onApply(result);
     Navigator.pop(context);
@@ -80,21 +82,11 @@ class _FilterScreenState extends State<FilterScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 8,
-      ),
-      child: CustomButtonLayout(
-        confirmButtonLabel: 'Apply Filters',
-        onPressedConfirm: _applyFilters,
-        showCancelButton: false,
-        isForm: false,
-      ),
+    return CustomButtonLayout(
+      confirmButtonLabel: 'Apply Filters',
+      onPressedConfirm: _applyFilters,
+      showCancelButton: false,
+      isForm: false,
     );
   }
 
@@ -216,8 +208,7 @@ class FilerSection {
   /// picks). Null means always visible. Re-evaluated on every selection
   /// change, so a section can appear/disappear live as the user picks other
   /// fields (e.g. hiding Mode/Payment Status once Type is picked).
-  final bool Function(Map<String, List<String>> currentSelections)?
-      visibleWhen;
+  final bool Function(Map<String, List<String>> currentSelections)? visibleWhen;
 
   FilerSection({
     required this.label,

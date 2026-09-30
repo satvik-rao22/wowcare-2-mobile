@@ -1626,40 +1626,35 @@ class _LearningActivityViewState extends State<_LearningActivityView> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ActivityAdminApproveRejectBar(
-                      visible: _showAdminApproveRejectActions,
-                      isLoading:
-                          _isApprovingOrRejecting ||
-                          _isSubmitting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail ||
-                          _loadingLearningOptions,
-                      onApprove: _approvePendingActivity,
-                      onReject: _rejectPendingActivity,
-                    ),
-                    if (!_showAdminApproveRejectActions)
-                      CustomButtonLayout(
-                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                        onPressedConfirm: _onPressedBottom,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading:
-                            _isSubmitting ||
-                            _isApprovingOrRejecting ||
-                            _isUploadingMedia ||
-                            _loadingActivityDetail ||
-                            _loadingLearningOptions,
-                      ),
-                  ],
+          ? null
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ActivityAdminApproveRejectBar(
+                  visible: _showAdminApproveRejectActions,
+                  isLoading:
+                      _isApprovingOrRejecting ||
+                      _isSubmitting ||
+                      _isUploadingMedia ||
+                      _loadingActivityDetail ||
+                      _loadingLearningOptions,
+                  onApprove: _approvePendingActivity,
+                  onReject: _rejectPendingActivity,
                 ),
-              ),
+                if (!_showAdminApproveRejectActions)
+                  CustomButtonLayout(
+                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                    onPressedConfirm: _onPressedBottom,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading:
+                        _isSubmitting ||
+                        _isApprovingOrRejecting ||
+                        _isUploadingMedia ||
+                        _loadingActivityDetail ||
+                        _loadingLearningOptions,
+                  ),
+              ],
             ),
     );
   }

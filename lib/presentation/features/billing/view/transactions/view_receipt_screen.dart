@@ -15,7 +15,10 @@ import 'package:wowcare/core/utils/date_utils.dart';
 /// Locally-derived invoice header shown alongside a receipt/invoice (not
 /// parsed from any API response — built from [ViewReceiptScreen.transaction]).
 class _ReceiptInvoiceDetails {
-  const _ReceiptInvoiceDetails({required this.dueDate, required this.invoiceNumber});
+  const _ReceiptInvoiceDetails({
+    required this.dueDate,
+    required this.invoiceNumber,
+  });
 
   final DateTime? dueDate;
   final String invoiceNumber;
@@ -348,7 +351,10 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 BillingStrings.description,
-                style: TextStyle(fontSize: 15, color: AppColors.billingGreyMedium),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.billingGreyMedium,
+                ),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -356,7 +362,10 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 BillingStrings.amount,
-                style: TextStyle(fontSize: 15, color: AppColors.billingGreyMedium),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.billingGreyMedium,
+                ),
                 textAlign: TextAlign.end,
               ),
             ),
@@ -547,7 +556,11 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     final error = await cubit.downloadReceipt(widget.transaction);
     if (!context.mounted) return;
     if (error != null) {
-      CoreUtils.showTopSnackBar(context: context, message: error, isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: error,
+        isError: true,
+      );
     } else {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -559,6 +572,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
 
   Widget _buildBottomBar(BuildContext context) {
     return CustomButtonLayout(
+      isForm: false,
       confirmButtonLabel: BillingStrings.download,
       onPressedConfirm: () => _onDownload(context),
       showCancelButton: false,

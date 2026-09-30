@@ -458,8 +458,6 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final isSubmitting = context
         .watch<EditUserProfileCubit>()
         .state
@@ -584,33 +582,19 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             ],
           ),
         ),
-        bottomBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: AppSurfaces.card(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
-          child: SkeuKeyBox(
-            variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
-            radius: responsive.isTablet ? 16.0 : 8.0,
-            height: responsive.buttonHeight,
-            child: TextButton(
-              onPressed: isSubmitting ? null : () => _saveProfileDetails(),
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: AppFonts.body,
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.cardColor,
-                ),
+        bottomBar: SkeuKeyBox(
+          variant: !(isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+          radius: responsive.isTablet ? 16.0 : 8.0,
+          height: responsive.buttonHeight,
+          child: TextButton(
+            onPressed: isSubmitting ? null : () => _saveProfileDetails(),
+            child: Text(
+              'Save',
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: responsive.buttonFontSize,
+                fontWeight: FontWeight.w500,
+                color: AppColors.cardColor,
               ),
             ),
           ),

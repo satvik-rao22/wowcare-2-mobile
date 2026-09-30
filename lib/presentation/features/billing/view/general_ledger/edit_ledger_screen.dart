@@ -101,8 +101,6 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
         builder: (context, state) {
           final ResponsiveHelper responsive = ResponsiveHelper(context);
           final double verticalSpacing = responsive.isTablet ? 24.0 : 16.0;
-          final double bottomPadding = MediaQuery.of(context).padding.bottom;
-          final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
           final TextStyle labelStyle = AppTextStyles.label.copyWith(
             fontSize: responsive.labelFontSize,
             color: AppColors.billingTextColor,
@@ -162,39 +160,13 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                       SizedBox(height: verticalSpacing),
                     ],
                   ),
-            bottomBar: _isLoading
-                ? const SizedBox.shrink()
-                : Container(
-                    padding: EdgeInsets.only(
-                      bottom: safeAreaBottom,
-                      left: 16,
-                      right: 16,
-                      top: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.billingCardColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blackColor.withValues(alpha: 0.05),
-                          offset: const Offset(0, -4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                      borderRadius: BorderRadius.only(
-                        topLeft:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        topRight:
-                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                      ),
-                    ),
-                    child: CustomButtonLayout(
-                      confirmButtonLabel: BillingStrings.update,
-                      onPressedConfirm: _onSave,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting,
-                    ),
-                  ),
+            bottomBar: _isLoading ? null : CustomButtonLayout(
+              confirmButtonLabel: BillingStrings.update,
+              onPressedConfirm: _onSave,
+              showCancelButton: false,
+              isForm: false,
+              isLoading: _isSubmitting,
+            ),
           );
         },
       ),
