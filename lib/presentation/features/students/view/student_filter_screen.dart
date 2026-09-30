@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_schoo
 import 'package:wowcare/presentation/features/classroom/view_model/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -381,37 +382,38 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               final items = _optionsFor(section);
               final selected = _selectedFor(section);
 
-              // Select All on every multi-select filter (Classroom, Tags,
-              // Parents, Attendance). Status is single-select, so it doesn't
-              // get a Select All row.
-              final showSelectAll = section != StudentFilterSection.status;
+              // Status is a true single-select dropdown, not a checkbox list —
+              // picking both Active + Upcoming used to leave Upcoming
+              // students missing from the roster (whatever combined
+              // `status=ACTIVE&status=UPCOMING` request the backend
+              // received didn't return them), so only one can be chosen.
+              if (section == StudentFilterSection.status) {
+                return CustomDropdown(
+                  label: label,
+                  hintText: StudentStrings.select,
+                  showAsterisk: false,
+                  items: items,
+                  selectedItem: selected.isNotEmpty ? selected.first : 'Active',
+                  onSelect: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedStatusList = [value];
+                    });
+                  },
+                );
+              }
 
               return CustomMultiSelectDropdown(
                 label: label,
                 hintText: StudentStrings.select,
-                showSelectAll: showSelectAll,
+                showSelectAll: true,
                 items: items,
                 selectedItems: selected,
                 onChanged: (selectedItems) {
                   setState(() {
-                    final isSingleSelect =
-                        section == StudentFilterSection.status;
-
                     selected
                       ..clear()
-                      ..addAll(
-                        isSingleSelect
-                            ? (selectedItems.isEmpty
-                                  ? const <String>[]
-                                  : <String>[selectedItems.last])
-                            : selectedItems,
-                      );
-
-                    // Ensure status always has a default if enabled.
-                    if (section == StudentFilterSection.status &&
-                        _selectedStatusList.isEmpty) {
-                      _selectedStatusList.add('Active');
-                    }
+                      ..addAll(selectedItems);
                   });
                 },
               );

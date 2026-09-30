@@ -1,5 +1,6 @@
 package com.wiseowl.wowcareapp
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,9 +8,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 /**
  * Minimal foreground service whose sole purpose is to keep the app process
@@ -32,46 +36,34 @@ class GeofenceForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Defence in depth: [start] already refuses to launch us without the
-        // permissions below, so reaching this branch means they were revoked
-        // in the window between that check and now. stopSelf() rather than
-        // stopSelfResult(startId), which is a no-op unless startId happens to
-        // be the most recent start request.
-        if (!canRun(this)) {
-            android.util.Log.w("GeofenceService", "Location permission missing, stopping service")
-            stopSelf()
+        // startForegroundService() creates a contract: this service MUST reach
+        // the foreground within a few seconds, or the OS kills the whole app
+        // with ForegroundServiceDidNotStartInTimeException. stopSelf() does NOT
+        // discharge it — so startForeground() is attempted first, before any
+        // decision about whether we should be running at all.
+        //
+        // Deliberately NOT guarded by a permission check: below API 34 a
+        // `location`-type startForeground() does not require the grant, so
+        // skipping the call there would break a case that works and leave the
+        // contract unsatisfied. On API 34+ a missing grant throws
+        // SecurityException, which the catch below absorbs.
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (t: Throwable) {
+            Log.e(TAG, "startForeground failed: $t")
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
-        try {
-            startForeground(NOTIFICATION_ID, buildNotification())
-        } catch (e: Exception) {
-            // Every reason the OS can refuse the promotion is terminal for
-            // this service, and there is nothing the user can do about it
-            // here: keeping the process alive is an optimisation, not a
-            // feature. Rethrowing would take the whole app down over it.
-            //
-            //   SecurityException                        - FGS type `location`
-            //                                              refused (missing or
-            //                                              revoked runtime grant)
-            //   ForegroundServiceStartNotAllowedException - started from the
-            //                                              background on S+
-            //
-            // Either way we must stop, or the unpromoted service is killed
-            // with ForegroundServiceDidNotStartInTimeException.
-            val terminal = e is SecurityException ||
-                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                    e is android.app.ForegroundServiceStartNotAllowedException)
-            if (terminal) {
-                android.util.Log.e(
-                    "GeofenceService",
-                    "startForeground refused (${e.javaClass.simpleName}): ${e.message}",
-                )
-                stopSelf()
-                return START_NOT_STICKY
-            }
-            throw e
+        // Now that the contract is satisfied, it is safe to stand down. Without
+        // background location the geofence never fires while backgrounded, so
+        // the keep-alive has nothing to keep alive for.
+        if (!hasBackgroundLocationPermission(this)) {
+            Log.w(TAG, "No background location permission; stopping service")
+            stopSelf(startId)
+            return START_NOT_STICKY
         }
+
         // START_STICKY: if the OS kills the service, restart it automatically
         // (without re-delivering the last intent, which is fine — we don't use
         // the intent for anything).
@@ -122,71 +114,57 @@ class GeofenceForegroundService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "geofence_monitoring_service"
+        private const val TAG = "GeofenceFgService"
         const val NOTIFICATION_ID = 9001
 
         /**
-         * Whether this service can legally hold a `location`-typed foreground
-         * notification right now.
-         *
-         * Android requires FOREGROUND_SERVICE_LOCATION (a normal permission,
-         * granted at install) *and* a runtime grant of fine or coarse
-         * location. On Q+ the geofence feature additionally needs background
-         * location, which is what the service has always enforced.
-         *
-         * [start] and [onStartCommand] must agree on this predicate. When
-         * they disagree the process dies: startForegroundService() commits the
-         * system to a 5-second deadline for startForeground(), and a service
-         * that returns without promoting itself is killed with
-         * ForegroundServiceDidNotStartInTimeException.
+         * Android 14+ (API 34) rejects a `location`-type foreground service
+         * unless ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION is granted at
+         * runtime, and it signals that by throwing SecurityException from
+         * startForeground() — i.e. by crashing the app. Callers reached before
+         * the user has granted anything (notably ACTION_MY_PACKAGE_REPLACED,
+         * which fires on every install/update) must check this first.
          */
-        fun canRun(context: Context): Boolean {
-            fun granted(permission: String): Boolean =
-                androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
+        fun hasLocationPermission(context: Context): Boolean {
+            fun granted(permission: String) =
+                ContextCompat.checkSelfPermission(context, permission) ==
+                    PackageManager.PERMISSION_GRANTED
+            return granted(Manifest.permission.ACCESS_FINE_LOCATION) ||
+                granted(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
 
-            val hasForegroundLocation =
-                granted(android.Manifest.permission.ACCESS_FINE_LOCATION) ||
-                    granted(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-            if (!hasForegroundLocation) return false
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                !granted(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            ) {
-                return false
-            }
-            return true
+        /** What makes the keep-alive worth running: geofence delivery while backgrounded. */
+        fun hasBackgroundLocationPermission(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
+            return ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
         }
 
         fun start(context: Context) {
-            // Do not even ask for a foreground service we are not allowed to
-            // promote. This is the whole fix for the repeated
-            // ForegroundServiceDidNotStartInTimeException crash: the previous
-            // code called startForegroundService() unconditionally, and
-            // onStartCommand then bailed out on the permission check without
-            // ever calling startForeground().
-            if (!canRun(context)) {
-                android.util.Log.i(
-                    "GeofenceService",
-                    "Skipping foreground service start: location permission not granted",
-                )
+            // Never open a contract we cannot honour: without the grant,
+            // startForeground() throws inside the service and the app is killed
+            // for not reaching the foreground in time. Checking here means
+            // startForegroundService() is simply never called.
+            if (!hasLocationPermission(context)) {
+                Log.w(TAG, "Skipping start: location permission not granted")
                 return
             }
-
             val intent = Intent(context, GeofenceForegroundService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
-                } catch (e: Exception) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                        e is android.app.ForegroundServiceStartNotAllowedException
-                    ) {
-                        android.util.Log.e("GeofenceService", "ForegroundServiceStartNotAllowedException on start: ${e.message}")
-                    } else {
-                        throw e
-                    }
+                } else {
+                    context.startService(intent)
                 }
-            } else {
-                context.startService(intent)
+            } catch (t: Throwable) {
+                // ForegroundServiceStartNotAllowedException (API 31+) when
+                // started from the background. BOOT_COMPLETED and
+                // MY_PACKAGE_REPLACED are exempt, but GeofencePlugin also calls
+                // this from Dart, which is not. A keep-alive that fails to start
+                // must never be fatal.
+                Log.e(TAG, "start failed: $t")
             }
         }
 

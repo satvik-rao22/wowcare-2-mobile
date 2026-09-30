@@ -6,6 +6,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -48,7 +49,13 @@ class _ClassroomStudentFilterScreenState
     extends State<ClassroomStudentFilterScreen> {
   static const List<String> _statusLabels = ['Active', 'Upcoming'];
 
-  final List<String> _selectedStatus = [];
+  /// Single-select — ACTIVE is the permanent baseline (see
+  /// `ClassroomStudentsTabCard`'s own comment on this), so this is never
+  /// empty/null. Was a multi-select list; picking both Active + Upcoming at
+  /// once left Upcoming students missing from the roster (whatever combined
+  /// `status=ACTIVE&status=UPCOMING` request the backend received didn't
+  /// return them), so status is now one-at-a-time instead.
+  String _selectedStatus = 'Active';
   final List<String> _selectedTagNames = [];
 
   List<String> _tagNameOptions = [];
@@ -71,11 +78,8 @@ class _ClassroomStudentFilterScreenState
         .map((e) => e.trim().toUpperCase())
         .where((e) => e.isNotEmpty)
         .toSet();
-    if (initialStatus.contains('ACTIVE')) {
-      _selectedStatus.add('Active');
-    }
-    if (initialStatus.contains('UPCOMING')) {
-      _selectedStatus.add('Upcoming');
+    if (initialStatus.contains('UPCOMING') && !initialStatus.contains('ACTIVE')) {
+      _selectedStatus = 'Upcoming';
     }
 
     _loadTags();
@@ -123,14 +127,9 @@ class _ClassroomStudentFilterScreenState
   }
 
   void _apply() {
-    final statusApi = <String>[];
-    for (final s in _selectedStatus) {
-      if (s == 'Active') {
-        statusApi.add('ACTIVE');
-      } else if (s == 'Upcoming') {
-        statusApi.add('UPCOMING');
-      }
-    }
+    final statusApi = <String>[
+      _selectedStatus == 'Upcoming' ? 'UPCOMING' : 'ACTIVE',
+    ];
 
     final tagCodes = <String>[];
     for (final name in _selectedTagNames) {
@@ -209,17 +208,15 @@ class _ClassroomStudentFilterScreenState
       ),
       itemBuilder: (context, index) {
         if (index == 0) {
-          return CustomMultiSelectDropdown(
+          return CustomDropdown(
             label: labels[0],
             hintText: 'Select',
+            showAsterisk: false,
             items: _statusLabels,
-            selectedItems: List<String>.from(_selectedStatus),
-            onChanged: (selectedItems) {
-              setState(() {
-                _selectedStatus
-                  ..clear()
-                  ..addAll(selectedItems);
-              });
+            selectedItem: _selectedStatus,
+            onSelect: (value) {
+              if (value == null) return;
+              setState(() => _selectedStatus = value);
             },
           );
         }

@@ -203,8 +203,10 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     final text = widget.controller.text;
     final pos = sel.isValid ? sel.baseOffset : text.length;
 
-    // Find the start of the current line.
-    final lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+    // Find the start of the current line. `lastIndexOf`'s start index must
+    // be >= 0 — pos == 0 (empty field, or cursor before any text) would
+    // otherwise pass -1 and throw a RangeError.
+    final lineStart = pos <= 0 ? 0 : text.lastIndexOf('\n', pos - 1) + 1;
 
     // If the line already starts with this prefix, remove it (toggle).
     if (text.substring(lineStart).startsWith(prefix)) {

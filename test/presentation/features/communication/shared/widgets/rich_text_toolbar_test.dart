@@ -71,4 +71,33 @@ void main() {
       expect(iconColor(tester, icon), isNot(AppColors.primaryColor));
     }
   });
+
+  testWidgets(
+    'tapping Bullet list on an empty field does not throw (regression)',
+    (tester) async {
+      // lastIndexOf('\n', pos - 1) with pos == 0 (empty field, cursor at
+      // start) passed a negative start index and threw
+      // "RangeError: Invalid value: Only valid value is 0: -1".
+      final controller = await pumpToolbar(tester, text: '', cursor: 0);
+
+      await tester.tap(find.byIcon(Icons.format_list_bulleted));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(controller.text, '• ');
+    },
+  );
+
+  testWidgets(
+    'tapping Numbered list on an empty field does not throw (regression)',
+    (tester) async {
+      final controller = await pumpToolbar(tester, text: '', cursor: 0);
+
+      await tester.tap(find.byIcon(Icons.format_list_numbered));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(controller.text, '1. ');
+    },
+  );
 }
