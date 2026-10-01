@@ -482,7 +482,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
               style: TextStyle(
                 color: AppColors.primaryColor,
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 fontFamily: AppFonts.body,
               ),
             ),

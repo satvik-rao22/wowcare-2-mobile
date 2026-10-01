@@ -86,7 +86,7 @@ class _Av2DayTableState extends State<Av2DayTable> {
 
   Widget _headerRow() {
     final hStyle = Av2Text.label.copyWith(
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       color: Av2Colors.textPrimary,
     );
     Widget h(

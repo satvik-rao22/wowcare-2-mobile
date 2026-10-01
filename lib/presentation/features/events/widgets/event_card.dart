@@ -170,7 +170,7 @@ class EventCard extends StatelessWidget {
             DateFormat('MMM').format(event.date).toUpperCase(),
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: color,
               letterSpacing: 0.6,
             ),
@@ -179,7 +179,7 @@ class EventCard extends StatelessWidget {
             '${event.date.day}',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: color,
             ),
           ),

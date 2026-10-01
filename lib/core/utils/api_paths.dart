@@ -372,7 +372,14 @@ class ApiPaths {
       '/api/v1/invitations/resend-invite-guardian';
 
   // —— Organization / school host ——
-  static const String schoolNamesByOrg = '/api/v1/schools/names-by-org';
+  /// GET /api/v1/organization/schools/names-by-org/{orgCode}?isAdmin=true|false
+  ///
+  /// Was `/api/v1/schools/names-by-org` — the bare, no-microservice-segment
+  /// form, the same shape as the "Legacy flat paths ... do not use" block at
+  /// the top of this file. Confirmed against the real backend trace for the
+  /// switch-organization flow: `GET /api/v1/organization/schools/names-by-org/{org}`.
+  static const String schoolNamesByOrg =
+      '/api/v1/organization/schools/names-by-org';
   static String schoolNamesByOrgPath(String orgCode) =>
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';

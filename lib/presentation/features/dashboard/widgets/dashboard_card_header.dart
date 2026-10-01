@@ -46,7 +46,7 @@ class DashboardCardHeader extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontSize: 18,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
           maxLines: 1,
         ),

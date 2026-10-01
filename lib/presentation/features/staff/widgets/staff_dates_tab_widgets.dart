@@ -142,7 +142,7 @@ class PhysicalCard extends StatelessWidget {
                   statusLabel,
                   style: TextStyle(
                     color: statusColor,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 12,
                     fontFamily: AppFonts.body,
                   ),

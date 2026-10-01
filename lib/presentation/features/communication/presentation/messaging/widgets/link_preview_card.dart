@@ -271,7 +271,7 @@ class _ContactPreviewChip extends StatelessWidget {
                       style: AppTextStyles.size14.copyWith(
                         fontSize: 11,
                         color: subColor,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -334,7 +334,7 @@ class _ComposerContactPreview extends StatelessWidget {
                   style: AppTextStyles.size14.copyWith(
                     fontSize: 11,
                     color: AppColors.primaryColor.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),

@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:wowcare/core/utils/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';

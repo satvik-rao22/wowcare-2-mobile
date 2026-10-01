@@ -495,6 +495,7 @@ class _ParentDirectMessagingScreenState
               const SizedBox(height: AppSizes.sm),
               const CustomTextWidget(
                 text: AppStrings.couldNotLoadConversations,
+                fontWeight: FontWeight.w600,
                 fontSize: 15,
                 fontColor: AppColors.messagingIconMuted,
               ),
@@ -722,7 +723,7 @@ class _ParentDirectMessagingScreenState
                       Expanded(
                         child: CustomTextWidget(
                           text: childName.isNotEmpty ? childName : AppStrings.studentFallback,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
                       ),
@@ -759,6 +760,7 @@ class _ParentDirectMessagingScreenState
                         const SizedBox(height: AppSizes.sm),
                         CustomTextWidget(
                           text: widget.notCreatedLabel,
+                          fontWeight: FontWeight.w600,
                           fontSize: 15,
                           fontColor: AppColors.messagingIconMuted,
                         ),

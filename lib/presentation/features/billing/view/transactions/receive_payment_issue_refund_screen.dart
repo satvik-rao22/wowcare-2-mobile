@@ -461,7 +461,7 @@ class _ReceivePaymentIssueRefundScreenState
           style: TextStyle(
             fontFamily: AppFonts.body,
             fontSize: responsive.isTablet ? 18.0 : 16.0,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: AppColors.billingTextColor,
           ),
         ),
@@ -564,7 +564,7 @@ class _ReceivePaymentIssueRefundScreenState
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.billingTextColor,
                         fontFamily: AppFonts.body,
                       ),
@@ -621,7 +621,7 @@ class _ReceivePaymentIssueRefundScreenState
           style: const TextStyle(
             color: AppColors.billingCardOnColorText,
             fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontFamily: AppFonts.body,
           ),
         ),
@@ -873,7 +873,7 @@ class _ReceivePaymentIssueRefundScreenState
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: responsive.buttonFontSize,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.billingCardColor,
                       ),
                     ),
@@ -915,7 +915,7 @@ class _ReceivePaymentIssueRefundScreenState
                   style: const TextStyle(
                     color: AppColors.billingCardOnColorText,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                     fontFamily: AppFonts.body,
                   ),
                 ),
@@ -927,7 +927,7 @@ class _ReceivePaymentIssueRefundScreenState
                 widget.transaction.studentName,
                 style: const TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
                   fontFamily: AppFonts.body,
                 ),

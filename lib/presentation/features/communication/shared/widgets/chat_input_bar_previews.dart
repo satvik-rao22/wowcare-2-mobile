@@ -37,7 +37,7 @@ class _QuotePreview extends StatelessWidget {
                         : AppStrings.you,
                     style: AppTextStyles.size14.copyWith(
                       fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.primaryColor,
                     ),
                   ),
@@ -100,7 +100,7 @@ class _EditPreview extends StatelessWidget {
                         AppStrings.editingMessage,
                         style: AppTextStyles.size14.copyWith(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
                         ),
                       ),

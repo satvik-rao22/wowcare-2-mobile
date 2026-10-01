@@ -533,6 +533,28 @@ class AppSurfaces {
         insets: AppElevation.bevelColoured,
       );
 
+  /// The pink tile the logo mark sits on in the update banners, from
+  /// *WowCare Animations and Assets* A1. The only shadow in that piece is
+  /// this pink cast under the tile; the rings around it cast none.
+  ///
+  /// `#FDE2EC · lit top edge · 0 [cast]px [cast * 2]px -14px pink at .7`
+  static SkeuDecoration markTile({
+    required double radius,
+    required double cast,
+  }) => SkeuDecoration(
+    color: BrandRamps.pink100,
+    borderRadius: BorderRadius.circular(radius),
+    boxShadow: <BoxShadow>[
+      BoxShadow(
+        color: AppPalette.brand.withValues(alpha: .7),
+        offset: Offset(0, cast),
+        blurRadius: cast * 2,
+        spreadRadius: -14,
+      ),
+    ],
+    insets: AppElevation.bevelTop,
+  );
+
   /// The 64x64 well behind an empty state's icon. A well, not a card:
   /// there is nothing here to press.
   static SkeuDecoration emptyIcon() => SkeuDecoration(

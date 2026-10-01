@@ -136,7 +136,7 @@ class MessagingListTile extends StatelessWidget {
                 Expanded(
                   child: CustomTextWidget(
                     text: displayName,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 17,
                     fontColor: AppColors.primaryColor,
                   ),
@@ -205,7 +205,7 @@ class MessagingListTile extends StatelessWidget {
                       style: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingOnAccent,
                         fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),

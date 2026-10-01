@@ -177,7 +177,7 @@ class KioskQrSectionWidget extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.blackColor,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
           ),

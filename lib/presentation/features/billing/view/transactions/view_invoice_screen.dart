@@ -116,7 +116,7 @@ class _ViewInvoiceView extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.primaryColor,
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -295,7 +295,7 @@ class _ViewInvoiceView extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 17,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(

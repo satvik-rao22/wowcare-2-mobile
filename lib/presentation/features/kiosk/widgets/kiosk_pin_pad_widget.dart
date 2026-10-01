@@ -306,7 +306,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                 'Cancel',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   letterSpacing: 16 * (-3 / 100),
                 ),
               ),
@@ -348,7 +348,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                       style: TextStyle(
                         color: AppColors.whiteColor,
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: 16 * (-3 / 100),
                       ),
                     ),

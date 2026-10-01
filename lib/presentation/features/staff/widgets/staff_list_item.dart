@@ -46,7 +46,7 @@ class StaffListItem extends StatelessWidget {
                   _initials(fullName),
                   style: const TextStyle(
                     color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

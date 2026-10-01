@@ -41,6 +41,21 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     # ---------------------------------------------------------------------
+    # Xcode 27 (iOS 27 SDK) rejects any deployment target below iOS 15.0 as a
+    # hard build error: "the range of supported deployment target versions is
+    # 15.0 to 27.0.x". Many pods still declare 9.0 to 14.0, and Flutter's
+    # podhelper above only lifts Flutter plugins below 13.0 (it skips plain
+    # pods such as gRPC, GoogleUtilities and PINCache entirely, and forces some
+    # to 9.0). Raise every pod to the app's own floor (`platform :ios` above)
+    # so the project builds with Xcode 27 and still builds with older Xcodes.
+    # ---------------------------------------------------------------------
+    target.build_configurations.each do |config|
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      end
+    end
+
+    # ---------------------------------------------------------------------
     # "Always" (background) location is NOT used by this app. App Review
     # rejected it under guideline 2.5.4, so Info.plist deliberately omits
     # NSLocationAlwaysAndWhenInUseUsageDescription.

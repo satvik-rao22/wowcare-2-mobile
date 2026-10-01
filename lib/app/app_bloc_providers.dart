@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/app_update/view_model/app_update_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view_model/auth_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_attendance_cubit_v2.dart';
@@ -10,6 +11,12 @@ import 'package:wowcare/presentation/features/notifications/view_model/push_noti
 /// [MultiBlocProvider] providers nested inside the sizer/theme setup —
 /// cubits owned by the app's authenticated + kiosk shell.
 List<SingleChildWidget> appBlocProviders() => [
+  // The update check starts here, once, as the app shell mounts. Nothing on
+  // the startup path waits for it; the gate in MaterialApp.builder and the
+  // dashboard banner react when it lands.
+  BlocProvider<AppUpdateCubit>(
+    create: (_) => serviceLocator<AppUpdateCubit>()..check(),
+  ),
   BlocProvider<AuthCubit>(create: (_) => serviceLocator<AuthCubit>()..initialize()),
   BlocProvider<PushNotificationCubit>(
     create: (_) => serviceLocator<PushNotificationCubit>(),

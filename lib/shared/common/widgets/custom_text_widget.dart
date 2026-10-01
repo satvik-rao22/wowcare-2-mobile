@@ -51,7 +51,9 @@ class CustomTextWidget extends StatelessWidget {
           TextStyle(
             fontFamily: fontFamily ?? AppFonts.body,
             fontSize: fontSize ?? responsive.titleFontSize,
-            fontWeight: fontWeight ?? FontWeight.w600,
+            // Regular unless the call site says otherwise: this widget is
+            // used for captions and previews far more often than titles.
+            fontWeight: fontWeight ?? FontWeight.w400,
             color: fontColor ?? AppColors.primaryColor,
             letterSpacing: effectiveLetterSpacing,
             height: height ?? null,

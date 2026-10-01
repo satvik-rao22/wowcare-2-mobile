@@ -308,7 +308,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   'Add shift',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primaryColor,
                   ),
                 ),
@@ -336,7 +336,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                         style: TextStyle(
                           color: AppColors.whiteColor,
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -987,7 +987,7 @@ class _GradientPublishButton extends StatelessWidget {
         style: TextStyle(
           color: AppColors.whiteColor,
           fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

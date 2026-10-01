@@ -265,7 +265,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                               style: TextStyle(
                                 color: ink,
                                 fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                     ),

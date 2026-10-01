@@ -245,7 +245,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 style: const TextStyle(
                   color: AppColors.billingCardOnColorText,
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   fontFamily: AppFonts.body,
                 ),
               ),
@@ -256,7 +256,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                 name,
                 style: const TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.billingTextColor,
                   fontFamily: AppFonts.body,
                 ),
@@ -489,7 +489,7 @@ class _AddCreditScreenState extends State<AddCreditScreen> {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: responsive.buttonFontSize,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.billingCardColor,
                       ),
                     ),

@@ -225,7 +225,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                                       style: TextStyle(
                                         fontFamily: AppFonts.body,
                                         fontSize: isTablet ? 16 : 15,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                         color: AppColors.primaryColor,
                                       ),
                                     ),
@@ -282,7 +282,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.primaryColor,
                                 height: 1.0,
                               ),
@@ -315,7 +315,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                           style: TextStyle(
                             fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.whiteColor,
                             height: 1.0,
                           ),

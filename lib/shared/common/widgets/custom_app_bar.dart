@@ -430,7 +430,8 @@ class _AppBarKebabMenu extends StatefulWidget {
   State<_AppBarKebabMenu> createState() => _AppBarKebabMenuState();
 }
 
-class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
+class _AppBarKebabMenuState extends State<_AppBarKebabMenu>
+    with SchoolSwitchReloadMixin<_AppBarKebabMenu> {
   bool _hasSwitchableProfiles = false;
   late final ProfileMenuHeaderCubit _profileHeaderCubit;
 
@@ -450,6 +451,23 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
   void dispose() {
     _profileHeaderCubit.close();
     super.dispose();
+  }
+
+  // The kebab menu's own name/persona header — like ProfileMenuHeaderCubit,
+  // MyProfile's data, and every other per-org/school display — is loaded
+  // once in initState() and never again, because CustomScaffold rebuilds a
+  // NEW CustomAppBar widget on every dashboard rebuild, but Flutter reuses
+  // this SAME State (same widget position, same runtimeType), so
+  // initState() only ever fires once per app session. Without this,
+  // switching organization/school leaves the app bar's dropdown showing
+  // whichever name/persona was cached at first open, even though storage
+  // (and every other screen reading it fresh) already has the correct one.
+  @override
+  void onSchoolSwitched() {
+    _profileHeaderCubit.loadSummary(
+      isGuardian: context.read<RoleCubit>().isParent,
+    );
+    _loadSwitchProfileAvailability();
   }
 
   Future<void> _loadSwitchProfileAvailability() async {
@@ -986,7 +1004,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.primaryColor,
                                 height: 1.0,
                               ),
@@ -1026,7 +1044,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppPalette.onBrand,
                                 height: 1.0,
                               ),

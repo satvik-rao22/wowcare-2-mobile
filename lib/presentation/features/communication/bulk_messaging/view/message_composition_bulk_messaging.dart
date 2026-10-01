@@ -213,6 +213,7 @@ class _MessageCompositionBulkMessagingState
                                     alignment: Alignment.centerLeft,
                                     child: CustomTextWidget(
                                       text: AppStrings.createMessage,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -475,7 +476,7 @@ class _MessageCompositionBulkMessagingState
                   AppStrings.cancel,
                   style: AppTextStyles.size14.copyWith(
                     fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppSurfaces.keyInk(KeyVariant.secondary),
                   ),
                 ),
@@ -507,7 +508,7 @@ class _MessageCompositionBulkMessagingState
                   AppStrings.send,
                   style: AppTextStyles.size14.copyWith(
                     fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.messagingOnAccent,
                   ),
                 ),

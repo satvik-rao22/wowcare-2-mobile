@@ -179,7 +179,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                       style: TextStyle(
                         color: AppColors.primaryColor,
                         fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 8),

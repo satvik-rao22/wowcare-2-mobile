@@ -32,6 +32,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_elevation.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Material's colour roles, mapped onto ours.
@@ -93,12 +94,12 @@ ColorScheme _scheme(Brightness brightness) => ColorScheme(
 TextTheme _textTheme(Color heading, Color body) => TextTheme(
   displayLarge: TextStyle(
     fontSize: AppTypeScale.s32,
-    fontWeight: AppTypeScale.bold,
+    fontWeight: AppTypeScale.headingWeight,
     color: heading,
   ),
   headlineMedium: TextStyle(
     fontSize: AppTypeScale.size2xl,
-    fontWeight: AppTypeScale.bold,
+    fontWeight: AppTypeScale.headingWeight,
     color: heading,
   ),
   titleLarge: TextStyle(
@@ -133,6 +134,17 @@ WidgetStateColor _colorWhenSelected(Color selected, Color rest) =>
       (Set<WidgetState> states) =>
           states.contains(WidgetState.selected) ? selected : rest,
     );
+
+/// The label style every Material button falls back to. One `ButtonStyle`
+/// shared by the four button themes below, so "make every button label
+/// heavier" is one edit to [AppTextStyles.keyLabel] and nothing else.
+///
+/// Only the label is set here. A key's face, rim and press come from
+/// `AppSurfaces.key` / `SkeuKeyBox`, and its colour from the call site's
+/// `styleFrom(foregroundColor: …)`, so those stay untouched.
+const ButtonStyle _keyStyle = ButtonStyle(
+  textStyle: WidgetStatePropertyAll<TextStyle>(AppTextStyles.keyLabel),
+);
 
 /// The field default, taken from the same builder call sites use.
 InputDecorationTheme _fieldTheme() {
@@ -308,6 +320,16 @@ ThemeData _build(Brightness brightness) {
       entryModeIconColor: AppPalette.iconDefault,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.allXl),
     ),
+
+    // ── Keys ──────────────────────────────────────────────────────────────
+    //
+    // Every Material button reads its label from [AppTextStyles.keyLabel]
+    // unless the call site sets a style of its own. Medium (500): the face
+    // and the rim already say "press me", so the label does not shout.
+    textButtonTheme: const TextButtonThemeData(style: _keyStyle),
+    elevatedButtonTheme: const ElevatedButtonThemeData(style: _keyStyle),
+    filledButtonTheme: const FilledButtonThemeData(style: _keyStyle),
+    outlinedButtonTheme: const OutlinedButtonThemeData(style: _keyStyle),
 
     // ── Fields ────────────────────────────────────────────────────────────
     //

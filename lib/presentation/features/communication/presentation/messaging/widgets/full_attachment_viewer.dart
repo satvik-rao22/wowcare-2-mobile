@@ -56,7 +56,10 @@ class FullAttachmentViewer extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const CustomTextWidget(text: AppStrings.attachments),
+        title: const CustomTextWidget(
+          text: AppStrings.attachments,
+          fontWeight: FontWeight.w600,
+        ),
         elevation: 0,
         backgroundColor: AppColors.cardColor,
         foregroundColor: AppColors.primaryColor,

@@ -100,7 +100,7 @@ class _CommunicationLauncherButtonState
                       style: AppTextStyles.size14.copyWith(
                         color: AppColors.messagingOnAccent,
                         fontSize: widget.fontSize,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),

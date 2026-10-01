@@ -4,13 +4,20 @@ import 'package:wowcare/presentation/features/activities/model/activity_item.dar
 import 'package:wowcare/presentation/features/activities/model/activity_item_from_feed_row.dart';
 
 /// Rebuilds UI model from `GET /api/v1/activities/code/{code}` for edit prefetch.
+///
+/// [schoolIana] MUST be passed (e.g. `await editor.resolveSchoolTimezone()`)
+/// — omitting it makes [activityItemFromFeedRow] fall back to
+/// `DateTime.toLocal()` (the DEVICE's timezone), showing the wrong Date/Time
+/// on this screen whenever the device isn't in the school's own zone.
 ActivityItem activityItemFromActivityDetail(
   ActivityDetail detail, {
   String? viewerDisplayName,
+  String? schoolIana,
 }) {
   return activityItemFromFeedRow(
     ActivityFeedRow.fromActivityDetail(detail),
     viewerDisplayName: viewerDisplayName,
+    schoolIana: schoolIana,
     activityTypeOptionCodeToLabel: activityFeedOptionLabelsForType(
       detail.activityTypeCode,
     ),

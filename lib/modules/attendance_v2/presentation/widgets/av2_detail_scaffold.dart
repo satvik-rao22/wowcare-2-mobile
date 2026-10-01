@@ -60,7 +60,7 @@ class Av2DetailScaffold extends StatelessWidget {
                   isExporting ? 'Preparing…' : 'Export CSV',
                   style: Av2Text.label.copyWith(
                     color: Av2Colors.theme,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 style: TextButton.styleFrom(

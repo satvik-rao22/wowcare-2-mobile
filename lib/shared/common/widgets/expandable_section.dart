@@ -109,7 +109,7 @@ class _ExpandableSectionState extends State<ExpandableSection>
                         '${widget.count}',
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: accent,
                         ),
                       ),

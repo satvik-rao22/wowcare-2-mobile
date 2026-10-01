@@ -465,7 +465,7 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
             style: TextStyle(
               color: AppSurfaces.keyInk(KeyVariant.primary),
               fontSize: 13.5,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -629,7 +629,7 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
                     style: TextStyle(
                       color: AppSurfaces.keyInk(KeyVariant.primary),
                       fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

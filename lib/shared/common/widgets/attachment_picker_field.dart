@@ -624,7 +624,7 @@ class _Thumbnail extends StatelessWidget {
               file.extension.toUpperCase(),
               style: TextStyle(
                 fontSize: 9.5,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: accent,
                 letterSpacing: 0.4,
               ),

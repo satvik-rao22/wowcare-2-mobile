@@ -1059,7 +1059,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   children: [
                     CustomTextWidget(
                       text: title,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
                     if (count != null)

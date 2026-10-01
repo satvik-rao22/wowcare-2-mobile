@@ -174,7 +174,7 @@ class AttachmentGlyphTile extends StatelessWidget {
               asset.extension.toUpperCase(),
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0.4,
                 color: glyph.color,
               ),

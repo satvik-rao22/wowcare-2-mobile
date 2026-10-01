@@ -545,7 +545,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CustomTextWidget(text: 'Edit message'),
+              CustomTextWidget(text: 'Edit message', fontWeight: FontWeight.w600),
               IconButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 icon: Icon(Icons.clear, color: AppColors.primaryColor),
@@ -1625,7 +1625,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                 child: const CustomTextWidget(
                   text: AppStrings.goBack,
                   fontColor: AppColors.messagingOnAccent,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

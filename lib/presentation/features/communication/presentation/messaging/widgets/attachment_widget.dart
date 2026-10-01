@@ -79,7 +79,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                     const CustomTextWidget(
                       text: AppStrings.addAttachment,
                       fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),

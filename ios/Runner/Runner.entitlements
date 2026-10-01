@@ -12,6 +12,16 @@
 		     tunnel host committed here previously shipped in debug and its
 		     Android counterpart shipped in release. -->
 		<string>applinks:wowcare-uat.childcarewow.app</string>
+		<!-- PROD web domain — was missing entirely, so no iOS build (debug
+		     or release) ever recognized Universal Links from
+		     wowcare.childcarewow.app, regardless of which --dart-define
+		     ENVIRONMENT it was built with. Android's equivalent
+		     (build.gradle.kts appLinkHost) already switched hosts per
+		     environment; iOS never did — this listed both entries so ONE
+		     binary handles either domain instead of trying to replicate
+		     Android's per-build switch (Xcode entitlements aren't
+		     parameterized by dart-define here). -->
+		<string>applinks:wowcare.childcarewow.app</string>
 	</array>
 </dict>
 </plist>

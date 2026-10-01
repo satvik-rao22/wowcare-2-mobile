@@ -153,6 +153,10 @@ class MediaRes {
   static const String dailyActivityDrawer = '$_baseIcons/Daily_Summary.svg';
   static const String allActivitiesDrawer = '$_baseIcons/All_Activities.svg';
   static const String logout = '$_baseIcons/logout.svg';
+
+  /// The ChildcareWow mark on its own, no wordmark. Multicolour artwork:
+  /// paint it with `AppArtwork`, never `AppIcon`, which would flatten it.
+  static const String logoMark = '$_baseIcons/logo-mark.svg';
   static const String classroom_Schedule_drawer_icon =
       '$_baseIcons/Classroom_Schedule_drawer_icon.svg';
   static const String documents_drawer_Icon =
@@ -261,6 +265,13 @@ class MediaRes {
       '$_baseIcons/DailyActivityAbsentIcon.svg';
 
   static const String calenderClockIcon = '$_baseIcons/calendar-clock.svg';
+
+  /// Drawer glyphs for Events and Scheduling. Solid, on the 24x25 grid the
+  /// other drawer glyphs share; [calenderClockIcon] is a thin outline in a
+  /// 26px box and read as a different set beside them.
+  static const String eventsDrawerIcon = '$_baseIcons/events_drawer_icon.svg';
+  static const String schedulingDrawerIcon =
+      '$_baseIcons/scheduling_calendar_icon.svg';
   static const String timerIcon = '$_baseIcons/timer.svg';
 
   static const String filterIcon = '$_baseIcons/filter_icon.svg';

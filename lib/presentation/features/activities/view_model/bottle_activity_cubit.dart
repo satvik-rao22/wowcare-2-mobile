@@ -243,6 +243,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       final item = activityItemFromActivityDetail(
         detail,
         viewerDisplayName: state.staffName,
+        schoolIana: await _editor.resolveSchoolTimezone(),
       );
       var staffLabel = _staffDisplayFromParameterRows(detail.parameterValues);
       if (staffLabel == null || staffLabel.isEmpty) {

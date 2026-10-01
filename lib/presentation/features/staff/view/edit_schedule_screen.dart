@@ -611,7 +611,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                   style: TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.cardColor,
                   ),
                 ),
@@ -691,7 +691,7 @@ class _EditScheduleScreenViewState extends State<_EditScheduleScreenView> {
                         style: TextStyle(
                           fontFamily: AppFonts.body,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.primaryColor,
                         ),
                       ),

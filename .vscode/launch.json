@@ -10,6 +10,11 @@
   //
   // The two native copy hooks read Flutter's DART_DEFINES, so they work
   // identically whether you launch from here or from `make <env>-run`.
+  //
+  // The "mock ... update" entries add --dart-define=APP_UPDATE_MOCK to show
+  // the optional (dashboard) or required (full-screen) update banner without
+  // touching Firebase Remote Config. See
+  // lib/data/features/app_update/datasources/app_update_mock_data_sources.dart.
   "version": "0.2.0",
   "configurations": [
     {
@@ -29,6 +34,28 @@
       "toolArgs": ["--dart-define=ENVIRONMENT=DEV"]
     },
     {
+      "name": "DEV shared (debug) - mock optional update",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=ENVIRONMENT=DEV",
+        "--dart-define=APP_UPDATE_MOCK=optional"
+      ]
+    },
+    {
+      "name": "DEV shared (debug) - mock required update",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=ENVIRONMENT=DEV",
+        "--dart-define=APP_UPDATE_MOCK=required"
+      ]
+    },
+    {
       "name": "QA (debug)",
       "type": "dart",
       "request": "launch",
@@ -43,6 +70,28 @@
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "toolArgs": ["--dart-define=ENVIRONMENT=UAT"]
+    },
+    {
+      "name": "UAT (debug) - mock optional update",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=ENVIRONMENT=UAT",
+        "--dart-define=APP_UPDATE_MOCK=optional"
+      ]
+    },
+    {
+      "name": "UAT (debug) - mock required update",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=ENVIRONMENT=UAT",
+        "--dart-define=APP_UPDATE_MOCK=required"
+      ]
     },
     {
       "name": "UAT (profile)",

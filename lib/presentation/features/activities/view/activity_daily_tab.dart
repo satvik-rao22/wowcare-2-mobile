@@ -256,7 +256,16 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedDate = AppTime.now();
-  String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
+  // Empty, NOT SchoolTimezoneResolver.fallbackTimeZone ('UTC') — the
+  // BlocBuilder in build() reads `_feedCubit` (and therefore this value)
+  // during the FIRST build, before _bootstrapSchoolZone()'s
+  // addPostFrameCallback has any chance to run, so this default is what
+  // ships in that first frame's ActivityFeedPresentation despite the
+  // lazy-construction comment below claiming otherwise. Leaving it empty
+  // lets activityItemFromFeedRow's own empty-schoolIana fallback (which
+  // prefers ServerTimeService's already-synced zone over device-local)
+  // engage instead of silently treating a hardcoded 'UTC' as "resolved".
+  String _schoolIana = '';
   String? _selectdClassroom;
   String? _selectedStudent;
   List<String> _selectedClassrooms = [];
@@ -2242,6 +2251,20 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
             widget.highlightDate ??
             SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
+      // The cubit's own presentation was frozen at first `build()` (see
+      // `_feedCubit`'s doc) — possibly before this zone resolved, and with
+      // it any already-loaded rows mapped in the wrong zone. Only patch +
+      // reload if the cubit already exists and has something loaded; if it
+      // doesn't exist yet, the lazy getter picks up the now-updated
+      // `_schoolIana` at construction time instead (per that same doc), and
+      // if nothing has loaded yet there's nothing stale on screen to fix.
+      if (_feedCubitInstance != null) {
+        final hadItems = _feedCubit.state.items.isNotEmpty;
+        _feedCubit.updateSchoolIana(z);
+        if (hadItems) {
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
     } catch (e) {
       AppLogger.d('_bootstrapSchoolZone failed: $e');
     }

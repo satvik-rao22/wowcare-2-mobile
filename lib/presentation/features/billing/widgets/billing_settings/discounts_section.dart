@@ -195,7 +195,7 @@ class _DiscountsSectionState extends State<DiscountsSection> {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: isTablet ? 20.0 : 16.0,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.billingTextColor,
                       ),
                     ),
@@ -342,7 +342,7 @@ class _AddDiscountButton extends StatelessWidget {
               style: TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: AppColors.billingCardOnColorText,
               ),
             ),

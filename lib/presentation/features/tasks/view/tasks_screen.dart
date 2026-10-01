@@ -285,52 +285,43 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget _filterButton(BuildContext context, TasksState state) {
     final count = state.filterCount;
     final hasFilters = count > 0;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: hasFilters
-              ? AppColors.themeColor.withValues(alpha: 0.12)
-              : AppPalette.surfaceCard,
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () => showTaskFilterSheet(context),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: hasFilters ? AppColors.themeColor : AppPalette.border,
+    // Same shape as every other filter button in the app (Students, Staff,
+    // Activities): a bare funnel on an ink well, count badge in the corner.
+    return Material(
+      color: AppColors.transparentColor,
+      child: InkWell(
+        borderRadius: AppRadius.allPill,
+        onTap: () => showTaskFilterSheet(context),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: FilterGlyph(size: 20),
+            ),
+            if (hasFilters)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppColors.themeColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.onBrand,
+                    ),
+                  ),
                 ),
               ),
-              child:
-                  const FilterGlyph(size: 18),
-            ),
-          ),
+          ],
         ),
-        if (hasFilters)
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: AppColors.themeColor,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.onBrand,
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
@@ -398,7 +389,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   '$count',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: selected ? color : AppPalette.textMuted,
                   ),
                 ),

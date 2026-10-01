@@ -123,7 +123,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: buttonFontSize,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.primaryColor,
                                 height: 1.0,
                               ),
@@ -153,7 +153,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: AppFonts.body,
                             fontSize: buttonFontSize,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                             color: AppPalette.onBrand,
                             height: 1.0,
                           ),

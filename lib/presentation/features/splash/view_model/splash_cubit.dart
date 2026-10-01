@@ -224,11 +224,25 @@ class SplashCubit extends Cubit<SplashState> {
               (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
 
           if (orgCode.isNotEmpty) {
+            final existingOrgCode =
+                (await _storage.getString(StorageKeys.organizationCode) ?? '')
+                    .trim();
             final existingSchoolCode =
                 (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+            // Only reuse the existing school when it was selected under THIS
+            // SAME org. Reusing it across a different org silently pairs the
+            // new orgCode with a school that belongs to a completely
+            // different organization — e.g. writing organizationCode=ORG-B
+            // while schoolCode stays ORG-A's school. Every later request
+            // then sends that impossible org+school combination, which the
+            // backend rejects with a 403 "No active 'any' membership ..."
+            // that has nothing to do with the user's actual access — it's
+            // rejecting a pairing that was never valid to begin with. Seen
+            // live on the org-names call the switch-organization picker
+            // fires on open.
             final effectiveSchoolCode = schoolCode.isNotEmpty
                 ? schoolCode
-                : existingSchoolCode;
+                : (existingOrgCode == orgCode ? existingSchoolCode : '');
 
             if (effectiveSchoolCode.isNotEmpty) {
               await _authLocal.setSelectedOrgAndSchool(
@@ -237,8 +251,13 @@ class SplashCubit extends Cubit<SplashState> {
                 schoolName: '',
               );
             } else {
-              // Only org known; keep any existing school selection.
+              // Only org known (and no same-org school to carry forward):
+              // save the org and clear any stale, now-mismatched school
+              // selection rather than leaving it paired with a different org.
               await _storage.saveString(StorageKeys.organizationCode, orgCode);
+              if (existingOrgCode != orgCode && existingSchoolCode.isNotEmpty) {
+                await _storage.remove(StorageKeys.schoolCode);
+              }
             }
           }
         }

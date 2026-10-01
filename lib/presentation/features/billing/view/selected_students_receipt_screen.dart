@@ -121,7 +121,7 @@ class _SelectedStudentsReceiptScreenState
             children: [
               Text(
                 BillingStrings.invoiceDetails,
-                style: _ts(16, FontWeight.w700),
+                style: _ts(16, FontWeight.w600),
               ),
               const SizedBox(height: 12),
               if (dueDateString != null)
@@ -288,7 +288,7 @@ class _SelectedStudentsReceiptScreenState
         children: [
           Text(
             'Selected Students (${_students.length})',
-            style: _ts(16, FontWeight.w700),
+            style: _ts(16, FontWeight.w600),
           ),
           const SizedBox(height: 16),
           if (_students.isEmpty)
@@ -327,7 +327,7 @@ class _SelectedStudentsReceiptScreenState
                         children: [
                           Text(
                             student.fullName,
-                            style: _ts(16, FontWeight.w700),
+                            style: _ts(16, FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -469,7 +469,7 @@ class _SelectedStudentsReceiptScreenState
                     style: TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.billingCardColor,
                     ),
                   ),

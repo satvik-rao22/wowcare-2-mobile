@@ -51,7 +51,7 @@ class RoundedButtonNew extends StatelessWidget {
                       ? lableColor
                       : AppSurfaces.keyInk(KeyVariant.disabled),
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
       ),

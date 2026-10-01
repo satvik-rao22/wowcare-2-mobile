@@ -217,6 +217,36 @@ a regression test.
 3. **Never** write a `Color(0x…)` or a `Colors.*` in a widget file. The guard test
    will fail.
 
+## Type weights
+
+Poppins is bundled in four faces, and each one has a single job. The
+complaint the ladder answers is that every screen read as bold: when
+everything is heavy, nothing stands out.
+
+| Weight | Token | Job |
+|---|---|---|
+| 400 Regular | `AppTypeScale.regular` / `bodyWeight` | body copy, captions, values, anything not emphasised |
+| 500 Medium | `AppTypeScale.medium` / `buttonWeight` | every key and button label |
+| 600 SemiBold | `AppTypeScale.semiBold` / `headingWeight` | titles, names, section and table headers, a selected tab |
+| 700 Bold | `AppTypeScale.bold` | **attention only**: an amount, a hero figure, an unread or count badge, an alert headline, the sign-in PIN |
+
+800 and 900 are not bundled and resolve to Bold; do not ask for them in new
+text. Regular is bundled on purpose: until it was, `w400` silently rendered
+at Medium and body text was indistinguishable from a button label.
+
+Where a weight is decided:
+
+- `AppTextStyles` (`lib/core/theme/app_text_styles.dart`) for named styles.
+  `title` and `subtitle` are 600, `body` is 400, `button()` and `keyLabel`
+  are 500.
+- `lib/core/utils/app_themes.dart` for Material's own buttons. The four
+  button themes share one `ButtonStyle` whose label is
+  `AppTextStyles.keyLabel`, so a Material button with no style of its own is
+  already at 500.
+- A call site that writes `fontWeight:` itself picks from the ladder above.
+  If it reaches for 700, it should be able to say which of the four
+  attention cases it is.
+
 ## Adding or changing a font
 
 Point an `AppFonts` role at a different family, or add a family to
@@ -240,11 +270,11 @@ switch. Use `AppFonts.body` instead.
 - `AppColors`: all 435 tokens now source their value from the config file.
 - `lightTheme` / `darkTheme`: colours and typography now come from the tokens.
 - Poppins registered in `pubspec.yaml` so the brand skin renders rather than
-  silently falling back. Three weights only (Medium 500, Semi Bold 600, Bold
-  700, plus a Medium italic), which is what the brand guide prescribes: 648 KB
-  instead of the 1.1 MB a full 400 to 800 set costs. Flutter resolves the other
-  weights the app asks for to the nearest bundled face, so the 192 `w400` sites
-  render at Medium, where the guide wants body copy anyway.
+  silently falling back. Four weights (Regular 400, Medium 500, Semi Bold
+  600, Bold 700, plus a Medium italic), one per step of the ladder in "Type
+  weights" above: about 800 KB instead of the 1.1 MB a full 400 to 800 set
+  costs. Regular was added later, when the weight pass found that `w400`
+  body text was rendering at Medium and could not be told from a button.
 
 That pass changed no pixel: under `AppSkin.legacy` all 435 `AppColors` tokens
 rendered byte-identical to `develop`. It is what made the re-skin below a

@@ -297,7 +297,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                             ? 14
                                                             : 12,
                                                         fontWeight:
-                                                            FontWeight.w700,
+                                                            FontWeight.w600,
                                                         color: AppPalette
                                                             .textPrimary,
                                                         height: 16 / 12,
@@ -414,7 +414,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                               style: TextStyle(
                                                 fontFamily: AppFonts.body,
                                                 fontSize: 16,
-                                                fontWeight: FontWeight.w700,
+                                                fontWeight: FontWeight.w500,
                                                 color: AppColors
                                                     .billingCardOnColorText,
                                                 height: 16 / 16,

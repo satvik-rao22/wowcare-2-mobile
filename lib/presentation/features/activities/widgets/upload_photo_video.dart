@@ -1358,7 +1358,7 @@ class _MediaUploaderState extends State<MediaUploader>
                   const SizedBox(height: 16),
                   Text(
                     widget.allowVideo
-                        ? 'Take/Upload Photo or Video'
+                        ? 'Take/Upload Video'
                         : 'Take/Upload Photo',
                     style: AppTextStyles.activityUploadBoxHint,
                   ),

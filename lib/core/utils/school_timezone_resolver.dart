@@ -1,6 +1,7 @@
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
@@ -33,8 +34,34 @@ abstract final class SchoolTimezoneResolver {
       // Non-fatal: keep the previous offset.
     }
 
+    // The /time sync above already learned the school's real IANA zone as a
+    // side effect — the backend returns `timeZone` alongside the corrected
+    // clock (see ServerTimeService._parseServerUtc). Remember it BEFORE
+    // doing our own independent schoolCode-keyed lookup below: that lookup
+    // has its own failure modes (missing schoolCode, network error, ...),
+    // and on failure must never clobber a zone we already know is correct
+    // with the hardcoded UTC fallback.
+    final syncedTimeZone = ServerTimeService.instance.schoolTimeZone.trim();
+    final hasSyncedTimeZone =
+        syncedTimeZone.isNotEmpty &&
+        syncedTimeZone.toUpperCase() != fallbackTimeZone;
+
     final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (schoolCode.isEmpty) return fallbackTimeZone;
+    if (schoolCode.isEmpty) {
+      if (hasSyncedTimeZone) {
+        AppLogger.d(
+          '[SchoolTimezoneResolver] no active schoolCode, but /time sync '
+          'already resolved $syncedTimeZone — using it',
+        );
+        _lastKnownTimeZone = syncedTimeZone;
+        return syncedTimeZone;
+      }
+      AppLogger.w(
+        '[SchoolTimezoneResolver] no active schoolCode in storage — '
+        'falling back to $fallbackTimeZone',
+      );
+      return fallbackTimeZone;
+    }
 
     final cachedFor =
         (await storage.getString(StorageKeys.schoolTimeZoneSchoolCode) ?? '').trim();
@@ -61,11 +88,24 @@ abstract final class SchoolTimezoneResolver {
       return tz;
     }
 
-    // Preserve a previously resolved non-fallback timezone if network fetch fails.
+    // Our own lookup failed. Preserve a previously resolved non-fallback
+    // timezone rather than clobbering it with hardcoded UTC.
     if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
       _lastKnownTimeZone = cachedTz;
       ServerTimeService.instance.setSchoolTimeZone(cachedTz);
       return cachedTz;
+    }
+    if (hasSyncedTimeZone) {
+      AppLogger.d(
+        '[SchoolTimezoneResolver] school-timezone lookup failed for '
+        '$schoolCode, but /time sync already resolved $syncedTimeZone — '
+        'using it instead of $fallbackTimeZone',
+      );
+      _lastKnownTimeZone = syncedTimeZone;
+      // Deliberately do NOT call setSchoolTimeZone here — ServerTimeService
+      // already holds the correct value; overwriting it with the fallback
+      // is exactly the bug this branch exists to avoid.
+      return syncedTimeZone;
     }
     _lastKnownTimeZone = tz;
     ServerTimeService.instance.setSchoolTimeZone(tz);
@@ -78,9 +118,9 @@ abstract final class SchoolTimezoneResolver {
   }) async {
     final code = schoolCode.trim();
     if (code.isEmpty) return fallbackTimeZone;
+    final path = ApiPaths.schoolTimezone(code);
+    final url = ApiPaths.url(path);
     try {
-      final path = ApiPaths.schoolTimezone(code);
-      final url = ApiPaths.url(path);
       final response = await apiClient.client.get<dynamic>(url);
       final root = response.data;
       if (root is Map<String, dynamic>) {
@@ -92,9 +132,29 @@ abstract final class SchoolTimezoneResolver {
             _lastKnownTimeZone = raw;
             return raw;
           }
+          AppLogger.w(
+            '[SchoolTimezoneResolver] GET $url returned 200 but no '
+            'timeZone/timezone field in data=$data — falling back to '
+            '$fallbackTimeZone',
+          );
+        } else {
+          AppLogger.w(
+            '[SchoolTimezoneResolver] GET $url returned 200 but "data" '
+            'was not a Map (root=$root) — falling back to $fallbackTimeZone',
+          );
         }
+      } else {
+        AppLogger.w(
+          '[SchoolTimezoneResolver] GET $url returned a non-Map body '
+          '(root=$root) — falling back to $fallbackTimeZone',
+        );
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.w(
+        '[SchoolTimezoneResolver] GET $url threw $e — falling back to '
+        '$fallbackTimeZone',
+      );
+    }
     _lastKnownTimeZone = fallbackTimeZone;
     return fallbackTimeZone;
   }

@@ -87,7 +87,7 @@ class TaskAssigneeAvatar extends StatelessWidget {
         _initials(name),
         style: TextStyle(
           fontSize: size * 0.38,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: AppColors.primaryColor,
         ),
       ),

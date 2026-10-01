@@ -486,13 +486,13 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                     Text(
                                       'AM',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     Text(
                                       'PM',
                                       style: TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
@@ -523,7 +523,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppPalette.brand,
                                 height: 1,
                               ),
@@ -570,7 +570,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               style: TextStyle(
                                 fontFamily: AppFonts.body,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                                 color: AppPalette.onBrand,
                                 height: 1,
                               ),

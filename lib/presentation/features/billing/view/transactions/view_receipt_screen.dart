@@ -425,7 +425,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
           style: const TextStyle(
             color: AppColors.primaryColor,
             fontSize: 14,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -464,7 +464,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyDark,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -489,7 +489,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.billingGreyDark,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -515,7 +515,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     color: AppColors.billingGreyDark,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

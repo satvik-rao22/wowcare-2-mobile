@@ -308,7 +308,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                     style: TextStyle(
                                       color: AppColors.cardColor,
                                       fontSize: screenHeight * 0.022,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w500,
                                       fontFamily: AppFonts.body,
                                     ),
                                   ),

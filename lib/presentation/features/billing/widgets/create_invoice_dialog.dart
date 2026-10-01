@@ -37,7 +37,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppFonts.body,
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.billingTextColor,
                       ),
                     ),
@@ -168,7 +168,7 @@ class BillingActionCardState extends State<BillingActionCard> {
                     style: TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: primaryText,
                       height: 1.2,
                     ),

@@ -15,6 +15,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/context_switch_cache_cleaner.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/src/app_router.dart' show appRouterGo;
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -438,6 +443,21 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                           schoolCode: schoolCode,
                                           schoolName: schoolName,
                                         );
+                                        // Mirrors custom_drawer's canonical
+                                        // switch sequence: wipe every cached
+                                        // artifact (staff list/profile,
+                                        // activity feed pages, filters,
+                                        // guardian snapshot, timezone, …) so
+                                        // the newly selected org/school loads
+                                        // fresh everywhere instead of
+                                        // hydrating from the previous one's
+                                        // cache. Runs BEFORE the
+                                        // prefetch/refresh below so those
+                                        // re-populate clean caches for the
+                                        // new context.
+                                        await clearAllCachesForContextSwitch(
+                                          serviceLocator<StorageService>(),
+                                        );
                                       } else {
                                         await authCubit.completeLogin(
                                           selectedOrgCode: widget.selectedOrg,
@@ -466,7 +486,25 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                           .read<ParentChildCubit>()
                                           .ensureLoaded(force: true);
                                       if (!context.mounted) return;
-                                      context.go(DashboardScreen.routeName);
+                                      if (widget.isSwitchFlow) {
+                                        // The dashboard/app-bar are kept
+                                        // alive across this navigation (see
+                                        // DashboardScreen's shell branch and
+                                        // AdminDashboard's
+                                        // TabBecameVisibleMixin), so a bare
+                                        // context.go here would leave them
+                                        // showing the PREVIOUS org/school's
+                                        // cached name/data — this is the
+                                        // switch-organization equivalent of
+                                        // custom_drawer's canonical
+                                        // "persist selection → wipe caches →
+                                        // notify" sequence, which every
+                                        // OTHER switch path already follows.
+                                        SchoolSwitchEvents.notifySwitched();
+                                        appRouterGo(DashboardScreen.routeName);
+                                      } else {
+                                        context.go(DashboardScreen.routeName);
+                                      }
                                     } finally {
                                       if (mounted) {
                                         _isSubmitting.value = false;
