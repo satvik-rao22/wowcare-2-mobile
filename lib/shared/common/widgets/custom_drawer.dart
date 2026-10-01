@@ -163,20 +163,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
           )
           .toList();
 
-      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
-      // from the switcher, using the cached `/users/details` snapshot. An
-      // unknown/missing status is treated as active so a stale snapshot
-      // never hides a school the user should be able to reach.
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval),
+      // or that this user has no role at all, from the switcher — using the
+      // cached `/users/details` snapshot. `names-by-org` lists every school
+      // in the organization regardless of this user's own access, so without
+      // this an account with a role at only one school of three saw all
+      // three in the dropdown (two of them unusable, just padding the list).
+      // A missing snapshot entry is only let through for the CURRENTLY
+      // active school — never hidden just because the cache is momentarily
+      // stale — not for every other school in the org.
       if (orgCode != null && orgCode.isNotEmpty) {
         final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
         if (cachedUsers.isNotEmpty) {
           schoolsForOrg = schoolsForOrg.where((e) {
+            final code = e['schoolCode'] ?? '';
             final status = schoolStatusFromUserDetails(
               cachedUsers,
               orgCode,
-              e['schoolCode'] ?? '',
+              code,
             );
-            return status == null || status == 'ACTIVE';
+            if (status != null) return status == 'ACTIVE';
+            return code == schoolCode;
           }).toList();
         }
       }
@@ -198,25 +205,28 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Widget _header() {
+    // Matches WowInventory's drawer header layout: logo + title on one row,
+    // then the school switcher as its own full-width block underneath —
+    // not squeezed into the title's column beside the avatar, which left it
+    // too narrow and truncated names early.
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16, top: 16, bottom: 4),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 16).copyWith(top: 16, bottom: 4),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 28,
-              backgroundImage: AssetImage(MediaRes.appLogo),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 14),
-                  const Text(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 28,
+                  backgroundImage: AssetImage(MediaRes.appLogo),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
                     'WowCare',
                     style: TextStyle(
                       color: Colors.white,
@@ -224,15 +234,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // School switcher dropdown (for current organization)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _buildSchoolSwitcher(),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
+            // School switcher dropdown (for current organization)
+            _buildSchoolSwitcher(),
           ],
         ),
       ),
@@ -274,105 +281,140 @@ class _CustomDrawerState extends State<CustomDrawer> {
       currentName = _schoolsForOrg.first['schoolName'] ?? 'Select school';
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _isSchoolDropdownOpen = !_isSchoolDropdownOpen;
-            });
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  currentName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+    // WowInventory's original drawer style (ported here to match): white70
+    // text in a tinted box, white-to-pink gradient panel/selected row, dark
+    // (0xFF573353) row text.
+    const whiteToPinkGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Colors.white, Color(0xFFFBEEFA)],
+    );
+    const darkText = Color(0xFF573353);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10.67),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isSchoolDropdownOpen = !_isSchoolDropdownOpen;
+              });
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    currentName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14.4,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              Icon(
-                _isSchoolDropdownOpen
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down,
-                color: Colors.white,
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-        if (_isSchoolDropdownOpen) ...[
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1,
-              ),
+                Icon(
+                  _isSchoolDropdownOpen
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: Colors.white70,
+                  size: 18,
+                ),
+              ],
             ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _schoolsForOrg.length,
-              itemBuilder: (context, index) {
-                final school = _schoolsForOrg[index];
-                final code = school['schoolCode'] ?? '';
-                final schoolName = (school['schoolName'] ?? '').trim();
-                final name = schoolName.isNotEmpty ? schoolName : code;
-                final isSelected = code == _selectedSchoolCode;
-                return InkWell(
-                  onTap: () => _onSchoolSelected(code, name),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
+          ),
+          if (_isSchoolDropdownOpen) ...[
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                gradient: whiteToPinkGradient,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              // A plain Column, not a ListView — there are only ever a
+              // handful of schools and no scrolling is wanted
+              // (NeverScrollableScrollPhysics was already disabling it), so
+              // there's no reason to involve Sliver/Viewport machinery that
+              // can reserve more height than the content actually needs.
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _schoolsForOrg.map((school) {
+                  final code = school['schoolCode'] ?? '';
+                  final schoolName = (school['schoolName'] ?? '').trim();
+                  final name = schoolName.isNotEmpty ? schoolName : code;
+                  final isSelected = code == _selectedSchoolCode;
+                  return InkWell(
+                    onTap: () => _onSchoolSelected(code, name),
+                    child: Container(
+                      // Horizontal padding kept tight (8, not 16) — this row
+                      // already sits inside the switcher box's own 16px
+                      // padding, and the name needs the room, especially
+                      // with the checkmark box eating into it too.
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10.67,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: isSelected ? whiteToPinkGradient : null,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              // Wraps rather than silently truncating a long
+                              // school name — there's no good single-line
+                              // width to promise once the checkmark box is
+                              // accounted for.
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? darkText
+                                    : darkText.withValues(alpha: 0.8),
+                                fontSize: 14.4,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
                             ),
                           ),
-                        ),
-                        if (isSelected)
-                          const Icon(
-                            Icons.check,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                      ],
+                          if (isSelected)
+                            Container(
+                              margin: const EdgeInsets.only(left: 6),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: darkText.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 14.4,
+                                color: darkText,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                }).toList(),
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
