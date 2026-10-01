@@ -16,7 +16,7 @@ abstract class EventRemoteDataSource {
   /// `GET /api/v1/occurrences?fromDate=&toDate=` — the rich occurrence
   /// view (display fields + myRsvp + rsvpSummary + participants), one row
   /// per occurrence, paged through until the window is fully loaded.
-  /// [partyCode] goes out as `X-Party-Code` so rows carry `myRsvp`.
+  /// [partyCode] is kept for the call shape but no longer sent as a header.
   Future<List<EventModel>> getOccurrencesWindow({
     required DateTime from,
     required DateTime to,
@@ -35,7 +35,7 @@ abstract class EventRemoteDataSource {
 
   /// `GET /api/v1/calendar/feed` — unified events+tasks+holidays for a
   /// date window. [scope] is ALL_ITEMS (admins) or MY_ITEMS; [partyCode]
-  /// goes out as `X-Party-Code` (required for MY_ITEMS).
+  /// is kept for the call shape but no longer sent as a header.
   Future<List<CalendarFeedItem>> getCalendarFeed({
     required DateTime from,
     required DateTime to,
@@ -124,11 +124,13 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
           'size': 100,
           'sort': 'date_asc',
         },
-        options: partyCode.trim().isEmpty
-            ? null
-            : Options(
-                headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
-              ),
+        // X-Party-Code is no longer sent on any call; the gateway resolves
+        // the caller itself. Kept for reference:
+        // options: partyCode.trim().isEmpty
+        //     ? null
+        //     : Options(
+        //         headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
+        //       ),
       );
 
       final raw = response.data;
@@ -174,11 +176,13 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
         'size': size,
         'sort': 'date_asc',
       },
-      options: partyCode.trim().isEmpty
-          ? null
-          : Options(
-              headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
-            ),
+      // X-Party-Code is no longer sent on any call; the gateway resolves
+      // the caller itself. Kept for reference:
+      // options: partyCode.trim().isEmpty
+      //     ? null
+      //     : Options(
+      //         headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
+      //       ),
     );
     final raw = response.data;
     final data = raw is Map<String, dynamic> ? raw['data'] : null;
@@ -215,11 +219,13 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
         'toDate': EventModel.formatDate(to),
         'scope': scope,
       },
-      options: partyCode.trim().isEmpty
-          ? null
-          : Options(
-              headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
-            ),
+      // X-Party-Code is no longer sent on any call; the gateway resolves
+      // the caller itself. Kept for reference:
+      // options: partyCode.trim().isEmpty
+      //     ? null
+      //     : Options(
+      //         headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
+      //       ),
     );
     final raw = response.data;
     final data = raw is Map<String, dynamic> ? raw['data'] : null;

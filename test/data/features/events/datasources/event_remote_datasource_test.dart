@@ -184,7 +184,7 @@ void main() {
           },
         };
 
-    test('walks pages, sends the window and X-Party-Code, parses rows',
+    test('walks pages, sends the window without X-Party-Code, parses rows',
         () async {
       final requestedPages = <String>[];
       stub((options) {
@@ -206,7 +206,7 @@ void main() {
       expect(request.uri.path, endsWith('/api/v1/occurrences'));
       expect(request.uri.queryParameters['fromDate'], '2026-09-01');
       expect(request.uri.queryParameters['toDate'], '2026-09-30');
-      expect(_header(request, 'X-Party-Code'), 'STF_1');
+      expect(_header(request, 'X-Party-Code'), isNull);
       expect(requestedPages, ['0', '1']);
 
       expect(rows.map((r) => r.code), ['EVT_1', 'EVT_2', 'EVT_3']);
