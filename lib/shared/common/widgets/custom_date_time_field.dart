@@ -27,6 +27,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.onDateSelected,
     this.onTimeSelected,
     this.initialDate,
+    this.initialEndDate,
     this.initialTime,
     this.onRangeSelected,
     this.fetchInitialTime = true, // New property to control fetch behavior
@@ -50,6 +51,11 @@ class CustomDateTimeField extends StatefulWidget {
   final ValueChanged<DateTime>? onDateSelected;
   final ValueChanged<TimeOfDay>? onTimeSelected;
   final DateTime? initialDate;
+
+  /// Range mode only: the end of the initially shown range. Pass it (together
+  /// with [initialDate]) when the owner holds the range, so an external reset
+  /// such as Clear All is reflected in the field; see [didUpdateWidget].
+  final DateTime? initialEndDate;
   final TimeOfDay? initialTime;
   final bool fetchInitialTime; // Control whether to fetch current time
   final bool isDisabled;
@@ -92,6 +98,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     // Initialize with provided initialDate if available
     if (widget.initialDate != null) {
       selectedDate = widget.initialDate;
+      if (widget.isRangePicker) rangeEndDate = widget.initialEndDate;
       _updateDisplayValue();
     }
 
@@ -186,6 +193,19 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
         widget.initialDate != oldWidget.initialDate) {
       setState(() {
         selectedDate = widget.initialDate!;
+        _updateDisplayValue();
+      });
+    }
+
+    // Range mode: follow an owner-driven end date too (e.g. Clear All resets
+    // the range back to the current month). Only when the owner passes one;
+    // callers that leave it null keep the field's own end date.
+    if (!widget.isTime &&
+        widget.isRangePicker &&
+        widget.initialEndDate != null &&
+        widget.initialEndDate != oldWidget.initialEndDate) {
+      setState(() {
+        rangeEndDate = widget.initialEndDate;
         _updateDisplayValue();
       });
     }
