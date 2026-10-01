@@ -199,6 +199,7 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                 initialEndDate: overview.dateTo,
                 onRangeChanged: (start, end) =>
                     _overviewCubit.setDateRange(start, end),
+                onClear: _overviewCubit.resetDateRange,
               ),
               const SizedBox(height: 8),
               BlocBuilder<FamilySummaryCubit, FamilySummaryState>(

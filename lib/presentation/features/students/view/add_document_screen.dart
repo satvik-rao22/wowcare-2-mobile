@@ -285,29 +285,20 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           ],
         ),
       ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: AppSpacing.md,
-          right: AppSpacing.md,
-          top: AppSpacing.xs,
-        ),
-        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-        child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
-          builder: (context, state) {
-            return CustomButtonLayout(
-              confirmButtonLabel: widget.isEdit
-                  ? StudentStrings.save
-                  : StudentStrings.add,
-              cancelButtonLabel: StudentStrings.cancel,
-              onPressedConfirm: _addDocument,
-              onPressedCancel: () => context.pop(false),
-              showCancelButton: true,
-              isForm: false,
-              isLoading: state.isLoading || state.isUploading,
-            );
-          },
-        ),
+      bottomBar: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+        builder: (context, state) {
+          return CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit
+                ? StudentStrings.save
+                : StudentStrings.add,
+            cancelButtonLabel: StudentStrings.cancel,
+            onPressedConfirm: _addDocument,
+            onPressedCancel: () => context.pop(false),
+            showCancelButton: true,
+            isForm: false,
+            isLoading: state.isLoading || state.isUploading,
+          );
+        },
       ),
     );
   }
@@ -340,7 +331,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             textCapitalization: TextCapitalization.sentences,
@@ -542,7 +535,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             minHeight: responsive.inputFieldHeight * 2,
             maxHeight: responsive.inputFieldHeight * 4,
           ),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: _notesController,
             maxLines: 4,

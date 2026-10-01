@@ -76,8 +76,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final double verticalSpacing = responsive.isTablet ? 24.0 : 16.0;
-    final double bottomPadding = MediaQuery.of(context).padding.bottom;
-    final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final TextStyle labelStyle = TextStyle(
       fontSize: responsive.labelFontSize,
       fontFamily: AppFonts.body,
@@ -143,34 +141,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           SizedBox(height: verticalSpacing),
         ],
       ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.billingCardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.blackColor.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: BillingStrings.save,
-          onPressedConfirm: _submit,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: _saving,
-        ),
+      bottomBar: CustomButtonLayout(
+        confirmButtonLabel: BillingStrings.save,
+        onPressedConfirm: _submit,
+        showCancelButton: false,
+        isForm: false,
+        isLoading: _saving,
       ),
     );
   }
@@ -209,8 +185,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderDefault),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,

@@ -213,8 +213,6 @@ class _EditShiftViewState extends State<_EditShiftView> {
   @override
   Widget build(BuildContext context) {
     final responsive = SchedulingResponsive(context);
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
     final title = _isSeriesMode ? 'Edit entire series' : 'Edit this shift';
 
     return BlocBuilder<EditShiftCubit, EditShiftState>(
@@ -240,21 +238,12 @@ class _EditShiftViewState extends State<_EditShiftView> {
 
             return StaffFormLayout(
               title: title,
-              bottomBar: Container(
-                padding: EdgeInsets.only(
-                  bottom: bottomPadding,
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                ),
-                decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: state.saving ? 'Saving…' : 'Save',
-                  onPressedConfirm:
-                      (cubit.isFormValid && !state.saving) ? _onSave : null,
-                  showCancelButton: false,
-                  isForm: false,
-                ),
+              bottomBar: CustomButtonLayout(
+                confirmButtonLabel: state.saving ? 'Saving…' : 'Save',
+                onPressedConfirm:
+                    (cubit.isFormValid && !state.saving) ? _onSave : null,
+                showCancelButton: false,
+                isForm: false,
               ),
               child: ListView(
                 padding: EdgeInsets.zero,

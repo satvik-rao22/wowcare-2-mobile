@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/presentation/features/reports/reports_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 export 'package:wowcare/presentation/features/reports/widgets/report_month_year_field.dart';
 
 class ReportFormLayout extends StatelessWidget {
@@ -32,8 +33,6 @@ class ReportFormLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     // §7.5: paddingOf subscribes to padding only — `.of` re-ran this whole
     // form layout whenever the keyboard opened.
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return Scaffold(
       backgroundColor: AppColors.pageBackgroundColor,
@@ -99,19 +98,7 @@ class ReportFormLayout extends StatelessWidget {
       ),
       bottomNavigationBar: !showButton
           ? null
-          : Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: AppSurfaces.card(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(context.isTablet ? 40.0 : 24.0),
-                  topRight: Radius.circular(context.isTablet ? 40.0 : 24.0),
-                ),
-              ),
+          : BottomActionBar(
               child: CustomButtonLayout(
                 confirmButtonLabel: generateLabel,
                 onPressedConfirm: onGenerate,

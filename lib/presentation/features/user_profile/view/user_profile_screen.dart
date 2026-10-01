@@ -280,8 +280,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   String _effectiveStaffCode() => _cubit.effectiveStaffCode();
 
-  Future<void> _pickProfileImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickProfileImage({
+    ImageSource source = ImageSource.gallery,
+  }) async {
+    final XFile? image = await _picker.pickImage(source: source);
     if (image == null) return;
     if (!mounted) return;
     // The cubit branches staff vs guardian based on persona and streams upload
@@ -323,7 +325,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return _guardianPhotoUrl.trim().isNotEmpty ||
           _guardianPhotoAssetCode.trim().isNotEmpty;
     }
-    return (_profile?.profilePhotoUrl ?? '').trim().isNotEmpty;
+    // The avatar also resolves a staff photo by code when the profile carries
+    // no URL, so honour that too or Delete is hidden while a photo is showing.
+    return (_profile?.profilePhotoUrl ?? '').trim().isNotEmpty ||
+        DocumentImageWidget.hasResolvedStaffPhoto(_effectiveStaffCode());
   }
 
   Future<void> _openStaffProfile() async {
@@ -532,6 +537,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                   ),
                                               subjectName: displayName,
                                               onChangePhoto: _pickProfileImage,
+                                              onTakePhoto: () =>
+                                                  _pickProfileImage(
+                                                    source: ImageSource.camera,
+                                                  ),
+                                              hasPhotoNow: () =>
+                                                  _hasDeletableProfilePhoto(
+                                                    isParent: isParentPersona,
+                                                  ),
+                                              refreshOn: DocumentImageWidget
+                                                  .profilePhotoResolved,
                                               onDelete: _deleteProfileImage,
                                             ),
                                         child: Stack(

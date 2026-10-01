@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 2.2.21+25
+version: 2.2.22+26
 
 environment:
   sdk: ^3.9.2
@@ -112,10 +112,13 @@ dev_dependencies:
 # LOCAL-ONLY: the real ffmpeg_kit_flutter_new_https ships no arm64 iOS-simulator
 # slice, so it can't link for the simulator on Apple Silicon (Xcode 26). This
 # points the dependency at a pure-Dart no-op stub so the app runs on the arm64
-# simulator. Remove this override to restore real ffmpeg for device/release builds.
-dependency_overrides:
-  ffmpeg_kit_flutter_new_https:
-    path: stubs/ffmpeg_kit_flutter_new_https
+# simulator. Uncomment ONLY for local arm64-simulator development — it was
+# found still active in a device build (HLS video download silently using the
+# stub instead of real ffmpeg there too, since dependency_overrides has no way
+# to scope itself to simulator-only builds). Never commit this uncommented.
+# dependency_overrides:
+#   ffmpeg_kit_flutter_new_https:
+#     path: stubs/ffmpeg_kit_flutter_new_https
 
 
 # flutter:

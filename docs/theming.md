@@ -4,10 +4,12 @@ Everything visual in WowCare resolves to a token in **`lib/core/theme/app_theme_
 No other file under `lib/` names a colour or a font family. Change a value in that
 file and the whole app follows.
 
-Two guard tests enforce this. `test/core/theme/centralized_theme_test.dart` fails
+Three guard tests enforce this. `test/core/theme/centralized_theme_test.dart` fails
 the build if any file reintroduces a `Colors.*` reference, a bare `'Manrope'`-style
 font string, a colour literal of its own, or a gradient.
-`test/core/theme/flat_skeu_material_test.dart` guards the material itself.
+`test/core/theme/flat_skeu_material_test.dart` guards the material itself, and
+`test/core/theme/palette_generation_test.dart` fails when the generated palette is
+stale or a skin overrides a role that does not exist.
 
 ---
 
@@ -26,8 +28,23 @@ static const AppSkin skin = AppSkin.childcareWow;   // ← change this
 | `AppSkin.childcareWow` (**current default**) | navy `#0A1C5D` ink, pink `#E01B5D` action, warm `#FBF8F2` ground | Poppins |
 
 `AppSkin.childcareWow` is the ChildcareWow brand design language, taken from
-*WowCare Design Components* and the brand colour and type guide. Both skins are
-fully populated, so the flip is a one-line change with no call-site edits.
+*WowCare Design Components* and the brand colour and type guide. It is also the
+base skin: every other skin inherits its values and overrides only what differs.
+
+### Adding a skin
+
+1. Add a value to `AppSkin` in `app_theme_config.dart`.
+2. Create `lib/core/theme/skin_<name>.dart` as a `part of 'app_theme_config.dart'`
+   with an `abstract final class <Name>Skin` that declares only the roles that
+   differ from `ChildcareWowSkin`. A festival skin that changes the action colour
+   is a handful of lines: `brand`, `brandLight`, `brandDark`, `brandSoft`,
+   `rimAction`, `surfaceSelected`.
+3. Run `dart run tool/gen_palette.dart`. It rewrites `app_palette.gen.dart` and
+   refuses a skin that names a role the base does not declare.
+4. Flip `AppThemeConfig.skin`.
+
+`AppThemeConfig.isBrandSkin` is `skin != AppSkin.legacy`, so a new skin takes the
+brand fonts and weights without any further wiring.
 
 Verified effect of flipping the constant:
 
@@ -64,7 +81,9 @@ mean converting all of them to `Theme.of(context)` lookups.
 | `BrandRamps` | The ChildcareWow palette, ramp by ramp (`teal500`, `pink600`, `ink`…). | No. Raw palette. |
 | `LegacyHues` | The hues the app ships with today (`plum`, `indigo`, `lavender`…). | No. Raw palette. |
 | `MaterialHues` | Exact values of the Flutter `Colors.*` swatches the app used to reach for. | Only to preserve an exact Material shade. |
-| `AppPalette` | **Semantic roles.** `textPrimary`, `surfaceCard`, `statusError`, `borderHairline`… | **Yes. Prefer these.** |
+| `skin_childcare_wow.dart` | **The base skin.** One value per role, with the role docs. | Edit to change the brand look. |
+| `skin_legacy.dart` | The pre-brand skin: a full override. | Rarely. |
+| `app_palette.gen.dart` | **`AppPalette`, generated** from the skins by `tool/gen_palette.dart`. `textPrimary`, `surfaceCard`, `statusError`… | **Yes. Prefer these.** Never edit by hand. |
 | `AppMotion` | Durations, curves, and how far a pressed thing sinks. | Yes. |
 | `AppFontFamilies` | The families registered in `pubspec.yaml`. | Only to pin one specific family. |
 | `AppFonts` | **Font roles.** `body`, `display`, `numeric`, `script`, `mono`. | **Yes. Prefer these.** |
@@ -80,8 +99,9 @@ Four more files sit on top of it, and they are what a widget actually calls:
 | `app_surfaces.dart` | **`AppSurfaces`**: one ready-made decoration per design specimen. **This is the one to call.** |
 | `skeu_press.dart` | `SkeuPressable`, the app's single press effect. |
 
-`AppPalette` is the layer the skin switch rewires. Each role is written as
-`_brand ? <brand value> : <legacy value>`, so both skins are visible side by side.
+`AppPalette` is the layer the skin switch rewires. Each role is generated as a
+compile-time chain over the skins that define it, falling back to the base skin,
+so a skin file lists only its own differences.
 
 `AppColors` (`lib/core/theme/app_colors.dart`) is now a **directory, not a
 definition**: its semantic tokens forward to `AppPalette`, and its feature-scoped
@@ -208,8 +228,9 @@ a regression test.
 ## Adding or changing a colour
 
 1. **Is it a role?** Something that means "an error", "a card surface", "a
-   hairline"? Add it to `AppPalette` and give both skins a value. That is the
-   normal case.
+   hairline"? Add it to `ChildcareWowSkin` in `skin_childcare_wow.dart`, give
+   `LegacySkin` its value if it differs, and run `dart run tool/gen_palette.dart`.
+   That is the normal case.
 2. **Is it decorative and genuinely local?** A pastel chip in a rotating palette,
    a per-category badge tint? Add a feature-scoped constant to `AppColors`,
    matching the existing `billing*` / `attendance*` naming. This keeps the

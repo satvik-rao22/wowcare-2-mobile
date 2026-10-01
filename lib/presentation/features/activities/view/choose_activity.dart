@@ -406,7 +406,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
         ],
       ),
       // Tapping an activity navigates directly — no Next/Cancel buttons.
-      bottomBar: const SizedBox.shrink(),
+      bottomBar: null,
     );
   }
 }

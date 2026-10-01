@@ -665,6 +665,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                         gate.unexpectedGateLoading ||
                         (hasUnexpected && !gate.unexpectedSignInAcknowledged);
                     return CustomButtonLayout(
+                      isForm: false,
                       confirmButtonLabel: 'Sign-In',
                       onPressedConfirm: disabled ? null : _submitSignIn,
                       showCancelButton: widget.isKiosk,

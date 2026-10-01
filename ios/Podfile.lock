@@ -1244,8 +1244,15 @@ PODS:
     - SwiftyGif
   - emoji_picker_flutter (0.0.1):
     - Flutter
+  - ffmpeg_kit_flutter_new_https (8.1.2):
+    - ffmpeg_kit_flutter_new_https/https (= 8.1.2)
+    - Flutter
+  - ffmpeg_kit_flutter_new_https/https (8.1.2):
+    - Flutter
   - file_picker (0.0.1):
     - DKImagePickerController/PhotoGallery
+    - Flutter
+  - file_saver (0.0.1):
     - Flutter
   - Firebase/Auth (12.17.0):
     - Firebase/CoreOnly
@@ -1264,6 +1271,9 @@ PODS:
   - Firebase/Performance (12.17.0):
     - Firebase/CoreOnly
     - FirebasePerformance (~> 12.17.0)
+  - Firebase/RemoteConfig (12.17.0):
+    - Firebase/CoreOnly
+    - FirebaseRemoteConfig (~> 12.17.0)
   - firebase_analytics (12.4.6):
     - firebase_core
     - FirebaseAnalytics (= 12.17.0)
@@ -1285,6 +1295,10 @@ PODS:
     - Flutter
   - firebase_performance (0.11.4-6):
     - Firebase/Performance (= 12.17.0)
+    - firebase_core
+    - Flutter
+  - firebase_remote_config (6.5.6):
+    - Firebase/RemoteConfig (= 12.17.0)
     - firebase_core
     - Flutter
   - FirebaseABTesting (12.17.0):
@@ -1630,6 +1644,9 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
   - SwiftyGif (5.4.5)
   - url_launcher_ios (0.0.1):
     - Flutter
@@ -1651,13 +1668,16 @@ DEPENDENCIES:
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - emoji_picker_flutter (from `.symlinks/plugins/emoji_picker_flutter/ios`)
+  - ffmpeg_kit_flutter_new_https (from `.symlinks/plugins/ffmpeg_kit_flutter_new_https/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
+  - file_saver (from `.symlinks/plugins/file_saver/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_auth (from `.symlinks/plugins/firebase_auth/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - firebase_performance (from `.symlinks/plugins/firebase_performance/ios`)
+  - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
   - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
@@ -1675,6 +1695,7 @@ DEPENDENCIES:
   - qr_code_scanner_plus (from `.symlinks/plugins/qr_code_scanner_plus/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
   - video_thumbnail (from `.symlinks/plugins/video_thumbnail/ios`)
@@ -1741,8 +1762,12 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/device_info_plus/ios"
   emoji_picker_flutter:
     :path: ".symlinks/plugins/emoji_picker_flutter/ios"
+  ffmpeg_kit_flutter_new_https:
+    :path: ".symlinks/plugins/ffmpeg_kit_flutter_new_https/ios"
   file_picker:
     :path: ".symlinks/plugins/file_picker/ios"
+  file_saver:
+    :path: ".symlinks/plugins/file_saver/ios"
   firebase_analytics:
     :path: ".symlinks/plugins/firebase_analytics/ios"
   firebase_auth:
@@ -1755,6 +1780,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_messaging/ios"
   firebase_performance:
     :path: ".symlinks/plugins/firebase_performance/ios"
+  firebase_remote_config:
+    :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
   flutter_inappwebview_ios:
@@ -1789,6 +1816,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/share_plus/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   video_player_avfoundation:
@@ -1812,7 +1841,9 @@ SPEC CHECKSUMS:
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   emoji_picker_flutter: ece213fc274bdddefb77d502d33080dc54e616cc
+  ffmpeg_kit_flutter_new_https: 56c163419c35bb768302f7af4555977877a561f3
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
+  file_saver: 6cdbcddd690cb02b0c1a0c225b37cd805c2bf8b6
   Firebase: e8400c058702940d53f31fc0653e4e7a06332326
   firebase_analytics: 4dc4986181e6f58d24f879716f175a53e837c914
   firebase_auth: 3e82fa3e632856cd5a8e2bedf458d682740c8168
@@ -1820,6 +1851,7 @@ SPEC CHECKSUMS:
   firebase_crashlytics: 36d85edffd4bfd025c13025b0009f63754983536
   firebase_messaging: 00bcc97454f71d0dbe0a8adc6f2abf952320cfb2
   firebase_performance: 06a9a473add8e95da498333409db2f037af2f3f1
+  firebase_remote_config: bb543d4e956f50638226d06a8ba38729919c0868
   FirebaseABTesting: 51e55872b92243f3ef45c0bc157897a86ec60be4
   FirebaseAnalytics: 652858a1424ca8c549b62261876814ff56dff650
   FirebaseAppCheckInterop: 6d4cd7b9df8047da8cfc98c3fef4618bab2a8e0d
@@ -1874,6 +1906,7 @@ SPEC CHECKSUMS:
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   video_player_avfoundation: 3453f792138786248960ca029747fcd9f318ef52

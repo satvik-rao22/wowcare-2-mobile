@@ -701,6 +701,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         gate.unexpectedGateLoading ||
                         (hasUnexpected && !gate.unexpectedSignInAcknowledged);
                     return CustomButtonLayout(
+                      isForm: false,
                       confirmButtonLabel: 'Sign-In',
                       onPressedConfirm: disabled ? null : _handleSubmit,
                       showCancelButton: widget.isKiosk,

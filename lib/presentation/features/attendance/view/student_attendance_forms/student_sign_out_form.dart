@@ -128,7 +128,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       try {
         iana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (e) {
-        AppLogger.d('StudentSignOutForm: resolveFreshSchoolTimeZone failed: $e');
+        AppLogger.d(
+          'StudentSignOutForm: resolveFreshSchoolTimeZone failed: $e',
+        );
       }
 
       final isStaff = await _submitCubit.resolveIsStaffPersona();
@@ -602,6 +604,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         ),
       ),
       bottomBar: CustomButtonLayout(
+        isForm: false,
         confirmButtonLabel: 'Sign-Out',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: widget.isKiosk,

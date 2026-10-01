@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:wowcare/presentation/features/staff/model/staff_route_results.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class AddStaffScreen extends StatelessWidget {
   const AddStaffScreen({
@@ -637,8 +638,6 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final bool isEditAdminReadOnly = widget.isEdit && _isLoggedInAdminPersona;
 
     return BlocBuilder<ClassroomCubit, ClassroomState>(
@@ -766,7 +765,13 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                           padding: EdgeInsets.all(
                             responsive.isTablet ? 32.0 : 16.0,
                           ),
-                          decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
+                          decoration: AppSurfaces.card(
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(
+                                responsive.isTablet ? 40.0 : 24.0,
+                              ),
+                            ),
+                          ),
                           child: Column(
                             children: [
                               if (_warningMessage != null)
@@ -1123,14 +1128,7 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
                   ),
                 ],
               ),
-              bottomNavigationBar: Container(
-                padding: EdgeInsets.only(
-                  bottom: safeAreaBottom,
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                ),
-                decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
+              bottomNavigationBar: BottomActionBar(
                 child:
                     BlocBuilder<CreateSchoolUserCubit, CreateSchoolUserState>(
                       bloc: _createSchoolUserCubit,
@@ -1222,7 +1220,9 @@ class _AddStaffScreenViewState extends State<_AddStaffScreenView> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             focusNode: focusNode,

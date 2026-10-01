@@ -314,7 +314,8 @@ class _SelectedStudentsReceiptScreenState
                     DocumentImageWidget(
                       fileUuid: '',
                       studentCode: student.code,
-                      mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+                      mediaAssetCode:
+                          (student.photoAssetCode ?? '').trim().isNotEmpty
                           ? student.photoAssetCode!.trim()
                           : null,
                       name: student.fullName,
@@ -478,37 +479,27 @@ class _SelectedStudentsReceiptScreenState
       );
     }
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: widget.isConfirmation
-            ? gradientButton(
-                BillingStrings.done,
-                () => Navigator.of(context).pop(),
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: gradientButton(
-                      // Invoice Preview wording: this saves the invoice as a
-                      // draft, as opposed to "Save and Send" beside it.
-                      BillingStrings.saveAsDraft,
-                      (isProcessing || _students.isEmpty) ? null : _onSave,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: gradientButton(
-                      BillingStrings.saveAndSend,
-                      (isProcessing || _students.isEmpty)
-                          ? null
-                          : _onSaveAndSend,
-                      busy: isProcessing,
-                    ),
-                  ),
-                ],
+    return widget.isConfirmation
+        ? gradientButton(BillingStrings.done, () => Navigator.of(context).pop())
+        : Row(
+            children: [
+              Expanded(
+                child: gradientButton(
+                  // Invoice Preview wording: this saves the invoice as a
+                  // draft, as opposed to "Save and Send" beside it.
+                  BillingStrings.saveAsDraft,
+                  (isProcessing || _students.isEmpty) ? null : _onSave,
+                ),
               ),
-      ),
-    );
+              const SizedBox(width: 12),
+              Expanded(
+                child: gradientButton(
+                  BillingStrings.saveAndSend,
+                  (isProcessing || _students.isEmpty) ? null : _onSaveAndSend,
+                  busy: isProcessing,
+                ),
+              ),
+            ],
+          );
   }
 }

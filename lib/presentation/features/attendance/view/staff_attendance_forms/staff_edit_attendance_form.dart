@@ -135,6 +135,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
                   ),
                 ),
                 bottomBar: CustomButtonLayout(
+                  isForm: false,
                   onPressedCancel: _handleCancel,
                   onPressedConfirm: state.isSubmitting ? null : _handleSubmit,
                   confirmButtonLabel: 'Submit',

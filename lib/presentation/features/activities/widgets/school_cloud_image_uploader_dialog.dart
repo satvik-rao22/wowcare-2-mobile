@@ -14,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Maximum number of images that can be uploaded to the school cloud gallery
 /// in a single "Image Uploader" run.
@@ -211,7 +212,8 @@ class _SchoolCloudImageUploaderDialogState
   Widget build(BuildContext context) {
     final hasImages = _selectedImages.isNotEmpty;
     return Dialog(
-      backgroundColor: AppColors.cardColor,
+      // Sheet ground, so the white cancel key reads against it.
+      backgroundColor: AppPalette.surfaceSunken,
       elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),

@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class AddPhysicianScreen extends StatefulWidget {
   const AddPhysicianScreen({
@@ -167,8 +168,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -210,7 +209,11 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                       horizontal: responsive.horizontalSpacing,
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                    decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                    decoration: AppSurfaces.card(
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                      ),
+                    ),
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -275,14 +278,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            top: AppSpacing.xs,
-          ),
-          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+        bottomNavigationBar: BottomActionBar(
           child: BlocBuilder<StudentPhysicianCubit, StudentPhysicianState>(
             bloc: _physicianCubit,
             buildWhen: (p, c) => p.mutationInProgress != c.mutationInProgress,
@@ -338,7 +334,9 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,

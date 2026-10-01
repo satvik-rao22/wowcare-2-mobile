@@ -960,91 +960,67 @@ class _AutoPayPaymentMethodsScreenState
     final canAct = widget.isPicker
         ? state.selectedMethodCode != null && !state.isSaving
         : state.canSave;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: (MediaQuery.of(context).padding.bottom > 0)
-            ? MediaQuery.of(context).padding.bottom
-            : 16,
-        left: 16,
-        right: 16,
-        top: 10,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Opacity(
-            opacity: canAct ? 1 : 0.5,
-            child: InkWell(
-              onTap: canAct
-                  ? (widget.isPicker ? _handleContinue : _handleSave)
-                  : null,
-              borderRadius: BorderRadius.circular(16),
-              child: SkeuKeyBox(
-                variant: KeyVariant.primary,
-                radius: 16,
-                width: double.infinity,
-                height: 54,
-                child: Center(
-                  child: state.isSettingPrimary
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.billingCardOnColorText,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          widget.isPicker
-                              ? BillingStrings.continueLabel
-                              : BillingStrings.save,
-                          style: const TextStyle(
-                            color: AppColors.billingCardOnColorText,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(
+          opacity: canAct ? 1 : 0.5,
+          child: InkWell(
+            onTap: canAct
+                ? (widget.isPicker ? _handleContinue : _handleSave)
+                : null,
+            borderRadius: BorderRadius.circular(16),
+            child: SkeuKeyBox(
+              variant: KeyVariant.primary,
+              radius: 16,
+              width: double.infinity,
+              height: 54,
+              child: Center(
+                child: state.isSettingPrimary
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.billingCardOnColorText,
                           ),
                         ),
-                ),
+                      )
+                    : Text(
+                        widget.isPicker
+                            ? BillingStrings.continueLabel
+                            : BillingStrings.save,
+                        style: const TextStyle(
+                          color: AppColors.billingCardOnColorText,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.lock_outline,
-                size: 14,
-                color: AppColors.billingMutedIconColor,
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 14,
+              color: AppColors.billingMutedIconColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              BillingStrings.yourPaymentInformationIsSecure,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.billingCaptionTextColor,
               ),
-              const SizedBox(width: 6),
-              Text(
-                BillingStrings.yourPaymentInformationIsSecure,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.billingCaptionTextColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

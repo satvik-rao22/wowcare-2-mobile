@@ -319,6 +319,7 @@ class BillingStrings {
   static const String selectAll = 'Select All';
   static const String selectClassroom = 'Select Classroom';
   static const String selectDateRange = 'Select Date Range';
+  static const String selectRange = 'Select Range';
   static const String selectMonth = 'Select Month';
   static const String selectPaymentMethod = 'Select Payment Method';
   static const String selectPaymentType = 'Select payment type';
@@ -356,6 +357,9 @@ class BillingStrings {
   static const String studentS = 'Student(s)';
   static const String subsidiesOverview = 'Subsidies Overview';
   static const String tags = 'Tags';
+  static const String thisMonth = 'This month';
+  static const String thisWeek = 'This week';
+  static const String thisYear = 'This year';
   static const String thisCardIsAlreadyPrimary = 'This card is already primary. Set another card as primary to change it.';
   static const String thisCardIsAlreadyUsed = 'This card is already used for AutoPay. Set another card for AutoPay to change it.';
   static const String thisFieldIsRequired = '*This field is required.';

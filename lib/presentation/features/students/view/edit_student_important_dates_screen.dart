@@ -16,7 +16,6 @@ import 'package:wowcare/presentation/features/students/view_model/student_import
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
 
 class EditStudentImportantDatesScreen extends StatefulWidget {
   const EditStudentImportantDatesScreen({
@@ -98,8 +97,6 @@ class _EditStudentImportantDatesScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocProvider<StudentImportantDatesCubit>.value(
       value: _cubit,
@@ -176,21 +173,12 @@ class _EditStudentImportantDatesScreenState
                           );
                         },
                       ),
-                      bottomBar: Container(
-                        padding: EdgeInsets.only(
-                          bottom: safeAreaBottom,
-                          left: AppSpacing.md,
-                          right: AppSpacing.md,
-                          top: AppSpacing.xs,
-                        ),
-                        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), topRight: Radius.circular( responsive.isTablet ? 40.0 : 24.0, ), )),
-                        child: CustomButtonLayout(
-                          confirmButtonLabel: StudentStrings.save,
-                          onPressedConfirm: isSubmitting ? null : _save,
-                          showCancelButton: false,
-                          isForm: false,
-                          isLoading: isSubmitting,
-                        ),
+                      bottomBar: CustomButtonLayout(
+                        confirmButtonLabel: StudentStrings.save,
+                        onPressedConfirm: isSubmitting ? null : _save,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading: isSubmitting,
                       ),
                     );
                   },

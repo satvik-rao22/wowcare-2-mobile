@@ -185,6 +185,20 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     ]);
   }
 
+  /// Clear All on the date filter: back to the page-load default (the current
+  /// school-calendar month, see [TransactionsState.initial]). Skips the
+  /// refetch when the range is already the default, so a redundant tap costs
+  /// nothing.
+  Future<void> resetDateRange() async {
+    final from = billingSchoolMonthStart();
+    final to = billingSchoolMonthEnd();
+    if (_sameDay(state.dateFrom, from) && _sameDay(state.dateTo, to)) return;
+    await setDateRange(from, to);
+  }
+
+  static bool _sameDay(DateTime? a, DateTime b) =>
+      a != null && a.year == b.year && a.month == b.month && a.day == b.day;
+
   /// Cancels an invoice (`PATCH /api/v1/invoices/{code}/cancel`) then refreshes
   /// the overview totals.
   Future<void> cancelInvoice(String code) async {

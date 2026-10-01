@@ -26,6 +26,7 @@ import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/staff/widgets/resolve_staff_profile_status.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
@@ -762,8 +763,13 @@ class _StaffAttendanceDailyViewScreenState
                                               : index;
                                         });
                                       },
-                                      onView: () {
-                                        context
+                                      onView: () async {
+                                        final profileStatus =
+                                            await resolveStaffProfileStatus(
+                                              staff.id,
+                                            );
+                                        if (!mounted) return;
+                                        await context
                                             .push(
                                               StaffAttendanceProfile.routeName,
                                               extra: {
@@ -778,7 +784,7 @@ class _StaffAttendanceDailyViewScreenState
                                                 'isExpectedToday':
                                                     staff.expectedToday,
                                                 'isPresentToday': false,
-                                                'profileStatus': 'A',
+                                                'profileStatus': profileStatus,
                                                 'initialShowAbsentDays': true,
                                               },
                                             )
@@ -1191,8 +1197,13 @@ class _StaffAttendanceDailyViewScreenState
                                                 },
                                               );
                                             },
-                                      onView: () {
-                                        context
+                                      onView: () async {
+                                        final profileStatus =
+                                            await resolveStaffProfileStatus(
+                                              staff.id,
+                                            );
+                                        if (!mounted) return;
+                                        await context
                                             .push(
                                               StaffAttendanceProfile.routeName,
                                               extra: {
@@ -1210,7 +1221,7 @@ class _StaffAttendanceDailyViewScreenState
                                                     staff.expectedToday,
                                                 'isPresentToday':
                                                     staff.hasSignIn,
-                                                'profileStatus': 'A',
+                                                'profileStatus': profileStatus,
                                               },
                                             )
                                             .then((_) {

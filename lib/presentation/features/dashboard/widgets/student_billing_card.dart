@@ -7,20 +7,16 @@ import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.da
 import 'package:wowcare/presentation/features/billing/view_model/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 
-// ---------------------------------------------------------------------------
-// StudentBillingCard (parent dashboard)
-//
-// Renders the guardian's family billing ledger — children, current balance and
-// the most-recent invoices / payments / refunds. The [ParentBillingCubit] is
-// provided (and kept alive) by the parent dashboard coordinator, so the card
-// loads once and doesn't re-fetch on every rebuild.
-// ---------------------------------------------------------------------------
+// StudentBillingCard (parent dashboard): the family ledger, current balance
+// and recent transactions. [ParentBillingCubit] is owned by the dashboard
+// coordinator, so the card loads once.
 
 class StudentBillingCard extends StatelessWidget {
   const StudentBillingCard({super.key});
@@ -480,123 +476,120 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               onRedirect: () => _openBillingScreen(context),
             ),
 
-            if (!_isMinimized)
-              BlocBuilder<ParentBillingCubit, ParentBillingState>(
-                builder: (context, state) {
-                  if (state.isLoading && state.ledger == null) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: BillingTransactionShimmer(),
-                    );
-                  }
-
-                  if (state.errorMessage != null && state.ledger == null) {
-                    return AppErrorState(
-                      title: state.errorMessage!,
-                      onRetry: () =>
-                          context.read<ParentBillingCubit>().refresh(),
-                      compact: true,
-                    );
-                  }
-
-                  final students = state.students;
-                  return Column(
-                    children: [
-                      const SizedBox(height: 16),
-
-                      // ----------------------------------------------------
-                      // Student grid
-                      // ----------------------------------------------------
-                      if (students.isNotEmpty)
-                        GridView.builder(
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 0,
-                                childAspectRatio: 2,
-                                crossAxisSpacing: 10,
-                              ),
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: students.length,
-                          shrinkWrap: true,
-                          itemBuilder: (context, index) {
-                            final student = students[index];
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: _buildStudentChip(name: student.fullName),
-                            );
-                          },
-                        ),
-
-                      const SizedBox(height: 15),
-
-                      // ----------------------------------------------------
-                      // Current balance + Pay Now button row
-                      // ----------------------------------------------------
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '\$${state.openBalance.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: AppColors.themeColor,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const Text(
-                                  'Current\nBalance',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: AppPalette.textSecondary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20.0,
-                              ),
-                              child: CustomButtonLayout(
-                                isForm: false,
-                                showCancelButton: false,
-                                confirmButtonLabel: 'Pay Now',
-                                onPressedConfirm: () => _openPayNow(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 15),
-
-                      // ----------------------------------------------------
-                      // Recent transactions (invoices, payments, refunds)
-                      // ----------------------------------------------------
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: _buildTransactionList(
-                          state.visibleTransactions,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+            DashboardCollapsible(collapsed: _isMinimized, child: _buildBody()),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return BlocBuilder<ParentBillingCubit, ParentBillingState>(
+      builder: (context, state) {
+        if (state.isLoading && state.ledger == null) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: BillingTransactionShimmer(),
+          );
+        }
+
+        if (state.errorMessage != null && state.ledger == null) {
+          return AppErrorState(
+            title: state.errorMessage!,
+            onRetry: () => context.read<ParentBillingCubit>().refresh(),
+            compact: true,
+          );
+        }
+
+        final students = state.students;
+        return Column(
+          children: [
+            const SizedBox(height: 16),
+
+            // ----------------------------------------------------
+            // Student grid
+            // ----------------------------------------------------
+            if (students.isNotEmpty)
+              GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 0,
+                  childAspectRatio: 2,
+                  crossAxisSpacing: 10,
+                ),
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: students.length,
+                shrinkWrap: true,
+                itemBuilder: (context, index) {
+                  final student = students[index];
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildStudentChip(name: student.fullName),
+                  );
+                },
+              ),
+
+            const SizedBox(height: 15),
+
+            // ----------------------------------------------------
+            // Current balance + Pay Now button row
+            // ----------------------------------------------------
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        '\$${state.openBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: AppColors.themeColor,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Text(
+                        'Current\nBalance',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppPalette.textSecondary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: CustomButtonLayout(
+                      isForm: false,
+                      showCancelButton: false,
+                      confirmButtonLabel: 'Pay Now',
+                      onPressedConfirm: () => _openPayNow(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+
+            // ----------------------------------------------------
+            // Recent transactions (invoices, payments, refunds)
+            // ----------------------------------------------------
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _buildTransactionList(state.visibleTransactions),
+            ),
+          ],
+        );
+      },
     );
   }
 }

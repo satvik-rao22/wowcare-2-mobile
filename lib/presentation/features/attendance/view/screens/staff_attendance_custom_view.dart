@@ -18,6 +18,7 @@ import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/staff/widgets/resolve_staff_profile_status.dart';
 import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/staff_attendance_custom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_school_time.dart';
@@ -679,7 +680,11 @@ class _CustomStaffCardItem extends StatelessWidget {
                   width: double.infinity,
                   height: responsive.buttonHeight * 0.8,
                   child: CustomCancelButton(
-                    onPressedCancel: () {
+                    onPressedCancel: () async {
+                      final profileStatus = await resolveStaffProfileStatus(
+                        attendance.id,
+                      );
+                      if (!context.mounted) return;
                       context.push(
                         StaffAttendanceProfile.routeName,
                         extra: {
@@ -693,7 +698,7 @@ class _CustomStaffCardItem extends StatelessWidget {
                           'isAbsent': false,
                           'isExpectedToday': attendance.expectedToday,
                           'isPresentToday': attendance.hasSignIn,
-                          'profileStatus': 'A',
+                          'profileStatus': profileStatus,
                         },
                       );
                     },

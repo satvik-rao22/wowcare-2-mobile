@@ -649,6 +649,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ),
       ),
       bottomBar: CustomButtonLayout(
+        isForm: false,
         confirmButtonLabel: 'Sign-Out',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: widget.isKiosk,

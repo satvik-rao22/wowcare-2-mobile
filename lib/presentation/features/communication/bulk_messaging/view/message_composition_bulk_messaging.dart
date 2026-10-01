@@ -21,6 +21,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -444,21 +445,7 @@ class _MessageCompositionBulkMessagingState
     ResponsiveHelper responsive,
     BulkMessagingCompositionState compositionState,
   ) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: AppSurfaces.card(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
+    return BottomActionBar(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

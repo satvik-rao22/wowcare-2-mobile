@@ -5,7 +5,6 @@ import 'package:wowcare/presentation/features/availability/model/individual_move
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class ConfirmIndividualMovementScreen extends StatelessWidget {
   const ConfirmIndividualMovementScreen({super.key, required this.item});
@@ -14,36 +13,24 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
       title: 'Confirm Individual Student Movement',
-      bottomBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            responsive.horizontalSpacing,
-            0,
-            responsive.horizontalSpacing,
-            12,
+      bottomBar: Row(
+        children: <Widget>[
+          Expanded(
+            child: CustomCancelButton(
+              cancelButtonLabel: 'Back',
+              onPressedCancel: () => Navigator.of(context).pop(false),
+            ),
           ),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: CustomCancelButton(
-                  cancelButtonLabel: 'Back',
-                  onPressedCancel: () => Navigator.of(context).pop(false),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomConfirmButton(
-                  label: 'Confirm',
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: CustomConfirmButton(
+              label: 'Confirm',
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
           ),
-        ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

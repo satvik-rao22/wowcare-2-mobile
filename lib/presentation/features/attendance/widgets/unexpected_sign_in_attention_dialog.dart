@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Outcome of [showUnexpectedSignInAttentionDialog].
 class UnexpectedSignInAttentionResult {
@@ -91,7 +92,11 @@ class _UnexpectedSignInAttentionDialogBodyState
         color: AppColors.transparentColor,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
-          decoration: AppSurfaces.card(radius: AppRadius.lg),
+          // Sheet ground, so the white cancel key reads against it.
+          decoration: AppSurfaces.card(
+            radius: AppRadius.lg,
+            color: AppPalette.surfaceSunken,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

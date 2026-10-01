@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/attendance/widgets/attendance_prof
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_profile_stat_widgets.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/core/theme/app_radius.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -934,6 +935,23 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     _loadData();
   }
 
+  /// Clear All on the date range: back to the page-load default (the current
+  /// month). No-op when the range is already that month.
+  void _onClearDateRange() {
+    final now = ServerTimeService.instance.now();
+    final start = _startOfMonth(now);
+    final end = _endOfMonth(now);
+    if (_isSameDay(_startDate, start) && _isSameDay(_endDate, end)) return;
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+    });
+    _loadData();
+  }
+
+  bool _isSameDay(DateTime? a, DateTime b) =>
+      a != null && a.year == b.year && a.month == b.month && a.day == b.day;
+
   @override
   Widget build(BuildContext context) {
     // Attendance V2: render the new overtime detail module. Gating here
@@ -981,12 +999,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                       hasLabel: false,
                       isRangePicker: true,
                       initialDate: _startDate,
+                      initialEndDate: _endDate,
                       label: 'Date Range',
                       onRangeSelected: (start, end) {
                         _onDateRangeSelected(start, end);
                       },
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.xs),
+                  CustomClearAllChip(onTap: _onClearDateRange),
                   const SizedBox(width: AppSpacing.md),
                   GradientAddButton(
                     onTap: () {

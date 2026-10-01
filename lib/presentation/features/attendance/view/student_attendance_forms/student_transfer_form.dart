@@ -103,7 +103,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       try {
         schoolIana = await _submitCubit.resolveFreshSchoolTimeZone();
       } catch (e) {
-        AppLogger.d('StudentTransferForm: resolveFreshSchoolTimeZone failed: $e');
+        AppLogger.d(
+          'StudentTransferForm: resolveFreshSchoolTimeZone failed: $e',
+        );
       }
 
       final isStaff = await _submitCubit.resolveIsStaffPersona();
@@ -554,6 +556,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         ),
       ),
       bottomBar: CustomButtonLayout(
+        isForm: false,
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
         showCancelButton: false,

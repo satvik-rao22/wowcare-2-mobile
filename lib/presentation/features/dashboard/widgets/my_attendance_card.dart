@@ -12,17 +12,13 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-/// "My Attendance" dashboard card.
-///
-/// Preserves the original card layout exactly:
-/// header → date-range picker → profile row + stat tiles.
-///
-/// Data is driven by [MyAttendanceCubit]; mock constants are replaced with
-/// live values once loaded. Shimmer is shown only on the very first load.
+/// "My Attendance" dashboard card: header, date-range picker, profile row and
+/// stat tiles, driven by [MyAttendanceCubit]. Shimmer on first load only.
 class MyAttendanceCard extends StatefulWidget {
   const MyAttendanceCard({super.key});
 
@@ -110,20 +106,16 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Collapsible attendance report — same structure as before.
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: _minimized
-                        ? const SizedBox.shrink()
-                        : _AttendanceReportColumn(
-                            staffCode: state.staffCode,
-                            staffName: state.staffName,
-                            attendedDays: state.attendedDays,
-                            attendedHours: state.attendedHours,
-                            attendedMinutes: state.attendedMinutes,
-                            absentDays: state.absentDays,
-                          ),
+                  DashboardCollapsible(
+                    collapsed: _minimized,
+                    child: _AttendanceReportColumn(
+                      staffCode: state.staffCode,
+                      staffName: state.staffName,
+                      attendedDays: state.attendedDays,
+                      attendedHours: state.attendedHours,
+                      attendedMinutes: state.attendedMinutes,
+                      absentDays: state.absentDays,
+                    ),
                   ),
                 ],
               ),

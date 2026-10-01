@@ -17,10 +17,9 @@
 ///
 /// ## Adding a skin (dark mode, a festival palette)
 ///
-/// Nothing in this file changes. Add the skin to [AppSkin], give every role
-/// in [AppPalette] a value under it, and flip `AppThemeConfig.skin`. The
-/// scheme, the component themes and the text theme below all re-derive from
-/// those roles.
+/// Nothing in this file changes. Add the skin to [AppSkin], write
+/// `skin_<name>.dart` overriding only the roles that differ from the base,
+/// run `dart run tool/gen_palette.dart`, and flip `AppThemeConfig.skin`.
 ///
 /// The switch is compile-time on purpose: the app declares thousands of
 /// `const` text styles and decorations, and a `const` cannot read from an

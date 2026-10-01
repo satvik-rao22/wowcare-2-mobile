@@ -98,22 +98,12 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
     ResponsiveHelper responsive,
     ActivityFilterState state,
   ) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
-        bottom: safeAreaBottom,
-      ),
-      child: CustomButtonLayout(
-        confirmButtonLabel: 'Apply Filters',
-        onPressedConfirm: _apply,
-        showCancelButton: false,
-        isForm: false,
-        isLoading: state.isLoading,
-      ),
+    return CustomButtonLayout(
+      confirmButtonLabel: 'Apply Filters',
+      onPressedConfirm: _apply,
+      showCancelButton: false,
+      isForm: false,
+      isLoading: state.isLoading,
     );
   }
 

@@ -332,8 +332,6 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return MultiBlocListener(
       listeners: [
@@ -396,32 +394,23 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
             ],
           ),
         ),
-        bottomBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-          child: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
-            builder: (context, state) {
-              return BlocBuilder<
-                StaffDocumentUploadCubit,
-                StaffDocumentUploadState
-              >(
-                builder: (context, uploadState) {
-                  return CustomButtonLayout(
-                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                    onPressedConfirm: _addDocument,
-                    showCancelButton: false,
-                    isForm: false,
-                    isLoading: state.isLoading || uploadState.isUploading,
-                  );
-                },
-              );
-            },
-          ),
+        bottomBar: BlocBuilder<StaffDocumentCubit, StaffDocumentState>(
+          builder: (context, state) {
+            return BlocBuilder<
+              StaffDocumentUploadCubit,
+              StaffDocumentUploadState
+            >(
+              builder: (context, uploadState) {
+                return CustomButtonLayout(
+                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                  onPressedConfirm: _addDocument,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading: state.isLoading || uploadState.isUploading,
+                );
+              },
+            );
+          },
         ),
       ),
     );
@@ -454,7 +443,9 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: _documentNameController,
             textCapitalization: TextCapitalization.sentences,
@@ -657,7 +648,9 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
             minHeight: responsive.inputFieldHeight * 2,
             maxHeight: responsive.inputFieldHeight * 4,
           ),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: _notesController,
             maxLines: 4,

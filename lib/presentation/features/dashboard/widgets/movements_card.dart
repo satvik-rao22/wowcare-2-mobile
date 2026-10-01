@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/availability/view_model/individual
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/availability/model/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -601,11 +602,8 @@ class _MovementsCardState extends State<MovementsCard> {
                 const SizedBox(height: 24),
                 ValueListenableBuilder<bool>(
                   valueListenable: _minimized,
-                  builder: (context, minimized, body) => AnimatedSize(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    child: minimized ? const SizedBox.shrink() : body,
-                  ),
+                  builder: (context, minimized, body) =>
+                      DashboardCollapsible(collapsed: minimized, child: body!),
                   child: _MovementCardBody(classroomCode: widget.classroomCode),
                 ),
               ],
