@@ -1378,6 +1378,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           );
                         },
                       ),
+                      SizedBox(height: MediaQuery.of(context).viewPadding.bottom),
+                      const SizedBox(height: 15),
                     ],
                   ),
                 ),
