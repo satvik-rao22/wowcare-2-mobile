@@ -203,6 +203,10 @@ class _FakeStorageService implements StorageService {
 
   @override
   Future<Set<String>> getKeys() async => {};
+  @override
+  Future<void> saveDouble(String key, double value) async {}
+  @override
+  Future<double?> getDouble(String key) async => null;
 }
 
 class _FakeReactionRepository implements ReactionRepository {

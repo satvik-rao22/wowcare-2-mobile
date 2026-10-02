@@ -8,7 +8,7 @@ import 'package:wowcare/data/features/communication/models/message_entity_collec
 import 'package:wowcare/data/features/communication/models/unread_entity_collection.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
-/// Non–SharedPreferences caches (Isar, RAM, image cache) cleared on session end.
+/// Non–StorageService caches (Isar, RAM, image cache) cleared on session end.
 ///
 /// [StorageService.clear] is invoked separately from auth; this runs after that.
 class SessionLocalCacheWiper {

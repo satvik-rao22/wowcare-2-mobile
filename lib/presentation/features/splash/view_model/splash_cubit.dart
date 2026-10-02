@@ -136,7 +136,7 @@ class SplashCubit extends Cubit<SplashState> {
       // A fresh install can still read back a cached session: Android hands
       // an app its old Keychain entries after a reinstall. Wipe it, but only
       // when there is no *live* login to protect — this flag is a plain
-      // SharedPreferences bool and its write can lose the race with an
+      // stored bool and its write can lose the race with an
       // abrupt task-kill, reading back false on the next cold launch even
       // though the user is genuinely signed in.
       final hasExistingLogin =

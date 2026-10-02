@@ -58,6 +58,10 @@ class _FakeStorage implements StorageService {
 
   @override
   Future<Set<String>> getKeys() async => values.keys.toSet();
+  @override
+  Future<void> saveDouble(String key, double value) async {}
+  @override
+  Future<double?> getDouble(String key) async => null;
 }
 
 /// `StudentRemoteDataSource` declares ~100 members; `noSuchMethod` lets the

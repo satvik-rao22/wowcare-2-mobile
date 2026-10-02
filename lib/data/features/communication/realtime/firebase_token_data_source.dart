@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_constants.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 
@@ -30,12 +30,12 @@ class FirebaseTokenDataSourceImpl implements FirebaseTokenDataSource {
   const FirebaseTokenDataSourceImpl({
     required this.apiClient,
     required this.messaging,
-    required this.prefs,
+    required this.storage,
   });
 
   final ApiClient apiClient;
   final FirebaseMessaging messaging;
-  final SharedPreferences prefs;
+  final StorageService storage;
 
   String get _baseUrl => ApiConstants.communicationBaseUrl;
 
@@ -49,7 +49,7 @@ class FirebaseTokenDataSourceImpl implements FirebaseTokenDataSource {
     if (fcmToken == null) return;
 
     // Avoid duplicate registrations for the same token + context
-    final lastToken = prefs.getString(_kLastRegisteredFcmToken);
+    final lastToken = await storage.getString(_kLastRegisteredFcmToken);
     final cacheKey = '$fcmToken|$userCode|$schoolCode';
     if (lastToken == cacheKey) return;
 
@@ -66,12 +66,9 @@ class FirebaseTokenDataSourceImpl implements FirebaseTokenDataSource {
       if (apnsToken != null) payload['apnsToken'] = apnsToken;
     }
 
-    final endpoint = ApiPaths.urlWithBase(
-      '/api/v1/firebase/token',
-      _baseUrl,
-    );
+    final endpoint = ApiPaths.urlWithBase('/api/v1/firebase/token', _baseUrl);
     await apiClient.client.post(endpoint, data: payload);
 
-    await prefs.setString(_kLastRegisteredFcmToken, cacheKey);
+    await storage.saveString(_kLastRegisteredFcmToken, cacheKey);
   }
 }

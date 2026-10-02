@@ -7,7 +7,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
@@ -34,7 +33,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     'com.wowcare.geofencing/events',
   );
 
-  // SharedPreferences keys — shared with native implementations.
+  // Storage keys — mirrored by the WorkManager task (geofence_background_task).
   static const _prefsSchoolLatKey = 'geofence_school_lat';
   static const _prefsSchoolLonKey = 'geofence_school_lon';
   static const _prefsSchoolRadiusKey = 'geofence_school_radius_m';
@@ -256,18 +255,21 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
     stopMonitoring();
 
-    // ── Instantly restore last-known state from SharedPreferences ──────────
+    // ── Instantly restore last-known state from local storage ──────────────
     // This makes the button visually correct the moment the dashboard opens,
     // without waiting for permission checks or API calls to complete.
     final lastStatus = await _restoreLastKnownStatus();
     if (lastStatus != null) {
-      final prefs = await SharedPreferences.getInstance();
+      final storage = serviceLocator<StorageService>();
+      final gpsSignInEnabled =
+          await storage.getBool(_prefsGpsSignInEnabledKey) ?? true;
+      final radiusMeters = await storage.getDouble(_prefsSchoolRadiusKey);
       emit(
         GeofenceState(
           status: lastStatus,
           schoolCode: schoolCode,
-          gpsSignInEnabled: prefs.getBool(_prefsGpsSignInEnabledKey) ?? true,
-          radiusMeters: prefs.getDouble(_prefsSchoolRadiusKey),
+          gpsSignInEnabled: gpsSignInEnabled,
+          radiusMeters: radiusMeters,
           // Preserve the already-known permission level (freshly set by the
           // checkStaffSignInStatus()/prior init above) instead of silently
           // resetting it to the class default (denied) — an unguarded reset
@@ -1070,17 +1072,21 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     }
   }
 
-  /// Persists config to SharedPreferences so the WorkManager background task
-  /// can read it without needing a DI container.
+  /// Persists config to local storage so the WorkManager background task can
+  /// read it (it builds the same storage stack without a DI container — see
+  /// `createStandaloneStorageService`).
   Future<void> _persistConfig(GeofenceConfig config) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_prefsSchoolLatKey, config.latitude);
-      await prefs.setDouble(_prefsSchoolLonKey, config.longitude);
-      await prefs.setDouble(_prefsSchoolRadiusKey, config.radiusMeters);
-      await prefs.setBool(_prefsGpsSignInEnabledKey, config.gpsSignInEnabled);
+      final storage = serviceLocator<StorageService>();
+      await storage.saveDouble(_prefsSchoolLatKey, config.latitude);
+      await storage.saveDouble(_prefsSchoolLonKey, config.longitude);
+      await storage.saveDouble(_prefsSchoolRadiusKey, config.radiusMeters);
+      await storage.saveBool(
+        _prefsGpsSignInEnabledKey,
+        config.gpsSignInEnabled,
+      );
       // Hysteresis exit extra is a constant — persist so background task can read it.
-      await prefs.setDouble(
+      await storage.saveDouble(
         'geofence_exit_hysteresis_extra_m',
         _hysteresisExitExtraMeters,
       );
@@ -1091,8 +1097,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
   Future<GeofenceCubitStatus?> _restoreLastKnownStatus() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_prefsLastGeofenceStatusKey);
+      final raw = await serviceLocator<StorageService>().getString(
+        _prefsLastGeofenceStatusKey,
+      );
       if (raw == null || raw.isEmpty) return null;
       return switch (raw) {
         'within' => GeofenceCubitStatus.withinRange,

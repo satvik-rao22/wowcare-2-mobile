@@ -1,19 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
+import 'package:wowcare/core/storage/secure_storage.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Securely stores the "Remember me" password so the sign-in form can pre-fill
 /// it after logout / session-expiry, gated behind device biometrics.
 ///
 /// **Security design (max-security pre-fill):**
-/// - The password lives ONLY in the platform secure enclave: iOS Keychain
+/// - The password lives ONLY in the platform secure store: iOS Keychain
 ///   (`first_unlock_this_device`, NOT synced to iCloud) and Android
-///   `EncryptedSharedPreferences` (hardware-backed Keystore). It is never put in
-///   the app's plaintext SharedPreferences.
+///   `EncryptedSharedPreferences` (hardware-backed Keystore), under root-level
+///   keys that `StorageService.clear()` (logout) never touches.
 /// - Reading it back to pre-fill REQUIRES a biometric / device-credential check
 ///   (Face ID / fingerprint / PIN) **whenever the device has one**. A
 ///   stolen-but-unlocked phone still cannot reveal the password without the
@@ -27,20 +27,15 @@ import 'package:wowcare/core/utils/logger_service.dart';
 ///   password). It deliberately SURVIVES logout and session-expiry so the form
 ///   can pre-fill — that is the product requirement.
 class SecureCredentialStore {
+  /// [storage] must be the ROOT view of the app's secure store (not the `app`
+  /// namespace behind StorageService) so a logout cannot wipe the password.
   SecureCredentialStore({
-    FlutterSecureStorage? storage,
+    required SecureStorage storage,
     LocalAuthentication? localAuth,
-  })  : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-                synchronizable: false,
-              ),
-            ),
+  })  : _storage = storage,
         _localAuth = localAuth ?? LocalAuthentication();
 
-  final FlutterSecureStorage _storage;
+  final SecureStorage _storage;
   final LocalAuthentication _localAuth;
 
   static const String _kPasswordKey = 'remember_me_password_v1';
@@ -53,8 +48,8 @@ class SecureCredentialStore {
     required String password,
   }) async {
     try {
-      await _storage.write(key: _kUsernameKey, value: username);
-      await _storage.write(key: _kPasswordKey, value: password);
+      await _storage.writeString(_kUsernameKey, username);
+      await _storage.writeString(_kPasswordKey, password);
       AppLogger.d(
         '[SecureCred] saved user="$username" pwLen=${password.length}',
       );
@@ -67,8 +62,8 @@ class SecureCredentialStore {
   /// "Remember me" is unchecked or a login fails.
   Future<void> clear() async {
     try {
-      await _storage.delete(key: _kPasswordKey);
-      await _storage.delete(key: _kUsernameKey);
+      await _storage.delete(_kPasswordKey);
+      await _storage.delete(_kUsernameKey);
     } catch (e) {
       AppLogger.d('[SecureCred] clear failed: $e');
     }
@@ -77,7 +72,7 @@ class SecureCredentialStore {
   /// Whether a saved password exists (no biometric needed — just presence).
   Future<bool> hasSavedPassword() async {
     try {
-      final v = await _storage.read(key: _kPasswordKey);
+      final v = await _storage.readString(_kPasswordKey);
       return v != null && v.isNotEmpty;
     } catch (e) {
       AppLogger.d('[SecureCred] hasSavedPassword failed: $e');
@@ -108,8 +103,8 @@ class SecureCredentialStore {
   /// Reads the stored pair straight out of the secure store. Callers must have
   /// already cleared the auth gate (or established that no gate exists).
   Future<Map<String, String>?> _readStored() async {
-    final password = await _storage.read(key: _kPasswordKey);
-    final username = await _storage.read(key: _kUsernameKey);
+    final password = await _storage.readString(_kPasswordKey);
+    final username = await _storage.readString(_kUsernameKey);
     if (password == null || password.isEmpty) return null;
     return {'username': username ?? '', 'password': password};
   }

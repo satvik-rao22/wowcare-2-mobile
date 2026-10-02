@@ -65,6 +65,10 @@ class MockStorageService implements StorageService {
   Future<void> clear() async => _data.clear();
   @override
   Future<Set<String>> getKeys() async => _data.keys.toSet();
+  @override
+  Future<void> saveDouble(String key, double value) async {}
+  @override
+  Future<double?> getDouble(String key) async => null;
 }
 
 // Helper base mock cubit class to avoid boilerplate

@@ -1,9 +1,11 @@
 class StorageKeys {
   StorageKeys._();
 
-  /// Set once on first launch. Lives in SharedPreferences (wiped on iOS/Android
-  /// uninstall), so its ABSENCE means a fresh install — used to wipe Keychain
-  /// secure credentials that survive uninstall on iOS.
+  /// LEGACY — the "has this install launched before?" flag of the
+  /// SharedPreferences era. Fresh-install detection now uses a file in
+  /// Application Support (see `InstallMarker`); this key exists only so the
+  /// one-time SharedPreferences migration can read the old value. Nothing
+  /// writes it any more.
   static const String appInstalledMarker = 'app_installed_marker_v1';
 
   // Storage Keys

@@ -62,6 +62,11 @@ dependencies:
   qr_flutter: ^4.1.0
   flutter_secure_storage: ^9.2.4
   local_auth: ^2.3.0
+  # Migration-only. App code never reads or writes SharedPreferences; the one
+  # importer is LegacySharedPreferencesMigrator, which promotes what older
+  # builds stored here into the secure store on first launch. Dropping this
+  # dependency means dropping that migrator (and the SharedPreferencesPlugin
+  # line in MainActivity.kt), which would sign existing users out once.
   shared_preferences: ^2.3.5
   share_plus: ^10.1.4
   shimmer: ^3.0.0

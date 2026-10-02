@@ -1,14 +1,14 @@
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/feature_flags/feature_flag_names.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/app_time.dart';
 import 'feature_flag_local_data_source.dart';
 
-/// Implementation of FeatureFlagLocalDataSource using SharedPreferences.
+/// Implementation of FeatureFlagLocalDataSource over the app's [StorageService].
 /// Feature flags are stored with key prefix 'feature_flag_' for easy identification.
 class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
-  final SharedPreferences _prefs;
+  final StorageService _storage;
 
-  const FeatureFlagLocalDataSourceImpl(this._prefs);
+  const FeatureFlagLocalDataSourceImpl(this._storage);
 
   /// Storage key prefix for feature flags
   static const String _flagPrefix = 'feature_flag_';
@@ -26,7 +26,7 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
     }
 
     final key = _buildKey(flagName);
-    final stored = _prefs.getBool(key);
+    final stored = await _storage.getBool(key);
 
     // Return stored value if set, otherwise return default
     return stored ?? FeatureFlagNames.getDefault(flagName);
@@ -39,10 +39,10 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
     }
 
     final key = _buildKey(flagName);
-    await _prefs.setBool(key, enabled);
+    await _storage.saveBool(key, enabled);
 
     // Update last sync time
-    await _prefs.setInt(
+    await _storage.saveInt(
       _lastSyncKey,
       AppTime.nowUtc().millisecondsSinceEpoch,
     );
@@ -64,11 +64,11 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
   Future<void> clearAllFlags() async {
     for (final flagName in FeatureFlagNames.allFlags) {
       final key = _buildKey(flagName);
-      await _prefs.remove(key);
+      await _storage.remove(key);
     }
 
     // Clear sync timestamp
-    await _prefs.remove(_lastSyncKey);
+    await _storage.remove(_lastSyncKey);
   }
 
   @override
@@ -88,8 +88,8 @@ class FeatureFlagLocalDataSourceImpl implements FeatureFlagLocalDataSource {
 
   /// Get when flags were last synced from backend.
   /// Returns null if never synced.
-  DateTime? getLastSyncTime() {
-    final timestamp = _prefs.getInt(_lastSyncKey);
+  Future<DateTime?> getLastSyncTime() async {
+    final timestamp = await _storage.getInt(_lastSyncKey);
     if (timestamp == null) return null;
     return DateTime.fromMillisecondsSinceEpoch(timestamp);
   }

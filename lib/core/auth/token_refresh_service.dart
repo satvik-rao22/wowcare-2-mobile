@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/network/api_headers.dart';
+import 'package:wowcare/core/storage/secure_storage.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -57,9 +57,10 @@ class TokenRefreshService {
   ///    DioException, so the error interceptor never runs for it.
   Dio get _dio => serviceLocator<ApiClient>().client;
 
-  static const FlutterSecureStorage _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  /// Root view of the app's secure store — deliberately NOT the `app`
+  /// namespace behind [StorageService], so `StorageService.clear()` on
+  /// logout cannot touch these keys; [clear] below owns them.
+  SecureStorage get _secure => serviceLocator<SecureStorage>();
 
   /// Secure-store key for the refresh token.
   static const String _kRefreshToken = 'auth_refresh_token';
@@ -77,18 +78,18 @@ class TokenRefreshService {
 
   // ── token storage ────────────────────────────────────────────────────────
   //
-  // Both tokens live ONLY in [FlutterSecureStorage] (Keychain / EncryptedShared-
-  // Preferences). The reads below promote any value left in the legacy plaintext
-  // SharedPreferences store (from a session created before this change) into the
-  // secure store once and delete the plaintext copy — so existing users are not
-  // logged out on update, and no plaintext token is ever read again afterwards.
+  // Both tokens live under their own root-level keys in the secure store. The
+  // reads below still promote any value left under the legacy StorageService
+  // keys (a session created before tokens moved out of the general store)
+  // into these keys once and delete the old copy — so existing users are not
+  // logged out on update.
 
   /// Persists the refresh token in the secure store.
   Future<void> saveRefreshToken(String token) async {
     final t = token.trim();
     if (t.isEmpty) return;
     try {
-      await _secure.write(key: _kRefreshToken, value: t);
+      await _secure.writeString(_kRefreshToken, t);
     } catch (e) {
       AppLogger.d('[TokenRefresh] secure refresh write failed: $e');
     }
@@ -98,7 +99,7 @@ class TokenRefreshService {
   /// plaintext value into it (then clearing the plaintext copy).
   Future<String> readRefreshToken() async {
     try {
-      final secure = (await _secure.read(key: _kRefreshToken) ?? '').trim();
+      final secure = (await _secure.readString(_kRefreshToken) ?? '').trim();
       if (secure.isNotEmpty) return secure;
     } catch (e) {
       AppLogger.d('[TokenRefresh] secure refresh read failed: $e');
@@ -111,7 +112,7 @@ class TokenRefreshService {
     final t = token.trim();
     if (t.isEmpty) return;
     try {
-      await _secure.write(key: _kAccessToken, value: t);
+      await _secure.writeString(_kAccessToken, t);
     } catch (e) {
       AppLogger.d('[TokenRefresh] secure access write failed: $e');
     }
@@ -121,7 +122,7 @@ class TokenRefreshService {
   /// plaintext value into it (then clearing the plaintext copy).
   Future<String> readAccessToken() async {
     try {
-      final secure = (await _secure.read(key: _kAccessToken) ?? '').trim();
+      final secure = (await _secure.readString(_kAccessToken) ?? '').trim();
       if (secure.isNotEmpty) return secure;
     } catch (e) {
       AppLogger.d('[TokenRefresh] secure access read failed: $e');
@@ -139,7 +140,7 @@ class TokenRefreshService {
     final legacy = (await _storage.getString(plaintextKey) ?? '').trim();
     if (legacy.isEmpty) return '';
     try {
-      await _secure.write(key: secureKey, value: legacy);
+      await _secure.writeString(secureKey, legacy);
       await _storage.remove(plaintextKey);
     } catch (e) {
       AppLogger.d('[TokenRefresh] legacy token migration failed: $e');
@@ -159,8 +160,8 @@ class TokenRefreshService {
 
   Future<void> clear() async {
     try {
-      await _secure.delete(key: _kRefreshToken);
-      await _secure.delete(key: _kAccessToken);
+      await _secure.delete(_kRefreshToken);
+      await _secure.delete(_kAccessToken);
     } catch (_) {}
     await _storage.remove(StorageKeys.tokenExpiresAt);
     // Purge any legacy plaintext copies from pre-migration sessions.

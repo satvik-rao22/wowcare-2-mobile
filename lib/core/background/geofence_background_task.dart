@@ -1,5 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 
 /// Name registered with WorkManager for the periodic health-check task.
 const String geofenceHealthCheckTaskUniqueName = 'geofence-health-check';
@@ -20,13 +20,16 @@ const String geofenceHealthCheckTaskName = 'geofenceBackgroundTask';
 /// This runs independently of the main app in a background isolate.
 Future<void> geofenceBackgroundCallback() async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final latitude = prefs.getDouble('geofence_school_lat');
-    final longitude = prefs.getDouble('geofence_school_lon');
-    final radiusMeters = prefs.getDouble('geofence_school_radius_m');
-    final schoolCode = prefs.getString('geofence_school_code');
+    // This isolate has no DI container, so it builds the same production
+    // storage stack `configureDependencies` registers and reads the config
+    // the foreground GeofenceCubit persisted (see `_persistConfig`).
+    final storage = createStandaloneStorageService();
+    final latitude = await storage.getDouble('geofence_school_lat');
+    final longitude = await storage.getDouble('geofence_school_lon');
+    final radiusMeters = await storage.getDouble('geofence_school_radius_m');
+    final schoolCode = await storage.getString('geofence_school_code');
     final gpsSignInEnabled =
-        prefs.getBool('geofence_gps_sign_in_enabled') ?? true;
+        await storage.getBool('geofence_gps_sign_in_enabled') ?? true;
 
     // Nothing to recover if there's no persisted config, or the school has
     // GPS sign-in turned off — do not re-register in that case.

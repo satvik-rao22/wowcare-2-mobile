@@ -25,7 +25,6 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/src/app_router.dart'
     show goToDashboardRoot, popAllShellBranchNavigators;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/guardian_clock_pin_resolver.dart';
 import 'package:wowcare/core/utils/sign_in_pin_resolver.dart';
@@ -1207,9 +1206,9 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
 }
 
 Future<void> _sendPasswordResetRequest(BuildContext context) async {
-  // Get logged in user's email from SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  final email = prefs.getString(StorageKeys.email) ?? '';
+  // Logged-in user's email from local storage.
+  final email =
+      await serviceLocator<StorageService>().getString(StorageKeys.email) ?? '';
 
   if (email.isEmpty) {
     CoreUtils.showTopSnackBar(

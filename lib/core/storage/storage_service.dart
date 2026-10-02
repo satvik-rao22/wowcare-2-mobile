@@ -1,6 +1,10 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/storage/flutter_secure_storage_backend.dart';
+import 'package:wowcare/core/storage/secure_storage.dart';
+import 'package:wowcare/core/storage/secure_storage_backend.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
+/// The app-wide key/value store. Backed by the platform secure store via
+/// [SecureStorage]; see [StorageServiceImpl] for the contract.
 abstract class StorageService {
   Future<void> saveString(String key, String value);
   Future<String?> getString(String key);
@@ -8,9 +12,15 @@ abstract class StorageService {
   Future<int?> getInt(String key);
   Future<void> saveBool(String key, bool value);
   Future<bool?> getBool(String key);
+  Future<void> saveDouble(String key, double value);
+  Future<double?> getDouble(String key);
   Future<void> saveJson(String key, Map<String, dynamic> value);
   Future<Map<String, dynamic>?> getJson(String key);
   Future<void> remove(String key);
+
+  /// Removes every entry in this store. Does not touch the auth tokens or the
+  /// "Remember me" credentials, which live outside it (see
+  /// [SecureStorage.appNamespace]).
   Future<void> clear();
 
   /// All keys currently stored. Used for prefix/pattern-based bulk clears
@@ -18,70 +28,114 @@ abstract class StorageService {
   Future<Set<String>> getKeys();
 }
 
+/// [StorageService] over a namespaced [SecureStorage] view.
+///
+/// Contract, kept identical to the `SharedPreferences`-backed implementation
+/// this replaced so none of the ~60 call sites needed to change:
+///  * reads of a missing key return `null`;
+///  * a value of the wrong type reads back as `null` (where
+///    `SharedPreferences` would have thrown a `TypeError`);
+///  * nothing here throws for a platform failure. The failure is logged and
+///    the call behaves as "no value" / "not saved". Callers that need to know
+///    (the auth stores) use [SecureStorage] directly and catch
+///    [SecureStorageException] themselves.
 class StorageServiceImpl implements StorageService {
-  StorageServiceImpl(this._prefs);
+  StorageServiceImpl(this._secure);
 
-  final SharedPreferences _prefs;
-
-  @override
-  Future<void> saveString(String key, String value) async {
-    await _prefs.setString(key, value);
-  }
+  final SecureStorage _secure;
 
   @override
-  Future<String?> getString(String key) {
-    return Future.value(_prefs.getString(key));
-  }
+  Future<void> saveString(String key, String value) =>
+      _write('saveString', key, () => _secure.writeString(key, value));
 
   @override
-  Future<void> saveInt(String key, int value) async {
-    await _prefs.setInt(key, value);
-  }
+  Future<String?> getString(String key) =>
+      _read('getString', key, () => _secure.readString(key));
 
   @override
-  Future<int?> getInt(String key) {
-    return Future.value(_prefs.getInt(key));
-  }
+  Future<void> saveInt(String key, int value) =>
+      _write('saveInt', key, () => _secure.writeInt(key, value));
 
   @override
-  Future<void> saveBool(String key, bool value) async {
-    await _prefs.setBool(key, value);
-  }
+  Future<int?> getInt(String key) =>
+      _read('getInt', key, () => _secure.readInt(key));
 
   @override
-  Future<bool?> getBool(String key) {
-    return Future.value(_prefs.getBool(key));
-  }
+  Future<void> saveBool(String key, bool value) =>
+      _write('saveBool', key, () => _secure.writeBool(key, value));
 
   @override
-  Future<void> saveJson(String key, Map<String, dynamic> value) async {
-    final jsonString = jsonEncode(value);
-    await _prefs.setString(key, jsonString);
-  }
+  Future<bool?> getBool(String key) =>
+      _read('getBool', key, () => _secure.readBool(key));
 
   @override
-  Future<Map<String, dynamic>?> getJson(String key) async {
-    final jsonString = _prefs.getString(key);
-    if (jsonString == null) return null;
+  Future<void> saveDouble(String key, double value) =>
+      _write('saveDouble', key, () => _secure.writeDouble(key, value));
+
+  @override
+  Future<double?> getDouble(String key) =>
+      _read('getDouble', key, () => _secure.readDouble(key));
+
+  @override
+  Future<void> saveJson(String key, Map<String, dynamic> value) =>
+      _write('saveJson', key, () => _secure.writeJson(key, value));
+
+  @override
+  Future<Map<String, dynamic>?> getJson(String key) =>
+      _read('getJson', key, () => _secure.readJson(key));
+
+  @override
+  Future<void> remove(String key) =>
+      _write('remove', key, () => _secure.delete(key));
+
+  @override
+  Future<void> clear() => _write('clear', null, _secure.clear);
+
+  @override
+  Future<Set<String>> getKeys() async =>
+      await _read('getKeys', null, _secure.keys) ?? const <String>{};
+
+  Future<T?> _read<T>(
+    String operation,
+    String? key,
+    Future<T?> Function() body,
+  ) async {
     try {
-      return jsonDecode(jsonString) as Map<String, dynamic>;
-    } catch (e) {
+      return await body();
+    } on SecureStorageException catch (e, stackTrace) {
+      _log(operation, key, e, stackTrace);
       return null;
     }
   }
 
-  @override
-  Future<void> remove(String key) async {
-    await _prefs.remove(key);
+  Future<void> _write(
+    String operation,
+    String? key,
+    Future<void> Function() body,
+  ) async {
+    try {
+      await body();
+    } on SecureStorageException catch (e, stackTrace) {
+      _log(operation, key, e, stackTrace);
+    }
   }
 
-  @override
-  Future<void> clear() async {
-    await _prefs.clear();
-  }
-
-  @override
-  Future<Set<String>> getKeys() {
-    return Future.value(_prefs.getKeys());
+  static void _log(
+    String operation,
+    String? key,
+    SecureStorageException error,
+    StackTrace stackTrace,
+  ) {
+    final target = key == null ? '' : ' key=$key';
+    AppLogger.e('[StorageService] $operation failed$target', error, stackTrace);
   }
 }
+
+/// The production [StorageService] for code that runs outside the DI
+/// container (WorkManager background isolates). Mirrors the registration in
+/// `configureDependencies`, so both read and write the same store.
+StorageService createStandaloneStorageService() => StorageServiceImpl(
+  SecureStorage(
+    const FlutterSecureStorageBackend(),
+  ).namespaced(SecureStorage.appNamespace),
+);

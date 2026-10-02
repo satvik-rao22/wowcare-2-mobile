@@ -10,7 +10,7 @@ import 'package:wowcare/core/events/scheduling_events.dart';
 /// Clears every cache layer so a school switch OR persona switch starts from
 /// a clean slate everywhere — not just the module the user happens to be
 /// looking at:
-///  1. Persisted `*_cache_*` SharedPreferences entries (repository caches),
+///  1. Persisted `*_cache_*` StorageService entries (repository caches),
 ///     keeping the auth/session login cache which isn't school/persona-scoped.
 ///  2. Non-prefs caches — image cache, Isar messaging/conversation
 ///     collections (both the legacy and v2 schemas), in-flight staff request

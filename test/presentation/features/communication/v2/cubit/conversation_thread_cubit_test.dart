@@ -430,6 +430,10 @@ class _UnusedStorageService implements StorageService {
   Future<void> clear() async {}
   @override
   Future<Set<String>> getKeys() async => {};
+  @override
+  Future<void> saveDouble(String key, double value) async {}
+  @override
+  Future<double?> getDouble(String key) async => null;
 }
 
 MessageEntity _message(

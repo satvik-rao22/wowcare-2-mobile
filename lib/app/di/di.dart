@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
@@ -41,6 +40,12 @@ import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/auth/secure_credential_store.dart';
+import '../../core/auth/token_refresh_service.dart';
+import '../../core/security/install_marker.dart';
+import '../../core/storage/flutter_secure_storage_backend.dart';
+import '../../core/storage/legacy_shared_preferences_migrator.dart';
+import '../../core/storage/secure_storage.dart';
+import '../../core/storage/storage_bootstrap.dart';
 import '../../core/utils/api_constants.dart';
 import '../../core/cache/cache_service.dart';
 import '../../core/cache/isar_cache_service.dart';
@@ -699,9 +704,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     );
     return;
   }
-  // Initialize SharedPreferences
-  final sharedPreferences = await SharedPreferences.getInstance();
-
   // Base URL
   final apiBaseUrl = baseUrl ?? ApiConstants.baseUrl;
 
@@ -710,12 +712,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<NetworkInfo>(
     () => NetworkInfoImpl(serviceLocator()),
   );
-  serviceLocator.registerLazySingleton<SharedPreferences>(
-    () => sharedPreferences,
-  );
+  // ── Storage ──────────────────────────────────────────────────────────────
+  // Everything the app persists lives in the platform secure store (iOS
+  // Keychain / Android EncryptedSharedPreferences). The backend is the only
+  // plug point: swap FlutterSecureStorageBackend for another
+  // SecureStorageBackend here and nothing else in the app changes.
+  //
+  // One root SecureStorage (shared backend + cache) with two views:
+  //  * `appStorage` — the `app` namespace behind StorageService; emptied by
+  //    logout (`StorageService.clear`).
+  //  * `secureStorage` (root) — the auth tokens (TokenRefreshService) and the
+  //    "Remember me" credentials (SecureCredentialStore), which must survive
+  //    a logout and are cleared by their own owners.
+  final secureStorage = SecureStorage(const FlutterSecureStorageBackend());
+  final appStorage = secureStorage.namespaced(SecureStorage.appNamespace);
+  serviceLocator.registerLazySingleton<SecureStorage>(() => secureStorage);
   serviceLocator.registerLazySingleton<StorageService>(
-    () => StorageServiceImpl(serviceLocator()),
+    () => StorageServiceImpl(appStorage),
   );
+  // "Has this install launched before?" — a file in Application Support,
+  // which the OS removes on uninstall. It cannot live in the secure store:
+  // the iOS Keychain survives uninstall, so a marker kept there would call
+  // every reinstall an existing install and skip the wipe.
+  serviceLocator.registerLazySingleton<InstallMarker>(() => InstallMarker());
   // Kiosk session state. Registered early because the router redirect and
   // several cubits depend on it. This singleton is the ONLY instance: it holds
   // the in-memory kiosk cache as instance state, so a second instance would
@@ -724,14 +743,32 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<KioskAccessControl>(
     () => KioskAccessControl(serviceLocator<StorageService>()),
   );
-  // Biometric-gated secure store for the "Remember me" password (Keychain /
-  // EncryptedSharedPreferences) — never the plaintext SharedPreferences.
+  // Biometric-gated store for the "Remember me" password. Root namespace of
+  // the same secure store, so a logout's StorageService.clear() leaves it.
   serviceLocator.registerLazySingleton<SecureCredentialStore>(
-    () => SecureCredentialStore(),
+    () => SecureCredentialStore(storage: secureStorage),
   );
 
+  // One-time storage bootstrap: promotes anything left in the legacy
+  // SharedPreferences store into the secure store, and on a genuinely fresh
+  // install wipes whatever the iOS Keychain kept from a previous install.
+  // Must run before the first read of storage — IsarCacheService.init()
+  // below already reads the cache schema version.
+  await StorageBootstrap(
+    migrator: LegacySharedPreferencesMigrator(target: appStorage),
+    installMarker: serviceLocator<InstallMarker>(),
+    secureStorage: secureStorage,
+    clearSecureCredentials: () async {
+      await TokenRefreshService.instance.clear();
+      await serviceLocator<SecureCredentialStore>().clear();
+    },
+    clearRememberMe: () => serviceLocator<SecureCredentialStore>().clear(),
+  ).run();
+
   // Cache
-  final isarCacheService = IsarCacheService();
+  final isarCacheService = IsarCacheService(
+    storage: serviceLocator<StorageService>(),
+  );
   await isarCacheService.init();
   serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
 
@@ -994,7 +1031,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => FirebaseTokenDataSourceImpl(
       apiClient: serviceLocator(),
       messaging: FirebaseMessaging.instance,
-      prefs: serviceLocator(),
+      storage: serviceLocator(),
     ),
   );
 

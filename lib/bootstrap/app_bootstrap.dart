@@ -11,7 +11,6 @@ import 'package:wowcare/core/firebase/firebase_background_handler.dart';
 import 'package:wowcare/core/firebase/firebase_initializer.dart';
 import 'package:wowcare/core/notifications/notification_channel_service.dart';
 import 'package:wowcare/core/notifications/notification_launch_handler.dart';
-import 'package:wowcare/core/security/fresh_install_reset_service.dart';
 import 'package:wowcare/domain/features/activity/usecases/sweep_orphaned_staged_media_usecase.dart';
 
 /// Orchestrates all app startup steps, in the exact order the app previously
@@ -27,11 +26,10 @@ class AppBootstrap {
     // state-driven from GeofenceCubit (always + gpsSignInEnabled only).
     await initializeWorkManager();
 
-    // Fresh-install reset: iOS Keychain (flutter_secure_storage) SURVIVES app
-    // uninstall, so a reinstall could keep old "Remember me" credentials. The
-    // install marker lives in SharedPreferences (wiped on uninstall); if it's
-    // absent, this is a fresh install → wipe the Keychain so the app opens clean.
-    await resetSecureStoreOnFreshInstall();
+    // Storage migration and the fresh-install wipe (the iOS Keychain survives
+    // uninstall, so a reinstall would otherwise keep the previous session)
+    // run inside configureDependencies — see StorageBootstrap — because the
+    // Isar cache init there already reads storage.
 
     await ensureFirebaseInitialized();
 

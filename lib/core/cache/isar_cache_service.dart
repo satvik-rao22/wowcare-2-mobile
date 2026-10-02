@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:isar_community/isar.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
@@ -14,6 +14,9 @@ import 'package:wowcare/data/features/communication/models/unread_entity_collect
 import 'package:wowcare/data/features/communication/models/sync_queue_collection.dart';
 
 class IsarCacheService implements CacheService {
+  IsarCacheService({required StorageService storage}) : _storage = storage;
+
+  final StorageService _storage;
   late Isar _isar;
 
   /// Bump this whenever any `@collection` class's fields change (added,
@@ -89,8 +92,7 @@ class IsarCacheService implements CacheService {
   /// this can't be handled reactively after the fact.
   Future<void> _wipeIfSchemaVersionMismatch(String directoryPath) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final storedVersion = prefs.getInt(_schemaVersionPrefsKey);
+      final storedVersion = await _storage.getInt(_schemaVersionPrefsKey);
       if (storedVersion == _cacheSchemaVersion) return;
 
       final dir = Directory(directoryPath);
@@ -112,7 +114,7 @@ class IsarCacheService implements CacheService {
         }
       }
 
-      await prefs.setInt(_schemaVersionPrefsKey, _cacheSchemaVersion);
+      await _storage.saveInt(_schemaVersionPrefsKey, _cacheSchemaVersion);
     } catch (e) {
       // Never let cache-migration bookkeeping block app startup — worst
       // case, a genuinely stale file survives and the per-read guard in

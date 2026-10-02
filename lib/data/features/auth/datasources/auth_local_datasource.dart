@@ -95,8 +95,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       );
     }
     await _storage.saveInt(StorageKeys.tokenExpiresIn, response.expiresIn);
-    // Mirror the refresh token into the Keychain / EncryptedSharedPreferences
-    // (SharedPreferences is plaintext) and record an ABSOLUTE deadline —
+    // Keep the refresh token under its own root-level secure key (so logout
+    // can clear it independently) and record an ABSOLUTE deadline —
     // `expiresIn` is only a duration and can't answer "is it still valid?",
     // which proactive refresh-on-resume needs.
     await TokenRefreshService.instance.saveRefreshToken(response.refreshToken);
@@ -196,13 +196,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final savedUsername = rememberMe
         ? await _storage.getString(StorageKeys.username)
         : null;
-    // CRITICAL: the fresh-install marker must survive logout. It lives in
-    // SharedPreferences and is what tells main() this is NOT a fresh install.
-    // If it were wiped here, the next cold start would think the app was newly
-    // installed and WIPE the Keychain "Remember me" password — which silently
-    // broke the whole feature after any logout / session-expiry.
-    final installedMarker =
-        await _storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    // The fresh-install marker is NOT in this store any more (it is a file in
+    // Application Support — see InstallMarker), so this wipe cannot make the
+    // next cold start look like a new install and lose the Keychain
+    // "Remember me" password.
     // Preserved so the NEXT fresh login (of the same account — validated by
     // userCode at read time) can reopen the persona this user was last
     // active as instead of always defaulting to admin/staff.
@@ -212,9 +209,6 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.clear();
     if (firstLaunchHandled) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
-    }
-    if (installedMarker) {
-      await _storage.saveBool(StorageKeys.appInstalledMarker, true);
     }
     if (rememberMe) {
       await _storage.saveBool(StorageKeys.rememberMe, true);
@@ -230,12 +224,13 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     AppLogger.d(
       '[RememberMe] clearCache → preserved rememberMe=$rememberMe '
-      'user="${savedUsername ?? ''}" installMarker=$installedMarker '
+      'user="${savedUsername ?? ''}" '
       '(password in Keychain is untouched)',
     );
-    // The refresh token also lives in the secure store, which `_storage.clear()`
-    // does not touch — without this it would survive logout and could renew the
-    // previous user's session on a shared device.
+    // The tokens live under root-level secure keys outside this store's
+    // namespace, which `_storage.clear()` does not touch — without this they
+    // would survive logout and could renew the previous user's session on a
+    // shared device.
     try {
       await TokenRefreshService.instance.clear();
     } catch (_) {}
