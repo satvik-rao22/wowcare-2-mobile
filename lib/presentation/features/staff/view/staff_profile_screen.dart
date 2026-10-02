@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
@@ -22,6 +23,7 @@ import 'package:wowcare/presentation/features/staff/view_model/staff_profile_pho
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_classroom_name_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/entities/student_settings.dart';
@@ -428,7 +430,28 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     super.dispose();
   }
 
-  Future<void> _pickProfileImage() async {
+  /// Camera capture for the profile photo; hands the shot to the same upload
+  /// path as [_pickProfileImage].
+  Future<void> _takeProfilePhoto() async {
+    if (!_canEditStaffRecords(context.read<RoleCubit>())) {
+      ModuleAccess.showWriteRestricted(context);
+      return;
+    }
+    try {
+      final shot = await ImagePicker().pickImage(source: ImageSource.camera);
+      if (shot == null || !mounted) return;
+      await _pickProfileImage(capturedPath: shot.path);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to open the camera: $e',
+        isError: true,
+      );
+    }
+  }
+
+  Future<void> _pickProfileImage({String? capturedPath}) async {
     // Defense in depth: the camera badge is hidden and the avatar is not
     // tappable without write access, but never let the picker open regardless
     // of how this is reached.
@@ -437,12 +460,15 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       return;
     }
     try {
-      // Shared file picker → every allowed image format is selectable.
-      final picked = await FilePickerUtils.pickFile(
-        allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
-      );
-      final imagePath = picked?.path;
+      // Shared file picker → every allowed image format is selectable. Skipped
+      // when the camera already supplied a path.
+      final picked = capturedPath != null
+          ? null
+          : await FilePickerUtils.pickFile(
+              allowedExtensions: FilePickerUtils.allowedImageExtensions,
+              context: context,
+            );
+      final imagePath = capturedPath ?? picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;
       if (!mounted) return;
       final staffCode = widget.staffCode.trim();
@@ -480,6 +506,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
           );
 
       DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
+      DocumentImageWidget.markStaffPhotoUploaded(staffCode);
       // forEditStaff:true — an admin/director can change another staff
       // member's photo here (see `_canEditStaffRecords`), so this must read
       // that staff member's own record, not fall back to my-profile.
@@ -523,7 +550,9 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     // Document" setting — see [_canEditStaffDocuments].
     final canEditStaffDocuments = _canEditStaffDocuments(role);
     // Profile Information and Schedule are manager-owned: the tab additionally
-    // keeps them hidden on the logged-in user's own profile.
+    // keeps them hidden on the logged-in user's own profile — except for a
+    // true admin, who has no other self-service screen for their own
+    // schedule (see `allowOwnProfileEdit` below).
     final canEditManagedProfile = _hasStaffWriteAccess(role);
     return GlobalScaffold(
       hasBackButton: true,
@@ -573,6 +602,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                 StaffProfileTab(
                   staffCode: widget.staffCode,
                   canEdit: canEditManagedProfile,
+                  allowOwnProfileEdit: role.isTrueAdmin,
                   classroomNames: widget.classroomNames,
                   classroomNameByCode: widget.classroomNameByCode,
                   onProfileSummaryChanged:
@@ -602,18 +632,16 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
-  /// Whether the acting user may delete THIS staff member's photo.
-  ///
-  /// Stricter than [_canEditStaffRecords], which lets an admin change anyone's
-  /// photo. The delete endpoint is `my-profile`-scoped, so we fail closed and
-  /// only offer delete on your own profile.
-  ///
-  /// TODO(profile-photo-delete): flip this back to [canChangePhoto] once the
-  /// backend confirms whether the my-profile delete endpoint accepts an
-  /// arbitrary staffCode from an admin, or ships an admin-scoped one.
-  bool _canDeleteOwnPhoto() {
-    final own = (_ownStaffCode ?? '').trim();
-    return own.isNotEmpty && own == widget.staffCode.trim();
+  /// Whether a photo exists to delete: the profile carries a URL, or the
+  /// avatar has resolved one by staff code. False only while an upload is
+  /// still in flight.
+  bool _hasStaffPhotoToDelete() {
+    if (!mounted) return false;
+    if (context.read<StaffProfilePhotoUploadCubit>().state.isUploading) {
+      return false;
+    }
+    return (_profilePhotoUrl ?? '').trim().isNotEmpty ||
+        DocumentImageWidget.hasResolvedStaffPhoto(widget.staffCode);
   }
 
   Future<void> _deleteProfilePhoto() async {
@@ -664,19 +692,16 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                   onTap: canChangePhoto
                       ? () => ProfilePhotoActionSheet.show(
                           context,
-                          // No delete while an upload is still in flight, and
-                          // none for an admin on someone else's profile.
-                          hasPhoto:
-                              (_profilePhotoUrl ?? '').trim().isNotEmpty &&
-                              !context
-                                  .read<StaffProfilePhotoUploadCubit>()
-                                  .state
-                                  .isUploading &&
-                              _canDeleteOwnPhoto(),
+                          // Delete is offered whenever a photo exists (only
+                          // held back while an upload is still in flight).
+                          hasPhoto: _hasStaffPhotoToDelete(),
+                          hasPhotoNow: _hasStaffPhotoToDelete,
+                          refreshOn: DocumentImageWidget.profilePhotoResolved,
                           subjectName: _displayName.trim().isNotEmpty
                               ? _displayName
                               : widget.name,
                           onChangePhoto: _pickProfileImage,
+                          onTakePhoto: _takeProfilePhoto,
                           onDelete: _deleteProfilePhoto,
                         )
                       : null,
@@ -919,6 +944,13 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
         children: [
           _buildActionIcon(
             MediaRes.calenderClockIcon,
+            // widget.employmentStatus is the same value this screen already
+            // renders as the "Status: Upcoming" badge, so it's used directly
+            // both to disable the icon and as profileStatus below — no need
+            // to re-fetch it (unlike the attendance-list screens, which
+            // don't have it locally; see resolveStaffProfileStatus).
+            isEnabled: !_isUpcomingProfile,
+            disabledTooltip: 'Attendance unavailable for upcoming staff',
             onTap: () {
               final code = widget.staffCode.trim();
               if (code.isEmpty) {
@@ -942,7 +974,7 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
                   'isAbsent': false,
                   'isExpectedToday': true,
                   'isPresentToday': false,
-                  'profileStatus': 'A',
+                  'profileStatus': widget.employmentStatus ?? 'ACTIVE',
                 },
               );
             },
@@ -987,24 +1019,38 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
     );
   }
 
-  Widget _buildActionIcon(String asset, {required VoidCallback onTap}) {
+  bool get _isUpcomingProfile =>
+      (widget.employmentStatus ?? '').trim().toUpperCase() == 'UPCOMING';
+
+  Widget _buildActionIcon(
+    String asset, {
+    required VoidCallback onTap,
+    bool isEnabled = true,
+    String disabledTooltip = '',
+  }) {
     final bool isSvg = asset.toLowerCase().endsWith('.svg');
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          child: isSvg
-              ? SvgPicture.asset(
-                  asset,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.cardColor,
-                    BlendMode.srcIn,
-                  ),
-                )
-              : Image.asset(asset, height: 28, color: AppColors.cardColor),
+    return AppTooltip(
+      message: !isEnabled ? disabledTooltip : '',
+      child: InkWell(
+        onTap: isEnabled ? onTap : null,
+        child: Opacity(
+          opacity: isEnabled ? 1.0 : 0.5,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              child: isSvg
+                  ? SvgPicture.asset(
+                      asset,
+                      height: 28,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.cardColor,
+                        BlendMode.srcIn,
+                      ),
+                    )
+                  : Image.asset(asset, height: 28, color: AppColors.cardColor),
+            ),
+          ),
         ),
       ),
     );

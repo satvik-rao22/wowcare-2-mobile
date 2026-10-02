@@ -22,7 +22,22 @@ class ProfilePhotoActionSheet extends StatelessWidget {
     required this.subjectName,
     required this.onChangePhoto,
     required this.onDelete,
+    this.onTakePhoto,
+    this.hasPhotoNow,
+    this.refreshOn,
   });
+
+  /// Live re-check of [hasPhoto], evaluated on every build of the sheet. Lets
+  /// the delete row appear as soon as a photo lookup that was still running
+  /// when the sheet opened finishes, instead of being frozen at open time.
+  final bool Function()? hasPhotoNow;
+
+  /// Rebuilds the sheet when it fires, so [hasPhotoNow] is re-evaluated.
+  final Listenable? refreshOn;
+
+  /// Optional camera capture. When null (the default) no "Take photo" row is
+  /// shown, so callers that don't pass it keep the exact sheet they had.
+  final VoidCallback? onTakePhoto;
 
   /// Whether a photo exists right now. The delete row is hidden entirely when
   /// false — callers also pass false while an upload is still in flight, so a
@@ -49,6 +64,9 @@ class ProfilePhotoActionSheet extends StatelessWidget {
     required String subjectName,
     required VoidCallback onChangePhoto,
     required Future<void> Function() onDelete,
+    VoidCallback? onTakePhoto,
+    bool Function()? hasPhotoNow,
+    Listenable? refreshOn,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -59,6 +77,9 @@ class ProfilePhotoActionSheet extends StatelessWidget {
         subjectName: subjectName,
         onChangePhoto: onChangePhoto,
         onDelete: onDelete,
+        onTakePhoto: onTakePhoto,
+        hasPhotoNow: hasPhotoNow,
+        refreshOn: refreshOn,
       ),
     );
   }
@@ -101,6 +122,16 @@ class ProfilePhotoActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final listenable = refreshOn;
+    if (listenable == null) return _buildSheet(context);
+    return ListenableBuilder(
+      listenable: listenable,
+      builder: (context, _) => _buildSheet(context),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context) {
+    final showDelete = hasPhotoNow?.call() ?? hasPhoto;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final isLargeTablet = screenWidth > 900;
@@ -158,7 +189,20 @@ class ProfilePhotoActionSheet extends StatelessWidget {
                   onChangePhoto();
                 },
               ),
-              if (hasPhoto) ...[
+              if (onTakePhoto != null) ...[
+                Divider(color: AppColors.dividerColor.withValues(alpha: 0.4)),
+                _ActionRow(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Take photo',
+                  color: AppColors.primaryColor,
+                  fontSize: titleFontSize,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onTakePhoto!();
+                  },
+                ),
+              ],
+              if (showDelete) ...[
                 Divider(color: AppColors.dividerColor.withValues(alpha: 0.4)),
                 _ActionRow(
                   icon: Icons.delete_outline,

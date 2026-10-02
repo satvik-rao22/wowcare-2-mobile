@@ -409,8 +409,8 @@ class _ClassroomStudentsTabCardViewState
     }
   }
 
-  /// One chip per selected status (so both show when ACTIVE + UPCOMING are
-  /// picked). Tapping a chip opens the filter screen to change the selection.
+  /// One chip for the selected status (the filter screen is single-select,
+  /// so there's always exactly one). Tapping it reopens the filter screen.
   Widget _buildStatusChip(String apiStatus) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2),

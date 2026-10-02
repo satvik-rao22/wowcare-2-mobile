@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
@@ -170,6 +171,57 @@ class _MediaUploaderState extends State<MediaUploader>
       // PlatformDispatcher.onError from here.
       _recoverLostMedia();
     });
+  }
+
+  /// Re-syncs existing-media props that changed after the first mount.
+  ///
+  /// Deep-link routes that "load by code" (e.g. the incident-approval
+  /// notification route) mount the host screen with a near-empty
+  /// placeholder `ActivityItem` before their own self-load (`GET
+  /// /api/v2/activities/{code}`) resolves, then rebuild with the real
+  /// data once it does — but [initState] only runs once, against that
+  /// placeholder's empty `initialPhotoUrls`/`initialVideoUrl`. Without
+  /// this, the photo the self-load fetches is silently dropped: visible
+  /// on web (no such placeholder-then-refill gap there), invisible on
+  /// mobile. This is exactly that gap.
+  ///
+  /// Only syncs while nothing local has happened yet — the moment the
+  /// user picks/removes something, a later prop change (e.g. an
+  /// unrelated parent rebuild) must not clobber their in-progress edit.
+  @override
+  void didUpdateWidget(covariant MediaUploader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final untouched =
+        _newPhotos.isEmpty &&
+        _newVideoFile == null &&
+        listEquals(_existingPhotoUrls, oldWidget.initialPhotoUrls) &&
+        _existingVideoUrl == oldWidget.initialVideoUrl;
+    if (!untouched) return;
+
+    final photosChanged = !listEquals(
+      widget.initialPhotoUrls,
+      oldWidget.initialPhotoUrls,
+    );
+    final videoUrlChanged = widget.initialVideoUrl != oldWidget.initialVideoUrl;
+    if (!photosChanged && !videoUrlChanged) return;
+
+    setState(() {
+      _existingPhotoUrls = List.from(widget.initialPhotoUrls);
+      _existingVideoUrl = widget.initialVideoUrl;
+      if (_existingVideoUrl != null) {
+        _currentType = MediaType.video;
+      } else if (_existingPhotoUrls.isNotEmpty) {
+        _currentType = MediaType.photos;
+      }
+    });
+    if (videoUrlChanged &&
+        widget.initialVideoUrl != null &&
+        widget.initialVideo == null &&
+        _newVideoFile == null) {
+      _initializeRemoteVideoThumbnail(widget.initialVideoUrl!);
+    }
+    _notifyParent();
   }
 
   /// Restores a camera capture that Android completed but could not deliver.

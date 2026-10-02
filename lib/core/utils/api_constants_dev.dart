@@ -17,7 +17,9 @@ class ApiConstantsDev {
 
   static const String _host = String.fromEnvironment(
     'API_HOST',
-    defaultValue: 'https://dev.childcarewow.app',
+    // Matches WowInventory's DEV gateway (per the shared DEV Guide) — both
+    // apps hit the same DEV backend, not two separate hosts.
+    defaultValue: 'https://api-dev.childcarewow.app',
   );
 
   static const String baseUrl = _host;

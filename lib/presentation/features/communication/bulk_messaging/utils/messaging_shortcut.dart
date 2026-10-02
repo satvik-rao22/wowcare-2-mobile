@@ -186,6 +186,12 @@ Future<void> _openSingleRecipientConversation(
           avatar: resolvedAvatar,
           code: conversation.code,
           staffUserCode: staffParticipantCode,
+          // recipient.code IS the staff code (STF_*) for staff recipients
+          // (every caller of openMessagingShortcut sets it that way — see
+          // SelectedRecipient's own doc) — a direct, reliable photo lookup
+          // the header can use instead of depending on the userCode→
+          // staffCode resolution succeeding.
+          staffCode: recipient.isStaff ? recipient.code : null,
         ),
       ),
     );
