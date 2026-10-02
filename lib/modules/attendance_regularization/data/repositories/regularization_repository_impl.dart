@@ -58,6 +58,8 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
     int page = 0,
     int size = 20,
     RegSortOrder sort = RegSortOrder.newestFirst,
+    DateTime? fromDate,
+    DateTime? toDate,
   }) async {
     final zone = await _context.timeZone();
     final body = await _source.list(<String, dynamic>{
@@ -66,6 +68,8 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
       'page': page,
       'size': size,
       'sort': sort.wireValue,
+      if (fromDate != null) 'fromDate': _ymd(fromDate),
+      if (toDate != null) 'toDate': _ymd(toDate),
     });
     return RegMappers.toPage(body, zone: zone, page: page, size: size);
   }
@@ -114,4 +118,10 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
       rethrow;
     }
   }
+
+  /// `2026-09-30` — the calendar-date shape the list endpoints use.
+  static String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 }

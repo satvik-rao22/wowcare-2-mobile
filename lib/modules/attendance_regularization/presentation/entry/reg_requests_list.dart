@@ -52,10 +52,19 @@ class RegRequestsList extends StatelessWidget {
 
   /// Live version. An empty [staffCode] lets the token decide whose requests
   /// these are — the staff's own.
-  static Widget connected({String staffCode = ''}) {
+  ///
+  /// [from]/[to] limit it to an attendance-date window. A new window is a new
+  /// list (keyed below), so changing the period refetches rather than showing
+  /// the previous period's rows.
+  static Widget connected({
+    String staffCode = '',
+    DateTime? from,
+    DateTime? to,
+  }) {
     return BlocProvider<RegInboxCubit>(
+      key: ValueKey<String>('$staffCode|$from|$to'),
       create: (_) => serviceLocator<RegInboxCubit>()
-        ..scopeTo(staffCode, filter: RegInboxFilter.all)
+        ..scopeTo(staffCode, filter: RegInboxFilter.all, from: from, to: to)
         ..load(),
       child: const _RegRequestsListConnected(),
     );
@@ -249,7 +258,9 @@ class _ApproveSelectedBar extends StatelessWidget {
                   )
                 : Text(
                     'Approve selected ($count)',
-                    style: Av2Text.bodyMedium.copyWith(color: Av2Colors.onPrimary),
+                    style: Av2Text.bodyMedium.copyWith(
+                      color: Av2Colors.onPrimary,
+                    ),
                   ),
           ),
         ),

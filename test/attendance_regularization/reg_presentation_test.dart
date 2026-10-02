@@ -405,6 +405,56 @@ void main() {
       addTearDown(cubit.close);
     });
 
+    test('shows only the requests inside the profile period', () async {
+      api.onGet('/staff-attendance-regularizations', {
+        'data': {
+          'content': [
+            FakeApi.rawRequest('APPROVED'), // 2026-06-23
+            {
+              ...FakeApi.rawRequest('APPROVED'),
+              'code': 'SREG_0000009',
+              'attendanceDate': '2026-09-30',
+              'requestedSignOutTime': '2026-09-30T21:00:00Z',
+            },
+          ],
+          'page': 0,
+          'size': 20,
+          'totalElements': 2,
+          'totalPages': 1,
+          'hasNext': false,
+          'hasPrevious': false,
+        },
+      });
+
+      final cubit = inbox()
+        ..scopeTo(
+          'STF_1',
+          from: DateTime(2026, 6, 1),
+          to: DateTime(2026, 6, 30),
+        );
+      await cubit.load();
+
+      expect(cubit.state.requests.map((r) => r.code), ['SREG_0000001']);
+      expect(api.lastQuery['fromDate'], '2026-06-01');
+      expect(api.lastQuery['toDate'], '2026-06-30');
+      addTearDown(cubit.close);
+    });
+
+    test('an empty period is empty, not the whole history', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
+      final cubit = inbox()
+        ..scopeTo(
+          'STF_1',
+          from: DateTime(2026, 8, 1),
+          to: DateTime(2026, 8, 31),
+        );
+      await cubit.load();
+
+      expect(cubit.state.isEmpty, isTrue);
+      addTearDown(cubit.close);
+    });
+
     test('unscoped stays school-wide', () async {
       api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
 

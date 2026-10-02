@@ -39,6 +39,12 @@ abstract class RegularizationRepository {
     int page = 0,
     int size = 20,
     RegSortOrder sort = RegSortOrder.newestFirst,
+
+    /// Inclusive attendance-date window, school-local. Sent to the server as
+    /// `fromDate`/`toDate`; the §9.5 contract does not document them yet, so
+    /// callers must not rely on the server applying them.
+    DateTime? fromDate,
+    DateTime? toDate,
   });
 
   /// Omitting [signOutLocal] approves as submitted. Idempotent.

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/modules/attendance_regularization/regularization.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/responsive/av2_breakpoints.dart';
 import '../../core/theme/av2_spacing.dart';
@@ -210,11 +212,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Attendance deleted',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 delete attendance failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t delete attendance. Try again.',
+        message: _failure(e, 'Couldn’t delete attendance. Try again.'),
         isError: true,
       );
     }
@@ -258,11 +261,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Absence updated',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 update absence failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t update absence. Try again.',
+        message: _failure(e, 'Couldn’t update absence. Try again.'),
         isError: true,
       );
     }
@@ -287,11 +291,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Absence deleted',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 delete absence failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t delete absence. Try again.',
+        message: _failure(e, 'Couldn’t delete absence. Try again.'),
         isError: true,
       );
     }
@@ -314,14 +319,25 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Attendance updated',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 update attendance failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t update attendance. Try again.',
+        message: _failure(e, 'Couldn’t update attendance. Try again.'),
         isError: true,
       );
     }
+  }
+
+  /// The server's own reason when it gave one (e.g. a rejected overlap), so an
+  /// admin can act on it; [fallback] only when there is nothing better than
+  /// the generic "something went wrong".
+  String _failure(Object error, String fallback) {
+    final message = ApiErrorHandler.extractErrorMessage(error);
+    return message.isEmpty || message == ApiErrorHandler.genericError
+        ? fallback
+        : message;
   }
 
   @override
@@ -368,7 +384,11 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
               if (_filter == Av2DayFilter.requests)
-                Regularization.requestsList(staffCode: _profile.staffCode)
+                Regularization.requestsList(
+                  staffCode: _profile.staffCode,
+                  from: widget.period.start,
+                  to: widget.period.end,
+                )
               else ...[
                 Av2DayTimeline(
                   days: _days,
@@ -412,7 +432,11 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
               if (_filter == Av2DayFilter.requests)
-                Regularization.requestsList(staffCode: _profile.staffCode)
+                Regularization.requestsList(
+                  staffCode: _profile.staffCode,
+                  from: widget.period.start,
+                  to: widget.period.end,
+                )
               else if (days.isEmpty)
                 Av2DayTimeline(
                   days: days,

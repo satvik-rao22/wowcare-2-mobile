@@ -57,8 +57,14 @@ abstract final class Regularization {
   /// One staff member's regularization requests, for embedding in the
   /// attendance profile. Scoped to [staffCode]; the actions each row offers
   /// come from the viewer's role and the request's own state.
-  static Widget requestsList({required String staffCode}) =>
-      RegRequestsList.connected(staffCode: staffCode);
+  ///
+  /// [from]/[to] narrow it to the attendance period the profile is showing, so
+  /// the Requests chip follows the same month picker as the other chips.
+  static Widget requestsList({
+    required String staffCode,
+    DateTime? from,
+    DateTime? to,
+  }) => RegRequestsList.connected(staffCode: staffCode, from: from, to: to);
 
   /// Requests awaiting this admin's approval, for the dashboard's attention
   /// grid. Returns 0 rather than throwing — a count must never break a

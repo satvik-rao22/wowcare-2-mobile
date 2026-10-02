@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:wowcare/core/utils/html_entities.dart';
 
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 
@@ -19,8 +20,9 @@ class PushNotificationModel extends PushNotification {
       (key, value) => MapEntry(key, value?.toString() ?? ''),
     );
     return PushNotificationModel(
-      title: message.notification?.title,
-      body: message.notification?.body,
+      // Decoded: the server HTML-escapes user text it templates in.
+      title: HtmlEntities.decodeOrNull(message.notification?.title),
+      body: HtmlEntities.decodeOrNull(message.notification?.body),
       action: data['action'],
       type: data['type'],
       data: data,

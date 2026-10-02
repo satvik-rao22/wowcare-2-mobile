@@ -14,6 +14,8 @@ class GetRequestsUseCase {
     int page = 0,
     int size = 20,
     RegSortOrder sort = RegSortOrder.newestFirst,
+    DateTime? fromDate,
+    DateTime? toDate,
   }) {
     return _repository.getRequests(
       staffCode: staffCode,
@@ -21,6 +23,8 @@ class GetRequestsUseCase {
       page: page,
       size: size,
       sort: sort,
+      fromDate: fromDate,
+      toDate: toDate,
     );
   }
 }

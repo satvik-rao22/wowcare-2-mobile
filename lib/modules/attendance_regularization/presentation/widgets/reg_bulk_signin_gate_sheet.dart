@@ -371,7 +371,9 @@ class _RegBulkSignInGateSheetState extends State<_RegBulkSignInGateSheet> {
                 child: Center(
                   child: Text(
                     'Close all $n & sign them in',
-                    style: Av2Text.bodyMedium.copyWith(color: Av2Colors.onPrimary),
+                    style: Av2Text.bodyMedium.copyWith(
+                      color: Av2Colors.onPrimary,
+                    ),
                   ),
                 ),
               ),
