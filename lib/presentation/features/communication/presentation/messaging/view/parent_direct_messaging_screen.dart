@@ -657,9 +657,9 @@ class _ParentDirectMessagingScreenState
         // message a parent ever sends for a brand-new conversation.
         final sendCubit = resolveCommunicationCubit();
         // Nothing listens to this short-lived cubit, so a failed upload or
-        // POST would otherwise vanish with it on close() below. Capture the
-        // failure here, surface it, and keep the draft so the parent can
-        // retry (the retry reuses the conversation created above).
+        // POST raised no toast. Capture it here and surface it once the real
+        // thread is showing; the failed bubble itself (with its retry
+        // affordance) is already cached by the cubit and appears there.
         String? sendError;
         final errorSub = sendCubit.stream.listen((state) {
           if (state is CommunicationError) sendError ??= state.message;
@@ -674,20 +674,14 @@ class _ParentDirectMessagingScreenState
         );
         await errorSub.cancel();
 
-        if (!mounted) {
-          await sendCubit.close();
-          return;
-        }
+        if (!mounted) return;
         _isStartingConversation.value = false;
         if (sendError != null) {
-          await sendCubit.close();
-          if (!mounted) return;
           CoreUtils.showTopSnackBar(
             context: context,
             message: sendError!,
             isError: true,
           );
-          return;
         }
         _emptyInputController.clear();
         _pendingNewConversationAttachments.value = [];

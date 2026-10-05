@@ -302,8 +302,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (!mounted) return;
     // image_picker can hand back a non-image from some gallery providers;
     // the uploader would otherwise relabel it image/jpeg and send it anyway.
-    final ext = image.path.split('.').last.toLowerCase();
-    if (!FilePickerUtils.allowedImageExtensions.contains(ext)) {
+    final isImage = await FilePickerUtils.isAllowedType(
+      name: image.name,
+      path: image.path,
+      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+    );
+    if (!mounted) return;
+    if (!isImage) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: AppStrings.fileUnsupportedType(image.name),

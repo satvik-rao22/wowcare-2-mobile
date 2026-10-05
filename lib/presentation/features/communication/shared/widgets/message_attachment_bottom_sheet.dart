@@ -119,7 +119,7 @@ class _MessageAttachmentBottomSheetState
     try {
       result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: allowedExtensions,
+        allowedExtensions: FilePickerUtils.dialogExtensions(allowedExtensions),
         allowMultiple: true,
       );
     } catch (e) {

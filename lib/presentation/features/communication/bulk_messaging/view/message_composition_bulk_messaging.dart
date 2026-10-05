@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:thumbnailer/thumbnailer.dart';
@@ -105,8 +104,11 @@ class _MessageCompositionBulkMessagingState
         unreadable.add(pick.name);
         continue;
       }
-      final ext = p.extension(path).toLowerCase().replaceFirst('.', '');
-      if (!allowedExtensions.contains(ext)) {
+      if (!await FilePickerUtils.isAllowedType(
+        name: pick.name,
+        path: path,
+        allowedExtensions: allowedExtensions,
+      )) {
         unsupported.add(pick.name);
         continue;
       }

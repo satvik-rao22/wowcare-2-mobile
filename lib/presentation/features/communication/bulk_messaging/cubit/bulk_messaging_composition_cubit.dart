@@ -731,9 +731,7 @@ class BulkMessagingCompositionCubit
       );
 
       if (failed.isNotEmpty) {
-        _reportBackgroundFailure(
-          AppStrings.bulkMessagesFailed(failed.length, recipients.length),
-        );
+        _reportBackgroundFailure(AppStrings.bulkMessagesFailed(failed.length));
       }
 
       if (!isClosed) {
@@ -769,8 +767,13 @@ class BulkMessagingCompositionCubit
   /// (it is usually closed). Report through the root navigator instead, so a
   /// failed upload or send never disappears silently.
   void _reportBackgroundFailure(String message) {
-    final ctx = CoreUtils.rootNavigatorKey.currentContext;
-    if (ctx == null || !ctx.mounted) return;
-    CoreUtils.showTopSnackBar(context: ctx, message: message, isError: true);
+    try {
+      final ctx = CoreUtils.rootNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      CoreUtils.showTopSnackBar(context: ctx, message: message, isError: true);
+    } catch (e) {
+      // Never let the toast itself derail the send bookkeeping around it.
+      debugPrint('Bulk send failure toast could not be shown: $e');
+    }
   }
 }

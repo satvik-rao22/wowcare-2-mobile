@@ -306,8 +306,8 @@ abstract final class AppStrings {
   static String filesUnreadable(int count) => '$count files could not be read';
   static String filesCouldNotBeAttached(int count) =>
       "$count files couldn't be attached";
-  static String bulkMessagesFailed(int failed, int total) =>
-      '$failed of $total bulk messages failed to send';
+  static String bulkMessagesFailed(int failed) =>
+      '$failed bulk message${failed == 1 ? '' : 's'} failed to send';
   static const String bulkSendFailed =
       'Bulk message failed to send. Please try again.';
   static const String attachmentPickFailed =
