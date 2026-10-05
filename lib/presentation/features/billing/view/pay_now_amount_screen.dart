@@ -394,40 +394,23 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
 
   Widget _buildBottomBar(PayNowState state) {
     final canConfirm = state.canConfirm;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: (MediaQuery.of(context).padding.bottom > 0)
-            ? MediaQuery.of(context).padding.bottom
-            : 16,
-        left: 16,
-        right: 16,
-        top: 10,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.billingCardColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Opacity(
-        opacity: canConfirm ? 1 : 0.5,
-        child: InkWell(
-          onTap: canConfirm ? () => unawaited(_confirm()) : null,
-          borderRadius: BorderRadius.circular(16),
-          child: SkeuKeyBox(
-            variant: KeyVariant.primary,
-            radius: 16,
-            width: double.infinity,
-            height: 54,
-            child: const Center(
-              child: Text(
-                BillingStrings.confirm,
-                style: TextStyle(
-                  color: AppColors.billingCardOnColorText,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+    return Opacity(
+      opacity: canConfirm ? 1 : 0.5,
+      child: InkWell(
+        onTap: canConfirm ? () => unawaited(_confirm()) : null,
+        borderRadius: BorderRadius.circular(16),
+        child: SkeuKeyBox(
+          variant: KeyVariant.primary,
+          radius: 16,
+          width: double.infinity,
+          height: 54,
+          child: const Center(
+            child: Text(
+              BillingStrings.confirm,
+              style: TextStyle(
+                color: AppColors.billingCardOnColorText,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),

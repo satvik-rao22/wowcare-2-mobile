@@ -12,7 +12,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_responsive.dart';
-import 'package:wowcare/core/theme/app_surfaces.dart';
 
 /// Result returned by [PublishShiftsScreen] on success. The screen also pops
 /// with `true` if the caller only cares about "did we publish?". Kept for
@@ -168,8 +167,6 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
   @override
   Widget build(BuildContext context) {
     final responsive = SchedulingResponsive(context);
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
     return BlocBuilder<PublishShiftsCubit, PublishShiftsState>(
       builder: (context, state) {
@@ -178,26 +175,17 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
 
         return StaffFormLayout(
           title: 'Publish Shifts',
-          bottomBar: Container(
-            padding: EdgeInsets.only(
-              bottom: bottomPadding,
-              left: 16,
-              right: 16,
-              top: 8,
-            ),
-            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-            child: CustomButtonLayout(
-              confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
-              onPressedConfirm: (state.isFormValid && !isSubmitting)
-                  ? () => _onPublish(state)
-                  : null,
-              onPressedCancel: isSubmitting
-                  ? null
-                  : () => Navigator.of(context).pop(),
-              cancelButtonLabel: 'Cancel',
-              showCancelButton: true,
-              isForm: false,
-            ),
+          bottomBar: CustomButtonLayout(
+            confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
+            onPressedConfirm: (state.isFormValid && !isSubmitting)
+                ? () => _onPublish(state)
+                : null,
+            onPressedCancel: isSubmitting
+                ? null
+                : () => Navigator.of(context).pop(),
+            cancelButtonLabel: 'Cancel',
+            showCancelButton: true,
+            isForm: false,
           ),
           child: AbsorbPointer(
             absorbing: isSubmitting,

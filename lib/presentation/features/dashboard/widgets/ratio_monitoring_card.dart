@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_t
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/classroom/view/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -35,14 +36,9 @@ import 'dashboard_error_chip.dart';
 // RatioMonitoringCard
 // ---------------------------------------------------------------------------
 
-/// Dashboard card that displays live classroom student-to-staff ratios.
-///
-/// Lifecycle:
-/// - **First open**: shows shimmer → classroom rows appear with 0 counts
-///   once the classroom list loads → counts update when attendance data arrives.
-/// - **App returns from background** (`WidgetsBindingObserver`): silently
-///   refreshes attendance data; existing rows stay visible throughout.
-/// - **Pull-to-refresh**: triggered by parent `AdminDashboard`; shimmer shown.
+/// Dashboard card with live classroom student-to-staff ratios: shimmer on
+/// first open, silent refresh on return from background, shimmer again on
+/// pull-to-refresh.
 class RatioMonitoringCard extends StatefulWidget {
   const RatioMonitoringCard({super.key, this.isDashboard = true});
 
@@ -68,26 +64,14 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   // Minimum time between two silent refreshes (prevents rapid consecutive hits).
   static const _refreshCooldown = Duration(seconds: 30);
 
-  /// Cached cubit reference — resolved once in [didChangeDependencies] and
-  /// passed explicitly to [BlocBuilder] so that BlocBuilder never needs to
-  /// call context.read<RatioMonitoringCubit>() in its own initState (which
-  /// can fail when the widget is first inflated inside a LayoutBuilder during
-  /// the layout phase before the InheritedWidget chain is fully resolved).
+  /// Resolved once in [didChangeDependencies] and passed to [BlocBuilder]
+  /// explicitly: a `context.read` inside a LayoutBuilder can run before the
+  /// inherited chain is ready.
   RatioMonitoringCubit? _cubit;
 
   // ── Notes (CLASSROOM_CHAT) unread badges ──────────────────────────────────
-  // Firestore-backed, one live subscription per classroom code — mirrors
-  // ClassroomScreen's own Notes-tab badge (_maybeSyncNotesUnread /
-  // getClassroomNotesUnreadCountStream), generalized to resolve every
-  // classroom in this table, not just the ones currently rendered: sorting
-  // (see [build]'s unread-first sort) needs every classroom's count up
-  // front, not only the ~7 that happen to be visible before "Show More" is
-  // tapped — otherwise a classroom with unread notes that sorts past the
-  // initial page never gets queried at all and its badge can never appear,
-  // which is exactly the bug this replaced (aggregate header badge correct,
-  // every individual row silently 0 because most classrooms were never in
-  // the rendered/displayed subset that used to be the only thing driving
-  // resolution).
+  // One Firestore subscription per classroom, resolved for every classroom
+  // (not just the visible page) because the unread-first sort needs them all.
   final Map<String, int> _notesUnreadCounts = {};
   final Set<String> _notesUnreadResolving = {};
   final Map<String, StreamSubscription<int>> _notesUnreadSubscriptions = {};
@@ -111,13 +95,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     return _notesUnreadCounts[classroomCode] ?? 0;
   }
 
-  /// Resolves [classroomCode]'s Notes conversation code and starts watching
-  /// its unread count, pushing every emission into [_notesUnreadCounts] via
-  /// setState so both the badge and the unread-first sort stay live. On
-  /// failure (e.g. a network hiccup), retries with backoff instead of
-  /// leaving [_notesUnreadResolving] marking it "already tried" forever,
-  /// which previously meant one bad REST call permanently hid that
-  /// classroom's badge for the rest of the session.
+  /// Resolves [classroomCode]'s Notes conversation and watches its unread
+  /// count into [_notesUnreadCounts]. Retries with backoff on failure so one
+  /// bad call does not hide the badge for the session.
   Future<void> _resolveNotesUnreadCount(
     String classroomCode, {
     int attempt = 0,
@@ -169,17 +149,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     }
   }
 
-  /// Opens [room]'s classroom screen straight on the Notes tab (index 2).
-  ///
-  /// Fires [ClassroomScreenNav.openClassroomTab] first — this is a
-  /// dashboard-card tap, i.e. always a CROSS-branch jump (Dashboard branch
-  /// -> Classrooms branch), and if the Classrooms branch was already
-  /// visited earlier in the session its ClassroomScreen is still alive;
-  /// go_router only calls `didUpdateWidget` on it in that case, never a
-  /// fresh `initState`, and that alone proved unreliable for actually
-  /// switching tabs. `context.go` still runs too, both to bring the
-  /// Classrooms branch on screen and to cover the fresh-instance case via
-  /// its own initialClassroomCode/initialTabIndex constructor params.
+  /// Opens [room]'s classroom screen on the Notes tab (index 2). Fires
+  /// [ClassroomScreenNav.openClassroomTab] as well as `context.go`: a
+  /// kept-alive ClassroomScreen only gets `didUpdateWidget`, which alone
+  /// proved unreliable for switching tabs.
   void _navigateToClassroomNotes(
     BuildContext context,
     RatioMonitoringClassroom room,
@@ -439,21 +412,14 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     );
   }
 
-  /// Builds a data row for [room].
-  ///
-  /// Always renders — even when [room.studentPresent] and [room.staffPresent]
-  /// are both 0 (attendance data not yet available or not present for this
-  /// classroom). A zero means "no one signed in", not "missing classroom".
+  /// Builds a data row for [room]. Always renders: zero present means
+  /// "no one signed in", not "missing classroom".
   TableRow _buildDataRow(RatioMonitoringClassroom room) {
     return TableRow(
       key: ValueKey(room.code),
       children: [
         // ── Classroom name ──────────────────────────────────────────────────
-        // One tap target for the whole cell (avatar + name) — opens straight
-        // to that classroom's Notes tab. Users tap anywhere in this cell, not
-        // just the small avatar circle, so the badge/redirect behavior needs
-        // to apply to the whole thing rather than carving out just the
-        // avatar as its own separate hit region.
+        // The whole cell (avatar + name) is one tap target to the Notes tab.
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _navigateToClassroomNotes(context, room),
@@ -642,14 +608,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
 
         final classrooms = [...state.classrooms];
 
-        // Resolve every classroom's unread-notes count up front — not just
-        // the ones about to be displayed — then sort classrooms with
-        // unread notes first (alphabetical within each bucket). Without
-        // this, a classroom whose name alphabetically sorted past the
-        // "Show More" cutoff never got its unread-notes resolution kicked
-        // off at all, so its badge could never appear even though the
-        // header's Firestore aggregate correctly counted it — see
-        // [_notesUnreadCountFor]'s own doc.
+        // Resolve every classroom's unread count up front, then sort unread
+        // first (alphabetical within each bucket), so a classroom past the
+        // "Show More" cutoff still gets its badge.
         final notesUnreadByCode = {
           for (final c in classrooms) c.code: _notesUnreadCountFor(c.code),
         };
@@ -691,9 +652,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                   ),
                 ),
 
-                // ── Body (hidden when minimized) ───────────────────────────────
-                if (!_minimized) ...[
-                  Column(
+                DashboardCollapsible(
+                  collapsed: _minimized,
+                  child: Column(
                     children: [
                       Table(
                         columnWidths: const {
@@ -761,7 +722,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                         ),
                     ],
                   ),
-                ],
+                ),
               ],
             ),
           ),

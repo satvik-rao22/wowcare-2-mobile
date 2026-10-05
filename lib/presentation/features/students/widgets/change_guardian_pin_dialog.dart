@@ -10,6 +10,7 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_spacing.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 
 /// Which way the operator chose to set the new PIN.
 enum ChangeGuardianPinMode { manual, regenerate }
@@ -88,7 +89,8 @@ class _ChangeGuardianPinDialogState extends State<ChangeGuardianPinDialog> {
         horizontal: AppSpacing.md,
         vertical: AppSpacing.xl,
       ),
-      backgroundColor: AppColors.whiteColor,
+      // Sheet ground, so the white cancel key reads against it.
+      backgroundColor: AppPalette.surfaceSunken,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),

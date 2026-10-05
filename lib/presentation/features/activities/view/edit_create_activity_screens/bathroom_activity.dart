@@ -1671,38 +1671,33 @@ class _BathroomActivityViewState extends State<_BathroomActivityView> {
         ),
       ),
       bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ActivityAdminApproveRejectBar(
-                      visible: _showAdminApproveRejectActions,
-                      isLoading:
-                          _isApprovingOrRejecting ||
-                          _isSubmitting ||
-                          _loadingBathroomOptions ||
-                          _loadingActivityDetail,
-                      onApprove: _approvePendingActivity,
-                      onReject: _rejectPendingActivity,
-                    ),
-                    if (!_showAdminApproveRejectActions)
-                      CustomButtonLayout(
-                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                        onPressedConfirm: _onSaveOrAddPressed,
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading:
-                            _isSubmitting ||
-                            _isApprovingOrRejecting ||
-                            _loadingBathroomOptions ||
-                            _loadingActivityDetail,
-                      ),
-                  ],
+          ? null
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ActivityAdminApproveRejectBar(
+                  visible: _showAdminApproveRejectActions,
+                  isLoading:
+                      _isApprovingOrRejecting ||
+                      _isSubmitting ||
+                      _loadingBathroomOptions ||
+                      _loadingActivityDetail,
+                  onApprove: _approvePendingActivity,
+                  onReject: _rejectPendingActivity,
                 ),
-              ),
+                if (!_showAdminApproveRejectActions)
+                  CustomButtonLayout(
+                    confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                    onPressedConfirm: _onSaveOrAddPressed,
+                    showCancelButton: false,
+                    isForm: false,
+                    isLoading:
+                        _isSubmitting ||
+                        _isApprovingOrRejecting ||
+                        _loadingBathroomOptions ||
+                        _loadingActivityDetail,
+                  ),
+              ],
             ),
     );
   }

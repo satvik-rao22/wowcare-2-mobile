@@ -302,6 +302,16 @@ abstract final class AppStrings {
       '$name is not a supported file type';
   static String filesUnsupportedType(int count) =>
       '$count files are not a supported file type';
+  static String fileUnreadable(String name) => '$name could not be read';
+  static String filesUnreadable(int count) => '$count files could not be read';
+  static String filesCouldNotBeAttached(int count) =>
+      "$count files couldn't be attached";
+  static String bulkMessagesFailed(int failed) =>
+      '$failed bulk message${failed == 1 ? '' : 's'} failed to send';
+  static const String bulkSendFailed =
+      'Bulk message failed to send. Please try again.';
+  static const String attachmentPickFailed =
+      'Could not open the file picker. Please try again.';
   // Full-screen media viewer.
   static const String download = 'Download';
   static const String mediaStillProcessing =

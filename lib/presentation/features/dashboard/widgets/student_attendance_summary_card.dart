@@ -12,23 +12,16 @@ import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-/// The parent dashboard's attendance SUMMARY card for the selected child.
-///
-/// Renamed from `StudentAttendanceCard` under Mandate 6 §6.6: attendance owns a
-/// widget of that name too
-/// (`attendance/view/screens/widgets/student_attendance_card.dart`), and the two
-/// are not interchangeable — that one is a per-student LIST ROW taking
-/// `StudentAttendanceCardData student, int index, bool isExpanded` plus four
-/// callbacks, this one is a parameterless dashboard card that reads
-/// StudentAttendanceProfileCubit and ParentChildCubit for itself. Merging them
-/// would have meant a widget with two disjoint constructors; renaming is the
-/// correct resolution.
+/// The parent dashboard's attendance summary card for the selected child.
+/// Named apart from attendance's `StudentAttendanceCard`, which is a
+/// per-student list row with a different constructor.
 class StudentAttendanceSummaryCard extends StatefulWidget {
   const StudentAttendanceSummaryCard({super.key});
 
@@ -462,35 +455,40 @@ class _StudentAttendanceSummaryCardState
                 onRedirect: () => _openStudentAttendanceProfile(context),
                 trailing: Expanded(child: _buildSelectedChildName()),
               ),
-              if (!_minimized) ...[
-                const SizedBox(height: 16),
-                CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: true,
-                  initialDate: _fromDate,
-                  label: 'Date Range',
-                  onRangeSelected: _onDateRangeSelected,
-                ),
-                const SizedBox(height: 20),
-                BlocBuilder<
-                  StudentAttendanceProfileCubit,
-                  StudentAttendanceProfileState
-                >(
-                  buildWhen: (prev, curr) =>
-                      prev.status != curr.status ||
-                      prev.attendedDays != curr.attendedDays ||
-                      prev.absentDays != curr.absentDays ||
-                      prev.attendedHours != curr.attendedHours ||
-                      prev.attendedMinutes != curr.attendedMinutes,
-                  builder: (context, state) {
-                    return _buildStats(state);
-                  },
-                ),
-              ],
+              DashboardCollapsible(collapsed: _minimized, child: _buildBody()),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        CustomDateTimeField(
+          hasLabel: false,
+          isRangePicker: true,
+          initialDate: _fromDate,
+          label: 'Date Range',
+          onRangeSelected: _onDateRangeSelected,
+        ),
+        const SizedBox(height: 20),
+        BlocBuilder<
+          StudentAttendanceProfileCubit,
+          StudentAttendanceProfileState
+        >(
+          buildWhen: (prev, curr) =>
+              prev.status != curr.status ||
+              prev.attendedDays != curr.attendedDays ||
+              prev.absentDays != curr.absentDays ||
+              prev.attendedHours != curr.attendedHours ||
+              prev.attendedMinutes != curr.attendedMinutes,
+          builder: (context, state) => _buildStats(state),
+        ),
+      ],
     );
   }
 

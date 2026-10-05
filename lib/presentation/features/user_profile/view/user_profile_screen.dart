@@ -13,6 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -283,9 +285,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _pickProfileImage({
     ImageSource source = ImageSource.gallery,
   }) async {
-    final XFile? image = await _picker.pickImage(source: source);
+    final XFile? image;
+    try {
+      image = await _picker.pickImage(source: source);
+    } catch (e) {
+      debugPrint('Profile photo pick failed: $e');
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: AppStrings.attachmentPickFailed,
+        isError: true,
+      );
+      return;
+    }
     if (image == null) return;
     if (!mounted) return;
+    // image_picker can hand back a non-image from some gallery providers;
+    // the uploader would otherwise relabel it image/jpeg and send it anyway.
+    final isImage = await FilePickerUtils.isAllowedType(
+      name: image.name,
+      path: image.path,
+      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+    );
+    if (!mounted) return;
+    if (!isImage) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: AppStrings.fileUnsupportedType(image.name),
+        isError: true,
+      );
+      return;
+    }
     // The cubit branches staff vs guardian based on persona and streams upload
     // progress into state; we just surface the resulting snackbar.
     final isParent = context.read<RoleCubit>().isParent;

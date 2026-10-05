@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
@@ -9,7 +10,9 @@ import '../controllers/av2_period.dart';
 
 /// Bottom sheet to choose the reporting period: a whole month (via a month
 /// stepper) or a custom date interval (via the platform range picker).
-/// Returns the chosen [Av2Period], or null if dismissed.
+/// Returns the chosen [Av2Period], or null if dismissed. Clear All returns the
+/// screen's page-load default, the current calendar month, without needing
+/// Apply.
 Future<Av2Period?> showAv2PeriodSheet(
   BuildContext context, {
   required Av2Period current,
@@ -67,6 +70,10 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
     Navigator.pop(context, period);
   }
 
+  /// Back to the default period: the whole current month, mirroring
+  /// StaffDetailScreen's initial state.
+  void _clearAll() => Navigator.pop(context, Av2Period.month(DateTime.now()));
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -93,7 +100,21 @@ class _Av2PeriodSheetState extends State<_Av2PeriodSheet> {
               ),
             ),
             const SizedBox(height: Av2Spacing.md),
-            Text('Select period', style: Av2Text.title),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Select period',
+                    style: Av2Text.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: Av2Spacing.xs),
+                CustomClearAllChip(onTap: _clearAll),
+              ],
+            ),
             const SizedBox(height: Av2Spacing.sm),
             _segmented(),
             const SizedBox(height: Av2Spacing.md),

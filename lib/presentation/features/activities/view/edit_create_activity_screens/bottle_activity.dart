@@ -421,42 +421,35 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
               ),
             ),
             bottomBar: widget.readOnly
-                ? const SafeArea(child: SizedBox.shrink())
-                : SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ActivityAdminApproveRejectBar(
-                            visible: cubit.showAdminApproveRejectActions(
-                              isAdminPersona: isAdminPersona,
-                            ),
-                            isLoading:
-                                state.isApprovingOrRejecting ||
-                                state.isSubmitting ||
-                                state.loadingActivityDetail,
-                            onApprove: _approve,
-                            onReject: _reject,
-                          ),
-                          if (!cubit.showAdminApproveRejectActions(
-                            isAdminPersona: isAdminPersona,
-                          ))
-                            CustomButtonLayout(
-                              confirmButtonLabel: widget.isEdit
-                                  ? 'Save'
-                                  : 'Add',
-                              onPressedConfirm: _onSaveOrAddPressed,
-                              showCancelButton: false,
-                              isForm: false,
-                              isLoading:
-                                  state.isSubmitting ||
-                                  state.isApprovingOrRejecting ||
-                                  state.loadingActivityDetail,
-                            ),
-                        ],
+                ? null
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ActivityAdminApproveRejectBar(
+                        visible: cubit.showAdminApproveRejectActions(
+                          isAdminPersona: isAdminPersona,
+                        ),
+                        isLoading:
+                            state.isApprovingOrRejecting ||
+                            state.isSubmitting ||
+                            state.loadingActivityDetail,
+                        onApprove: _approve,
+                        onReject: _reject,
                       ),
-                    ),
+                      if (!cubit.showAdminApproveRejectActions(
+                        isAdminPersona: isAdminPersona,
+                      ))
+                        CustomButtonLayout(
+                          confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                          onPressedConfirm: _onSaveOrAddPressed,
+                          showCancelButton: false,
+                          isForm: false,
+                          isLoading:
+                              state.isSubmitting ||
+                              state.isApprovingOrRejecting ||
+                              state.loadingActivityDetail,
+                        ),
+                    ],
                   ),
           );
         },

@@ -514,7 +514,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                     .map((c) => c.name)
                     .toList(growable: false)
               : const <String>[];
-          _hasTransferTargets = isTransferOptionsReady && transferOptions.isNotEmpty;
+          _hasTransferTargets =
+              isTransferOptionsReady && transferOptions.isNotEmpty;
           String? selectedToClassroomName;
           for (final entry in _classroomNameToCode.entries) {
             if (entry.value == _selectedToClassroomCode) {
@@ -645,6 +646,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
               ),
             ),
             bottomBar: CustomButtonLayout(
+              isForm: false,
               confirmButtonLabel: 'Submit',
               onPressedConfirm: _isSubmitting ? null : _handleSubmit,
               showCancelButton: false,

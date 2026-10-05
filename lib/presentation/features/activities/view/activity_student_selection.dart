@@ -75,10 +75,10 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     var result = query.isEmpty
         ? students
         : students
-            .where(
-              (student) => student.studentName.toLowerCase().contains(query),
-            )
-            .toList();
+              .where(
+                (student) => student.studentName.toLowerCase().contains(query),
+              )
+              .toList();
     if (_signedInOnly) {
       result = result
           .where((student) => student.hasSignIn && !student.hasSignOut)
@@ -231,7 +231,6 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     ActivityStudentSelectionState state,
   ) {
     final responsive = ResponsiveHelper(context);
-    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
     final students = state.students;
     final filtered = _filteredStudents(students);
 
@@ -480,35 +479,31 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           ),
         ],
       ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          cancelButtonLabel: 'Cancel',
-          onPressedCancel: () => Navigator.of(context).pop(),
-          onPressedConfirm: () {
-            if (_selectedStudents.isNotEmpty) {
-              final selectedDate = _formatAttendanceDate(
-                _selectedAttendanceDate,
-              );
-              final normalizedSelectedStudents = _selectedStudents
-                  .map((student) {
-                    final next = Map<String, dynamic>.from(student);
-                    next['attendanceDate'] = selectedDate;
-                    return next;
-                  })
-                  .toList(growable: false);
-              context.push(
-                ChooseActivity.routeName,
-                extra: ChooseActivityArgs(
-                  selectedStudents: normalizedSelectedStudents,
-                ),
-              );
-            } else {
-              _showWarningMessage('Select at least one student.');
-            }
-          },
-        ),
+      bottomBar: CustomButtonLayout(
+        isForm: false,
+        confirmButtonLabel: 'Next',
+        cancelButtonLabel: 'Cancel',
+        onPressedCancel: () => Navigator.of(context).pop(),
+        onPressedConfirm: () {
+          if (_selectedStudents.isNotEmpty) {
+            final selectedDate = _formatAttendanceDate(_selectedAttendanceDate);
+            final normalizedSelectedStudents = _selectedStudents
+                .map((student) {
+                  final next = Map<String, dynamic>.from(student);
+                  next['attendanceDate'] = selectedDate;
+                  return next;
+                })
+                .toList(growable: false);
+            context.push(
+              ChooseActivity.routeName,
+              extra: ChooseActivityArgs(
+                selectedStudents: normalizedSelectedStudents,
+              ),
+            );
+          } else {
+            _showWarningMessage('Select at least one student.');
+          }
+        },
       ),
     );
   }
@@ -568,9 +563,7 @@ class _ActivityStudentListItem extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
-          color: isSelected
-              ? AppPalette.surfaceSelected
-              : AppColors.cardColor,
+          color: isSelected ? AppPalette.surfaceSelected : AppColors.cardColor,
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: 4),

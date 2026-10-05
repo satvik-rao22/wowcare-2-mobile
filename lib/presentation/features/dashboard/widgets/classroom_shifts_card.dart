@@ -12,6 +12,7 @@ import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_toggle.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/scheduling_block_status_style.dart';
@@ -25,12 +26,9 @@ import 'package:wowcare/core/theme/app_icon.dart';
 // date formatter used for the scheduling deep-link
 final _ymd = DateFormat('yyyy-MM-dd');
 
-/// Dashboard card that mirrors the visual structure of [_ClassroomListCard]
-/// from the scheduling screen.
-///
-/// Collapsed row  : classroom logo + name + chevron | ratio icon
-/// Expanded rows  : one [StaffRowLeft] + [StaffTimeRangePill] per staff member
-///                  (solid border = published, dotted border = draft)
+/// Dashboard card mirroring the scheduling screen's classroom list: a
+/// collapsed row per classroom, expanding to one time-range pill per staff
+/// member (solid = published, dotted = draft).
 class ClassroomShiftsCard extends StatefulWidget {
   const ClassroomShiftsCard({super.key, this.onRedirect});
 
@@ -55,19 +53,11 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   /// Per-row override; cleared when [_expandAll] flips so all rows follow it.
   final Map<String, bool> _rowExpanded = {};
 
-  /// Mandate 7: this was `MediaQuery.of(context).size.width > 600 ? 16 : 14` —
-  /// a FIFTH live definition of "tablet" in the app, disagreeing with
-  /// `ResponsiveHelper`'s 768 that 122 other files use, and reading through
-  /// `.of` so the getter re-resolved on every keyboard open. The 600 boundary
-  /// is preserved exactly: `AppBreakpoints.compactMaxWidth` is also 600, so
-  /// `compact` is `< 600` and `medium` starts at 600 — identical rendering.
+  /// Keeps the 600 boundary this card has always used.
   double get _bodyFontSize => context.responsive(compact: 14, medium: 16);
 
-  /// Guards against re-issuing the full load sequence on every
-  /// `didChangeDependencies` firing (ancestor rebuilds, navigation, etc.).
-  /// The dashboard coordinator already calls `ClassroomShiftsCubit.load()`
-  /// on first open and on pull-to-refresh; this is only a fallback for the
-  /// case where the cubit hasn't been loaded yet by the time this card mounts.
+  /// Guards against re-running the load on every `didChangeDependencies`;
+  /// the coordinator already loads on open and pull-to-refresh.
   bool _hasRequestedLoad = false;
 
   @override
@@ -222,185 +212,182 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                 const SizedBox(height: 12),
 
                 // ── Body ────────────────────────────────────────────────────────
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _minimized
-                      ? const SizedBox.shrink()
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Legend
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                _ClassroomShiftsLegendItem(
-                                  status: ClassroomRatioStatus.underRatio,
-                                  label: 'Not In Ratio',
-                                  fontSize: _bodyFontSize,
+                DashboardCollapsible(
+                  collapsed: _minimized,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Legend
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _ClassroomShiftsLegendItem(
+                            status: ClassroomRatioStatus.underRatio,
+                            label: 'Not In Ratio',
+                            fontSize: _bodyFontSize,
+                          ),
+                          const SizedBox(width: 16),
+                          _ClassroomShiftsLegendItem(
+                            status: ClassroomRatioStatus.inRatio,
+                            label: 'In Ratio',
+                            fontSize: _bodyFontSize,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── Scheduling-screen identical inner container ─────
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.whiteColor,
+                          border: Border.all(
+                            color: AppPalette.border,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              // Header row: "Expand/Collapse All" | date
+                              SchedulingTableRow(
+                                onTap: entries.isNotEmpty
+                                    ? _toggleExpandAll
+                                    : null,
+                                dividerColor:
+                                    kSchedulingHeaderBorderColor,
+                                backgroundColor:
+                                    kSchedulingHeaderBackground,
+                                left: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    _expandAll
+                                        ? 'Collapse All'
+                                        : 'Expand All',
+                                    style: TextStyle(
+                                      fontFamily: AppFonts.body,
+                                      fontSize: _bodyFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(width: 16),
-                                _ClassroomShiftsLegendItem(
-                                  status: ClassroomRatioStatus.inRatio,
-                                  label: 'In Ratio',
-                                  fontSize: _bodyFontSize,
+                                right: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                  child: _buildDateNavigator(),
+                                ),
+                              ),
+
+                              // Classroom rows
+                              if (displayEntries.isEmpty &&
+                                  !state.isLoading)
+                                SchedulingTableRow(
+                                  isLast: true,
+                                  left: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 16,
+                                    ),
+                                    child: Text(
+                                      'No classrooms found',
+                                      style: TextStyle(
+                                        fontSize: _bodyFontSize,
+                                        color: MaterialHues.grey500,
+                                      ),
+                                    ),
+                                  ),
+                                  right: const SizedBox.shrink(),
+                                )
+                              else
+                                for (
+                                  int i = 0;
+                                  i < displayEntries.length;
+                                  i++
+                                )
+                                  _ClassroomSection(
+                                    entry: displayEntries[i],
+                                    isExpanded: _isExpanded(
+                                      displayEntries[i].classroomCode,
+                                    ),
+                                    onTap: () => _toggleRow(
+                                      displayEntries[i].classroomCode,
+                                    ),
+                                    isLast:
+                                        i == displayEntries.length - 1 &&
+                                        !hasMoreToShow,
+                                    onClassroomNameTap: () => context.go(
+                                      '${SchedulingScreen.routeName}'
+                                      '?view=day'
+                                      '&highlightCode=${displayEntries[i].classroomCode}'
+                                      '&date=${_ymd.format(SchoolZoneDateTime.schoolCalendarTodayOnly(SchoolTimezoneResolver.lastKnownTimeZone))}',
+                                    ),
+                                  ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // On error, the card silently keeps showing
+                      // whatever rows are in state (empty table if none)
+                      // instead of surfacing an error line.
+
+                      // Show More / Show Less
+                      if (!state.isLoading && hasMoreToShow)
+                        InkWell(
+                          onTap: () => setState(
+                            () =>
+                                _showAllClassrooms = !_showAllClassrooms,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(12),
+                            bottomRight: Radius.circular(12),
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.03,
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _showAllClassrooms
+                                      ? 'Show Less'
+                                      : 'Show More',
+                                  style: const TextStyle(
+                                    color: AppColors.primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  _showAllClassrooms
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  color: AppColors.primaryColor,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-
-                            // ── Scheduling-screen identical inner container ─────
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: AppColors.whiteColor,
-                                border: Border.all(
-                                  color: AppPalette.border,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    // Header row: "Expand/Collapse All" | date
-                                    SchedulingTableRow(
-                                      onTap: entries.isNotEmpty
-                                          ? _toggleExpandAll
-                                          : null,
-                                      dividerColor:
-                                          kSchedulingHeaderBorderColor,
-                                      backgroundColor:
-                                          kSchedulingHeaderBackground,
-                                      left: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 14,
-                                        ),
-                                        child: Text(
-                                          _expandAll
-                                              ? 'Collapse All'
-                                              : 'Expand All',
-                                          style: TextStyle(
-                                            fontFamily: AppFonts.body,
-                                            fontSize: _bodyFontSize,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primaryColor,
-                                          ),
-                                        ),
-                                      ),
-                                      right: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 2,
-                                        ),
-                                        child: _buildDateNavigator(),
-                                      ),
-                                    ),
-
-                                    // Classroom rows
-                                    if (displayEntries.isEmpty &&
-                                        !state.isLoading)
-                                      SchedulingTableRow(
-                                        isLast: true,
-                                        left: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 16,
-                                          ),
-                                          child: Text(
-                                            'No classrooms found',
-                                            style: TextStyle(
-                                              fontSize: _bodyFontSize,
-                                              color: MaterialHues.grey500,
-                                            ),
-                                          ),
-                                        ),
-                                        right: const SizedBox.shrink(),
-                                      )
-                                    else
-                                      for (
-                                        int i = 0;
-                                        i < displayEntries.length;
-                                        i++
-                                      )
-                                        _ClassroomSection(
-                                          entry: displayEntries[i],
-                                          isExpanded: _isExpanded(
-                                            displayEntries[i].classroomCode,
-                                          ),
-                                          onTap: () => _toggleRow(
-                                            displayEntries[i].classroomCode,
-                                          ),
-                                          isLast:
-                                              i == displayEntries.length - 1 &&
-                                              !hasMoreToShow,
-                                          onClassroomNameTap: () => context.go(
-                                            '${SchedulingScreen.routeName}'
-                                            '?view=day'
-                                            '&highlightCode=${displayEntries[i].classroomCode}'
-                                            '&date=${_ymd.format(SchoolZoneDateTime.schoolCalendarTodayOnly(SchoolTimezoneResolver.lastKnownTimeZone))}',
-                                          ),
-                                        ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // On error, the card silently keeps showing
-                            // whatever rows are in state (empty table if none)
-                            // instead of surfacing an error line.
-
-                            // Show More / Show Less
-                            if (!state.isLoading && hasMoreToShow)
-                              InkWell(
-                                onTap: () => setState(
-                                  () =>
-                                      _showAllClassrooms = !_showAllClassrooms,
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(12),
-                                  bottomRight: Radius.circular(12),
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryColor.withValues(
-                                      alpha: 0.03,
-                                    ),
-                                    borderRadius: const BorderRadius.only(
-                                      bottomLeft: Radius.circular(12),
-                                      bottomRight: Radius.circular(12),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        _showAllClassrooms
-                                            ? 'Show Less'
-                                            : 'Show More',
-                                        style: const TextStyle(
-                                          color: AppColors.primaryColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        _showAllClassrooms
-                                            ? Icons.keyboard_arrow_up
-                                            : Icons.keyboard_arrow_down,
-                                        color: AppColors.primaryColor,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -412,15 +399,9 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
 }
 
 // ---------------------------------------------------------------------------
-// _ClassroomSection
-//
-// Mirrors [DayClassroomSection._buildWeekView] exactly:
-//   • Header row : [ClassroomRowLeft] + animated chevron  |  ratio status icon
-//   • Staff rows  : [StaffRowLeft]                        |  [StaffTimeRangePill]
-//
-// [StaffTimeRangePill] uses a solid border for published shifts and a dotted
-// border (via [_DashedRRectPainter] inside the widget) for drafts — the same
-// visual treatment as the scheduling screen.
+// _ClassroomSection: mirrors [DayClassroomSection._buildWeekView]. Header row
+// (classroom + chevron | ratio icon), then one staff row per member with a
+// [StaffTimeRangePill] (solid = published, dotted = draft).
 // ---------------------------------------------------------------------------
 
 class _ClassroomSection extends StatelessWidget {
@@ -487,26 +468,23 @@ class _ClassroomSection extends StatelessWidget {
         ),
 
         // ── Staff rows (animated, same as scheduling screen) ─────────────────
-        AnimatedSize(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-          child: isExpanded && hasStaff
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (int i = 0; i < entry.staff.length; i++)
-                      SchedulingTableRow(
-                        isLast: isLast && i == entry.staff.length - 1,
-                        left: StaffRowLeft(entry: entry.staff[i]),
-                        right: StaffTimeRangePill(
-                          startTime: entry.staff[i].startTime,
-                          endTime: entry.staff[i].endTime,
-                          isPublished: entry.staff[i].isPublished,
-                        ),
-                      ),
-                  ],
-                )
-              : const SizedBox.shrink(),
+        DashboardCollapsible(
+          collapsed: !(isExpanded && hasStaff),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (int i = 0; i < entry.staff.length; i++)
+                SchedulingTableRow(
+                  isLast: isLast && i == entry.staff.length - 1,
+                  left: StaffRowLeft(entry: entry.staff[i]),
+                  right: StaffTimeRangePill(
+                    startTime: entry.staff[i].startTime,
+                    endTime: entry.staff[i].endTime,
+                    isPublished: entry.staff[i].isPublished,
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     );

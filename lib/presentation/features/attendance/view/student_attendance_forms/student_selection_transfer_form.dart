@@ -180,8 +180,6 @@ class _StudentSelectionTransferFormState
       );
     }
 
-    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
-
     return BlocBuilder<
       StudentTransferSelectionCubit,
       StudentTransferSelectionState
@@ -291,50 +289,47 @@ class _StudentSelectionTransferFormState
               ),
             ],
           ),
-          bottomBar: Padding(
-            padding: EdgeInsets.only(bottom: safeAreaBottom),
-            child: CustomButtonLayout(
-              confirmButtonLabel: 'Next',
-              onPressedConfirm: () {
-                final selectedStudents = state.selectedStudents;
-                final selectedClassrooms = state.selectedClassroomNames;
-                if (selectedStudents.isEmpty) {
-                  CoreUtils.showTopSnackBarFromSnackBar(
-                    context: context,
-                    snackBar: const SnackBar(
-                      content: Text('Please select at least one student'),
-                      backgroundColor: AppColors.warningColor,
+          bottomBar: CustomButtonLayout(
+            isForm: false,
+            confirmButtonLabel: 'Next',
+            onPressedConfirm: () {
+              final selectedStudents = state.selectedStudents;
+              final selectedClassrooms = state.selectedClassroomNames;
+              if (selectedStudents.isEmpty) {
+                CoreUtils.showTopSnackBarFromSnackBar(
+                  context: context,
+                  snackBar: const SnackBar(
+                    content: Text('Please select at least one student'),
+                    backgroundColor: AppColors.warningColor,
+                  ),
+                );
+                return;
+              } else {
+                // GoRouter holdout (documented): carries a refreshCallback closure and a form-local StudentEntity list, which don't fit GoRouter's URL/extra model — kept as an imperative Navigator.push.
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => StudentTransferForm(
+                      students: selectedStudents.toSet().toList(),
+                      classroomNameToCode: state.classroomCodeByName,
+                      // Students were picked from this single room, so
+                      // it's their current one — the student record can
+                      // still name their enrolled room after a transfer.
+                      // With more than one classroom selected there's no
+                      // single "current" room to exclude from the
+                      // destination list, so leave it unset (same as when
+                      // no classroom filter is applied at all).
+                      currentClassroomCode: selectedClassrooms.length == 1
+                          ? state.classroomCodeByName[selectedClassrooms.single]
+                          : null,
+                      currentClassroomName: selectedClassrooms.length == 1
+                          ? selectedClassrooms.single
+                          : null,
                     ),
-                  );
-                  return;
-                } else {
-                  // GoRouter holdout (documented): carries a refreshCallback closure and a form-local StudentEntity list, which don't fit GoRouter's URL/extra model — kept as an imperative Navigator.push.
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => StudentTransferForm(
-                        students: selectedStudents.toSet().toList(),
-                        classroomNameToCode: state.classroomCodeByName,
-                        // Students were picked from this single room, so
-                        // it's their current one — the student record can
-                        // still name their enrolled room after a transfer.
-                        // With more than one classroom selected there's no
-                        // single "current" room to exclude from the
-                        // destination list, so leave it unset (same as when
-                        // no classroom filter is applied at all).
-                        currentClassroomCode: selectedClassrooms.length == 1
-                            ? state.classroomCodeByName[selectedClassrooms
-                                  .single]
-                            : null,
-                        currentClassroomName: selectedClassrooms.length == 1
-                            ? selectedClassrooms.single
-                            : null,
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
+                  ),
+                );
+              }
+            },
           ),
         );
       },

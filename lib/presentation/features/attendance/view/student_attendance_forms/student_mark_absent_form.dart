@@ -224,11 +224,23 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                                   ),
                                   fontSize: 15,
                                 ),
-                                border: AppSurfaces.fieldBorder(radius: AppRadius.r10),
-                                enabledBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
-                                focusedBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10),
-                                errorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
-                                focusedErrorBorder: AppSurfaces.fieldBorder(radius: AppRadius.r10, colour: AppPalette.statusError),
+                                border: AppSurfaces.fieldBorder(
+                                  radius: AppRadius.r10,
+                                ),
+                                enabledBorder: AppSurfaces.fieldBorder(
+                                  radius: AppRadius.r10,
+                                ),
+                                focusedBorder: AppSurfaces.fieldBorder(
+                                  radius: AppRadius.r10,
+                                ),
+                                errorBorder: AppSurfaces.fieldBorder(
+                                  radius: AppRadius.r10,
+                                  colour: AppPalette.statusError,
+                                ),
+                                focusedErrorBorder: AppSurfaces.fieldBorder(
+                                  radius: AppRadius.r10,
+                                  colour: AppPalette.statusError,
+                                ),
                                 filled: true,
                                 fillColor: AppSurfaces.fieldFill,
                               ),
@@ -242,6 +254,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                 ),
               ),
               bottomBar: CustomButtonLayout(
+                isForm: false,
                 confirmButtonLabel: 'Submit',
                 onPressedConfirm: _handleSubmit,
                 showCancelButton: false,

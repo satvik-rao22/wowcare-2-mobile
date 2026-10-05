@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_schedu
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class AddStudentStep3Screen extends StatefulWidget {
   const AddStudentStep3Screen({
@@ -108,8 +109,6 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocBuilder<StudentScheduleCubit, StudentScheduleState>(
       bloc: _scheduleCubit,
@@ -231,19 +230,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               ),
             ],
           ),
-          bottomNavigationBar: Container(
-            padding: EdgeInsets.only(
-              bottom: safeAreaBottom,
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              top: AppSpacing.xs,
-            ),
-            decoration: AppSurfaces.card(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              ),
-            ),
+          bottomNavigationBar: BottomActionBar(
             child: Row(
               children: [
                 if (widget.showSkip) ...[

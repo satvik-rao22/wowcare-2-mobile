@@ -21,6 +21,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class MessageCompositionBulkMessaging extends StatefulWidget {
   const MessageCompositionBulkMessaging({
@@ -46,62 +47,101 @@ class _MessageCompositionBulkMessagingState
 
   static const int maxChars = 2000;
 
+  static const int _maxAttachmentBytes = 10 * 1024 * 1024;
+
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickMultiImage();
+    final List<XFile> picked;
+    try {
+      picked = await ImagePicker().pickMultiImage();
+    } catch (e) {
+      debugPrint('Bulk message image pick failed: $e');
+      if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
+      return;
+    }
     if (picked.isEmpty) return;
-
-    final valid = <File>[];
-    var anyTooLarge = false;
-    for (final xfile in picked) {
-      final file = File(xfile.path);
-      if (await file.length() > 10 * 1024 * 1024) {
-        anyTooLarge = true;
-        continue;
-      }
-      valid.add(file);
-    }
-
-    if (!mounted) return;
-    if (anyTooLarge) {
-      _showWarningMessage(
-        valid.isEmpty ? AppStrings.fileTooLarge : AppStrings.someFilesSkipped,
-      );
-    }
-    if (valid.isEmpty) return;
-    _compositionCubit.addAttachments(valid, isImage: true);
+    await _addValidated(
+      picked.map((x) => (name: x.name, path: x.path)).toList(),
+      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+      isImage: true,
+    );
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
-      allowMultiple: true,
-    );
-
+    final FilePickerResult? result;
+    try {
+      result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+        allowMultiple: true,
+      );
+    } catch (e) {
+      debugPrint('Bulk message file pick failed: $e');
+      if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
+      return;
+    }
     if (result == null || result.files.isEmpty) return;
+    await _addValidated(
+      result.files.map((f) => (name: f.name, path: f.path)).toList(),
+      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      isImage: false,
+    );
+  }
 
+  /// Re-checks every pick (the OS filter is not airtight on every provider)
+  /// and reports each rejection reason instead of dropping files silently.
+  Future<void> _addValidated(
+    List<({String name, String? path})> picked, {
+    required List<String> allowedExtensions,
+    required bool isImage,
+  }) async {
     final valid = <File>[];
-    var anyTooLarge = false;
-    for (final platformFile in result.files) {
-      final path = platformFile.path;
-      if (path == null) continue;
+    final unsupported = <String>[];
+    final unreadable = <String>[];
+    final tooLarge = <String>[];
+    for (final pick in picked) {
+      final path = pick.path;
+      if (path == null || path.isEmpty) {
+        unreadable.add(pick.name);
+        continue;
+      }
+      if (!await FilePickerUtils.isAllowedType(
+        name: pick.name,
+        path: path,
+        allowedExtensions: allowedExtensions,
+      )) {
+        unsupported.add(pick.name);
+        continue;
+      }
       final file = File(path);
-      if (await file.length() > 10 * 1024 * 1024) {
-        anyTooLarge = true;
+      try {
+        if (await file.length() > _maxAttachmentBytes) {
+          tooLarge.add(pick.name);
+          continue;
+        }
+      } catch (_) {
+        unreadable.add(pick.name);
         continue;
       }
       valid.add(file);
     }
 
     if (!mounted) return;
-    if (anyTooLarge) {
-      _showWarningMessage(
-        valid.isEmpty ? AppStrings.fileTooLarge : AppStrings.someFilesSkipped,
-      );
+    final rejected = unsupported.length + unreadable.length + tooLarge.length;
+    if (rejected > 0) {
+      final String message;
+      if (rejected > 1) {
+        message = AppStrings.filesCouldNotBeAttached(rejected);
+      } else if (unsupported.isNotEmpty) {
+        message = AppStrings.fileUnsupportedType(unsupported.first);
+      } else if (unreadable.isNotEmpty) {
+        message = AppStrings.fileUnreadable(unreadable.first);
+      } else {
+        message = AppStrings.fileTooLarge;
+      }
+      _showErrorMessage(message);
     }
     if (valid.isEmpty) return;
-    _compositionCubit.addAttachments(valid, isImage: false);
+    _compositionCubit.addAttachments(valid, isImage: isImage);
   }
 
   void _removeAttachment(int index) {
@@ -144,13 +184,13 @@ class _MessageCompositionBulkMessagingState
     super.dispose();
   }
 
-  void _showWarningMessage(String message) {
+  void _showErrorMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: message,
-        isWarning: true,
+        isError: true,
       );
     });
   }
@@ -444,21 +484,7 @@ class _MessageCompositionBulkMessagingState
     ResponsiveHelper responsive,
     BulkMessagingCompositionState compositionState,
   ) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 16,
-      ),
-      decoration: AppSurfaces.card(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
+    return BottomActionBar(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

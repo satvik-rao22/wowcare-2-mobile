@@ -9,6 +9,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/school_status_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
@@ -24,15 +25,8 @@ class _Seg {
   final int count;
   final Color color;
 
-  /// Stable identifier half — the status filter this segment navigates to.
-  ///
-  /// Mandate 4 STEP 0. The legend handlers used to derive this by lower-casing
-  /// [name] and calling `startsWith('signed-in')` / `'signed-out'` / `'absent'`
-  /// / `'not'` / `'active'` / `'upcoming'`, so the DISPLAYED text was the
-  /// control-flow key: renaming "Signed-in" to "Signed In" would have silently
-  /// broken navigation with no compile error. `ProgressItemHelper.filterValue`
-  /// and `onLegendTap(label, filterValue)` already existed to carry exactly
-  /// this — the card simply never populated it.
+  /// The status filter this segment navigates to, carried explicitly so the
+  /// displayed label is never the control-flow key.
   final String filter;
 }
 
@@ -126,204 +120,214 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   onToggle: () => setState(() => _minimized = !_minimized),
                 ),
 
-                if (!_minimized) ...[
-                  const SizedBox(height: 16),
-
-                  // ── Capacity summary — three stat columns ─────────────────────
-                  // classroomClassrooms excludes admin/non-teaching rooms.
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _StatColumn(
-                            value: state.classroomClassrooms.toString(),
-                            label: 'Total \n Classrooms',
-                          ),
-                        ),
-                        // VerticalDivider(
-                        //   width: 1,
-                        //   color: AppColors.primaryColor.withValues(alpha: 0.1),
-                        // ),
-                        Expanded(
-                          child: _StatColumn(
-                            value: state.capacity.toString(),
-                            label: 'Total \n Capacity',
-                          ),
-                        ),
-                        // VerticalDivider(
-                        //   width: 1,
-                        //   color: AppColors.primaryColor.withValues(alpha: 0.1),
-                        // ),
-                        Expanded(
-                          child: _StatColumn(
-                            value: '${state.schoolFte.toStringAsFixed(0)}%',
-                            label: 'Full time \n Equivalent',
-                            showTrend: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                  const SizedBox(height: 16),
-
-                  // ── Breakdown bars (shared CustomStatBarCard) ─────────────────
-                  CustomStatBarCard(
-                    title: 'Enrolled Students',
-                    number: state.enrolledCount.toString(),
-                    fullWidthBar: true,
-                    embedded: true,
-                    titleFontSize: 14,
-                    onHeaderTap: () {
-                      // context.push(ClassroomOverviewScreen.routeName);
-                    },
-                    onLegendTap: (label, filterValue) {
-                      // Default preserved from the previous parse: an
-                      // unrecognised segment fell through to 'ACTIVE'.
-                      final filter = filterValue ?? 'ACTIVE';
-                      debugPrint(
-                        '[EnrollmentCard] Navigating to Student Attendance: '
-                        'filter=$filter, route=${StudentAttendanceTabbedView.routeName}',
-                      );
-                      context.push(
-                        StudentAttendanceTabbedView.routeName,
-                        extra: AttendanceStatusFilterArgs(filter: filter),
-                      );
-                    },
-                    items: _percentItems(
-                      total: state.enrolledCount,
-                      raw: [
-                        _Seg(
-                          'Active',
-                          state.activeCount,
-                          AppColors.lightBlueProgressBar,
-                          'ACTIVE',
-                        ),
-                        _Seg(
-                          'Upcoming',
-                          state.upcomingCount,
-                          AppColors.mustardProgressBar,
-                          'UPCOMING',
-                        ),
-                      ],
-                    ),
-                  ),
-                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                  CustomStatBarCard(
-                    title: 'Expected Students',
-                    number: state.studentExpected.toString(),
-                    fullWidthBar: true,
-                    embedded: true,
-                    titleFontSize: 14,
-                    onHeaderTap: () {
-                      // context.push(
-                      // StudentAttendanceTabbedView.routeName,
-                      // extra: {'filter': 'Expected'},
-                      // );
-                    },
-                    onLegendTap: (label, filterValue) {
-                      // Default preserved from the previous parse: an
-                      // unrecognised segment fell through to 'Expected'.
-                      final filter = filterValue ?? 'Expected';
-                      debugPrint(
-                        '[EnrollmentCard] Navigating to Student Attendance: '
-                        'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}',
-                      );
-                      context.push(
-                        StudentAttendanceTabbedView.routeName,
-                        extra: AttendanceStatusFilterArgs(filter: filter),
-                      );
-                    },
-                    items: _percentItems(
-                      total: state.studentExpected,
-                      raw: [
-                        _Seg(
-                          'Signed-in',
-                          state.studentPresent,
-                          AppColors.lightGreenProgressBar,
-                          'Present',
-                        ),
-                        _Seg(
-                          'Absent',
-                          state.studentAbsent,
-                          AppColors.redProgressBar,
-                          'Absent',
-                        ),
-                        _Seg(
-                          'Signed-out',
-                          state.studentSignOut,
-                          AppColors.lightBlueProgressBar,
-                          'Signed Out',
-                        ),
-                        _Seg(
-                          'Not Marked',
-                          state.studentNotMarked,
-                          AppColors.mustardProgressBar,
-                          'Not Marked',
-                        ),
-                      ],
-                    ),
-                  ),
-                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                  CustomStatBarCard(
-                    title: 'Expected Staff',
-                    number: state.staffExpected.toString(),
-                    fullWidthBar: true,
-                    embedded: true,
-                    titleFontSize: 14,
-                    onHeaderTap: () {
-                      // context.push(
-                      //   StaffAttendanceTabbedView.routeName,
-                      //   extra: {'filter': 'Expected'},
-                      // );
-                    },
-                    onLegendTap: (label, filterValue) {
-                      // Default preserved from the previous parse: an
-                      // unrecognised segment fell through to 'Expected'.
-                      final filter = filterValue ?? 'Expected';
-                      context.push(
-                        StaffAttendanceTabbedView.routeName,
-                        extra: AttendanceStatusFilterArgs(filter: filter),
-                      );
-                    },
-                    items: _percentItems(
-                      total: state.staffExpected,
-                      raw: [
-                        _Seg(
-                          'Signed-in',
-                          state.staffPresent,
-                          AppColors.lightGreenProgressBar,
-                          'Present',
-                        ),
-                        _Seg(
-                          'Absent',
-                          state.staffAbsent,
-                          AppColors.redProgressBar,
-                          'Absent',
-                        ),
-                        _Seg(
-                          'Signed-out',
-                          state.staffSignOut,
-                          AppColors.lightBlueProgressBar,
-                          'Signed Out',
-                        ),
-                        _Seg(
-                          'Not Marked',
-                          state.staffNotMarked,
-                          AppColors.mustardProgressBar,
-                          'Not Marked',
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                DashboardCollapsible(
+                  collapsed: _minimized,
+                  child: _buildBody(context, state),
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBody(BuildContext context, SchoolStatusState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+
+        // ── Capacity summary — three stat columns ─────────────────────
+        // classroomClassrooms excludes admin/non-teaching rooms.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _StatColumn(
+                  value: state.classroomClassrooms.toString(),
+                  label: 'Total \n Classrooms',
+                ),
+              ),
+              // VerticalDivider(
+              //   width: 1,
+              //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+              // ),
+              Expanded(
+                child: _StatColumn(
+                  value: state.capacity.toString(),
+                  label: 'Total \n Capacity',
+                ),
+              ),
+              // VerticalDivider(
+              //   width: 1,
+              //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+              // ),
+              Expanded(
+                child: _StatColumn(
+                  value: '${state.schoolFte.toStringAsFixed(0)}%',
+                  label: 'Full time \n Equivalent',
+                  showTrend: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+        const SizedBox(height: 16),
+
+        // ── Breakdown bars (shared CustomStatBarCard) ─────────────────
+        CustomStatBarCard(
+          title: 'Enrolled Students',
+          number: state.enrolledCount.toString(),
+          fullWidthBar: true,
+          embedded: true,
+          titleFontSize: 14,
+          onHeaderTap: () {
+            // context.push(ClassroomOverviewScreen.routeName);
+          },
+          onLegendTap: (label, filterValue) {
+            // Default preserved from the previous parse: an
+            // unrecognised segment fell through to 'ACTIVE'.
+            final filter = filterValue ?? 'ACTIVE';
+            debugPrint(
+              '[EnrollmentCard] Navigating to Student Attendance: '
+              'filter=$filter, route=${StudentAttendanceTabbedView.routeName}',
+            );
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: AttendanceStatusFilterArgs(filter: filter),
+            );
+          },
+          items: _percentItems(
+            total: state.enrolledCount,
+            raw: [
+              _Seg(
+                'Active',
+                state.activeCount,
+                AppColors.lightBlueProgressBar,
+                'ACTIVE',
+              ),
+              _Seg(
+                'Upcoming',
+                state.upcomingCount,
+                AppColors.mustardProgressBar,
+                'UPCOMING',
+              ),
+            ],
+          ),
+        ),
+        Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+        CustomStatBarCard(
+          title: 'Expected Students',
+          number: state.studentExpected.toString(),
+          fullWidthBar: true,
+          embedded: true,
+          titleFontSize: 14,
+          onHeaderTap: () {
+            // context.push(
+            // StudentAttendanceTabbedView.routeName,
+            // extra: {'filter': 'Expected'},
+            // );
+          },
+          onLegendTap: (label, filterValue) {
+            // Default preserved from the previous parse: an
+            // unrecognised segment fell through to 'Expected'.
+            final filter = filterValue ?? 'Expected';
+            debugPrint(
+              '[EnrollmentCard] Navigating to Student Attendance: '
+              'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}',
+            );
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: AttendanceStatusFilterArgs(filter: filter),
+            );
+          },
+          items: _percentItems(
+            total: state.studentExpected,
+            raw: [
+              _Seg(
+                'Signed-in',
+                state.studentPresent,
+                AppColors.lightGreenProgressBar,
+                'Present',
+              ),
+              _Seg(
+                'Absent',
+                state.studentAbsent,
+                AppColors.redProgressBar,
+                'Absent',
+              ),
+              _Seg(
+                'Signed-out',
+                state.studentSignOut,
+                AppColors.lightBlueProgressBar,
+                'Signed Out',
+              ),
+              _Seg(
+                'Not Marked',
+                state.studentNotMarked,
+                AppColors.mustardProgressBar,
+                'Not Marked',
+              ),
+            ],
+          ),
+        ),
+        Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+        CustomStatBarCard(
+          title: 'Expected Staff',
+          number: state.staffExpected.toString(),
+          fullWidthBar: true,
+          embedded: true,
+          titleFontSize: 14,
+          onHeaderTap: () {
+            // context.push(
+            //   StaffAttendanceTabbedView.routeName,
+            //   extra: {'filter': 'Expected'},
+            // );
+          },
+          onLegendTap: (label, filterValue) {
+            // Default preserved from the previous parse: an
+            // unrecognised segment fell through to 'Expected'.
+            final filter = filterValue ?? 'Expected';
+            context.push(
+              StaffAttendanceTabbedView.routeName,
+              extra: AttendanceStatusFilterArgs(filter: filter),
+            );
+          },
+          items: _percentItems(
+            total: state.staffExpected,
+            raw: [
+              _Seg(
+                'Signed-in',
+                state.staffPresent,
+                AppColors.lightGreenProgressBar,
+                'Present',
+              ),
+              _Seg(
+                'Absent',
+                state.staffAbsent,
+                AppColors.redProgressBar,
+                'Absent',
+              ),
+              _Seg(
+                'Signed-out',
+                state.staffSignOut,
+                AppColors.lightBlueProgressBar,
+                'Signed Out',
+              ),
+              _Seg(
+                'Not Marked',
+                state.staffNotMarked,
+                AppColors.mustardProgressBar,
+                'Not Marked',
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

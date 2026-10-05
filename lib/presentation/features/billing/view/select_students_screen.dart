@@ -203,135 +203,111 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
 
   Widget _buildBottomBar(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom > 0
-            ? MediaQuery.of(context).padding.bottom
-            : 16.0,
-        left: 16,
-        right: 16,
-        top: 8,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.billingShadowColorLight,
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24.0),
-          topRight: Radius.circular(24.0),
-        ),
-      ),
-      child: Container(
-        height: 48.0,
-        decoration: AppSurfaces.key(KeyVariant.primary, radius: 8.0),
-        child: TextButton(
-          onPressed: () async {
-            final selectedStudents = _cubit.selectedStudents;
-            if (selectedStudents.isEmpty) {
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: BillingStrings.pleaseSelectAtLeastOneStudent,
-                isWarning: true,
-              );
-              return;
-            }
-            if (widget.onNext != null) {
-              widget.onNext!(context, selectedStudents);
-              return;
-            }
-
-            // Find out which selected students can actually receive an
-            // invoice before advancing — e.g. one with no family/billing
-            // profile yet has to be dropped here rather than failing later
-            // at invoice creation.
-            final result = await _cubit.checkRecipients(
-              selectedStudents.map((s) => s.code).toList(),
+      height: 48.0,
+      decoration: AppSurfaces.key(KeyVariant.primary, radius: 8.0),
+      child: TextButton(
+        onPressed: () async {
+          final selectedStudents = _cubit.selectedStudents;
+          if (selectedStudents.isEmpty) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: BillingStrings.pleaseSelectAtLeastOneStudent,
+              isWarning: true,
             );
-            if (!context.mounted) return;
-            if (result == null) {
+            return;
+          }
+          if (widget.onNext != null) {
+            widget.onNext!(context, selectedStudents);
+            return;
+          }
+
+          // Find out which selected students can actually receive an
+          // invoice before advancing — e.g. one with no family/billing
+          // profile yet has to be dropped here rather than failing later
+          // at invoice creation.
+          final result = await _cubit.checkRecipients(
+            selectedStudents.map((s) => s.code).toList(),
+          );
+          if (!context.mounted) return;
+          if (result == null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: _cubit.state.errorMessage ??
+                  BillingStrings.couldNotVerifyStudents,
+              isWarning: true,
+            );
+            return;
+          }
+          // Students the backend rejected are dropped from the batch rather
+          // than blocking the whole selection — with "Select All" on a big
+          // school, one student missing a billing profile used to dead-end
+          // the flow for everyone else.
+          var recipients = selectedStudents;
+          if (!result.allEligible) {
+            final ineligibleCodes =
+                result.ineligible.map((r) => r.studentCode).toSet();
+            recipients = selectedStudents
+                .where((s) => !ineligibleCodes.contains(s.code))
+                .toList();
+
+            if (recipients.isEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: _cubit.state.errorMessage ??
-                    BillingStrings.couldNotVerifyStudents,
+                message: BillingStrings.noStudentsCanBeInvoiced,
                 isWarning: true,
+                duration: const Duration(seconds: 4),
               );
               return;
             }
-            // Students the backend rejected are dropped from the batch rather
-            // than blocking the whole selection — with "Select All" on a big
-            // school, one student missing a billing profile used to dead-end
-            // the flow for everyone else.
-            var recipients = selectedStudents;
-            if (!result.allEligible) {
-              final ineligibleCodes =
-                  result.ineligible.map((r) => r.studentCode).toSet();
-              recipients = selectedStudents
-                  .where((s) => !ineligibleCodes.contains(s.code))
-                  .toList();
 
-              if (recipients.isEmpty) {
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: BillingStrings.noStudentsCanBeInvoiced,
-                  isWarning: true,
-                  duration: const Duration(seconds: 4),
-                );
-                return;
-              }
-
-              // Keep the checkboxes honest about what's moving forward.
-              _cubit.deselectStudents(ineligibleCodes);
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: InvoiceRecipientSkipNotice.build(
-                  ineligible: result.ineligible,
-                  nameByCode: {
-                    for (final s in selectedStudents) s.code: s.fullName,
-                  },
-                  totalSelected: selectedStudents.length,
-                ),
-                isWarning: true,
-                duration: const Duration(seconds: 5),
-              );
-            }
-
-            final created = await context.push<bool>(
-              CreateInvoiceScreen.routeName,
-              extra: CreateInvoiceArgs(
-                selectedStudents: recipients,
-                initialInvoiceData: widget.invoiceData,
+            // Keep the checkboxes honest about what's moving forward.
+            _cubit.deselectStudents(ineligibleCodes);
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: InvoiceRecipientSkipNotice.build(
+                ineligible: result.ineligible,
+                nameByCode: {
+                  for (final s in selectedStudents) s.code: s.fullName,
+                },
+                totalSelected: selectedStudents.length,
               ),
+              isWarning: true,
+              duration: const Duration(seconds: 5),
             );
-            // Invoice saved from the preview step → close the wizard back to
-            // the billing list.
-            if (created == true && context.mounted) {
-              Navigator.of(context).pop(true);
-            }
-          },
-          child: _cubit.state.isCheckingRecipients
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation(AppColors.billingCardColor),
-                  ),
-                )
-              : const Text(
-                  BillingStrings.next,
-                  style: TextStyle(
-                    fontFamily: AppFonts.body,
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.billingCardColor,
-                  ),
+          }
+
+          final created = await context.push<bool>(
+            CreateInvoiceScreen.routeName,
+            extra: CreateInvoiceArgs(
+              selectedStudents: recipients,
+              initialInvoiceData: widget.invoiceData,
+            ),
+          );
+          // Invoice saved from the preview step → close the wizard back to
+          // the billing list.
+          if (created == true && context.mounted) {
+            Navigator.of(context).pop(true);
+          }
+        },
+        child: _cubit.state.isCheckingRecipients
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor:
+                      AlwaysStoppedAnimation(AppColors.billingCardColor),
                 ),
-        ),
+              )
+            : const Text(
+                BillingStrings.next,
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.billingCardColor,
+                ),
+              ),
       ),
     );
   }

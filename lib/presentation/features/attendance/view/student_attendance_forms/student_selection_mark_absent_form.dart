@@ -213,8 +213,6 @@ class _StudentSelectionMarkAbsentFormState
       );
     }
 
-    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
-
     return BlocBuilder<
       StudentMarkAbsentSelectionCubit,
       StudentMarkAbsentSelectionState
@@ -323,13 +321,11 @@ class _StudentSelectionMarkAbsentFormState
               ),
             ],
           ),
-          bottomBar: Padding(
-            padding: EdgeInsets.only(bottom: safeAreaBottom),
-            child: CustomButtonLayout(
-              confirmButtonLabel: 'Next',
-              onPressedConfirm: _handleNext,
-              showCancelButton: false,
-            ),
+          bottomBar: CustomButtonLayout(
+            isForm: false,
+            confirmButtonLabel: 'Next',
+            onPressedConfirm: _handleNext,
+            showCancelButton: false,
           ),
         );
       },

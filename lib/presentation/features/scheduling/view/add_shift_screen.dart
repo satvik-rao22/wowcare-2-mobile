@@ -147,8 +147,6 @@ class _AddShiftViewState extends State<_AddShiftView> {
   @override
   Widget build(BuildContext context) {
     final responsive = SchedulingResponsive(context);
-    final safeBottom = MediaQuery.of(context).padding.bottom;
-    final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
 
     return BlocBuilder<AddShiftCubit, AddShiftState>(
       builder: (context, state) {
@@ -196,21 +194,12 @@ class _AddShiftViewState extends State<_AddShiftView> {
 
                 return StaffFormLayout(
                   title: 'Add Shift',
-                  bottomBar: Container(
-                    padding: EdgeInsets.only(
-                      bottom: bottomPadding,
-                      left: 16,
-                      right: 16,
-                      top: 8,
-                    ),
-                    decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-                    child: CustomButtonLayout(
-                      confirmButtonLabel: state.saving ? 'Saving…' : 'Confirm',
-                      onPressedConfirm:
-                          (state.isFormValid && !state.saving) ? _onConfirm : null,
-                      showCancelButton: false,
-                      isForm: false,
-                    ),
+                  bottomBar: CustomButtonLayout(
+                    confirmButtonLabel: state.saving ? 'Saving…' : 'Confirm',
+                    onPressedConfirm:
+                        (state.isFormValid && !state.saving) ? _onConfirm : null,
+                    showCancelButton: false,
+                    isForm: false,
                   ),
                   child: ListView(
                     padding: EdgeInsets.zero,

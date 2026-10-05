@@ -211,6 +211,18 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                                 wrapperBgColor: AppColors.transparentColor,
                                 wrapperSize: 80,
                               ),
+                              // Without this the package rethrows a failed
+                              // preview (e.g. a damaged .xlsx it cannot
+                              // decode) and the tile becomes an error box.
+                              errorBuilder: (context, error) => Container(
+                                width: 76,
+                                height: 76,
+                                color: AppColors.messagingDividerLight,
+                                child: const Icon(
+                                  Icons.insert_drive_file_outlined,
+                                  color: AppColors.primaryColor,
+                                ),
+                              ),
                             ),
                     ),
                     // Play affordance so a video tile reads as tappable/previewable.

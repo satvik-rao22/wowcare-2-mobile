@@ -156,21 +156,11 @@ class _ClassroomStudentFilterScreenState
   }
 
   Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 8,
-        bottom: safeAreaBottom,
-      ),
-      child: CustomButtonLayout(
-        confirmButtonLabel: 'Apply Filters',
-        onPressedConfirm: _apply,
-        showCancelButton: false,
-        isForm: false,
-      ),
+    return CustomButtonLayout(
+      confirmButtonLabel: 'Apply Filters',
+      onPressedConfirm: _apply,
+      showCancelButton: false,
+      isForm: false,
     );
   }
 

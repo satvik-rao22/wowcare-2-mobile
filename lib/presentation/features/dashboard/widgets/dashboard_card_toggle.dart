@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
 
-/// Compact gradient-bordered `+ / -` button used by dashboard cards to
-/// collapse or expand their body.
-///
-/// Reusable across every dashboard card so the collapse affordance stays
-/// visually consistent.
+/// Compact `+ / -` key used by every dashboard card to collapse or expand
+/// its body.
 class DashboardCardToggle extends StatelessWidget {
   const DashboardCardToggle({
     super.key,
@@ -32,14 +30,12 @@ class DashboardCardToggle extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Gradient border.
             SkeuKeyBox(
               variant: KeyVariant.primary,
               radius: 8,
               width: 26,
               height: 26,
             ),
-            // White inner background.
             Container(
               width: 21,
               height: 21,
@@ -48,14 +44,28 @@ class DashboardCardToggle extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            // Icon.
-            Icon(
-              minimized ? Icons.add : Icons.remove,
-              color: AppColors.themeColor,
-              size: 18,
-            ),
+            _glyph(),
           ],
         ),
+      ),
+    );
+  }
+
+  /// The glyph swaps with a quick scale-and-fade, in step with the body.
+  Widget _glyph() {
+    return AnimatedSwitcher(
+      duration: AppMotion.fast,
+      switchInCurve: AppMotion.easeOut,
+      switchOutCurve: AppMotion.easeOut,
+      transitionBuilder: (child, animation) => ScaleTransition(
+        scale: animation,
+        child: FadeTransition(opacity: animation, child: child),
+      ),
+      child: Icon(
+        minimized ? Icons.add : Icons.remove,
+        key: ValueKey<bool>(minimized),
+        color: AppColors.themeColor,
+        size: 18,
       ),
     );
   }

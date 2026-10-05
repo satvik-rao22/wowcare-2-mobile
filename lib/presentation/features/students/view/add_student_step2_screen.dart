@@ -26,6 +26,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class AddStudentStep2Screen extends StatefulWidget {
   const AddStudentStep2Screen({
@@ -642,8 +643,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocBuilder<StudentCreateCubit, StudentCreateState>(
       bloc: _createCubit,
@@ -691,7 +690,11 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                       padding: EdgeInsets.all(
                         responsive.isTablet ? 32.0 : 16.0,
                       ),
-                      decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                      decoration: AppSurfaces.card(
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                        ),
+                      ),
                       child: Column(
                         children: [
                           Expanded(
@@ -946,14 +949,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
               ),
             ],
           ),
-          bottomNavigationBar: Container(
-            padding: EdgeInsets.only(
-              bottom: safeAreaBottom,
-              left: AppSpacing.md,
-              right: AppSpacing.md,
-              top: AppSpacing.xs,
-            ),
-            decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+          bottomNavigationBar: BottomActionBar(
             child: CustomButtonLayout(
               confirmButtonLabel: StudentStrings.save,
               onPressedConfirm: _createCubit.state.step2Submitting
@@ -1041,7 +1037,9 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,

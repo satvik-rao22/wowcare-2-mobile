@@ -12,7 +12,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -192,18 +191,18 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
+      // pickFile re-checks the extension after the pick and shows an error
+      // toast for anything outside these lists (zip, apk, ...).
+      final file = await FilePickerUtils.pickFile(
+        allowedExtensions: const [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
           ...FilePickerUtils.allowedVideoExtensions,
         ],
-        allowMultiple: false,
+        context: context,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final PlatformFile file = result.files.first;
+      if (file != null) {
         // The cubit owns the whole upload flow (session → presign → PUT →
         // complete → ready) + the upload state; the widget just hands it the
         // picked file.
@@ -285,29 +284,20 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           ],
         ),
       ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: AppSpacing.md,
-          right: AppSpacing.md,
-          top: AppSpacing.xs,
-        ),
-        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-        child: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
-          builder: (context, state) {
-            return CustomButtonLayout(
-              confirmButtonLabel: widget.isEdit
-                  ? StudentStrings.save
-                  : StudentStrings.add,
-              cancelButtonLabel: StudentStrings.cancel,
-              onPressedConfirm: _addDocument,
-              onPressedCancel: () => context.pop(false),
-              showCancelButton: true,
-              isForm: false,
-              isLoading: state.isLoading || state.isUploading,
-            );
-          },
-        ),
+      bottomBar: BlocBuilder<StudentDocumentCubit, StudentDocumentState>(
+        builder: (context, state) {
+          return CustomButtonLayout(
+            confirmButtonLabel: widget.isEdit
+                ? StudentStrings.save
+                : StudentStrings.add,
+            cancelButtonLabel: StudentStrings.cancel,
+            onPressedConfirm: _addDocument,
+            onPressedCancel: () => context.pop(false),
+            showCancelButton: true,
+            isForm: false,
+            isLoading: state.isLoading || state.isUploading,
+          );
+        },
       ),
     );
   }
@@ -340,7 +330,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             textCapitalization: TextCapitalization.sentences,
@@ -542,7 +534,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             minHeight: responsive.inputFieldHeight * 2,
             maxHeight: responsive.inputFieldHeight * 4,
           ),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: _notesController,
             maxLines: 4,

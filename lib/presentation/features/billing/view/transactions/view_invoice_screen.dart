@@ -319,7 +319,11 @@ class _ViewInvoiceView extends StatelessWidget {
     final error = await cubit.downloadInvoice(transaction);
     if (!context.mounted) return;
     if (error != null) {
-      CoreUtils.showTopSnackBar(context: context, message: error, isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: error,
+        isError: true,
+      );
     } else {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -335,6 +339,7 @@ class _ViewInvoiceView extends StatelessWidget {
     // plain cancel-styled slot — swapped from the two buttons' usual
     // primary/secondary roles on purpose, to match which one is actually async.
     return CustomButtonLayout(
+      isForm: false,
       confirmButtonLabel: BillingStrings.download,
       onPressedConfirm: () => _onDownload(context),
       showCancelButton: isStaff,

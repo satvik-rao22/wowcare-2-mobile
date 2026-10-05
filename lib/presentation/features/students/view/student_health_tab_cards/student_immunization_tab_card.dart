@@ -328,7 +328,7 @@ class _StudentImmunizationTabCardState
                           Text(
                             '$statusUi cannot have a future date.',
                             style: TextStyle(
-                              fontFamily: Fonts.manrope,
+                              fontFamily: AppFonts.body,
                               fontSize: isTablet ? 14.0 : 12.0,
                               color: AppColors.errorColor,
                             ),

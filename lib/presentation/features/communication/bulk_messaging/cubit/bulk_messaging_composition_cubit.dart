@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/constants/app_strings.dart';
+import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
@@ -728,6 +730,10 @@ class BulkMessagingCompositionCubit
         conversationType,
       );
 
+      if (failed.isNotEmpty) {
+        _reportBackgroundFailure(AppStrings.bulkMessagesFailed(failed.length));
+      }
+
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -744,6 +750,7 @@ class BulkMessagingCompositionCubit
       MessagingEventService.instance.notifyConversationListChanged(
         conversationType,
       );
+      _reportBackgroundFailure(AppStrings.bulkSendFailed);
       if (!isClosed) {
         emit(
           state.copyWith(
@@ -755,4 +762,18 @@ class BulkMessagingCompositionCubit
     }
   }
 
+  /// The compose screen pops as soon as [BulkMessagingCompositionState.isBulkStarted]
+  /// fires, so by the time sends finish nothing is listening to this cubit
+  /// (it is usually closed). Report through the root navigator instead, so a
+  /// failed upload or send never disappears silently.
+  void _reportBackgroundFailure(String message) {
+    try {
+      final ctx = CoreUtils.rootNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return;
+      CoreUtils.showTopSnackBar(context: ctx, message: message, isError: true);
+    } catch (e) {
+      // Never let the toast itself derail the send bookkeeping around it.
+      debugPrint('Bulk send failure toast could not be shown: $e');
+    }
+  }
 }

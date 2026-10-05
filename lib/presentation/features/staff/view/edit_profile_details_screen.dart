@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/classroom/view_model/classroom_cub
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/shared/common/widgets/bottom_action_bar.dart';
 
 class EditProfileDetailsScreen extends StatelessWidget {
   const EditProfileDetailsScreen({
@@ -1193,8 +1194,6 @@ class _EditProfileDetailsScreenViewState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
@@ -1258,7 +1257,11 @@ class _EditProfileDetailsScreenViewState
                         padding: EdgeInsets.all(
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
-                        decoration: AppSurfaces.card(borderRadius: BorderRadius.all( Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+                        decoration: AppSurfaces.card(
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                          ),
+                        ),
                         child: ListView(
                           padding: EdgeInsets.zero,
                           children: [
@@ -1594,14 +1597,7 @@ class _EditProfileDetailsScreenViewState
                 ),
               ],
             ),
-            bottomNavigationBar: Container(
-              padding: EdgeInsets.only(
-                bottom: safeAreaBottom,
-                left: 16,
-                right: 16,
-                top: 8,
-              ),
-              decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
+            bottomNavigationBar: BottomActionBar(
               child: ValueListenableBuilder<bool>(
                 valueListenable: _isSubmitting,
                 builder: (context, isSubmitting, _) {
@@ -1657,7 +1653,9 @@ class _EditProfileDetailsScreenViewState
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,

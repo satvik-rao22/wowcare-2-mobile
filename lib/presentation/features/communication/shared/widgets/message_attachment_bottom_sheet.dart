@@ -87,48 +87,58 @@ class _MessageAttachmentBottomSheetState
 
   Future<void> _pickCamera() async {
     Navigator.of(context).pop();
-    final file = await _picker.pickImage(source: ImageSource.camera);
+    final XFile? file;
+    try {
+      file = await _picker.pickImage(source: ImageSource.camera);
+    } catch (e) {
+      debugPrint('Chat camera pick failed: $e');
+      widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
+      return;
+    }
     if (file == null) return;
     await _processFiles([File(file.path)]);
   }
 
   /// Photos AND videos together, in one gallery browse — every format either
   /// type supports, not just images.
-  Future<void> _pickGallery() async {
-    Navigator.of(context).pop();
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: [
-        ...FilePickerUtils.allowedImageExtensions,
-        ...FilePickerUtils.allowedVideoExtensions,
-      ],
-      allowMultiple: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final files = result.files
-        .map((f) => f.path)
-        .whereType<String>()
-        .map((p) => File(p))
-        .toList();
-    if (files.isEmpty) return;
-    await _processFiles(files);
-  }
+  Future<void> _pickGallery() => _pickFromStorage([
+    ...FilePickerUtils.allowedImageExtensions,
+    ...FilePickerUtils.allowedVideoExtensions,
+  ]);
 
-  Future<void> _pickDocument() async {
+  Future<void> _pickDocument() =>
+      _pickFromStorage(FilePickerUtils.allowedDocumentExtensions);
+
+  /// The sheet has already popped by the time the picker returns, so every
+  /// failure here (a picker exception, a provider that hands back no local
+  /// path) must go through [MessageAttachmentBottomSheet.onAttachmentError]
+  /// or the user sees nothing at all.
+  Future<void> _pickFromStorage(List<String> allowedExtensions) async {
     Navigator.of(context).pop();
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
-      allowMultiple: true,
-    );
+    final FilePickerResult? result;
+    try {
+      result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: FilePickerUtils.dialogExtensions(allowedExtensions),
+        allowMultiple: true,
+      );
+    } catch (e) {
+      debugPrint('Chat file pick failed: $e');
+      widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
+      return;
+    }
     if (result == null || result.files.isEmpty) return;
-    final files = result.files
-        .map((f) => f.path)
-        .whereType<String>()
-        .map((p) => File(p))
-        .toList();
-    if (files.isEmpty) return;
-    await _processFiles(files);
+    final files = <File>[];
+    final unreadable = <String>[];
+    for (final f in result.files) {
+      final path = f.path;
+      if (path == null || path.isEmpty) {
+        unreadable.add(f.name);
+      } else {
+        files.add(File(path));
+      }
+    }
+    await _processFiles(files, unreadable: unreadable);
   }
 
   /// Classifies each file by its own extension (image / video / document)
@@ -144,8 +154,12 @@ class _MessageAttachmentBottomSheetState
   /// re-validates every file's extension against the same three allow-lists
   /// before accepting it — anything matching none of them is rejected here
   /// rather than silently uploaded mislabelled as a "document".
-  Future<void> _processFiles(List<File> files) async {
+  Future<void> _processFiles(
+    List<File> files, {
+    List<String> unreadable = const [],
+  }) async {
     final valid = <ChatAttachment>[];
+    final unreadableNames = [...unreadable];
     // name -> limit that was exceeded, for the rejection message below.
     final oversized = <String, int>{};
     final unsupported = <String>[];
@@ -162,7 +176,13 @@ class _MessageAttachmentBottomSheetState
       }
       final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
 
-      final size = await file.length();
+      final int size;
+      try {
+        size = await file.length();
+      } catch (_) {
+        unreadableNames.add(p.basename(file.path));
+        continue;
+      }
       final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
       if (size > maxSize) {
         oversized[p.basename(file.path)] = maxSize;
@@ -188,6 +208,7 @@ class _MessageAttachmentBottomSheetState
     final message = _rejectionMessage(
       oversized: oversized,
       unsupported: unsupported,
+      unreadable: unreadableNames,
     );
     if (message != null) {
       widget.onAttachmentError?.call(message);
@@ -204,7 +225,19 @@ class _MessageAttachmentBottomSheetState
   String? _rejectionMessage({
     required Map<String, int> oversized,
     required List<String> unsupported,
+    List<String> unreadable = const [],
   }) {
+    if (unreadable.isNotEmpty) {
+      // Unreadable files are rare and usually alone in a pick; name them
+      // first, then fold any other rejections into one count.
+      final others = oversized.length + unsupported.length;
+      if (others == 0) {
+        return unreadable.length == 1
+            ? AppStrings.fileUnreadable(unreadable.first)
+            : AppStrings.filesUnreadable(unreadable.length);
+      }
+      return AppStrings.filesCouldNotBeAttached(unreadable.length + others);
+    }
     if (oversized.isEmpty && unsupported.isEmpty) return null;
 
     if (unsupported.isEmpty) {

@@ -193,6 +193,20 @@ class FilePickerUtils {
   /// server-side limit change does not need an app release.
   static const int defaultMaxFiles = 5;
 
+  /// Allow-list entries that are MIME subtypes, not real file-name
+  /// extensions. On Android file_picker turns each extension into a MIME type
+  /// for the system dialog and, if even one has no mapping, drops the filter
+  /// entirely and lists every file (zip, apk, ...). They stay in the
+  /// allow-lists for validation but are kept out of the dialog filter.
+  static const Set<String> _nonDialogExtensions = {
+    'heic-sequence',
+    'heif-sequence',
+  };
+
+  /// [extensions] as the system file dialog should receive them.
+  static List<String> dialogExtensions(List<String> extensions) =>
+      extensions.where((e) => !_nonDialogExtensions.contains(e)).toList();
+
   /// Extension allow-list for [kind]; empty means "no filter".
   static List<String> extensionsFor(FilePickerKind kind) {
     switch (kind) {
@@ -270,7 +284,9 @@ class FilePickerUtils {
     try {
       picked = await FilePicker.pickFiles(
         type: extensions.isEmpty ? FileType.any : FileType.custom,
-        allowedExtensions: extensions.isEmpty ? null : extensions,
+        allowedExtensions: extensions.isEmpty
+            ? null
+            : dialogExtensions(extensions),
         allowMultiple: allowMultiple,
       );
     } catch (e) {
@@ -417,27 +433,84 @@ class FilePickerUtils {
     return name.substring(dot + 1).toLowerCase();
   }
 
+  /// Whether a picked file is one of [allowedExtensions].
+  ///
+  /// A listed extension on the name is enough. Otherwise the first bytes are
+  /// sniffed: Android document providers can report a display name with no
+  /// usable extension (e.g. "IMG_1234", or "photo.jfif" for a JPEG) for a
+  /// file whose content already matched the picker's MIME filter, and
+  /// file_picker does not add one. So a genuine JPEG or PDF is not rejected
+  /// for its name alone, while archives, APKs and executables sniff as
+  /// nothing on the list.
+  static Future<bool> isAllowedType({
+    required String name,
+    required String path,
+    required List<String> allowedExtensions,
+  }) async {
+    if (allowedExtensions.isEmpty) return true;
+    if (allowedExtensions.contains(_extensionFromName(name))) return true;
+    try {
+      final header = <int>[];
+      await for (final chunk in File(path).openRead(0, _sniffBytes)) {
+        header.addAll(chunk);
+      }
+      final sniffed = lookupMimeType('', headerBytes: header);
+      if (sniffed == null) return false;
+      return allowedExtensions.any((ext) => getMimeType(ext) == sniffed);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Enough leading bytes for every magic number the `mime` package checks.
+  static const int _sniffBytes = 64;
+
   /// Picks a single file from the device storage.
   ///
   /// [allowedExtensions] defaults to [defaultAllowedExtensions] if not provided.
-  /// [context] is optional but recommended for showing error feedback.
+  /// The pick is re-checked against that list (and for a readable local path)
+  /// rather than trusting the dialog filter, which some document providers
+  /// ignore; a rejected file returns null with an error snackbar when
+  /// [context] is supplied.
   static Future<PlatformFile?> pickFile({
     List<String>? allowedExtensions,
     BuildContext? context,
   }) async {
+    final extensions = allowedExtensions ?? defaultAllowedExtensions;
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: allowedExtensions ?? defaultAllowedExtensions,
+        allowedExtensions: dialogExtensions(extensions),
         allowMultiple: false,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        return result.files.first;
+        final file = result.files.first;
+        final path = file.path;
+        final String rejection;
+        if (path == null || path.isEmpty) {
+          rejection = '${file.name} could not be read';
+        } else if (!await isAllowedType(
+          name: file.name,
+          path: path,
+          allowedExtensions: extensions,
+        )) {
+          rejection = '${file.name} is not a supported file type';
+        } else {
+          return file;
+        }
+        if (context != null && context.mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: rejection,
+            isError: true,
+          );
+        }
+        return null;
       }
     } catch (e) {
       debugPrint('Error picking file: $e');
-      if (context != null) {
+      if (context != null && context.mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Error selecting file. Please try again.',

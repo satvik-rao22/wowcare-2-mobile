@@ -18,6 +18,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/work_break_reminder_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
@@ -38,25 +39,9 @@ import 'package:wowcare/core/utils/server_time_service.dart';
 // MyDayCard
 // ---------------------------------------------------------------------------
 
-/// Dashboard card displaying the school's schedule for today, a shift
-/// countdown, sign-in pin, attendance action buttons, and the latest chat
-/// preview.
-///
-/// Schedule data comes from [MyDayCubit]; all other fields are still mocked
-/// pending their respective API integrations.
-/// Immutable snapshot of the "My Day" countdown display.
-///
-/// Mandate 2 bucket B. These seven values are derived presentation state, not
-/// cubit state: they are recomputed once per second by [_MyDayCardState._ticker]
-/// from data the cubit already owns. Holding them as `State` fields meant every
-/// tick called `setState` and marked the whole 2,200-line card dirty — the
-/// photo, the badges, the chat row and every const subtree in the same
-/// `build()` (§2.6).
-///
-/// Bundled into one object rather than seven notifiers so a tick that changes
-/// nothing changes nothing: [ValueNotifier] only notifies when `value !=
-/// oldValue`, and this type has value equality — so the ~59 ticks per minute
-/// that leave the display identical now rebuild nothing at all.
+/// Immutable snapshot of the "My Day" countdown display: derived presentation
+/// state recomputed once per second by the ticker, bundled into one
+/// value-equal object so a tick that changes nothing notifies nothing.
 @immutable
 class _CountdownView {
   const _CountdownView({
@@ -144,14 +129,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   // ---- sign-in status ----
 
-  // True once the async today-sign-in-status fetch in `_loadStaffIdentity`
-  // has resolved (success or failure) at least once. `_myDay.isSignedIn` defaults
-  // to false until then, so the geofence-entry popup must not trust it (and
-  // must not decide "show" or "don't show") until this is true — otherwise
-  // an already-signed-in user restarting the app inside the geofence (e.g.
-  // GeofenceCubit reporting `withinRange` from a cached last-known location
-  // before the attendance API call resolves) would incorrectly see the
-  // Sign-In sheet.
+  // True once the today-sign-in-status fetch has resolved at least once.
+  // Until then `_myDay.isSignedIn` defaults to false, so the geofence popup
+  // must not act on it.
 
   // Raw today-status string from the API (e.g. SIGNED_IN, ABSENT,
   // SIGNED_OUT). Kept alongside `_myDay.isSignedIn` because the boolean alone
@@ -189,11 +169,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       _myDay.effectiveStaffCode.isEmpty ||
       !_availability(geofenceState).absentEnabled;
 
-  // Cached staff identity — loaded once in initState so button taps never hit
-  // a timing window where storage hasn't resolved yet.
-  // Pure admins (role == 'admin', not also 'staff') have no staff profile, so
-  // StorageKeys.staffCode is legitimately empty for them — StorageKeys.userCode
-  // is used as their self-attendance identity instead.
+  // Staff identity, loaded once in initState. Pure admins have no staff
+  // profile, so StorageKeys.userCode is their self-attendance identity.
 
   /// The identity used for self-attendance actions (Sign-In/Sign-Out/Transfer/
   /// Mark Absent): the real staffCode when the user has a staff profile,
@@ -471,13 +448,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     _maybeShowSignInPopup();
   }
 
-  /// Shows the geofence Sign-In sheet only when: the staff/admin is
-  /// currently within the school geofence, their today-sign-in status has
-  /// finished loading and shows them as not signed in, and the popup hasn't
-  /// already been shown for this geofence entry. Called both from the
-  /// [GeofenceCubit] entry-transition listener and right after
-  /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
-  /// two finishes last is the one that actually decides whether to show it.
+  /// Shows the geofence Sign-In sheet only when the user is inside the
+  /// geofence, their loaded today-status says not signed in, and it has not
+  /// already been shown for this entry. Called from the geofence listener and
+  /// after the status fetch, so whichever finishes last decides.
   void _maybeShowSignInPopup() {
     if (!mounted) return;
     if (!_myDay.signInStatusLoaded) return;
@@ -644,15 +618,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // Countdown computation
   // ---------------------------------------------------------------------------
 
-  /// Countdown using ONLY staff work schedules with school timezone.
-  ///
-  /// Uses school timezone for calculating current time.
-  /// Uses ONLY staff workSchedules API (never school regular schedule).
-  /// Priority:
-  ///   1. Today's staff schedule if it exists and hasn't passed
-  ///   2. Today's staff schedule if currently active (count down to end)
-  ///   3. Nearest upcoming staff schedule (within next 7 days)
-  ///   4. Empty state if no staff schedules exist
+  /// Countdown from staff work schedules only, in school time. Priority:
+  /// today's shift if not yet passed, today's if active (count down to its
+  /// end), the nearest within 7 days, else empty.
   void _computeCountdownFromSchedule(
     SchoolRegularScheduleDay? schedule, {
     StaffProfileWorkSchedule? staffSchedule,
@@ -787,15 +755,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     );
   }
 
-  /// Searches forward 1–7 days for the nearest upcoming scheduled work day.
-  ///
-  /// Uses [_kDayToWeekday] (supports "TUESDAY" and "TUE") so no entry is ever
-  /// silently dropped. Wraps the full week — e.g. today=Sunday, next=Monday.
-  ///
-  /// Sets [_isTodayShift] = false and [_nextDayName] to the full day name
-  /// (e.g. "Wednesday") so [_buildAlignedTimerDisplay] can show it above the
-  /// countdown.
-  /// Finds nearest upcoming staff schedule within 7 days (using device local time).
+  /// Searches forward 1–7 days for the nearest scheduled work day (wrapping
+  /// the week), then sets [_isTodayShift] false and [_nextDayName] for the
+  /// countdown header.
   void _applyNextStaffShift(
     DateTime now,
     int todayWeekday,
@@ -1114,10 +1076,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                   ),
 
                   // ── Expanded body ────────────────────────────────────────────
-                  // Mandate 2 §2.2: the body is built ONCE per card build and handed
-                  // to the builder untouched via `child:`. Toggling collapse now
-                  // rebuilds only the swap — not these 300 lines, their shimmer,
-                  // chips or chat row, which is what setState did on every tap (§2.6).
+                  // Built once per card build and handed over via `child:`, so
+                  // a collapse toggle rebuilds only the wrapper.
                   ValueListenableBuilder<bool>(
                     valueListenable: _minimized,
                     child: Column(
@@ -1451,7 +1411,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                       ],
                     ),
                     builder: (context, minimized, child) =>
-                        minimized ? const SizedBox.shrink() : child!,
+                        DashboardCollapsible(
+                          collapsed: minimized,
+                          child: child!,
+                        ),
                   ),
 
                   const SizedBox(height: 10),
@@ -1670,28 +1633,12 @@ class _MyDayShimmerLine extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// MyDayChatPreviewRow
-// ---------------------------------------------------------------------------
-// Shows the logged-in user's name (from StorageService) with a "Chat Not Found"
-// placeholder until the real messaging API is integrated.
-// ---------------------------------------------------------------------------
 // Private helper widgets
 // ---------------------------------------------------------------------------
 
-/// Work-break reminder toggle.
-///
-/// Mandate 2, bucket A: every field this widget used to hold in `State`
-/// (`_isLoading`, `_reminderEnabled`) is already owned by
-/// [WorkBreakReminderCubit] — the widget was mirroring `cubit.state` into
-/// `setState` after awaiting it, which is the "state that should never have
-/// been in a widget" case (§2.4) in its purest form. It now reads the cubit
-/// directly and holds no state at all, so it is a StatelessWidget.
-///
-/// This also closes the module's one confirmed cubit leak: the cubit used to be
-/// resolved with `serviceLocator<WorkBreakReminderCubit>()` *inside the tap
-/// handler*, and it is a `registerFactory` — so every tap allocated a fresh
-/// cubit, awaited a network write on it, read its state, and dropped it
-/// unclosed (§5.5). `BlocProvider.create` owns exactly one and closes it.
+/// Work-break reminder toggle. Stateless: it reads [WorkBreakReminderCubit]
+/// directly, and one `BlocProvider.create` owns the cubit instead of a fresh
+/// factory instance per tap.
 class _ReminderToggleButton extends StatelessWidget {
   const _ReminderToggleButton({required this.staffCode});
 

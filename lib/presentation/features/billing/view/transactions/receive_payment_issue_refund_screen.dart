@@ -824,71 +824,47 @@ class _ReceivePaymentIssueRefundScreenState
   }
 
   Widget _buildBottomBar(ResponsiveHelper responsive) {
-    final double bottomPadding = MediaQuery.of(context).padding.bottom;
-    final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: safeAreaBottom,
-        left: 16,
-        right: 16,
-        top: 8,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.blackColor.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
-          ),
-        ],
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-        ),
-      ),
-      child: SkeuKeyBox(
-        variant: !(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
-        radius: responsive.isTablet ? 16.0 : 8.0,
-        height: responsive.buttonHeight,
-        child: TextButton(
-          onPressed: _isSubmitting ? null : _onSave,
-          child: _isSubmitting
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.billingButtonTextColor,
-                        ),
+    return SkeuKeyBox(
+      variant: !(_isSubmitting) ? KeyVariant.primary : KeyVariant.disabled,
+      radius: responsive.isTablet ? 16.0 : 8.0,
+      height: responsive.buttonHeight,
+      child: TextButton(
+        onPressed: _isSubmitting ? null : _onSave,
+        child: _isSubmitting
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.billingButtonTextColor,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      BillingStrings.processing,
-                      style: TextStyle(
-                        fontFamily: AppFonts.body,
-                        fontSize: responsive.buttonFontSize,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.billingCardColor,
-                      ),
-                    ),
-                  ],
-                )
-              : Text(
-                  BillingStrings.save,
-                  style: TextStyle(
-                    fontFamily: AppFonts.body,
-                    fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.billingCardColor,
                   ),
+                  const SizedBox(width: 12),
+                  Text(
+                    BillingStrings.processing,
+                    style: TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: responsive.buttonFontSize,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.billingCardColor,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                BillingStrings.save,
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.billingCardColor,
                 ),
-        ),
+              ),
       ),
     );
   }

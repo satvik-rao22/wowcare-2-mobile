@@ -169,6 +169,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                   initialEndDate: state.dateTo,
                   onRangeChanged: (start, end) =>
                       _cubit.setDateRange(start, end),
+                  onClear: _cubit.resetDateRange,
                 ),
                 const SizedBox(height: 12),
                 AmountInvoicedStatBar(

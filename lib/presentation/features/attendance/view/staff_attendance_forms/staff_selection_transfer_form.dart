@@ -185,7 +185,6 @@ class _StaffSelectionTransferFormState
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveHelper(context).isTabletCompact;
-    final safeAreaBottom = MediaQuery.paddingOf(context).bottom;
 
     return BlocProvider<ClassroomCubit>.value(
       value: _classroomCubit,
@@ -320,13 +319,11 @@ class _StaffSelectionTransferFormState
                     ),
                   ],
                 ),
-                bottomBar: Padding(
-                  padding: EdgeInsets.only(bottom: safeAreaBottom),
-                  child: CustomButtonLayout(
-                    confirmButtonLabel: 'Next',
-                    onPressedConfirm: _handleNext,
-                    showCancelButton: false,
-                  ),
+                bottomBar: CustomButtonLayout(
+                  isForm: false,
+                  confirmButtonLabel: 'Next',
+                  onPressedConfirm: _handleNext,
+                  showCancelButton: false,
                 ),
               );
             },

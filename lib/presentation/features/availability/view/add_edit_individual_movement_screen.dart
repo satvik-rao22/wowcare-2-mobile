@@ -136,7 +136,9 @@ class _AddEditIndividualMovementScreenState
         Text('Comment', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          decoration: AppSurfaces.field(radius: responsive.isTablet ? 12.0 : 8.0),
+          decoration: AppSurfaces.field(
+            radius: responsive.isTablet ? 12.0 : 8.0,
+          ),
           child: TextField(
             controller: _commentController,
             keyboardType: TextInputType.multiline,
@@ -165,8 +167,6 @@ class _AddEditIndividualMovementScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     final studentOptions = buildDisplayOnlyOptions(
       codes: widget.students,
       nameForCode: _nameForStudentCode,
@@ -186,16 +186,7 @@ class _AddEditIndividualMovementScreenState
       title: widget.isEditing
           ? 'Individual Student Movement'
           : 'Add Individual Student Movement',
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: AppSurfaces.card(borderRadius: BorderRadius.only( topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0), topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0), )),
-        child: CustomConfirmButton(label: 'Save', onPressed: _onSavePressed),
-      ),
+      bottomBar: CustomConfirmButton(label: 'Save', onPressed: _onSavePressed),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

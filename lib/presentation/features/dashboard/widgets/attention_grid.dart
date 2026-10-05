@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_ar
 import 'package:wowcare/presentation/features/dashboard/view_model/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collapsible.dart';
 
 // ── Tone ─────────────────────────────────────────────────────────────────────
 
@@ -108,14 +109,10 @@ class AttentionCardModel {
 
 // ── Attention Grid ─────────────────────────────────────────────────────────────
 
-/// "Need your attention" section.
-///
-/// - Reads live counts from [RatioMonitoringCubit], [ClassroomShiftsCubit],
-///   and [DashboardAttentionCubit].
-/// - Hides cards whose count is 0; hides the entire section when all counts are 0.
-/// - Shows first 4 cards; "Show More / Show Less" expands/collapses the rest.
-/// - [onRatioCardTap] / [onShiftsCardTap]: when provided, the card scrolls to the
-///   target widget instead of navigating to a separate screen.
+/// "Need your attention" section: live counts from the ratio, shifts and
+/// attention cubits; zero-count cards hide, the first four show and the rest
+/// sit behind Show More. The tap callbacks scroll to a card instead of
+/// navigating when provided.
 class AttentionGrid extends StatefulWidget {
   const AttentionGrid({
     super.key,
@@ -176,15 +173,12 @@ class _AttentionGridState extends State<AttentionGrid> {
         const SizedBox(height: 12),
         _buildGrid(initialCards, _handleCardTap),
         if (hasMore) ...[
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _expanded
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _buildGrid(extraCards, _handleCardTap),
-                  )
-                : const SizedBox.shrink(),
+          DashboardCollapsible(
+            collapsed: !_expanded,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _buildGrid(extraCards, _handleCardTap),
+            ),
           ),
           const SizedBox(height: 8),
           _ShowMoreButton(
