@@ -294,19 +294,19 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
+      // pickFile re-checks the extension after the pick and shows an error
+      // toast for anything outside these lists (zip, apk, ...).
+      final file = await FilePickerUtils.pickFile(
+        allowedExtensions: const [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
           ...FilePickerUtils.allowedVideoExtensions,
         ],
-        allowMultiple: false,
+        context: context,
       );
 
       if (!mounted) return;
-      if (result != null && result.files.isNotEmpty) {
-        PlatformFile file = result.files.first;
+      if (file != null) {
         setState(() {
           _selectedFile = file;
           _selectedFilePath = file.name;

@@ -420,24 +420,46 @@ class FilePickerUtils {
   /// Picks a single file from the device storage.
   ///
   /// [allowedExtensions] defaults to [defaultAllowedExtensions] if not provided.
-  /// [context] is optional but recommended for showing error feedback.
+  /// The pick is re-checked against that list (and for a readable local path)
+  /// rather than trusting the dialog filter, which some document providers
+  /// ignore; a rejected file returns null with an error snackbar when
+  /// [context] is supplied.
   static Future<PlatformFile?> pickFile({
     List<String>? allowedExtensions,
     BuildContext? context,
   }) async {
+    final extensions = allowedExtensions ?? defaultAllowedExtensions;
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: allowedExtensions ?? defaultAllowedExtensions,
+        allowedExtensions: extensions,
         allowMultiple: false,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        return result.files.first;
+        final file = result.files.first;
+        final String? rejection;
+        if (file.path == null || file.path!.isEmpty) {
+          rejection = '${file.name} could not be read';
+        } else if (!extensions.contains(
+          _normalizedExtension(file.extension, file.name),
+        )) {
+          rejection = '${file.name} is not a supported file type';
+        } else {
+          return file;
+        }
+        if (context != null && context.mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: rejection,
+            isError: true,
+          );
+        }
+        return null;
       }
     } catch (e) {
       debugPrint('Error picking file: $e');
-      if (context != null) {
+      if (context != null && context.mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Error selecting file. Please try again.',

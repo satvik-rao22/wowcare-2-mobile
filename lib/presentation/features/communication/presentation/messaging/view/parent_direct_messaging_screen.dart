@@ -18,6 +18,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/view_model/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/view_model/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
@@ -655,6 +656,14 @@ class _ParentDirectMessagingScreenState
         // states after calling close" and silently losing the very first
         // message a parent ever sends for a brand-new conversation.
         final sendCubit = resolveCommunicationCubit();
+        // Nothing listens to this short-lived cubit, so a failed upload or
+        // POST would otherwise vanish with it on close() below. Capture the
+        // failure here, surface it, and keep the draft so the parent can
+        // retry (the retry reuses the conversation created above).
+        String? sendError;
+        final errorSub = sendCubit.stream.listen((state) {
+          if (state is CommunicationError) sendError ??= state.message;
+        });
         await sendCubit.sendMessage(
           conversation.code,
           text,
@@ -663,9 +672,23 @@ class _ParentDirectMessagingScreenState
           senderUserCode: senderUserCode,
           receivers: receivers,
         );
+        await errorSub.cancel();
 
-        if (!mounted) return;
+        if (!mounted) {
+          await sendCubit.close();
+          return;
+        }
         _isStartingConversation.value = false;
+        if (sendError != null) {
+          await sendCubit.close();
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: sendError!,
+            isError: true,
+          );
+          return;
+        }
         _emptyInputController.clear();
         _pendingNewConversationAttachments.value = [];
         // Switch over to the real thread immediately rather than waiting

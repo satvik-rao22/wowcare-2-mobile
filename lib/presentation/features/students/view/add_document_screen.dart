@@ -12,7 +12,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -192,18 +191,18 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
+      // pickFile re-checks the extension after the pick and shows an error
+      // toast for anything outside these lists (zip, apk, ...).
+      final file = await FilePickerUtils.pickFile(
+        allowedExtensions: const [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
           ...FilePickerUtils.allowedVideoExtensions,
         ],
-        allowMultiple: false,
+        context: context,
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final PlatformFile file = result.files.first;
+      if (file != null) {
         // The cubit owns the whole upload flow (session → presign → PUT →
         // complete → ready) + the upload state; the widget just hands it the
         // picked file.
