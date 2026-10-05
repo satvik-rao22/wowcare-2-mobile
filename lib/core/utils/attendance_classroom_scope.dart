@@ -380,3 +380,29 @@ Future<void> applyStudentAllowedClassroomCodesToAttendanceBody(
   );
   body['allowedClassroomCodes'] = List<String>.from(codes);
 }
+
+/// Classroom codes a classroom-scoped staff persona may see (primary plus
+/// allowed). Null when the active persona is not scoped, meaning unrestricted.
+/// Fails closed to an empty set when the profile cannot be read.
+Future<Set<String>?> resolveScopedStaffClassroomCodes({
+  required StorageService storage,
+}) async {
+  final shouldScope = await isAttendanceScopedStaffPersona(storage: storage);
+  if (!shouldScope) return null;
+
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return <String>{};
+
+    final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    return <String>{
+      profile.primaryClassroomCode.trim(),
+      ...profile.allowedClassroomCodes.map((e) => e.trim()),
+    }..removeWhere((e) => e.isEmpty);
+  } catch (_) {
+    return <String>{};
+  }
+}

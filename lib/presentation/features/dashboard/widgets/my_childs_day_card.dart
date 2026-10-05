@@ -1412,6 +1412,15 @@ class _MyChildsDayChatPreviewRowState
   int _recencyOf(ConversationEntity c) =>
       (c.lastMessageAt ?? c.updatedAt).millisecondsSinceEpoch;
 
+  /// A guardian must not see another guardian's private messages here. The
+  /// list payload does not say which message is private, and the per-parent
+  /// flags can lag, so a room with private messaging active, or whose preview
+  /// is the neutral "Private message" placeholder, is held back entirely.
+  bool _isPrivateToOtherGuardians(ConversationEntity c) {
+    final preview = c.lastMessagePreview.trim().toLowerCase();
+    return c.hasActivePrivateMode || preview == 'private message';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1517,6 +1526,7 @@ class _MyChildsDayChatPreviewRowState
   ConversationEntity? _latest(List<ConversationEntity> list) {
     final mine = list
         .where((c) => c.studentCode == widget.studentCode)
+        .where((c) => !_isPrivateToOtherGuardians(c))
         .toList();
     if (mine.isEmpty) return null;
     mine.sort((a, b) => _recencyOf(b).compareTo(_recencyOf(a)));
