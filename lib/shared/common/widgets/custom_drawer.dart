@@ -173,20 +173,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
           )
           .toList();
 
-      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
-      // from the switcher, using the cached `/users/details` snapshot. An
-      // unknown/missing status is treated as active so a stale snapshot
-      // never hides a school the user should be able to reach.
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval),
+      // or that this user has no role at all, from the switcher — using the
+      // cached `/users/details` snapshot. `names-by-org` lists every school
+      // in the organization regardless of this user's own access, so without
+      // this an account with a role at only one school of three saw all
+      // three in the dropdown (two of them unusable, just padding the list).
+      // A missing snapshot entry is only let through for the CURRENTLY
+      // active school — never hidden just because the cache is momentarily
+      // stale — not for every other school in the org.
       if (orgCode != null && orgCode.isNotEmpty) {
         final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
         if (cachedUsers.isNotEmpty) {
           schoolsForOrg = schoolsForOrg.where((e) {
+            final code = e['schoolCode'] ?? '';
             final status = schoolStatusFromUserDetails(
               cachedUsers,
               orgCode,
-              e['schoolCode'] ?? '',
+              code,
             );
-            return status == null || status == 'ACTIVE';
+            if (status != null) return status == 'ACTIVE';
+            return code == schoolCode;
           }).toList();
         }
       }
@@ -208,25 +215,29 @@ class _CustomDrawerState extends State<CustomDrawer> {
   }
 
   Widget _header() {
+    // Logo + title on one row, then the school switcher as its own full-width
+    // block underneath — not squeezed into the title's column beside the
+    // avatar, which left it too narrow and truncated names early.
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16, top: 16, bottom: 4),
-        child: Row(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+        ).copyWith(top: 16, bottom: 4),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              backgroundColor: AppPalette.surfaceCard,
-              radius: 28,
-              backgroundImage: AssetImage(MediaRes.appLogo),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 14),
-                  const Text(
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  backgroundColor: AppPalette.surfaceCard,
+                  radius: 28,
+                  backgroundImage: AssetImage(MediaRes.appLogo),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Text(
                     'WowCare',
                     style: TextStyle(
                       color: AppPalette.textPrimary,
@@ -234,15 +245,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // School switcher dropdown (for current organization)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _buildSchoolSwitcher(),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
+            // School switcher dropdown (for current organization)
+            _buildSchoolSwitcher(),
           ],
         ),
       ),
@@ -322,12 +330,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SizedBox(height: 8),
           Container(
             decoration: AppSurfaces.sub(radius: 12, bordered: true),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _schoolsForOrg.length,
-              itemBuilder: (context, index) {
-                final school = _schoolsForOrg[index];
+            // A plain Column, not a ListView — there are only ever a handful
+            // of schools and no scrolling is wanted, so there's no reason to
+            // involve Sliver/Viewport machinery that can reserve more height
+            // than the content actually needs.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: _schoolsForOrg.map((school) {
                 final code = school['schoolCode'] ?? '';
                 final schoolName = (school['schoolName'] ?? '').trim();
                 final name = schoolName.isNotEmpty ? schoolName : code;
@@ -350,7 +359,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         Expanded(
                           child: Text(
                             name,
-                            maxLines: 1,
+                            // Wraps rather than silently truncating a long
+                            // school name.
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isSelected
@@ -364,16 +375,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           ),
                         ),
                         if (isSelected)
-                          const Icon(
-                            Icons.check,
-                            size: 16,
-                            color: AppPalette.brandDark,
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Icons.check,
+                              size: 16,
+                              color: AppPalette.brandDark,
+                            ),
                           ),
                       ],
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
           ),
         ],
@@ -1376,6 +1390,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           );
                         },
                       ),
+                      SizedBox(height: MediaQuery.of(context).viewPadding.bottom),
+                      const SizedBox(height: 15),
                     ],
                   ),
                 ),

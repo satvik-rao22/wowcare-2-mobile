@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
@@ -54,7 +53,6 @@ class StudentImmunizationTabCard extends StatefulWidget {
 class _StudentImmunizationTabCardState
     extends State<StudentImmunizationTabCard> {
   bool _hasShownErrorSnackBar = false;
-  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
 
   /// Single cubit instance shared with the parent health tab so its
   /// single-flight guard spans taps and the bulk-exempt toggle sees this list.
@@ -141,17 +139,28 @@ class _StudentImmunizationTabCardState
 
         return StatefulBuilder(
           builder: (context, setLocalState) {
-            final bool canSave = selectedDate != null;
+            // Missed/Overdue can't legitimately be a future date — matches
+            // web, which rejects it. Guards both against the date picker
+            // (lastDate below) and against a future date left over from
+            // switching status after already picking one.
+            final bool isPastOnlyStatus =
+                statusUi == 'Missed' || statusUi == 'Overdue';
+            final bool hasInvalidFutureDate =
+                isPastOnlyStatus &&
+                selectedDate != null &&
+                selectedDate!.isAfter(DateTime.now());
+            final bool canSave = selectedDate != null && !hasInvalidFutureDate;
 
             // Web auto-fills today's date when the status is set to
-            // Completed/Missed so staff aren't left with a stale due date
-            // (e.g. a future due date rejected as "cannot be in the future").
-            // Only kicks in when the current date is unset or still in the
-            // future — an already-entered past date is left alone.
+            // Completed/Missed/Overdue so staff aren't left with a stale due
+            // date (e.g. a future due date rejected as "cannot be in the
+            // future"). Only kicks in when the current date is unset or
+            // still in the future — an already-entered past date is left
+            // alone.
             void onStatusChanged(String v) {
               setLocalState(() {
                 statusUi = v;
-                if ((v == 'Completed' || v == 'Missed') &&
+                if ((v == 'Completed' || v == 'Missed' || v == 'Overdue') &&
                     (selectedDate == null ||
                         selectedDate!.isAfter(DateTime.now()))) {
                   selectedDate = DateTime.now();
@@ -215,7 +224,9 @@ class _StudentImmunizationTabCardState
                                 child: _DialogField(
                                   label: StudentStrings.date,
                                   value: selectedDate != null
-                                      ? _apiFormatter.format(selectedDate!)
+                                      ? DateUtilsNew.formatToReadableDate(
+                                          selectedDate!,
+                                        )
                                       : '',
                                   suffix: AppIcon(
                                     MediaRes.calender_icon,
@@ -230,6 +241,9 @@ class _StudentImmunizationTabCardState
                                             isRangePicker: false,
                                             isTimePicker: false,
                                             initialDate: selectedDate,
+                                            lastDate: isPastOnlyStatus
+                                                ? DateTime.now()
+                                                : null,
                                           ),
                                         );
                                     if (result == null ||
@@ -264,7 +278,9 @@ class _StudentImmunizationTabCardState
                               _DialogField(
                                 label: StudentStrings.date,
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? DateUtilsNew.formatToReadableDate(
+                                        selectedDate!,
+                                      )
                                     : '',
                                 suffix: AppIcon(
                                   MediaRes.calender_icon,
@@ -279,6 +295,9 @@ class _StudentImmunizationTabCardState
                                           isRangePicker: false,
                                           isTimePicker: false,
                                           initialDate: selectedDate,
+                                          lastDate: isPastOnlyStatus
+                                              ? DateTime.now()
+                                              : null,
                                         ),
                                       );
                                   if (result == null ||
@@ -304,6 +323,17 @@ class _StudentImmunizationTabCardState
                               ),
                             ],
                           ),
+                        if (hasInvalidFutureDate) ...[
+                          SizedBox(height: verticalPadding / 2),
+                          Text(
+                            '$statusUi cannot have a future date.',
+                            style: TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: isTablet ? 14.0 : 12.0,
+                              color: AppColors.errorColor,
+                            ),
+                          ),
+                        ],
                         SizedBox(height: verticalPadding),
                         CustomButtonLayout(
                           confirmButtonLabel: StudentStrings.save,

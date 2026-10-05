@@ -29,6 +29,7 @@ class StaffProfileTab extends StatelessWidget {
     super.key,
     required this.staffCode,
     this.canEdit = false,
+    this.allowOwnProfileEdit = false,
     this.classroomNames,
     this.classroomNameByCode,
     this.onProfileSummaryChanged,
@@ -39,8 +40,16 @@ class StaffProfileTab extends StatelessWidget {
   /// Whether the current persona has STAFF module write access (resolved by
   /// the parent screen from `/users/details`). Profile Information and
   /// Schedule are manager-owned, so their edit affordances additionally
-  /// require that this is NOT the logged-in user's own profile.
+  /// require that this is NOT the logged-in user's own profile — unless
+  /// [allowOwnProfileEdit] overrides that for a true admin (see its doc).
   final bool canEdit;
+
+  /// True admins may edit their OWN Profile Information/Schedule here too
+  /// (there's no separate admin self-service screen, unlike staff, who go
+  /// through HR/admin per `UserProfileScreen`'s comment on this same
+  /// restriction). Staff must stay blocked on their own profile regardless —
+  /// only the parent screen's `role.isTrueAdmin` sets this.
+  final bool allowOwnProfileEdit;
 
   /// Optional cached classroom display names (from StaffScreen).
   final List<String>? classroomNames;
@@ -59,6 +68,7 @@ class StaffProfileTab extends StatelessWidget {
     return _StaffProfileTabView(
       staffCode: staffCode,
       canEdit: canEdit,
+      allowOwnProfileEdit: allowOwnProfileEdit,
       classroomNames: classroomNames,
       classroomNameByCode: classroomNameByCode,
       onProfileSummaryChanged: onProfileSummaryChanged,
@@ -70,6 +80,7 @@ class _StaffProfileTabView extends StatefulWidget {
   const _StaffProfileTabView({
     required this.staffCode,
     this.canEdit = false,
+    this.allowOwnProfileEdit = false,
     this.classroomNames,
     this.classroomNameByCode,
     this.onProfileSummaryChanged,
@@ -77,6 +88,7 @@ class _StaffProfileTabView extends StatefulWidget {
 
   final String staffCode;
   final bool canEdit;
+  final bool allowOwnProfileEdit;
   final List<String>? classroomNames;
   final Map<String, String>? classroomNameByCode;
   final void Function(String name, String classroom, String designation)?
@@ -117,9 +129,12 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
 
   /// Gate for the manager-owned sections (Profile Information, Schedule): the
   /// persona needs STAFF write access from `/users/details` AND must be
-  /// confirmed to be looking at somebody else's profile. Anything short of
-  /// both renders no edit affordance at all.
-  bool get _canEditManagedProfile => widget.canEdit && _isOwnProfile == false;
+  /// confirmed to be looking at somebody else's profile — unless
+  /// [_StaffProfileTabView.allowOwnProfileEdit] (true admins only) waives the
+  /// own-profile restriction. Anything short of that renders no edit
+  /// affordance at all.
+  bool get _canEditManagedProfile =>
+      widget.canEdit && (widget.allowOwnProfileEdit || _isOwnProfile == false);
 
   @override
   void initState() {
@@ -467,8 +482,9 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                             ),
                           ),
                           // A staff member can't edit their OWN profile
-                          // (designation, classroom assignment, etc.), and
-                          // nobody edits it without STAFF write access.
+                          // (designation, classroom assignment, etc.) — a true
+                          // admin can, via allowOwnProfileEdit — and nobody
+                          // edits it without STAFF write access.
                           // Renders only once _isOwnProfile is explicitly
                           // false (see field doc) — never on null/true, so
                           // it can't flash visible then disappear.
@@ -666,7 +682,8 @@ class _StaffProfileTabViewState extends State<_StaffProfileTabView> {
                         behavior: HitTestBehavior.opaque,
                         // Schedule is manager-owned like Profile Information:
                         // no tap target (and no pencil below) without write
-                        // access, and never on one's own profile.
+                        // access, and — for staff, not a true admin — never
+                        // on one's own profile.
                         onTap: !_canEditManagedProfile
                             ? null
                             : () {

@@ -35,7 +35,9 @@ class ApiConstantsDev {
   //   flutter run --dart-define=API_HOST=https://jl69j4pz-8090.inc1.devtunnels.ms
   static const String _host = String.fromEnvironment(
     'API_HOST',
-    defaultValue: 'https://dev.childcarewow.app',
+    // Matches WowInventory's DEV gateway (per the shared DEV Guide) — both
+    // apps hit the same DEV backend, not two separate hosts.
+    defaultValue: 'https://api-dev.childcarewow.app',
   );
 
   // ─── Per-service base URLs ─────────────────────────────────────────────────
