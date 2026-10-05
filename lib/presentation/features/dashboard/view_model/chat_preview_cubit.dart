@@ -61,11 +61,44 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   Timer? _timeout;
   bool _started = false;
+  bool _isGuardianViewer = false;
+
+  /// Classroom codes a classroom-scoped staff viewer may see. Null means the
+  /// viewer is not scoped. Until resolved, classroom-bound rooms are held back
+  /// so a scoped staff member never briefly sees one outside their classes.
+  Set<String>? _scopedClassroomCodes;
+  bool _scopeResolved = false;
+  final Map<String, ConversationEntity> _known = {};
 
   /// Idempotent: the card can be rebuilt without re-running the pipeline.
-  Future<void> load() async {
+  ///
+  /// [isGuardianViewer] — when the viewer is acting as a guardian, rooms where
+  /// another guardian has private messaging enabled are kept off the preview
+  /// (their last-message text and unread count would otherwise leak it).
+  Future<void> load({bool isGuardianViewer = false}) async {
     if (_started) return;
     _started = true;
+    _isGuardianViewer = isGuardianViewer;
+
+    if (!isGuardianViewer) {
+      unawaited(
+        resolveScopedStaffClassroomCodes(storage: _storage)
+            .then((codes) {
+              if (isClosed) return;
+              _scopedClassroomCodes = codes;
+              _scopeResolved = true;
+              _safeEmit(state.copyWith(items: _rank(const [])));
+            })
+            .catchError((_) {
+              if (isClosed) return;
+              _scopedClassroomCodes = <String>{};
+              _scopeResolved = true;
+              _safeEmit(state.copyWith(items: _rank(const [])));
+            }),
+      );
+    } else {
+      _scopeResolved = true;
+    }
 
     final currentUserCode =
         (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
@@ -197,10 +230,46 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   static DateTime _rankTime(ConversationEntity c) =>
       c.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// True when the viewer must not see [c] on the dashboard. A guardian is kept
+  /// out of rooms with private messaging on or a private last message; the list
+  /// payload does not say which message is private, so the whole room is held.
+  bool _hiddenFromViewer(ConversationEntity c) {
+    if (_isGuardianViewer) {
+      // The REST preview is the neutral placeholder whenever the room's last
+      // message is private, and the per-parent flags can lag behind — so a
+      // room with private messaging active, or showing that placeholder, is
+      // held back from the guardian preview entirely.
+      final preview = c.lastMessagePreview.trim().toLowerCase();
+      return c.hasActivePrivateMode || preview == 'private message';
+    }
+
+    final classroomBound =
+        c.type == ConversationType.roomChat ||
+        c.type == ConversationType.classroomChat;
+    if (!classroomBound) return false;
+    if (!_scopeResolved) return true;
+
+    final scope = _scopedClassroomCodes;
+    if (scope == null) return false;
+    final code = c.classroomCode?.trim() ?? '';
+    return code.isEmpty || !scope.contains(code);
+  }
+
   List<ConversationEntity> _rank(
-    List<ConversationEntity> list, {
+    List<ConversationEntity> input, {
     String? primaryClassroomCode,
   }) {
+    // Every conversation ever seen is kept, so a room hidden while the viewer's
+    // scope was still loading comes back once that scope resolves.
+    for (final c in input) {
+      final code = c.code.trim();
+      if (code.isEmpty) continue;
+      final known = _known[code];
+      if (known == null || !_rankTime(c).isBefore(_rankTime(known))) {
+        _known[code] = c;
+      }
+    }
+    final list = _known.values.where((c) => !_hiddenFromViewer(c)).toList();
     // Callers pass `[...items, ...freshSnapshot]` — the OLD top-2 selection
     // first, the fresh cache/REST/Firestore data second. Cache, REST and the
     // live watch all resolve independently and can arrive in ANY order (a slow

@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/dashboard/view_model/chat_preview_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -33,7 +34,9 @@ class MyDayChatPreviewRow extends StatelessWidget {
     return BlocProvider<ChatPreviewCubit>(
       // §5.4: constructed here, loaded once. `load()` is itself idempotent, so
       // a rebuild of this widget cannot re-fire the three fetches.
-      create: (_) => serviceLocator<ChatPreviewCubit>()..load(),
+      create: (context) =>
+          serviceLocator<ChatPreviewCubit>()
+            ..load(isGuardianViewer: context.read<RoleCubit>().isParent),
       child: const _ChatPreviewRowView(),
     );
   }
@@ -88,7 +91,12 @@ class _ChatPreviewRowView extends StatelessWidget {
     }
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => ConversationThreadScreen(conversation: conversation),
+        builder: (_) => ConversationThreadScreen(
+          conversation: conversation,
+          viewerRoleOverride: context.read<RoleCubit>().isParent
+              ? ParticipantRole.parent
+              : ParticipantRole.staff,
+        ),
       ),
     );
   }
