@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app_image.dart';
 
-/// Full-screen, pinch-to-zoom viewer for any [AppImage] source.
-///
-/// Uses [InteractiveViewer] rather than `photo_view` so SVG and Lottie zoom the
-/// same way rasters do.
+/// Full-screen viewer for any [AppImage] source: pinch, pan and double-tap
+/// zoom via [AppZoomableImage], so SVG and Lottie zoom the same way rasters do.
 class AppImageViewer extends StatelessWidget {
   const AppImageViewer({super.key, required this.source, this.heroTag});
 
@@ -35,21 +33,14 @@ class AppImageViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // No width/height: the viewer must decode at full resolution so zooming
-    // stays sharp, and the size-based decode hint in AppImage switches off.
-    Widget image = AppImage(source: source, fit: BoxFit.contain);
-    if (heroTag != null) image = Hero(tag: heroTag!, child: image);
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // No width/height: the viewer decodes at full resolution so zooming
+          // stays sharp, and AppImage's size-based decode hint switches off.
           Positioned.fill(
-            child: InteractiveViewer(
-              minScale: 1,
-              maxScale: 5,
-              child: Center(child: image),
-            ),
+            child: AppZoomableImage(source: source, heroTag: heroTag),
           ),
           SafeArea(
             child: Align(

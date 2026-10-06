@@ -12,6 +12,12 @@ import 'app_image_viewer.dart';
 
 export 'app_image_source.dart';
 export 'app_image_viewer.dart';
+export 'app_zoomable_image.dart';
+
+/// Builds the failure state. [error] is null when the source itself could not
+/// be resolved (null, blank or unsupported).
+typedef AppImageErrorBuilder =
+    Widget Function(BuildContext context, Object? error, StackTrace? stackTrace);
 
 /// The single image widget for the app: raster (png/jpg/webp/gif/heic), SVG
 /// and Lottie, from network, asset, file or memory.
@@ -40,6 +46,7 @@ class AppImage extends StatelessWidget {
     this.backgroundColor,
     this.placeholder,
     this.errorWidget,
+    this.errorBuilder,
     this.enableFullScreen = false,
     this.heroTag,
     this.onTap,
@@ -67,6 +74,10 @@ class AppImage extends StatelessWidget {
   final Color? backgroundColor;
   final Widget? placeholder;
   final Widget? errorWidget;
+
+  /// Like [errorWidget] but receives the failure, e.g. to log it. Wins over
+  /// [errorWidget] when both are set.
+  final AppImageErrorBuilder? errorBuilder;
 
   /// Tap opens [AppImageViewer] with pinch-zoom.
   final bool enableFullScreen;
@@ -133,7 +144,8 @@ class AppImage extends StatelessWidget {
   Widget _raster(BuildContext context, AppImageSource src) {
     final cacheWidth = _decodeWidth(context);
     final blend = color == null ? null : BlendMode.srcIn;
-    Widget onError(BuildContext c, Object _, StackTrace? __) => _error(c);
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
 
     return switch (src) {
       NetworkAppImageSource() => CachedNetworkImage(
@@ -149,7 +161,7 @@ class AppImage extends StatelessWidget {
         memCacheWidth: cacheWidth,
         fadeInDuration: const Duration(milliseconds: 150),
         placeholder: (c, _) => _placeholder(c),
-        errorWidget: (c, _, __) => _error(c),
+        errorWidget: (c, _, e) => _error(c, e),
       ),
       AssetAppImageSource() => Image.asset(
         src.path,
@@ -212,7 +224,8 @@ class AppImage extends StatelessWidget {
     final filter = color == null
         ? null
         : ColorFilter.mode(color!, BlendMode.srcIn);
-    Widget onError(BuildContext c, Object _, StackTrace __) => _error(c);
+    Widget onError(BuildContext c, Object e, StackTrace st) =>
+        _error(c, e, st);
     // Local SVGs parse in a frame or two — a shimmer would just flicker.
     Widget blank(BuildContext _) => SizedBox(width: width, height: height);
 
@@ -270,7 +283,8 @@ class AppImage extends StatelessWidget {
   Widget _lottie(BuildContext context, AppImageSource src) {
     Widget frame(BuildContext c, Widget child, LottieComposition? comp) =>
         comp == null ? _placeholder(c) : child;
-    Widget onError(BuildContext c, Object _, StackTrace? __) => _error(c);
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
 
     return switch (src) {
       NetworkAppImageSource() => Lottie.network(
@@ -327,7 +341,8 @@ class AppImage extends StatelessWidget {
         );
   }
 
-  Widget _error(BuildContext context) {
+  Widget _error(BuildContext context, [Object? error, StackTrace? stackTrace]) {
+    if (errorBuilder != null) return errorBuilder!(context, error, stackTrace);
     if (errorWidget != null) return errorWidget!;
     final sides = [width, height].whereType<double>().where((v) => v.isFinite);
     final iconSize = sides.isEmpty
