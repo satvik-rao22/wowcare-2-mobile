@@ -1,13 +1,8 @@
-import 'dart:io';
-import 'dart:math' as math;
+part of 'app_image.dart';
 
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
-
-import 'app_image.dart';
-
-/// Pinch / pan / double-tap zoom for any [AppImage] source. The in-house
-/// replacement for `photo_view`, built on [InteractiveViewer].
+/// Pinch / pan / double-tap zoom surface behind [AppImageInteraction.zoom] and
+/// the full-screen viewer. The in-house replacement for `photo_view`, built on
+/// [InteractiveViewer].
 ///
 /// Matches photo_view's defaults:
 /// - opens fitted (contain); pinch to zoom, pan while zoomed, fling with inertia;
@@ -19,13 +14,11 @@ import 'app_image.dart';
 /// - loading and error states replace the zoom surface.
 ///
 /// Deliberate differences: pinching below fit is not allowed (photo_view lets
-/// the image shrink to nothing), and zoom is capped at [maxScale] (raised
+/// the image shrink to nothing), and zoom is capped at [_maxScale] (raised
 /// automatically if original size needs more).
-class AppZoomableImage extends StatefulWidget {
-  const AppZoomableImage({
-    super.key,
+class _ZoomableImage extends StatefulWidget {
+  const _ZoomableImage({
     required this.source,
-    this.maxScale = 8,
     this.backgroundColor = Colors.black,
     this.placeholder,
     this.errorBuilder,
@@ -35,8 +28,6 @@ class AppZoomableImage extends StatefulWidget {
   /// Anything [AppImage] accepts.
   final Object? source;
 
-  /// Upper zoom bound, relative to the fitted size.
-  final double maxScale;
   final Color backgroundColor;
 
   /// Shown until a raster image has decoded. Defaults to a spinner.
@@ -47,11 +38,14 @@ class AppZoomableImage extends StatefulWidget {
   final Object? heroTag;
 
   @override
-  State<AppZoomableImage> createState() => _AppZoomableImageState();
+  State<_ZoomableImage> createState() => _ZoomableImageState();
 }
 
-class _AppZoomableImageState extends State<AppZoomableImage>
+class _ZoomableImageState extends State<_ZoomableImage>
     with SingleTickerProviderStateMixin {
+  /// Upper zoom bound, relative to the fitted size.
+  static const double _maxScale = 8;
+
   final TransformationController _transform = TransformationController();
   // Created eagerly: a lazy `late final` would first be built in dispose() when
   // the user never zoomed (e.g. the error state), which throws.
@@ -97,7 +91,7 @@ class _AppZoomableImageState extends State<AppZoomableImage>
   }
 
   @override
-  void didUpdateWidget(covariant AppZoomableImage oldWidget) {
+  void didUpdateWidget(covariant _ZoomableImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source != widget.source) {
       _transform.value = Matrix4.identity();
@@ -199,7 +193,7 @@ class _AppZoomableImageState extends State<AppZoomableImage>
   }
 
   double get _effectiveMaxScale =>
-      math.max(widget.maxScale, _originalScale ?? 0);
+      math.max(_maxScale, _originalScale ?? 0);
 
   /// Double-tap stops, ascending: fit, cover, original. Stops that would not
   /// zoom in any further are dropped; a lone fit gets a 2.5x stop so

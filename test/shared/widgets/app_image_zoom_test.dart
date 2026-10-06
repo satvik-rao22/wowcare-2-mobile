@@ -35,7 +35,9 @@ Future<void> _pumpViewer(WidgetTester tester, Uint8List bytes) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    MaterialApp(home: AppZoomableImage(source: bytes)),
+    MaterialApp(
+      home: AppImage(source: bytes, interaction: AppImageInteraction.zoom),
+    ),
   );
   // Decode happens off the fake clock.
   await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
@@ -102,8 +104,9 @@ void main() {
     Object? seen = 'unset';
     await tester.pumpWidget(
       MaterialApp(
-        home: AppZoomableImage(
+        home: AppImage(
           source: null,
+          interaction: AppImageInteraction.zoom,
           errorBuilder: (_, error, __) {
             seen = error;
             return const Text('failed');
