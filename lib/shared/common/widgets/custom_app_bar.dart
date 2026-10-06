@@ -238,7 +238,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               // the per-type streams have delivered anything at all — once
               // countsByType is populated, the persona-scoped total is
               // always the correct, authoritative one.
-              final int unreadCount = badgeState.countsByType.isNotEmpty
+              // The unfiltered inbox total includes Admin Chat, which the staff
+              // persona must never see counted — so staff never uses it.
+              final int unreadCount =
+                  badgeState.countsByType.isNotEmpty || role.isStaff
                   ? personaTotal
                   : (badgeState.firestoreTotal ?? personaTotal);
               // Icon + badge share ONE tap target (InkResponse via IconButton

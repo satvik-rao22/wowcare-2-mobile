@@ -196,6 +196,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       ),
       (_) {
         AppLogger.d('[UnreadDebug][markRead] OK conv=$conversationCode');
+        _liveUnread[conversationCode] = 0;
         MessagingEventService.instance.notifyMarkedRead(conversationCode);
       },
     );
@@ -237,6 +238,23 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// (re)fetched (see [_cacheConversations]); read by
   /// [_conversationForThread] for read/delivered-by-all tick aggregation.
   final Map<String, Conversation> _knownConversations = {};
+
+  /// Unread count per conversation as last reported by the live Firestore
+  /// inbox stream. REST lists (and the Isar cache) carry no trustworthy unread
+  /// count, and every load/filter/page lands on its own timeline relative to
+  /// that stream — stamping REST's value (0) onto the list is what left badges
+  /// blank until a manual pull-to-refresh. Overlaid on every list this cubit
+  /// emits; see [_withLiveUnread].
+  final Map<String, int> _liveUnread = {};
+
+  /// [c] with the live Firestore count when one has been seen, otherwise the
+  /// count this cubit already knows for it (never a blind REST 0).
+  Conversation _withLiveUnread(Conversation c) {
+    final live = _liveUnread[c.code] ?? _knownConversations[c.code]?.unreadCount;
+    return (live == null || live == c.unreadCount)
+        ? c
+        : c.copyWith(unreadCount: live);
+  }
 
   void _cacheConversations(Map<String?, List<Conversation>> byType) {
     for (final list in byType.values) {
@@ -406,6 +424,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             if (isClosed || conversations.isEmpty) {
               return;
             }
+            for (final c in conversations) {
+              _liveUnread[c.code] = c.unreadCount;
+            }
             final prior = state is CommunicationConversationsLoaded
                 ? state as CommunicationConversationsLoaded
                 : null;
@@ -563,10 +584,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
                       .conversationsByType
                 : <String?, List<Conversation>>{};
             final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
+            final withUnread = conversations.map(_withLiveUnread).toList();
             if (type != null) {
-              mergedMap[type] = conversations;
+              mergedMap[type] = withUnread;
             } else {
-              mergedMap[null] = conversations;
+              mergedMap[null] = withUnread;
             }
             _cacheConversations(mergedMap);
             emit(CommunicationConversationsLoaded(mergedMap));
@@ -611,7 +633,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             prior?.conversationsByType ?? <String?, List<Conversation>>{};
 
         final updatedMap = Map<String?, List<Conversation>>.from(currentMap);
-        final sorted = List<Conversation>.from(conversationsPage.items)
+        final sorted = conversationsPage.items.map(_withLiveUnread).toList()
           ..sort((a, b) {
             final aTime = a.lastMessageAt ?? a.updatedAt;
             final bTime = b.lastMessageAt ?? b.updatedAt;
@@ -706,9 +728,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         final existingCodes = existing.map((c) => c.code).toSet();
         // Dedupe — a conversation that received a new message between the
         // first page load and this one can otherwise show up twice.
-        final appended = conversationsPage.items.where(
-          (c) => !existingCodes.contains(c.code),
-        );
+        final appended = conversationsPage.items
+            .where((c) => !existingCodes.contains(c.code))
+            .map(_withLiveUnread);
         existing.addAll(appended);
         existing.sort((a, b) {
           final aTime = a.lastMessageAt ?? a.updatedAt;

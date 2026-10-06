@@ -14,6 +14,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/core/extensions/messaging_time_formatter.dart';
 import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/src/app_router.dart' show AppRoutes;
 
@@ -31,13 +32,30 @@ class MyDayChatPreviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ChatPreviewCubit>(
-      // §5.4: constructed here, loaded once. `load()` is itself idempotent, so
-      // a rebuild of this widget cannot re-fire the three fetches.
-      create: (context) =>
-          serviceLocator<ChatPreviewCubit>()
-            ..load(isGuardianViewer: context.read<RoleCubit>().isParent),
-      child: const _ChatPreviewRowView(),
+    // `load()` bakes the viewer's persona into the cubit (guardian vs staff
+    // visibility rules, classroom scope) and is deliberately one-shot. A
+    // multi-persona account switching staff <-> parent, or a role that only
+    // resolves after this card first built (RoleState defaults to `admin`),
+    // would otherwise keep filtering with the PREVIOUS persona and hide every
+    // recent chat. Keying the provider on persona + school scope gives each
+    // its own freshly loaded cubit.
+    final role = context.select<RoleCubit, String>((c) => c.state.role);
+    final resolved = context.select<RoleCubit, bool>(
+      (c) => c.state.personaResolved,
+    );
+    return ValueListenableBuilder<int>(
+      valueListenable: SchoolSwitchEvents.epoch,
+      builder: (context, epoch, _) => BlocProvider<ChatPreviewCubit>(
+        key: ValueKey('chat-preview-$role-$resolved-$epoch'),
+        // §5.4: constructed here, loaded once per persona/scope key.
+        create: (context) =>
+            serviceLocator<ChatPreviewCubit>()
+              ..load(
+                isGuardianViewer: context.read<RoleCubit>().isParent,
+                isStaffViewer: context.read<RoleCubit>().isStaff,
+              ),
+        child: const _ChatPreviewRowView(),
+      ),
     );
   }
 }

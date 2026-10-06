@@ -1393,6 +1393,13 @@ class _MyChildsDayChatPreviewRowState
   /// either slot updates.
   final Map<ConversationType, ConversationEntity?> _byType = {};
 
+  /// Most-recent conversation per type as delivered by the LIVE Firestore
+  /// watch only. Once a type has one, it is authoritative: the cache and REST
+  /// copies (a forced-0 / older unread count and last message) must not
+  /// overwrite it, or the unread badge and row blank every time a slower
+  /// response lands after the live snapshot.
+  final Map<ConversationType, ConversationEntity> _liveByType = {};
+
   bool _loading = true;
   final Map<ConversationType, StreamSubscription<List<ConversationEntity>>>
   _subs = {};
@@ -1402,7 +1409,8 @@ class _MyChildsDayChatPreviewRowState
   /// this child has neither an Admin Chat nor a Room Chat conversation yet.
   ConversationEntity? get _conversation {
     ConversationEntity? winner;
-    for (final c in _byType.values) {
+    for (final type in _kCommunicationRowTypes) {
+      final c = _liveByType[type] ?? _byType[type];
       if (c == null) continue;
       if (winner == null || _recencyOf(c) > _recencyOf(winner)) winner = c;
     }
@@ -1465,7 +1473,7 @@ class _MyChildsDayChatPreviewRowState
           .call(type: type);
       cached.fold((_) {}, (list) {
         final mine = _latest(list);
-        if (mounted && mine != null) {
+        if (mounted && mine != null && !_liveByType.containsKey(type)) {
           setState(() {
             _byType[type] = mine;
             _loading = false;
@@ -1477,22 +1485,7 @@ class _MyChildsDayChatPreviewRowState
     }
 
     // Fallback to REST concurrently in case Firestore/cache is empty.
-    unawaited(
-      serviceLocator<GetConversationsEntityUseCase>().call(type: type).then((
-        result,
-      ) {
-        if (!mounted) return;
-        result.fold((_) {}, (list) {
-          final mine = _latest(list);
-          if (mine != null) {
-            setState(() {
-              _byType[type] = mine;
-              _loading = false;
-            });
-          }
-        });
-      }),
-    );
+    unawaited(_loadRest(type));
 
     _subs[type] = serviceLocator<WatchConversationsUseCase>()
         .call(type: type)
@@ -1500,11 +1493,21 @@ class _MyChildsDayChatPreviewRowState
           (list) {
             if (!mounted) return;
             _timeout?.cancel();
+            final mine = _latest(list);
             setState(() {
-              final mine = _latest(list);
-              if (mine != null) _byType[type] = mine;
+              if (mine != null) {
+                _liveByType[type] = mine;
+                _byType[type] = mine;
+              }
               _loading = false;
             });
+            // Live inbox items carry no studentCode until their metadata is
+            // hydrated, so `_latest` silently drops them and this child's chat
+            // never shows (the account's cache can hold another persona's
+            // list). The REST list does carry it — reload from there.
+            if (mine == null && list.any((c) => c.studentCode == null)) {
+              unawaited(_loadRest(type));
+            }
           },
           onError: (_) {
             if (!mounted) return;
@@ -1519,15 +1522,75 @@ class _MyChildsDayChatPreviewRowState
         );
   }
 
+  final Map<ConversationType, DateTime> _lastRestLoad = {};
+
+  /// REST copy of [type]'s list (carries studentCode). Throttled so a busy
+  /// inbox stream can't turn this into a request loop.
+  Future<void> _loadRest(ConversationType type) async {
+    final last = _lastRestLoad[type];
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 20)) {
+      return;
+    }
+    _lastRestLoad[type] = DateTime.now();
+    final result = await serviceLocator<GetConversationsEntityUseCase>().call(
+      type: type,
+    );
+    if (!mounted) return;
+    result.fold((_) {}, (list) {
+      final mine = _latest(list);
+      if (mine != null && !_liveByType.containsKey(type)) {
+        setState(() {
+          _byType[type] = mine;
+          _loading = false;
+        });
+      } else if (mine != null) {
+        // Live copy already present: refresh only its metadata-bearing fields
+        // by replacing it when the REST copy is the same conversation.
+        final live = _liveByType[type];
+        if (live != null && live.code == mine.code) {
+          setState(
+            () => _liveByType[type] = mine.copyWith(
+              unreadCount: live.unreadCount,
+            ),
+          );
+        }
+      }
+    });
+  }
+
   /// Most recent conversation belonging to [widget.studentCode] only — see
   /// the widget's own doc for why every other student's must be excluded
   /// before picking "most recent". Null when this child has none (even if
   /// [list] itself is non-empty for a sibling).
   ConversationEntity? _latest(List<ConversationEntity> list) {
-    final mine = list
-        .where((c) => c.studentCode == widget.studentCode)
-        .where((c) => !_isPrivateToOtherGuardians(c))
+    final child = widget.studentCode.trim();
+    final childName = widget.childName.trim().toLowerCase();
+    // A live inbox item has no studentCode until its metadata is hydrated, and
+    // a room chat's title IS the child's name — so an item with no studentCode
+    // is attributed by name instead of being dropped.
+    bool isThisChild(ConversationEntity c) {
+      final code = (c.studentCode ?? '').trim();
+      if (code.isNotEmpty) return code == child;
+      return childName.isNotEmpty && c.title.trim().toLowerCase() == childName;
+    }
+
+    final forChild = list.where(isThisChild).toList();
+    // A room another guardian has private messaging on is NOT hidden (that
+    // made the child's chat vanish for good) — it stays visible with a neutral
+    // preview, so nothing private leaks but the row and its tap target remain.
+    final mine = forChild
+        .map(
+          (c) => _isPrivateToOtherGuardians(c)
+              ? c.copyWith(lastMessagePreview: 'Private message')
+              : c,
+        )
         .toList();
+    debugPrint(
+      '[ChildChat] child=$child total=${list.length} '
+      'matchedChild=${forChild.length} shown=${mine.length} '
+      'studentCodes=${list.map((c) => c.studentCode).toSet()}',
+    );
     if (mine.isEmpty) return null;
     mine.sort((a, b) => _recencyOf(b).compareTo(_recencyOf(a)));
     return mine.first;

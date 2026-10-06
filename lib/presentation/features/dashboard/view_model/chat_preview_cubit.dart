@@ -63,6 +63,10 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   bool _started = false;
   bool _isGuardianViewer = false;
 
+  /// Admin Chat is never visible to the staff persona (admin/director and
+  /// guardian only), so it is kept off a staff viewer's preview entirely.
+  bool _isStaffViewer = false;
+
   /// Classroom codes a classroom-scoped staff viewer may see. Null means the
   /// viewer is not scoped. Until resolved, classroom-bound rooms are held back
   /// so a scoped staff member never briefly sees one outside their classes.
@@ -70,15 +74,46 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   bool _scopeResolved = false;
   final Map<String, ConversationEntity> _known = {};
 
+  /// Unread count per conversation, taken ONLY from the live Firestore inbox
+  /// snapshot. Cache and REST copies carry a stale or forced-0 count, and the
+  /// merge below picks a winner by timestamp, not by source — so a REST/cache
+  /// copy could blank (or freeze) a count Firestore had already delivered.
+  /// Overlaid onto the ranked rows at the end, so the badge only ever changes
+  /// when Firestore itself says so.
+  final Map<String, int> _liveUnread = {};
+
+  /// Final per-viewer presentation of a ranked row: live unread overlay, and
+  /// for a guardian a neutral preview when private messaging is active.
+  ConversationEntity _present(ConversationEntity c) {
+    final withUnread = _withLiveUnread(c);
+    if (_isGuardianViewer &&
+        (c.hasActivePrivateMode ||
+            c.lastMessagePreview.trim().toLowerCase() == 'private message')) {
+      return withUnread.copyWith(lastMessagePreview: 'Private message');
+    }
+    return withUnread;
+  }
+
+  ConversationEntity _withLiveUnread(ConversationEntity c) {
+    final live = _liveUnread[c.code.trim()];
+    return (live == null || live == c.unreadCount)
+        ? c
+        : c.copyWith(unreadCount: live);
+  }
+
   /// Idempotent: the card can be rebuilt without re-running the pipeline.
   ///
   /// [isGuardianViewer] — when the viewer is acting as a guardian, rooms where
   /// another guardian has private messaging enabled are kept off the preview
   /// (their last-message text and unread count would otherwise leak it).
-  Future<void> load({bool isGuardianViewer = false}) async {
+  Future<void> load({
+    bool isGuardianViewer = false,
+    bool isStaffViewer = false,
+  }) async {
     if (_started) return;
     _started = true;
     _isGuardianViewer = isGuardianViewer;
+    _isStaffViewer = isStaffViewer;
 
     if (!isGuardianViewer) {
       unawaited(
@@ -186,6 +221,10 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       (list) {
         if (isClosed) return;
         _timeout?.cancel();
+        for (final c in list) {
+          final code = c.code.trim();
+          if (code.isNotEmpty) _liveUnread[code] = c.unreadCount;
+        }
         // If Firestore returns items, use them (merged to preserve names if
         // needed). If it returns empty, only overwrite if we didn't get any
         // from REST/cache.
@@ -239,9 +278,12 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       // message is private, and the per-parent flags can lag behind — so a
       // room with private messaging active, or showing that placeholder, is
       // held back from the guardian preview entirely.
-      final preview = c.lastMessagePreview.trim().toLowerCase();
-      return c.hasActivePrivateMode || preview == 'private message';
+      // Not hidden: a room another guardian has private messaging on stays
+      // visible with a neutral preview (see [_present]).
+      return false;
     }
+
+    if (_isStaffViewer && c.type == ConversationType.adminChat) return true;
 
     final classroomBound =
         c.type == ConversationType.roomChat ||
@@ -313,10 +355,15 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       }
     }
 
-    if (primaryNotes == null) return unique.take(2).toList(growable: false);
+    if (primaryNotes == null) {
+      return unique.take(2).map(_present).toList(growable: false);
+    }
     return <ConversationEntity>[
-      primaryNotes,
-      ...unique.where((c) => c.code != primaryNotes!.code).take(1),
+      _present(primaryNotes),
+      ...unique
+          .where((c) => c.code != primaryNotes!.code)
+          .take(1)
+          .map(_present),
     ];
   }
 

@@ -40,6 +40,8 @@ import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/utils/storage_keys.dart';
+import '../../core/utils/user_details_school_roles.dart' show resolveActiveBackendRole;
 import '../../core/auth/secure_credential_store.dart';
 import '../../core/utils/api_constants.dart';
 import '../../core/cache/cache_service.dart';
@@ -2176,6 +2178,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => UnreadBadgeCubit(
       watchUnreadCountForTypeUseCase: serviceLocator(),
       watchTotalUnreadCountUseCase: serviceLocator(),
+      scopeKeyResolver: () async {
+        final storage = serviceLocator<StorageService>();
+        final org = await storage.getString(StorageKeys.organizationCode);
+        final school = await storage.getString(StorageKeys.schoolCode);
+        final user = await storage.getString(StorageKeys.userCode);
+        final role = await resolveActiveBackendRole(storage);
+        return '$org|$school|$user|$role';
+      },
     ),
   );
   // MessageEntityRepository use cases
