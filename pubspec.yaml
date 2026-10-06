@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 2.2.22+26
+version: 2.2.23+27
 
 environment:
   sdk: ^3.9.2
