@@ -1,6 +1,5 @@
 /// Normalized location permission level, independent of platform-specific
-/// status enums (Geolocator's [LocationPermission] on iOS, permission_handler's
-/// `PermissionStatus` on Android).
+/// status enums (built from `PermissionManager` in core/utils).
 ///
 /// iOS does not expose "Allow Once" as a distinct authorization status from
 /// "Allow While Using the App" — both report as `.authorizedWhenInUse`, so

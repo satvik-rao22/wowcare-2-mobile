@@ -134,6 +134,20 @@ abstract final class PermissionManager {
     }
   }
 
+  /// Android only: whether location is allowed "all the time". Read-only —
+  /// never prompts. On Android 9 and below any location grant counts, since
+  /// those versions have no separate background permission. Always false on
+  /// iOS, where the app ships no "Always" usage string (guideline 2.5.4).
+  static Future<bool> isBackgroundLocationGranted() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      return await ph.Permission.locationAlways.isGranted;
+    } catch (e, s) {
+      AppLogger.e('[Permission] isBackgroundLocationGranted failed', e, s);
+      return false;
+    }
+  }
+
   /// Fires after every [request], so [PermissionBuilder]s re-check.
   static Listenable get changes => _changes;
   static final _ChangeSignal _changes = _ChangeSignal();
