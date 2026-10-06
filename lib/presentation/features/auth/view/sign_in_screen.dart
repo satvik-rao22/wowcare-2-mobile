@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/auth/widgets/sign_in_form.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/widgets/app_image/app_image.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button_new.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -364,8 +365,8 @@ class _Brandmark extends StatelessWidget {
           children: <Widget>[
             // The same mark the launcher icon and the splash are generated
             // from. Its canvas is 1000x1240, so it is sized by height only.
-            Image.asset(
-              MediaRes.appLogo,
+            AppImage(
+              source: MediaRes.appLogo,
               height: screen.height * 0.16,
               fit: BoxFit.contain,
             ),
