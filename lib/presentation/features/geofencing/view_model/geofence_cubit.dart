@@ -6,10 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
+import 'package:wowcare/core/permissions/permissions.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
 import '../../../../domain/features/geofencing/entities/geofence_status.dart';
 import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
@@ -334,9 +334,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     // Request notification permission so background geofence notifications
     // actually appear. Android 13+ requires POST_NOTIFICATIONS at runtime;
     // iOS needs the UNUserNotificationCenter prompt.
-    try {
-      await Permission.notification.request();
-    } catch (_) {}
+    await PermissionManager.request(AppPermission.notifications);
     // Ensure the flutter_local_notifications plugin is initialised and the iOS
     // system prompt has been shown BEFORE the first geofence event fires.
     await _notifications.init();
