@@ -159,12 +159,17 @@ class MainActivity : FlutterFragmentActivity() {
                 "com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin",
                 "io.flutter.plugins.imagepicker.ImagePickerPlugin",
                 "dev.isar.isar_flutter_libs.IsarFlutterLibsPlugin",
+                // sentry_flutter talks to its Android SDK through package:jni; without
+                // this plugin the JNI bridge has no class loader and the first Sentry
+                // call is a native null dereference.
+                "com.github.dart_lang.jni.JniPlugin",
                 "com.crazecoder.openfile.OpenFilePlugin",
                 "dev.fluttercommunity.plus.packageinfo.PackageInfoPlugin",
                 "io.flutter.plugins.pathprovider.PathProviderPlugin",
                 "io.scer.pdfx.PdfxPlugin",
                 "com.baseflow.permissionhandler.PermissionHandlerPlugin",
                 "net.touchcapture.qr.flutterqrplus.FlutterQrPlusPlugin",
+                "io.sentry.flutter.SentryFlutterPlugin",
                 "io.flutter.plugins.sharedpreferences.SharedPreferencesPlugin",
                 "com.it_nomads.fluttersecurestorage.FlutterSecureStoragePlugin",
                 "io.flutter.plugins.localauth.LocalAuthPlugin",

@@ -145,6 +145,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="wowcare_alerts_v2" />
+        <!-- Crashlytics owns native crashes and ANRs. The Dart side starts
+             Sentry with enableNativeCrashHandling=false; this keeps Sentry's
+             NDK layer out of the process altogether. -->
+        <meta-data
+            android:name="io.sentry.ndk.enable"
+            android:value="false" />
         <!-- Foreground service for continuous location monitoring -->
         <service
             android:name="com.baseflow.geolocator.GeolocatorService"

@@ -7,13 +7,17 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
+import 'package:wowcare/core/observability/telemetry.dart';
 import 'package:wowcare/core/utils/server_time_service.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  Telemetry.ensureBindingInitialized();
 
   await AppBootstrap.initialize();
 
+  // Crashlytics owns fatal crashes. These handlers must be in place before
+  // [Telemetry.run]: Sentry wraps the handlers it finds at init and calls
+  // them after its own capture, so a crash still lands here exactly once.
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   PlatformDispatcher.instance.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -25,7 +29,7 @@ Future<void> main() async {
   await ServerTimeService.instance.hydrateSchoolTimeZoneFromStorage();
   unawaited(ServerTimeService.instance.sync());
 
-  runApp(const MyApp());
+  await Telemetry.run(() => runApp(Telemetry.wrapApp(const MyApp())));
 }
 
 /// Keeps the backend access token and the Firebase session fresh both on
