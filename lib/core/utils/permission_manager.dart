@@ -134,16 +134,13 @@ abstract final class PermissionManager {
     }
   }
 
-  /// Android only: whether location is allowed "all the time". Read-only —
-  /// never prompts. On Android 9 and below any location grant counts, since
-  /// those versions have no separate background permission. Always false on
-  /// iOS, where the app ships no "Always" usage string (guideline 2.5.4).
-  static Future<bool> isBackgroundLocationGranted() async {
-    if (defaultTargetPlatform != TargetPlatform.android) return false;
+  /// Whether the device's location service (GPS) is switched on. This is a
+  /// device setting, separate from the app's location permission.
+  static Future<bool> isLocationServiceEnabled() async {
     try {
-      return await ph.Permission.locationAlways.isGranted;
+      return await Geolocator.isLocationServiceEnabled();
     } catch (e, s) {
-      AppLogger.e('[Permission] isBackgroundLocationGranted failed', e, s);
+      AppLogger.e('[Permission] isLocationServiceEnabled failed', e, s);
       return false;
     }
   }
@@ -299,8 +296,8 @@ abstract final class PermissionManager {
 enum AppPermission {
   camera('Camera', Icons.photo_camera_outlined),
 
-  /// Foreground ("While using the app") only. Background location is not
-  /// offered: App Review rejected it (guideline 2.5.4).
+  /// Foreground ("While using the app") only — enough to check the user is
+  /// at school when they sign in. Background location is not used.
   location('Location', Icons.location_on_outlined),
 
   notifications('Notifications', Icons.notifications_outlined);

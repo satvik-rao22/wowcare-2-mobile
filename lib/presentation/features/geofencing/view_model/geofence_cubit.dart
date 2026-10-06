@@ -12,10 +12,7 @@ import 'package:wowcare/core/background/geofence_background_task.dart';
 import 'package:wowcare/core/utils/permission_manager.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
 import '../../../../domain/features/geofencing/entities/geofence_status.dart';
-import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
-import '../../../../domain/features/geofencing/usecases/check_location_permission_usecase.dart';
 import '../../../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
-import '../../../../domain/features/geofencing/usecases/request_location_permission_usecase.dart';
 import '../../../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -44,14 +41,10 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   static const double _hysteresisExitExtraMeters = 50.0;
 
   GeofenceCubit({
-    required CheckLocationPermissionUseCase checkLocationPermissionUseCase,
-    required RequestLocationPermissionUseCase requestLocationPermissionUseCase,
     required GetSchoolLocationUseCase getSchoolLocationUseCase,
     required WatchGeofenceUseCase watchGeofenceUseCase,
     required GeofenceNotificationService notificationService,
-  }) : _checkPerm = checkLocationPermissionUseCase,
-       _requestPerm = requestLocationPermissionUseCase,
-       _getSchoolLocation = getSchoolLocationUseCase,
+  }) : _getSchoolLocation = getSchoolLocationUseCase,
        _watchGeofence = watchGeofenceUseCase,
        _notifications = notificationService,
        super(const GeofenceState.initial()) {
@@ -59,8 +52,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  final CheckLocationPermissionUseCase _checkPerm;
-  final RequestLocationPermissionUseCase _requestPerm;
   final GetSchoolLocationUseCase _getSchoolLocation;
   final WatchGeofenceUseCase _watchGeofence;
   final GeofenceNotificationService _notifications;
@@ -102,13 +93,11 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     // also fire on trivial transient interruptions like Control Center or an
     // incoming call banner) so foreground-only users aren't stop/restarted on
     // every brief interruption — only on an actual background transition.
+    // Location is foreground-only, so monitoring always stops on pause and
+    // the resume reconciliation below restarts it.
     if (lifecycleState == AppLifecycleState.paused) {
-      if (state.permissionLevel != LocationPermissionLevel.always) {
-        AppLogger.d(
-          '[GeofenceCubit] App paused (permissionLevel=${state.permissionLevel}) — stopping monitoring',
-        );
-        stopMonitoring();
-      }
+      AppLogger.d('[GeofenceCubit] App paused — stopping monitoring');
+      stopMonitoring();
       return;
     }
     if (lifecycleState == AppLifecycleState.resumed) {
@@ -139,14 +128,14 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   Future<void> _reconcilePermissionState() async {
     if (isClosed || state.schoolCode.isEmpty) return;
 
-    final check = await _checkPerm();
-    final previousLevel = state.permissionLevel;
+    final check = await _checkLocation();
+    final previous = state.locationPermission;
     final wasServiceDisabled =
         state.status == GeofenceCubitStatus.locationDisabled;
-    final permissionChanged = check.permissionLevel != previousLevel;
+    final permissionChanged = check.permission != previous;
 
     AppLogger.d(
-      '[GeofenceCubit] Reconcile — permission: $previousLevel → ${check.permissionLevel}, '
+      '[GeofenceCubit] Reconcile — permission: $previous → ${check.permission}, '
       'serviceEnabled: ${check.serviceEnabled}, changed=$permissionChanged',
     );
 
@@ -156,7 +145,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       emit(
         state.copyWith(
           status: GeofenceCubitStatus.locationDisabled,
-          permissionLevel: check.permissionLevel,
+          locationPermission: check.permission,
         ),
       );
       unawaited(_syncBackgroundHealthCheck());
@@ -165,21 +154,21 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
     // ── Downgraded to denied/permanentlyDenied — settle without re-prompting.
     // The user must use the existing "tap to enable" retry flow to re-request. ──
-    if (!_hasUsablePermission(check.permissionLevel)) {
+    if (!check.permission.isGranted) {
       if (permissionChanged) stopMonitoring();
       emit(
         state.copyWith(
           status: GeofenceCubitStatus.permissionDenied,
-          permissionLevel: check.permissionLevel,
+          locationPermission: check.permission,
         ),
       );
       unawaited(_syncBackgroundHealthCheck());
       return;
     }
 
-    // ── Services just came back on, or permission moved between whileInUse
-    // and always — both already-granted levels, so re-running the full init
-    // is safe: it will not hit the request-permission branch. ──
+    // ── Services just came back on, or permission was just granted (e.g. in
+    // Settings) — already granted, so re-running the full init is safe: it
+    // will not hit the request-permission branch. ──
     if (wasServiceDisabled || permissionChanged) {
       AppLogger.d(
         '[GeofenceCubit] Reconcile — re-initializing (servicesResumed=$wasServiceDisabled, permissionChanged=$permissionChanged)',
@@ -192,12 +181,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       return;
     }
 
-    // ── Nothing changed — just resume the lightweight listeners Phase 3.1
-    // stopped on pause (only relevant for whileInUse; `always` was never
-    // stopped, denied/permanentlyDenied have nothing to resume). ──
-    if (check.permissionLevel == LocationPermissionLevel.whileInUse) {
-      _resumeForegroundMonitoring();
-    }
+    // ── Nothing changed — just resume the lightweight listeners stopped on
+    // pause. ──
+    _resumeForegroundMonitoring();
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -273,7 +259,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           // resetting it to the class default (denied) — an unguarded reset
           // here fed a stale value into the next resume's reconciliation
           // comparison, spuriously triggering an unnecessary re-init.
-          permissionLevel: state.permissionLevel,
+          locationPermission: state.locationPermission,
           isStaffSignedIn: state.isStaffSignedIn,
           allChildrenSignedIn: state.allChildrenSignedIn,
         ),
@@ -283,7 +269,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         GeofenceState(
           status: GeofenceCubitStatus.checkingPermission,
           schoolCode: schoolCode,
-          permissionLevel: state.permissionLevel,
+          locationPermission: state.locationPermission,
           isStaffSignedIn: state.isStaffSignedIn,
           allChildrenSignedIn: state.allChildrenSignedIn,
         ),
@@ -322,15 +308,16 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  /// Equivalent to the previous boolean `hasPermission` check: any granted
-  /// level (foreground or background) counts as usable; denied/permanently
-  /// denied do not.
-  bool _hasUsablePermission(LocationPermissionLevel level) =>
-      level == LocationPermissionLevel.whileInUse ||
-      level == LocationPermissionLevel.always;
+  /// Reads location permission and whether GPS is switched on. Never prompts.
+  Future<({AppPermissionStatus permission, bool serviceEnabled})>
+  _checkLocation() async {
+    final serviceEnabled = await PermissionManager.isLocationServiceEnabled();
+    final permission = await PermissionManager.status(AppPermission.location);
+    return (permission: permission, serviceEnabled: serviceEnabled);
+  }
 
   Future<void> _requestAllPermissions() async {
-    await _requestPerm();
+    await PermissionManager.request(AppPermission.location);
     // Request notification permission so background geofence notifications
     // actually appear. Android 13+ requires POST_NOTIFICATIONS at runtime;
     // iOS needs the UNUserNotificationCenter prompt.
@@ -399,9 +386,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         '[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"',
       );
 
-      final permCheck = await _checkPerm();
+      final permCheck = await _checkLocation();
       debugPrint(
-        '[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permissionLevel=${permCheck.permissionLevel}',
+        '[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permission=${permCheck.permission}',
       );
 
       if (!permCheck.serviceEnabled) {
@@ -411,30 +398,30 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         emit(
           state.copyWith(
             status: GeofenceCubitStatus.locationDisabled,
-            permissionLevel: permCheck.permissionLevel,
+            locationPermission: permCheck.permission,
           ),
         );
         return;
       }
-      var permissionLevel = permCheck.permissionLevel;
-      if (!_hasUsablePermission(permissionLevel)) {
+      var permission = permCheck.permission;
+      if (!permission.isGranted) {
         debugPrint(
           '[GeofenceCubit] No location permission — requesting now...',
         );
         await _requestAllPermissions();
-        final recheck = await _checkPerm();
-        permissionLevel = recheck.permissionLevel;
+        final recheck = await _checkLocation();
+        permission = recheck.permission;
         debugPrint(
-          '[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permissionLevel=${recheck.permissionLevel}',
+          '[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permission=${recheck.permission}',
         );
-        if (!_hasUsablePermission(permissionLevel)) {
+        if (!permission.isGranted) {
           debugPrint(
             '[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".',
           );
           emit(
             state.copyWith(
               status: GeofenceCubitStatus.permissionDenied,
-              permissionLevel: permissionLevel,
+              locationPermission: permission,
             ),
           );
           return;
@@ -452,7 +439,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       emit(
         state.copyWith(
           status: GeofenceCubitStatus.fetchingSchoolLocation,
-          permissionLevel: permissionLevel,
+          locationPermission: permission,
         ),
       );
 
@@ -502,7 +489,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             gpsSignInEnabled: false,
             parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
             radiusMeters: _config!.radiusMeters,
-            permissionLevel: permissionLevel,
+            locationPermission: permission,
           ),
         );
         unawaited(_syncBackgroundHealthCheck());
@@ -631,7 +618,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           gpsSignInEnabled: true,
           parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
           radiusMeters: _config!.radiusMeters,
-          permissionLevel: permissionLevel,
+          locationPermission: permission,
         ),
       );
       unawaited(_syncBackgroundHealthCheck());
@@ -1027,10 +1014,14 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   // best-effort recovery task (re-registers native monitoring if the OS
   // silently dropped it) while the app is terminated, and only when the user
   // has actually granted background access and the school has GPS sign-in on.
+  //
+  // Parked: location is foreground-only, so this never registers today and
+  // the `else` branch cancels a task left by an older build. Flip
+  // [_backgroundLocationEnabled] when background location is reintroduced.
+  static const bool _backgroundLocationEnabled = false;
+
   Future<void> _syncBackgroundHealthCheck() async {
-    final shouldRun =
-        state.permissionLevel == LocationPermissionLevel.always &&
-        state.gpsSignInEnabled;
+    final shouldRun = _backgroundLocationEnabled && state.gpsSignInEnabled;
     try {
       if (shouldRun) {
         await Workmanager().registerPeriodicTask(

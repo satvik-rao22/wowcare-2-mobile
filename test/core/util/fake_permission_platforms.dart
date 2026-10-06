@@ -56,6 +56,10 @@ class FakeGeolocator extends GeolocatorPlatform
   LocationPermission status = LocationPermission.denied;
   LocationPermission? requestResult;
   int requestCount = 0;
+  bool serviceEnabled = true;
+
+  @override
+  Future<bool> isLocationServiceEnabled() async => serviceEnabled;
 
   @override
   Future<LocationPermission> checkPermission() async => status;

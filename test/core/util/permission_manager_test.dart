@@ -155,4 +155,12 @@ void main() {
       expect(notified, 1);
     });
   });
+
+  test('isLocationServiceEnabled reports the GPS switch', () async {
+    geolocator.serviceEnabled = false;
+    expect(await PermissionManager.isLocationServiceEnabled(), isFalse);
+
+    geolocator.serviceEnabled = true;
+    expect(await PermissionManager.isLocationServiceEnabled(), isTrue);
+  });
 }
