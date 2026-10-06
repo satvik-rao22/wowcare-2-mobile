@@ -64,6 +64,15 @@ jobs:
           echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           echo "iOS build number: ${GITHUB_RUN_NUMBER}"
 
+      # Sentry files events and symbols under one release. This mirrors the
+      # SDK's runtime default, <bundle id>@<version>+<build>, with the build
+      # number this workflow overrides; the plugin reads the same variables.
+      - name: Set Sentry release
+        run: |
+          VERSION=$(sed -n 's/^version: *//p' pubspec.yaml | cut -d+ -f1)
+          echo "SENTRY_RELEASE=com.wiseowl.wowcareapp@${VERSION}+${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          echo "SENTRY_DIST=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
       # ----------------------------------------------------------
       # Apple Certificate
       # ----------------------------------------------------------
@@ -156,10 +165,15 @@ jobs:
       # ----------------------------------------------------------
 
       - name: Build UAT IPA
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           flutter build ipa \
             --release \
             --dart-define=ENVIRONMENT=UAT \
+            --dart-define=SENTRY_DSN="$SENTRY_DSN" \
+            --dart-define=SENTRY_RELEASE="$SENTRY_RELEASE" \
+            --dart-define=SENTRY_DIST="$SENTRY_DIST" \
             --build-number="$BUILD_NUMBER"
 
       - name: Find IPA
@@ -174,6 +188,21 @@ jobs:
           echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
 
           ls -lh "$IPA_PATH"
+
+      # ----------------------------------------------------------
+      # Sentry debug symbols (optional)
+      # ----------------------------------------------------------
+
+      - name: Upload debug symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN is not set; skipping Sentry upload."
+            exit 0
+          fi
+
+          dart run sentry_dart_plugin
 
       # ----------------------------------------------------------
       # GitHub artifact

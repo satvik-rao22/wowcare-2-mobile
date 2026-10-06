@@ -109,6 +109,9 @@ dev_dependencies:
   json_serializable: ^6.8.0
   flutter_launcher_icons: ^0.14.4
   isar_community_generator: ^3.3.2
+  # `dart run sentry_dart_plugin`: uploads the split-debug-info symbols and
+  # obfuscation map of an optimized build to Sentry. See `make sentry-upload`.
+  sentry_dart_plugin: ^3.4.0
 
   flutter_test:
     sdk: flutter
@@ -235,3 +238,21 @@ flutter_launcher_icons:
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "tool/app_icon/wowcare_app_icon_foreground.png"
   remove_alpha_ios: true
+
+# `dart run sentry_dart_plugin` (`make sentry-upload`): uploads the symbols of
+# an optimized build so Sentry can symbolicate obfuscated stack traces. The
+# auth token is read from SENTRY_AUTH_TOKEN and never written here. The
+# release defaults to `wowcare@<version>+<build>` from this file; the SDK's
+# runtime default is `com.wiseowl.wowcareapp@<version>+<build>`, so the
+# Makefile and CI export SENTRY_RELEASE to make both sides agree.
+sentry:
+  org: wiseowl-technology
+  project: flutter
+  upload_debug_symbols: true
+  upload_source_maps: false
+  upload_sources: false
+  symbols_path: build/app/profiles
+  dart_symbol_map_path: build/app/obfuscation.map.json
+  # Commit association needs full git history, which CI checkouts lack.
+  commits: false
+  log_level: info

@@ -35,7 +35,7 @@ export JAVA_TOOL_OPTIONS := $(JAVA_TOOL_OPTIONS) -Djava.net.preferIPv6Addresses=
 	local-ipa dev-ipa qa-ipa uat-ipa prod-ipa \
 	local-build dev-build qa-build uat-build prod-build \
 	dev-apk-optimized prod-apk-optimized prod-appbundle-optimized prod-ios-optimized prod-build-optimized \
-	check-apk-size check-ipa-size check-size analyze-apk \
+	check-apk-size check-ipa-size check-size analyze-apk sentry-upload \
 	optimize-assets convert-png-webp compress-images
 
 # -----------------------------------------------------------------------------
@@ -385,6 +385,10 @@ help-optimization:
 	@echo "  make prod-ios-optimized        Build optimized iOS (~optimized size)"
 	@echo "  make prod-build-optimized      Build optimized APK + iOS"
 	@echo ""
+	@echo "SENTRY (optional, see docs/observability-privacy.md):"
+	@echo "  SENTRY_DSN=... make <x>-optimized   Compile a DSN into the build"
+	@echo "  make sentry-upload             Upload the last build's symbols"
+	@echo ""
 	@echo "SIZE VERIFICATION:"
 	@echo "  make check-apk-size            Show APK size"
 	@echo "  make check-ipa-size            Show IPA size"
@@ -407,6 +411,34 @@ help-optimization:
 # OPTIMIZED RELEASE BUILDS
 # =============================================================================
 
+# Sentry is compiled in only when SENTRY_DSN is set in the environment; without
+# it the SDK never starts. SENTRY_RELEASE / SENTRY_DIST override the SDK's
+# runtime default of `com.wiseowl.wowcareapp@<version>+<build>` / `<build>`.
+SENTRY_DEFINES = \
+	$(if $(SENTRY_DSN),--dart-define=SENTRY_DSN=$(SENTRY_DSN)) \
+	$(if $(SENTRY_RELEASE),--dart-define=SENTRY_RELEASE=$(SENTRY_RELEASE)) \
+	$(if $(SENTRY_DIST),--dart-define=SENTRY_DIST=$(SENTRY_DIST))
+
+# Writes the --obfuscate name map next to the split debug info so
+# `make sentry-upload` can restore class and function names. One map per
+# build: with --split-per-abi each ABI rewrites the same file, and the names
+# are the same across ABIs, so the last one standing is the right one.
+OBFUSCATION_MAP = \
+	--extra-gen-snapshot-options=--save-obfuscation-map=build/app/obfuscation.map.json
+
+# The release Sentry files these symbols under. Mirrors the SDK's runtime
+# default so an upload matches the events it symbolicates; pubspec's own
+# default would be `wowcare@...` and never line up.
+PUBSPEC_VERSION = $(shell sed -n 's/^version: *//p' pubspec.yaml)
+SENTRY_RELEASE_DEFAULT = com.wiseowl.wowcareapp@$(PUBSPEC_VERSION)
+
+# Run straight after the optimized build it belongs to: the prod-* targets
+# `flutter clean` first, so the next one wipes this one's symbols.
+sentry-upload:
+	@test -n "$$SENTRY_AUTH_TOKEN" || { echo "SENTRY_AUTH_TOKEN is not set."; exit 1; }
+	SENTRY_RELEASE="$${SENTRY_RELEASE:-$(SENTRY_RELEASE_DEFAULT)}" \
+		dart run sentry_dart_plugin
+
 dev-apk-optimized:
 	@echo "🔨 Building optimized DEV APK..."
 	@echo "   - Obfuscation enabled"
@@ -423,7 +455,9 @@ dev-apk-optimized:
 		--split-debug-info=build/app/profiles \
 		--tree-shake-icons \
 		--split-per-abi \
-		--dart-define=ENVIRONMENT=DEV
+		$(OBFUSCATION_MAP) \
+		--dart-define=ENVIRONMENT=DEV \
+		$(SENTRY_DEFINES)
 	@echo ""
 	@echo "✅ Optimized DEV APKs ready. Install the one matching your device:"
 	@ls -lh build/app/outputs/flutter-apk/app-*-release.apk \
@@ -441,7 +475,9 @@ prod-apk-optimized:
 		--obfuscate \
 		--split-debug-info=build/app/profiles \
 		--tree-shake-icons \
-		--dart-define=ENVIRONMENT=PROD
+		$(OBFUSCATION_MAP) \
+		--dart-define=ENVIRONMENT=PROD \
+		$(SENTRY_DEFINES)
 	@echo ""
 	@echo "✅ Optimized APK ready!"
 	@make check-apk-size
@@ -458,7 +494,9 @@ prod-appbundle-optimized:
 		--obfuscate \
 		--split-debug-info=build/app/profiles \
 		--tree-shake-icons \
-		--dart-define=ENVIRONMENT=UAT
+		$(OBFUSCATION_MAP) \
+		--dart-define=ENVIRONMENT=UAT \
+		$(SENTRY_DEFINES)
 	@echo ""
 	@echo "✅ Optimized AAB ready!"
 	@make check-size
@@ -475,7 +513,9 @@ prod-ios-optimized:
 		--obfuscate \
 		--split-debug-info=build/app/profiles \
 		--tree-shake-icons \
-		--dart-define=ENVIRONMENT=UAT
+		$(OBFUSCATION_MAP) \
+		--dart-define=ENVIRONMENT=UAT \
+		$(SENTRY_DEFINES)
 	@echo "✅ Optimized iOS build ready!"
 
 prod-build-optimized: prod-apk-optimized prod-appbundle-optimized prod-ios-optimized
