@@ -74,6 +74,15 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'BYPASS_PERMISSION_LOCATION_ALWAYS=1'
+
+      # Newer Xcode versions only support deployment targets 15.0+ and fail
+      # the build ("Target Integrity … IPHONEOS_DEPLOYMENT_TARGET is set to 9.0")
+      # for any pod still declaring an older one. Raise those to the app's
+      # minimum (platform :ios above); never lower a pod that asks for more.
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_s
+      if current.empty? || Gem::Version.new(current) < Gem::Version.new('15.0')
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      end
     end
   end
 
