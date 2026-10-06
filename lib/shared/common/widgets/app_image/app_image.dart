@@ -3,9 +3,8 @@ import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lottie/lottie.dart';
-import 'package:wowcare/core/theme/app_icon.dart';
-import 'package:wowcare/core/theme/app_theme_config.dart';
 
 import '../custom_shimmer_loader.dart';
 import 'app_image_source.dart';
@@ -13,6 +12,12 @@ import 'app_image_viewer.dart';
 
 export 'app_image_source.dart';
 export 'app_image_viewer.dart';
+export 'app_zoomable_image.dart';
+
+/// Builds the failure state. [error] is null when the source itself could not
+/// be resolved (null, blank or unsupported).
+typedef AppImageErrorBuilder =
+    Widget Function(BuildContext context, Object? error, StackTrace? stackTrace);
 
 /// The single image widget for the app: raster (png/jpg/webp/gif/heic), SVG
 /// and Lottie, from network, asset, file or memory.
@@ -41,6 +46,7 @@ class AppImage extends StatelessWidget {
     this.backgroundColor,
     this.placeholder,
     this.errorWidget,
+    this.errorBuilder,
     this.enableFullScreen = false,
     this.heroTag,
     this.onTap,
@@ -68,6 +74,10 @@ class AppImage extends StatelessWidget {
   final Color? backgroundColor;
   final Widget? placeholder;
   final Widget? errorWidget;
+
+  /// Like [errorWidget] but receives the failure, e.g. to log it. Wins over
+  /// [errorWidget] when both are set.
+  final AppImageErrorBuilder? errorBuilder;
 
   /// Tap opens [AppImageViewer] with pinch-zoom.
   final bool enableFullScreen;
@@ -132,9 +142,10 @@ class AppImage extends StatelessWidget {
   // ---------------------------------------------------------------- raster
 
   Widget _raster(BuildContext context, AppImageSource src) {
-    final decode = _decodeSize(context);
+    final cacheWidth = _decodeWidth(context);
     final blend = color == null ? null : BlendMode.srcIn;
-    Widget onError(BuildContext c, Object _, StackTrace? __) => _error(c);
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
 
     return switch (src) {
       NetworkAppImageSource() => CachedNetworkImage(
@@ -147,11 +158,10 @@ class AppImage extends StatelessWidget {
         alignment: alignment.resolve(Directionality.of(context)),
         color: color,
         colorBlendMode: blend,
-        memCacheWidth: decode.width,
-        memCacheHeight: decode.height,
+        memCacheWidth: cacheWidth,
         fadeInDuration: const Duration(milliseconds: 150),
         placeholder: (c, _) => _placeholder(c),
-        errorWidget: (c, _, __) => _error(c),
+        errorWidget: (c, _, e) => _error(c, e),
       ),
       AssetAppImageSource() => Image.asset(
         src.path,
@@ -161,8 +171,7 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: decode.width,
-        cacheHeight: decode.height,
+        cacheWidth: cacheWidth,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
       ),
@@ -174,8 +183,7 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: decode.width,
-        cacheHeight: decode.height,
+        cacheWidth: cacheWidth,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
       ),
@@ -187,8 +195,7 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: decode.width,
-        cacheHeight: decode.height,
+        cacheWidth: cacheWidth,
         gaplessPlayback: true,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
@@ -199,82 +206,71 @@ class AppImage extends StatelessWidget {
   /// Decode rasters at display size instead of full resolution: a 4000px
   /// camera photo in a 48px avatar otherwise costs ~64MB of memory.
   ///
-  /// Only one dimension is ever passed, so aspect ratio is kept:
-  /// - width only / height only → hint that same dimension.
-  /// - both → hint width with the larger box side, which keeps [BoxFit.cover]
-  ///   sharp for portrait images; very wide images in a tall box may soften.
-  /// No hint when the size is unbounded (e.g. the full-screen viewer).
-  ({int? width, int? height}) _decodeSize(BuildContext context) {
-    final w = (width?.isFinite ?? false) ? width : null;
-    final h = (height?.isFinite ?? false) ? height : null;
+  /// Only width is passed so aspect ratio is kept. Using the larger box side
+  /// keeps [BoxFit.cover] sharp for portrait images; very wide images in a
+  /// tall box may soften slightly. No hint when the size is unbounded.
+  int? _decodeWidth(BuildContext context) {
+    final w = width, h = height;
+    final candidates = [w, h].whereType<double>().where((v) => v.isFinite);
+    if (candidates.isEmpty) return null;
+    final side = candidates.reduce(math.max);
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    int px(double v) => (v * dpr).round();
-    return switch ((w, h)) {
-      (null, null) => (width: null, height: null),
-      (final w?, null) => (width: px(w), height: null),
-      (null, final h?) => (width: null, height: px(h)),
-      (final w?, final h?) => (width: px(math.max(w, h)), height: null),
-    };
+    return (side * dpr).round();
   }
-
 
   // ------------------------------------------------------------------- svg
 
   Widget _svg(BuildContext context, AppImageSource src) {
-    Widget onError(BuildContext c, Object _, StackTrace __) => _error(c);
+    final filter = color == null
+        ? null
+        : ColorFilter.mode(color!, BlendMode.srcIn);
+    Widget onError(BuildContext c, Object e, StackTrace st) =>
+        _error(c, e, st);
     // Local SVGs parse in a frame or two — a shimmer would just flicker.
     Widget blank(BuildContext _) => SizedBox(width: width, height: height);
 
     return switch (src) {
-      // A bundled SVG is one of the app's own glyphs or artwork, so it goes
-      // through the theme: tinted → AppIcon, untinted → AppArtwork (keeps
-      // its palette). See lib/core/theme/app_icon.dart.
-      AssetAppImageSource() => color == null
-          ? AppArtwork(
-              src.path,
-              width: width,
-              height: height,
-              fit: fit,
-              semanticsLabel: semanticLabel,
-            )
-          : AppIcon(
-              src.path,
-              width: width,
-              height: height,
-              fit: fit,
-              color: color,
-              semanticsLabel: semanticLabel,
-            ),
-      NetworkAppImageSource() => AppSvgContent.network(
+      NetworkAppImageSource() => SvgPicture.network(
         src.url,
         headers: src.headers,
         width: width,
         height: height,
         fit: fit,
         alignment: alignment,
-        tint: color,
+        colorFilter: filter,
         semanticsLabel: semanticLabel,
         placeholderBuilder: _placeholder,
         errorBuilder: onError,
       ),
-      FileAppImageSource() => AppSvgContent.file(
+      AssetAppImageSource() => SvgPicture.asset(
         src.path,
         width: width,
         height: height,
         fit: fit,
         alignment: alignment,
-        tint: color,
+        colorFilter: filter,
         semanticsLabel: semanticLabel,
         placeholderBuilder: blank,
         errorBuilder: onError,
       ),
-      MemoryAppImageSource() => AppSvgContent.memory(
+      FileAppImageSource() => SvgPicture.file(
+        File(src.path),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticLabel,
+        placeholderBuilder: blank,
+        errorBuilder: onError,
+      ),
+      MemoryAppImageSource() => SvgPicture.memory(
         src.bytes,
         width: width,
         height: height,
         fit: fit,
         alignment: alignment,
-        tint: color,
+        colorFilter: filter,
         semanticsLabel: semanticLabel,
         placeholderBuilder: blank,
         errorBuilder: onError,
@@ -287,7 +283,8 @@ class AppImage extends StatelessWidget {
   Widget _lottie(BuildContext context, AppImageSource src) {
     Widget frame(BuildContext c, Widget child, LottieComposition? comp) =>
         comp == null ? _placeholder(c) : child;
-    Widget onError(BuildContext c, Object _, StackTrace? __) => _error(c);
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
 
     return switch (src) {
       NetworkAppImageSource() => Lottie.network(
@@ -344,7 +341,8 @@ class AppImage extends StatelessWidget {
         );
   }
 
-  Widget _error(BuildContext context) {
+  Widget _error(BuildContext context, [Object? error, StackTrace? stackTrace]) {
+    if (errorBuilder != null) return errorBuilder!(context, error, stackTrace);
     if (errorWidget != null) return errorWidget!;
     final sides = [width, height].whereType<double>().where((v) => v.isFinite);
     final iconSize = sides.isEmpty
@@ -353,12 +351,12 @@ class AppImage extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      color: AppPalette.surfaceMuted,
+      color: Colors.grey.shade200,
       alignment: Alignment.center,
       child: Icon(
         Icons.broken_image_outlined,
         size: iconSize,
-        color: AppPalette.iconMuted,
+        color: Colors.grey.shade500,
       ),
     );
   }
