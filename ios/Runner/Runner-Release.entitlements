@@ -6,9 +6,7 @@
 	<string>production</string>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<!-- Must match Runner.entitlements — see its comments for why both
-		     UAT and PROD are listed here rather than switched per build. -->
-		<string>applinks:wowcare-uat.childcarewow.app</string>
+		<string>applinks:wowcare.childcarewow.app</string>
 		<string>applinks:wowcare.childcarewow.app</string>
 	</array>
 </dict>
