@@ -40,9 +40,8 @@ abstract class RegularizationRepository {
     int size = 20,
     RegSortOrder sort = RegSortOrder.newestFirst,
 
-    /// Inclusive attendance-date window, school-local. Sent to the server as
-    /// `fromDate`/`toDate`; the §9.5 contract does not document them yet, so
-    /// callers must not rely on the server applying them.
+    /// Inclusive attendance-date window, school-local. Sent as
+    /// `fromAttendanceDate`/`toAttendanceDate`; the server filters on it.
     DateTime? fromDate,
     DateTime? toDate,
   });

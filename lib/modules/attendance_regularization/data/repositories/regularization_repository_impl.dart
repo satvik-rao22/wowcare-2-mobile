@@ -68,8 +68,8 @@ class RegularizationRepositoryImpl implements RegularizationRepository {
       'page': page,
       'size': size,
       'sort': sort.wireValue,
-      if (fromDate != null) 'fromDate': _ymd(fromDate),
-      if (toDate != null) 'toDate': _ymd(toDate),
+      if (fromDate != null) 'fromAttendanceDate': _ymd(fromDate),
+      if (toDate != null) 'toAttendanceDate': _ymd(toDate),
     });
     return RegMappers.toPage(body, zone: zone, page: page, size: size);
   }

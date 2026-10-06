@@ -6,6 +6,7 @@ import '../../core/config/reg_config.dart';
 import '../../core/errors/reg_exceptions.dart';
 import '../../data/reg_context.dart';
 import '../../domain/entities/reg_edit_input.dart';
+import '../../domain/entities/reg_page.dart';
 import '../../domain/entities/regularization_request.dart';
 import '../../domain/usecases/approve_request_usecase.dart';
 import '../../domain/usecases/approve_selected_usecase.dart';
@@ -49,10 +50,6 @@ class RegInboxCubit extends Cubit<RegInboxState> {
   DateTime? _from;
   DateTime? _to;
 
-  /// Pages fetched past the first while filling a short window, so a range
-  /// with no requests costs a bounded number of calls, not the whole history.
-  static const int _maxFillPages = 5;
-
   /// Narrows the list to one staff member and, on a profile, to the period the
   /// screen is showing, and opens on [filter].
   void scopeTo(
@@ -67,46 +64,17 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     emit(state.copyWith(filter: filter));
   }
 
-  bool get _hasRange => _from != null || _to != null;
-
-  bool _inRange(RegularizationRequest r) {
-    final d = r.attendanceDate;
-    final day = DateTime(d.year, d.month, d.day);
-    if (_from != null && day.isBefore(_from!)) return false;
-    if (_to != null && day.isAfter(_to!)) return false;
-    return true;
-  }
-
-  /// Fetches [startPage] onward until at least a page's worth of rows fall in
-  /// the window, the server runs out, or [_maxFillPages] is spent.
-  ///
-  /// The window is applied here as well as sent to the server: §9.5 does not
-  /// document `fromDate`/`toDate`, and a request outside the period must never
-  /// show under it. Without a window this is exactly one fetch.
-  Future<({List<RegularizationRequest> items, int page, bool hasMore})>
-  _fetchFrom(int startPage) async {
-    final items = <RegularizationRequest>[];
-    var page = startPage;
-    while (true) {
-      final next = await _getRequests(
-        staffCode: _staffCode.isEmpty ? null : _staffCode,
-        status: state.filter.status,
-        sort: state.filter.sort,
-        page: page,
-        size: RegConfig.inboxPageSize,
-        fromDate: _from,
-        toDate: _to,
-      );
-      items.addAll(_hasRange ? next.items.where(_inRange) : next.items);
-      final done =
-          !next.hasMore ||
-          !_hasRange ||
-          items.length >= RegConfig.inboxPageSize ||
-          page - startPage >= _maxFillPages;
-      if (done) return (items: items, page: page, hasMore: next.hasMore);
-      page++;
-    }
-  }
+  /// One page. The window goes to the server as
+  /// `fromAttendanceDate`/`toAttendanceDate`, so paging stays the server's.
+  Future<RegPage<RegularizationRequest>> _fetch(int page) => _getRequests(
+    staffCode: _staffCode.isEmpty ? null : _staffCode,
+    status: state.filter.status,
+    sort: state.filter.sort,
+    page: page,
+    size: RegConfig.inboxPageSize,
+    fromDate: _from,
+    toDate: _to,
+  );
 
   /// [keepMessage] is set by actions that reload right after reporting their
   /// outcome, so the reload does not wipe the message being shown.
@@ -119,7 +87,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     );
     try {
       final user = await _context.currentUserCode();
-      final page = await _fetchFrom(0);
+      final page = await _fetch(0);
       emit(
         state.copyWith(
           status: RegListStatus.loaded,
@@ -166,7 +134,7 @@ class RegInboxCubit extends Cubit<RegInboxState> {
     if (state.loadingMore || !state.hasMore) return;
     emit(state.copyWith(loadingMore: true));
     try {
-      final next = await _fetchFrom(state.page + 1);
+      final next = await _fetch(state.page + 1);
       emit(
         state.copyWith(
           requests: [...state.requests, ...next.items],

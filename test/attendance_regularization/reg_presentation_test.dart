@@ -405,23 +405,34 @@ void main() {
       addTearDown(cubit.close);
     });
 
-    test('shows only the requests inside the profile period', () async {
+    test('asks the server for the profile period only', () async {
+      api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
+
+      final cubit = inbox()
+        ..scopeTo(
+          'STF_1',
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 31, 23, 59),
+        );
+      await cubit.load();
+
+      expect(api.lastQuery['fromAttendanceDate'], '2026-10-01');
+      expect(api.lastQuery['toAttendanceDate'], '2026-10-31');
+      expect(api.lastQuery['staffCode'], 'STF_1');
+      // The server filtered, so its page is shown as is.
+      expect(cubit.state.requests.map((r) => r.code), ['SREG_0000001']);
+      addTearDown(cubit.close);
+    });
+
+    test('load more keeps the same period', () async {
       api.onGet('/staff-attendance-regularizations', {
         'data': {
-          'content': [
-            FakeApi.rawRequest('APPROVED'), // 2026-06-23
-            {
-              ...FakeApi.rawRequest('APPROVED'),
-              'code': 'SREG_0000009',
-              'attendanceDate': '2026-09-30',
-              'requestedSignOutTime': '2026-09-30T21:00:00Z',
-            },
-          ],
+          'content': [FakeApi.rawRequest('APPROVED')],
           'page': 0,
           'size': 20,
-          'totalElements': 2,
-          'totalPages': 1,
-          'hasNext': false,
+          'totalElements': 40,
+          'totalPages': 2,
+          'hasNext': true,
           'hasPrevious': false,
         },
       });
@@ -429,29 +440,26 @@ void main() {
       final cubit = inbox()
         ..scopeTo(
           'STF_1',
-          from: DateTime(2026, 6, 1),
-          to: DateTime(2026, 6, 30),
+          from: DateTime(2026, 10, 1),
+          to: DateTime(2026, 10, 31),
         );
       await cubit.load();
+      await cubit.loadMore();
 
-      expect(cubit.state.requests.map((r) => r.code), ['SREG_0000001']);
-      expect(api.lastQuery['fromDate'], '2026-06-01');
-      expect(api.lastQuery['toDate'], '2026-06-30');
+      expect(api.lastQuery['page'], 1);
+      expect(api.lastQuery['fromAttendanceDate'], '2026-10-01');
+      expect(api.lastQuery['toAttendanceDate'], '2026-10-31');
       addTearDown(cubit.close);
     });
 
-    test('an empty period is empty, not the whole history', () async {
+    test('the school-wide inbox sends no date window', () async {
       api.onGet('/staff-attendance-regularizations', FakeApi.listPage);
 
-      final cubit = inbox()
-        ..scopeTo(
-          'STF_1',
-          from: DateTime(2026, 8, 1),
-          to: DateTime(2026, 8, 31),
-        );
+      final cubit = inbox();
       await cubit.load();
 
-      expect(cubit.state.isEmpty, isTrue);
+      expect(api.lastQuery.containsKey('fromAttendanceDate'), isFalse);
+      expect(api.lastQuery.containsKey('toAttendanceDate'), isFalse);
       addTearDown(cubit.close);
     });
 
