@@ -186,7 +186,7 @@ class AppImage extends StatelessWidget {
   // ---------------------------------------------------------------- raster
 
   Widget _raster(BuildContext context, AppImageSource src) {
-    final cacheWidth = _decodeWidth(context);
+    final decode = _decodeSize(context);
     final blend = color == null ? null : BlendMode.srcIn;
     Widget onError(BuildContext c, Object e, StackTrace? st) =>
         _error(c, e, st);
@@ -202,7 +202,8 @@ class AppImage extends StatelessWidget {
         alignment: alignment.resolve(Directionality.of(context)),
         color: color,
         colorBlendMode: blend,
-        memCacheWidth: cacheWidth,
+        memCacheWidth: decode.width,
+        memCacheHeight: decode.height,
         fadeInDuration: const Duration(milliseconds: 150),
         placeholder: (c, _) => _placeholder(c),
         errorWidget: (c, _, e) => _error(c, e),
@@ -215,7 +216,8 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: cacheWidth,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
       ),
@@ -227,7 +229,8 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: cacheWidth,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
       ),
@@ -239,7 +242,8 @@ class AppImage extends StatelessWidget {
         alignment: alignment,
         color: color,
         colorBlendMode: blend,
-        cacheWidth: cacheWidth,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
         gaplessPlayback: true,
         semanticLabel: semanticLabel,
         errorBuilder: onError,
@@ -250,17 +254,25 @@ class AppImage extends StatelessWidget {
   /// Decode rasters at display size instead of full resolution: a 4000px
   /// camera photo in a 48px avatar otherwise costs ~64MB of memory.
   ///
-  /// Only width is passed so aspect ratio is kept. Using the larger box side
-  /// keeps [BoxFit.cover] sharp for portrait images; very wide images in a
-  /// tall box may soften slightly. No hint when the size is unbounded.
-  int? _decodeWidth(BuildContext context) {
-    final w = width, h = height;
-    final candidates = [w, h].whereType<double>().where((v) => v.isFinite);
-    if (candidates.isEmpty) return null;
-    final side = candidates.reduce(math.max);
+  /// Only one dimension is ever passed, so aspect ratio is kept:
+  /// - width only / height only → hint that same dimension (hinting a height
+  ///   as a width would blur landscape images sized by height);
+  /// - both → hint width with the larger box side, which keeps [BoxFit.cover]
+  ///   sharp for portrait images; very wide images in a tall box may soften.
+  /// No hint when the size is unbounded (e.g. the full-screen viewer).
+  ({int? width, int? height}) _decodeSize(BuildContext context) {
+    final w = (width?.isFinite ?? false) ? width : null;
+    final h = (height?.isFinite ?? false) ? height : null;
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
-    return (side * dpr).round();
+    int px(double v) => (v * dpr).round();
+    return switch ((w, h)) {
+      (null, null) => (width: null, height: null),
+      (final w?, null) => (width: px(w), height: null),
+      (null, final h?) => (width: null, height: px(h)),
+      (final w?, final h?) => (width: px(math.max(w, h)), height: null),
+    };
   }
+
 
   // ------------------------------------------------------------------- svg
 
