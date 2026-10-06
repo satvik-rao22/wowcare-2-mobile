@@ -224,9 +224,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Image.asset(
-                                MediaRes.logo_wow,
+                                MediaRes.appLogo,
                                 height: screenHeight * 0.12,
                                 width: screenHeight * 0.12,
+                                fit: BoxFit.contain,
                               ),
                               SizedBox(height: screenHeight * 0.01),
                               ShaderMask(

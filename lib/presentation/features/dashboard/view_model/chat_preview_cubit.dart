@@ -266,7 +266,15 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       if (code.isEmpty) continue;
       final known = _known[code];
       if (known == null || !_rankTime(c).isBefore(_rankTime(known))) {
-        _known[code] = c;
+        // REST copies carry unreadCount 0 (Firestore is the only source of
+        // unread counts), so never let one blank a live count on a tie.
+        _known[code] =
+            (known != null &&
+                c.unreadCount == 0 &&
+                known.unreadCount > 0 &&
+                _rankTime(c) == _rankTime(known))
+            ? c.copyWith(unreadCount: known.unreadCount)
+            : c;
       }
     }
     final list = _known.values.where((c) => !_hiddenFromViewer(c)).toList();

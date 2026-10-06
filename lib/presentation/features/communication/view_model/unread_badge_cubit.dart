@@ -49,6 +49,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// [CustomAppBar]) directly, independent of the per-type breakdown below.
   StreamSubscription<int>? _totalSubscription;
   int? _firestoreTotal;
+  bool _watching = false;
 
   /// Conversation-type keys whose live Firestore stream has delivered at
   /// least once. Distinguishes a genuine "just read" 0 from a spurious
@@ -77,7 +78,14 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// bootstrap. The badge shows nothing for the brief moment before the
   /// first snapshot arrives, rather than risk ever showing a value that
   /// didn't come from Firestore.
+  ///
+  /// Idempotent: this is a session singleton that several screens call on
+  /// mount. Re-subscribing on every call tore down live streams and let the
+  /// fresh stream's first (cache/empty) emit blank the badge. A school/persona
+  /// switch resets [_watching] and re-subscribes explicitly.
   void startWatching() {
+    if (_watching) return;
+    _watching = true;
     for (final type in ConversationType.values) {
       _subscribeToType(type);
     }
@@ -103,6 +111,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     _firestoreDelivered.clear();
     _firestoreTotal = null;
     emit(const UnreadBadgeState.initial());
+    _watching = false;
     startWatching();
   }
 

@@ -17,7 +17,7 @@ class RatioMonitoringClassroom extends Equatable {
   final int capacity;
 
   /// Maximum students-per-staff member from the classroom setup (studentsTeacherRatio).
-  final int allowedRatio;
+  final double allowedRatio;
 
   final int studentPresent;
   final int staffPresent;

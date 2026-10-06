@@ -1,10 +1,10 @@
 // This is a generated file; do not edit or check into version control.
 FLUTTER_ROOT=/opt/homebrew/share/flutter
-FLUTTER_APPLICATION_PATH=/Users/supercoolcoder/Downloads/WowCare/wowcare2-mobile
+FLUTTER_APPLICATION_PATH=/Users/admin/Projects/wowcare2-mobile
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_BUILD_DIR=build
-FLUTTER_BUILD_NAME=2.2.21
-FLUTTER_BUILD_NUMBER=25
+FLUTTER_BUILD_NAME=2.2.22
+FLUTTER_BUILD_NUMBER=26
 DART_OBFUSCATION=false
 TRACK_WIDGET_CREATION=true
 TREE_SHAKE_ICONS=false
