@@ -9,7 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
-import 'package:wowcare/core/permissions/permissions.dart';
+import 'package:wowcare/core/utils/permission_manager.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
 import '../../../../domain/features/geofencing/entities/geofence_status.dart';
 import '../../../../domain/features/geofencing/entities/location_permission_level.dart';

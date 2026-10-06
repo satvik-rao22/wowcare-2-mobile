@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
-import 'package:wowcare/core/permissions/permissions.dart';
+import 'package:wowcare/core/utils/permission_manager.dart';
 
 import 'fake_permission_platforms.dart';
 
@@ -18,7 +18,7 @@ void main() {
 
   tearDown(() => PermissionManager.debugAndroidSdkOverride = null);
 
-  /// Pumps a button that runs [PermissionPrompt.ensure] and returns a getter
+  /// Pumps a button that runs [PermissionManager.ensure] and returns a getter
   /// for its result (null until the flow finishes).
   Future<bool? Function()> pumpEnsure(WidgetTester tester) async {
     bool? result;
@@ -26,7 +26,7 @@ void main() {
       MaterialApp(
         home: Builder(
           builder: (context) => TextButton(
-            onPressed: () async => result = await PermissionPrompt.ensure(
+            onPressed: () async => result = await PermissionManager.ensure(
               context,
               AppPermission.camera,
               reason: 'to scan the QR code',
@@ -123,6 +123,22 @@ void main() {
     expect(result(), isFalse);
     expect(handler.requestCount, 0);
   });
+
+  testWidgets(
+    'iOS never shows the "explain first" sheet — one refusal is final there',
+    (tester) async {
+      handler
+        ..rationale = true
+        ..requestResults[Permission.camera] = PermissionStatus.granted;
+
+      final result = await pumpEnsure(tester);
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(handler.requestCount, 1);
+      expect(result(), isTrue);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   group('Android, refused once before', () {
     setUp(() {

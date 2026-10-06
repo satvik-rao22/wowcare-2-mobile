@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
-import 'package:wowcare/core/permissions/permissions.dart';
+import 'package:wowcare/core/utils/permission_manager.dart';
 
 import 'fake_permission_platforms.dart';
 
@@ -154,15 +154,5 @@ void main() {
 
       expect(notified, 1);
     });
-  });
-
-  test('shouldExplainBeforeAsking is always false on iOS', () async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    handler.rationale = true;
-
-    expect(
-      await PermissionManager.shouldExplainBeforeAsking(AppPermission.camera),
-      isFalse,
-    );
   });
 }
