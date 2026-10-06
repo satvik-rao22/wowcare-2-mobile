@@ -230,8 +230,9 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
 
     switch (_kind) {
       case _DocKind.image:
-        return AppZoomableImage(
+        return AppImage(
           source: widget.url,
+          interaction: AppImageInteraction.zoom,
           placeholder: const Center(child: PrimaryCircularLoader()),
           errorBuilder: (context, error, stackTrace) {
             AppLogger.e(

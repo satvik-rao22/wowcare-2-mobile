@@ -1,20 +1,17 @@
-import 'package:flutter/material.dart';
+part of 'app_image.dart';
 
-import 'app_image.dart';
+/// Full-screen viewer behind [AppImageInteraction.openFullScreen] and
+/// [AppImage.openFullScreen]: pinch, pan and double-tap zoom via
+/// [_ZoomableImage], so SVG and Lottie zoom the same way rasters do.
+class _AppImageViewer extends StatelessWidget {
+  const _AppImageViewer({required this.source, this.heroTag});
 
-/// Full-screen viewer for any [AppImage] source: pinch, pan and double-tap
-/// zoom via [AppZoomableImage], so SVG and Lottie zoom the same way rasters do.
-class AppImageViewer extends StatelessWidget {
-  const AppImageViewer({super.key, required this.source, this.heroTag});
-
-  final AppImageSource source;
+  final Object? source;
   final Object? heroTag;
 
-  /// Pushed on the root navigator so it covers the go_router shell's bottom
-  /// navigation bar.
   static Future<void> open(
     BuildContext context,
-    AppImageSource source, {
+    Object? source, {
     Object? heroTag,
   }) {
     return Navigator.of(context, rootNavigator: true).push(
@@ -24,7 +21,7 @@ class AppImageViewer extends StatelessWidget {
         transitionDuration: const Duration(milliseconds: 200),
         reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (_, _, _) =>
-            AppImageViewer(source: source, heroTag: heroTag),
+            _AppImageViewer(source: source, heroTag: heroTag),
         transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),
       ),
@@ -40,7 +37,7 @@ class AppImageViewer extends StatelessWidget {
           // No width/height: the viewer decodes at full resolution so zooming
           // stays sharp, and AppImage's size-based decode hint switches off.
           Positioned.fill(
-            child: AppZoomableImage(source: source, heroTag: heroTag),
+            child: _ZoomableImage(source: source, heroTag: heroTag),
           ),
           SafeArea(
             child: Align(

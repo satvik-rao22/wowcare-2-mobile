@@ -8,16 +8,32 @@ import 'package:lottie/lottie.dart';
 
 import '../custom_shimmer_loader.dart';
 import 'app_image_source.dart';
-import 'app_image_viewer.dart';
 
 export 'app_image_source.dart';
-export 'app_image_viewer.dart';
-export 'app_zoomable_image.dart';
+
+// Zoom surface and full-screen viewer are private to this library: AppImage is
+// the only entry point, configured through [AppImage.interaction].
+part 'app_image_viewer.dart';
+part 'app_zoomable_image.dart';
 
 /// Builds the failure state. [error] is null when the source itself could not
 /// be resolved (null, blank or unsupported).
 typedef AppImageErrorBuilder =
     Widget Function(BuildContext context, Object? error, StackTrace? stackTrace);
+
+/// What an [AppImage] does beyond showing the image.
+enum AppImageInteraction {
+  /// Display only (or a custom [AppImage.onTap]).
+  none,
+
+  /// Tap opens a full-screen viewer with pinch, pan and double-tap zoom.
+  /// For thumbnails in lists, cards and chat bubbles.
+  openFullScreen,
+
+  /// The image itself is the zoom surface, filling its constraints. For a
+  /// screen that is already full-screen, e.g. the document viewer.
+  zoom,
+}
 
 /// The single image widget for the app: raster (png/jpg/webp/gif/heic), SVG
 /// and Lottie, from network, asset, file or memory.
@@ -25,7 +41,13 @@ typedef AppImageErrorBuilder =
 /// ```dart
 /// AppImage(source: user.photoUrl, width: 48, height: 48, shape: BoxShape.circle)
 /// AppImage(source: MediaRes.sleepIcon, width: 20, color: AppColors.primaryColor)
-/// AppImage(source: photo.url, height: 200, fit: BoxFit.cover, enableFullScreen: true)
+/// AppImage(
+///   source: photo.url,
+///   height: 200,
+///   fit: BoxFit.cover,
+///   interaction: AppImageInteraction.openFullScreen,
+/// )
+/// AppImage(source: doc.url, interaction: AppImageInteraction.zoom)
 /// ```
 ///
 /// [source] is resolved by [AppImageSource.from]; pass an [AppImageSource] when
@@ -47,14 +69,14 @@ class AppImage extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.errorBuilder,
-    this.enableFullScreen = false,
+    this.interaction = AppImageInteraction.none,
     this.heroTag,
     this.onTap,
     this.semanticLabel,
     this.lottieRepeat = true,
   }) : assert(
-         !(enableFullScreen && onTap != null),
-         'Use either enableFullScreen or onTap, not both.',
+         onTap == null || interaction == AppImageInteraction.none,
+         'onTap replaces the built-in interaction; leave interaction as none.',
        );
 
   /// URL, `assets/…` path, absolute file path, `Uint8List`, `File`, or an
@@ -79,8 +101,7 @@ class AppImage extends StatelessWidget {
   /// [errorWidget] when both are set.
   final AppImageErrorBuilder? errorBuilder;
 
-  /// Tap opens [AppImageViewer] with pinch-zoom.
-  final bool enableFullScreen;
+  final AppImageInteraction interaction;
 
   /// Opt-in Hero animation into the full-screen viewer. Must be unique on the
   /// screen — never derive it from the URL alone, a list can repeat a URL.
@@ -98,8 +119,31 @@ class AppImage extends StatelessWidget {
     );
   }
 
+  /// Opens the full-screen zoomable viewer without a thumbnail, e.g. from a
+  /// "View" button. Pushed on the root navigator so it covers the go_router
+  /// shell's bottom navigation bar.
+  static Future<void> openFullScreen(
+    BuildContext context,
+    Object? source, {
+    Object? heroTag,
+  }) => _AppImageViewer.open(context, source, heroTag: heroTag);
+
   @override
   Widget build(BuildContext context) {
+    if (interaction == AppImageInteraction.zoom) {
+      return SizedBox(
+        width: width,
+        height: height,
+        child: _ZoomableImage(
+          source: source,
+          backgroundColor: backgroundColor ?? Colors.transparent,
+          placeholder: placeholder,
+          errorBuilder: errorBuilder,
+          heroTag: heroTag,
+        ),
+      );
+    }
+
     final resolved = AppImageSource.from(source);
 
     Widget child = resolved == null
@@ -125,8 +169,8 @@ class AppImage extends StatelessWidget {
 
     final tap =
         onTap ??
-        (enableFullScreen && resolved != null
-            ? () => AppImageViewer.open(context, resolved, heroTag: heroTag)
+        (interaction == AppImageInteraction.openFullScreen && resolved != null
+            ? () => _AppImageViewer.open(context, resolved, heroTag: heroTag)
             : null);
     if (tap == null) return child;
     return Semantics(
