@@ -57,6 +57,17 @@ void main() {
       expect(options.release, 'com.example@1.2.3+9');
       expect(options.dist, '9');
     });
+
+    test('applies the privacy guardrails', () {
+      final options = SentryFlutterOptions();
+
+      Telemetry.configureOptions(options, config());
+
+      expect(options.sendDefaultPii, isFalse);
+      expect(options.enablePrintBreadcrumbs, isFalse);
+      expect(options.tracePropagationTargets, isEmpty);
+      expect(options.beforeSend, isNotNull);
+    });
   });
 
   group('Telemetry while Sentry is off', () {

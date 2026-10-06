@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+import 'package:wowcare/core/observability/telemetry_redactor.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Where a capture came from. Recorded because the two paths fail differently:
@@ -218,15 +219,10 @@ class MediaUploadTrace {
   ///
   /// Deliberately blunt: it over-redacts rather than risk letting a path
   /// through, because the diagnostic value here is the exception *type* and
-  /// error code, not the filename.
-  static String _redact(String message) {
-    return message
-        // URLs first — otherwise the path rule would only eat their tail and
-        // leave the host and query (the signature) behind.
-        .replaceAll(RegExp(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s)"' "'" r']+'), '<url>')
-        // POSIX absolute paths, including the file:// bodies above.
-        .replaceAll(RegExp(r'/(?:[\w .@+-]+/)*[\w .@+-]+'), '<path>');
-  }
+  /// error code, not the filename. The rules live in [TelemetryRedactor] so
+  /// the Sentry hooks apply exactly the same ones.
+  static String _redact(String message) =>
+      TelemetryRedactor.redactPathsAndUrls(message);
 }
 
 /// A stand-in for a caught exception carrying only its type and a redacted

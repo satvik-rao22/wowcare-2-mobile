@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wowcare/core/observability/telemetry_config.dart';
+import 'package:wowcare/core/observability/telemetry_privacy.dart';
 
 /// Severity of a [Telemetry.log] line.
 enum TelemetryLogLevel { debug, info, warn, error }
@@ -19,7 +20,8 @@ enum TelemetryLogLevel { debug, info, warn, error }
 ///
 /// The PII rule is the same as for `AppLogger.trail`: no path, name, email,
 /// token, or user, student, staff, school or organisation code in a message,
-/// breadcrumb or attribute.
+/// breadcrumb or attribute. The hooks in [TelemetryPrivacy] are a safety net,
+/// not a licence.
 abstract final class Telemetry {
   Telemetry._();
 
@@ -85,6 +87,7 @@ abstract final class Telemetry {
     if (release != null) options.release = release;
     final dist = config.dist;
     if (dist != null) options.dist = dist;
+    TelemetryPrivacy.configure(options);
   }
 
   /// Reports a handled error as a non-fatal event.
