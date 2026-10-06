@@ -150,6 +150,7 @@ class MainActivity : FlutterFragmentActivity() {
                 "io.flutter.plugins.firebase.crashlytics.FlutterFirebaseCrashlyticsPlugin",
                 "io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingPlugin",
                 "io.flutter.plugins.firebase.performance.FlutterFirebasePerformancePlugin",
+                "io.flutter.plugins.firebase.firebaseremoteconfig.FirebaseRemoteConfigPlugin",
                 "io.flutter.plugins.firebase.storage.FlutterFirebaseStoragePlugin",
                 "com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFlutterPlugin",
                 "io.endigo.plugins.pdfviewflutter.PDFViewFlutterPlugin",
