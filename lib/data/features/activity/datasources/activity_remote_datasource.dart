@@ -71,14 +71,10 @@ abstract class ActivityRemoteDataSource {
   });
 
   /// Creates grouped activity cards via `POST /api/v2/activities`.
-  Future<String> createActivity({
-    required ActivityCreateRequestModel request,
-  });
+  Future<String> createActivity({required ActivityCreateRequestModel request});
 
   /// `GET /api/v1/activities/{classroomCode}/nap-start-students`
-  Future<List<String>> getNapStartStudents({
-    required String classroomCode,
-  });
+  Future<List<String>> getNapStartStudents({required String classroomCode});
 
   /// Creates shared activity cards via `POST /api/v2/activities`.
   ///
@@ -256,7 +252,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final normalizedAttachments = _normalizedPatchAttachments(attachments);
 
     final payload = <String, dynamic>{
-      if (effectiveStudentCodes.isNotEmpty) 'studentCodes': effectiveStudentCodes,
+      if (effectiveStudentCodes.isNotEmpty)
+        'studentCodes': effectiveStudentCodes,
       if (normalizedApplyToCodes.isNotEmpty)
         'applyToStudentCodes': normalizedApplyToCodes,
       'staffCode': staffCode,
@@ -268,6 +265,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     const maxReadyRetries = 2;
     Response<dynamic> response;
     var attempt = 0;
+    var narrowedToCardStudents = false;
     while (true) {
       try {
         response = await _client.patch<dynamic>(
@@ -282,7 +280,32 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
         final message = responseData is Map<String, dynamic>
             ? (responseData['message'] ?? '').toString().trim()
             : '';
-        final isAssetNotReadyConflict = statusCode == 409 &&
+        // The server only accepts `applyToStudentCodes` that are students
+        // currently ON this card. The edit screens send every selected student
+        // to each per-student PATCH, so a student who belongs to a different
+        // card (or was already removed from this one) trips this 400. Ask the
+        // card who is actually on it, narrow to those, and retry once.
+        final isApplyToSubsetViolation =
+            statusCode == 400 &&
+            message.toLowerCase().contains(
+              'applytostudentcodes must be a subset',
+            );
+        if (isApplyToSubsetViolation &&
+            !narrowedToCardStudents &&
+            normalizedApplyToCodes.isNotEmpty) {
+          narrowedToCardStudents = true;
+          final onCard = await _studentCodesOnCard(cardGroupCode);
+          final narrowed = normalizedApplyToCodes
+              .where(onCard.contains)
+              .toList(growable: false);
+          if (narrowed.isNotEmpty) {
+            payload['applyToStudentCodes'] = narrowed;
+            payload['studentCodes'] = narrowed;
+            continue;
+          }
+        }
+        final isAssetNotReadyConflict =
+            statusCode == 409 &&
             message.toLowerCase().contains('must reach ready before linking');
         if (!isAssetNotReadyConflict || attempt >= maxReadyRetries) {
           rethrow;
@@ -301,6 +324,28 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       return message.trim();
     }
     return 'Activity updated successfully';
+  }
+
+  /// Student codes currently on the card [cardGroupCode] (`data.students[]`).
+  Future<Set<String>> _studentCodesOnCard(String cardGroupCode) async {
+    try {
+      final data = await getActivityByCode(cardGroupCode: cardGroupCode);
+      final out = <String>{};
+      final students = data['students'];
+      if (students is List) {
+        for (final s in students) {
+          if (s is Map) {
+            final code = (s['studentCode'] ?? '').toString().trim();
+            if (code.isNotEmpty) out.add(code);
+          }
+        }
+      }
+      final single = (data['studentCode'] ?? '').toString().trim();
+      if (single.isNotEmpty) out.add(single);
+      return out;
+    } catch (_) {
+      return <String>{};
+    }
   }
 
   @override
@@ -324,7 +369,10 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> approveActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminApproveActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      options: _noReplayOptions,
+    );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected approve-activity API response format');
@@ -339,7 +387,10 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<String> rejectActivity({required String cardGroupCode}) async {
     final endpoint = ApiPaths.url(ApiPaths.adminRejectActivity(cardGroupCode));
-    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      options: _noReplayOptions,
+    );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected reject-activity API response format');
@@ -356,7 +407,10 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final endpoint = ApiPaths.url(
       ApiPaths.guardianAcknowledgeActivity(cardGroupCode),
     );
-    final response = await _client.post<dynamic>(endpoint, options: _noReplayOptions);
+    final response = await _client.post<dynamic>(
+      endpoint,
+      options: _noReplayOptions,
+    );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected guardian-acknowledge API response format');
@@ -376,7 +430,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     String? signatureValue,
   }) async {
     final trimmedCode = guardianCode.trim();
-    final effective = (signatureValue != null && signatureValue.trim().isNotEmpty)
+    final effective =
+        (signatureValue != null && signatureValue.trim().isNotEmpty)
         ? signatureValue.trim()
         : trimmedCode;
     final endpoint = ApiPaths.url(
@@ -393,7 +448,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     );
     final body = response.data;
     if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected guardian-parent-signature API response format');
+      throw Exception(
+        'Unexpected guardian-parent-signature API response format',
+      );
     }
     final message = body['message'];
     if (message is String && message.trim().isNotEmpty) {
@@ -460,9 +517,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
       ApiPaths.activityTypesRoot,
       ApiConstants.activityBaseUrl,
     );
-    final uri = Uri.parse(base).replace(
-      queryParameters: {'schoolCode': schoolCode.trim()},
-    );
+    final uri = Uri.parse(
+      base,
+    ).replace(queryParameters: {'schoolCode': schoolCode.trim()});
     final response = await _client.getUri<dynamic>(uri);
     final body = response.data;
     if (body is! Map<String, dynamic>) {
@@ -555,7 +612,9 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
     final body = response.data;
     if (body is! Map<String, dynamic>) {
-      throw Exception('Unexpected create shared-activities API response format');
+      throw Exception(
+        'Unexpected create shared-activities API response format',
+      );
     }
     if (body['success'] == false) {
       final message = (body['message'] ?? '').toString().trim();
@@ -631,10 +690,15 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     required String ownerType,
     required String ownerCode,
   }) async {
-    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(
+      RegExp(r'/+$'),
+      '',
+    );
     var basePath = documentApiBasePath.trim();
     if (basePath.isEmpty) {
-      basePath = ApiConstants.isGatewayEnv ? '/api/v1/document' : '/document-ms/api/v1';
+      basePath = ApiConstants.isGatewayEnv
+          ? '/api/v1/document'
+          : '/document-ms/api/v1';
     }
     if (!basePath.startsWith('/')) {
       basePath = '/$basePath';
@@ -891,10 +955,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     return content
         .whereType<Map>()
         .map((raw) => Map<String, dynamic>.from(raw))
-        .map((student) => _mapMarkActivityStudent(
-              student,
-              selectedClassroomCode: selectedClassroomCode,
-            ))
+        .map(
+          (student) => _mapMarkActivityStudent(
+            student,
+            selectedClassroomCode: selectedClassroomCode,
+          ),
+        )
         .toList(growable: false);
   }
 
@@ -902,7 +968,8 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     Map<String, dynamic> student, {
     required String selectedClassroomCode,
   }) {
-    final attendedClassrooms = (student['attendedClassrooms'] as List?)
+    final attendedClassrooms =
+        (student['attendedClassrooms'] as List?)
             ?.whereType<Map>()
             .map((entry) => Map<String, dynamic>.from(entry))
             .toList(growable: false) ??
@@ -917,10 +984,12 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
           : <String, dynamic>{},
     );
 
-    final classroomCode =
-        (selectedTimelineEntry['classroomCode'] ?? '').toString().trim();
-    final classroomName =
-        (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
+    final classroomCode = (selectedTimelineEntry['classroomCode'] ?? '')
+        .toString()
+        .trim();
+    final classroomName = (selectedTimelineEntry['classroomName'] ?? '')
+        .toString()
+        .trim();
 
     return StudentAttendanceCustomItem(
       studentCode: (student['studentCode'] ?? '').toString().trim(),
@@ -942,5 +1011,3 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     );
   }
 }
-
-

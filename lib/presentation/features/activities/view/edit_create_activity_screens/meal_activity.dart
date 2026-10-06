@@ -909,6 +909,7 @@ class _MealActivityViewState extends State<_MealActivityView> {
         checkedIndices: _scopedEditStudentIndices,
       );
       String? lastMessage;
+      final handledCards = <String>{};
       for (final m in targets) {
         final code =
             (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
@@ -922,6 +923,12 @@ class _MealActivityViewState extends State<_MealActivityView> {
           );
           return;
         }
+        // Every selected student of one card shares that card's code, and the
+        // first PATCH can already split the card (the rest stay on the old
+        // one) — repeating it per student made the 2nd one fail with
+        // "applyToStudentCodes must be a subset of the current card students".
+        // One PATCH per distinct card, carrying only that card's students.
+        if (!handledCards.add(code)) continue;
         lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
@@ -931,6 +938,12 @@ class _MealActivityViewState extends State<_MealActivityView> {
               .toSet()
               .toList(),
           applyToStudentCodes: targets
+              .where(
+                (e) =>
+                    ((e['activityCode'] as String?)?.trim() ??
+                        fallbackActivityCode) ==
+                    code,
+              )
               .map((e) => (e['studentCode'] as String?)?.trim())
               .whereType<String>()
               .where((e) => e.isNotEmpty)
