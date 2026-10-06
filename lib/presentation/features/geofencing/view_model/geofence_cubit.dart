@@ -290,6 +290,71 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     await _checkAndStartMonitoring(schoolCode: schoolCode);
   }
 
+  /// Checks right now — with a fresh GPS fix — whether the user is at
+  /// school. Used when they tap Sign-In, so the answer never depends on a
+  /// stored range state that may be minutes old (Android has no live stream).
+  ///
+  /// Never prompts for permission: call `PermissionManager.ensure` first.
+  /// Updates [state] to match the fresh fix, so the status label agrees.
+  Future<AtSchoolCheck> checkAtSchoolNow({required bool forParent}) async {
+    if (state.schoolCode.isEmpty) return AtSchoolCheck.notReady;
+    if (!await PermissionManager.isLocationServiceEnabled()) {
+      return AtSchoolCheck.gpsOff;
+    }
+    if (!await PermissionManager.isGranted(AppPermission.location)) {
+      return AtSchoolCheck.noPermission;
+    }
+
+    // No school config yet (e.g. permission was only just granted): run the
+    // normal init, which loads it and starts monitoring.
+    if (_config == null) {
+      await _checkAndStartMonitoring(schoolCode: state.schoolCode);
+    }
+    final config = _config;
+    if (config == null || isClosed) return AtSchoolCheck.notReady;
+    if (!config.gpsSignInEnabled ||
+        (forParent && !config.parentGpsSignInEnabled)) {
+      return AtSchoolCheck.gpsSignInOff;
+    }
+
+    final Position position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] checkAtSchoolNow: no GPS fix ($e)');
+      return AtSchoolCheck.locationUnavailable;
+    }
+    // Same rule as the live stream: a mocked position never counts.
+    if (position.isMocked) return AtSchoolCheck.fakeLocation;
+    if (isClosed) return AtSchoolCheck.notReady;
+
+    final distance = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      config.latitude,
+      config.longitude,
+    );
+    final isInside = distance <= config.radiusMeters;
+    AppLogger.d(
+      '[GeofenceCubit] checkAtSchoolNow — '
+      'distance=${distance.toStringAsFixed(1)}m '
+      'radius=${config.radiusMeters}m inside=$isInside',
+    );
+    emit(
+      state.copyWith(
+        status: isInside
+            ? GeofenceCubitStatus.withinRange
+            : GeofenceCubitStatus.outsideRange,
+      ),
+    );
+    return isInside ? AtSchoolCheck.atSchool : AtSchoolCheck.notAtSchool;
+  }
+
   /// Force-refresh attendance settings and restart the geofence stream.
   /// Useful when the admin may have changed the GPS toggle or radius.
   Future<void> refreshSettings() async {

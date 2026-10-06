@@ -15,6 +15,28 @@ enum GeofenceCubitStatus {
   error,
 }
 
+/// Outcome of [GeofenceCubit.checkAtSchoolNow].
+enum AtSchoolCheck {
+  atSchool,
+  notAtSchool,
+
+  /// The phone's Location (GPS) switch is off.
+  gpsOff,
+  noPermission,
+
+  /// The school admin turned GPS sign-in off.
+  gpsSignInOff,
+
+  /// No GPS fix within the time limit.
+  locationUnavailable,
+
+  /// The position came from a fake-GPS (mock location) app.
+  fakeLocation,
+
+  /// School location isn't loaded (no school, or the API failed).
+  notReady,
+}
+
 class GeofenceState extends Equatable {
   const GeofenceState({
     required this.status,

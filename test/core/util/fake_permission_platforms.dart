@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -60,6 +62,27 @@ class FakeGeolocator extends GeolocatorPlatform
 
   @override
   Future<bool> isLocationServiceEnabled() async => serviceEnabled;
+
+  /// What a GPS fix returns; null = no fix (times out).
+  Position? currentPosition;
+
+  @override
+  Future<Position> getCurrentPosition({
+    LocationSettings? locationSettings,
+  }) async {
+    final position = currentPosition;
+    if (position == null) throw TimeoutException('no GPS fix');
+    return position;
+  }
+
+  @override
+  Future<Position?> getLastKnownPosition({
+    bool forceLocationManager = false,
+  }) async => currentPosition;
+
+  @override
+  Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
+      const Stream.empty();
 
   @override
   Future<LocationPermission> checkPermission() async => status;
