@@ -215,9 +215,11 @@ class ActivityRepositoryImpl implements ActivityRepository {
   @override
   Future<ActivityDetail> getActivity({
     required String code,
+    bool asGuardian = false,
   }) async {
     final data = await _remoteDataSource.getActivityByCode(
       cardGroupCode: code,
+      asGuardian: asGuardian,
     );
     return ActivityDetailModel.fromJson(data).toEntity();
   }

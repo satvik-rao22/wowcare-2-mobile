@@ -10,10 +10,12 @@ class GetActivityUseCase {
 
   Future<ActivityDetail> call({
     required String code,
+    bool asGuardian = false,
   }) async {
     try {
       return await _repository.getActivity(
         code: code,
+        asGuardian: asGuardian,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);
