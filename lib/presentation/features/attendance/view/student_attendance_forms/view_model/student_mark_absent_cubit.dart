@@ -120,15 +120,26 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       );
     }
 
-    // classroomCode is required by API; use the first non-empty classroomCode.
-    final classroomCode = state.students
+    // The API takes ONE classroomCode per request, so students from different
+    // classes must be submitted in separate calls, each with its own class.
+    // Students with no classroomCode fall back to the first known one.
+    final fallbackClassroomCode = state.students
         .map((s) => s.classroomCode.trim())
         .firstWhere((c) => c.isNotEmpty, orElse: () => '');
-
-    final studentCodes = state.students
-        .map((s) => s.studentCode.trim())
-        .where((c) => c.isNotEmpty)
-        .toList();
+    final studentCodesByClassroom = <String, List<String>>{};
+    for (final student in state.students) {
+      final code = student.studentCode.trim();
+      if (code.isEmpty) continue;
+      final classroom = student.classroomCode.trim().isNotEmpty
+          ? student.classroomCode.trim()
+          : fallbackClassroomCode;
+      studentCodesByClassroom
+          .putIfAbsent(classroom, () => <String>[])
+          .add(code);
+    }
+    final studentCodes = [
+      for (final codes in studentCodesByClassroom.values) ...codes,
+    ];
     if (studentCodes.isEmpty) {
       return const MarkAbsentSubmitOutcome.failure(
         'Student code missing for selected students',
@@ -143,23 +154,27 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       final note = (notes[code] ?? '').trim();
       if (note.isNotEmpty) absenceNotes[code] = note;
     }
-    final isExpectedTodayByStudentCode = <String, bool>{
-      for (final code in studentCodes) code: true,
-    };
 
     emit(state.copyWith(isSubmitting: true));
     try {
-      final message = await _markStudentsAbsentUseCase(
-        staffCode: staffCode,
-        studentCodes: studentCodes,
-        absenceFromDate: _formatDate(state.startDate),
-        absenceToDate: _formatDate(state.endDate),
-        absenceReason: absenceReason,
-        absenceNotes: absenceNotes,
-        classroomCode: classroomCode,
-        isExpectedTodayByStudentCode: isExpectedTodayByStudentCode,
-        markAbsentMethod: 'APP',
-      );
+      var message = '';
+      for (final entry in studentCodesByClassroom.entries) {
+        final codes = entry.value;
+        message = await _markStudentsAbsentUseCase(
+          staffCode: staffCode,
+          studentCodes: codes,
+          absenceFromDate: _formatDate(state.startDate),
+          absenceToDate: _formatDate(state.endDate),
+          absenceReason: absenceReason,
+          absenceNotes: {
+            for (final c in codes)
+              if (absenceNotes.containsKey(c)) c: absenceNotes[c]!,
+          },
+          classroomCode: entry.key,
+          isExpectedTodayByStudentCode: {for (final c in codes) c: true},
+          markAbsentMethod: 'APP',
+        );
+      }
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return MarkAbsentSubmitOutcome.success(
         message.isNotEmpty ? message : 'Marked Absent successfully',

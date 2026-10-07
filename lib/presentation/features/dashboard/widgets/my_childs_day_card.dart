@@ -1420,15 +1420,6 @@ class _MyChildsDayChatPreviewRowState
   int _recencyOf(ConversationEntity c) =>
       (c.lastMessageAt ?? c.updatedAt).millisecondsSinceEpoch;
 
-  /// A guardian must not see another guardian's private messages here. The
-  /// list payload does not say which message is private, and the per-parent
-  /// flags can lag, so a room with private messaging active, or whose preview
-  /// is the neutral "Private message" placeholder, is held back entirely.
-  bool _isPrivateToOtherGuardians(ConversationEntity c) {
-    final preview = c.lastMessagePreview.trim().toLowerCase();
-    return c.hasActivePrivateMode || preview == 'private message';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -1576,16 +1567,9 @@ class _MyChildsDayChatPreviewRowState
     }
 
     final forChild = list.where(isThisChild).toList();
-    // A room another guardian has private messaging on is NOT hidden (that
-    // made the child's chat vanish for good) — it stays visible with a neutral
-    // preview, so nothing private leaks but the row and its tap target remain.
-    final mine = forChild
-        .map(
-          (c) => _isPrivateToOtherGuardians(c)
-              ? c.copyWith(lastMessagePreview: 'Private message')
-              : c,
-        )
-        .toList();
+    // Private-mode rooms are shown with their real last-message preview —
+    // hiding or masking them made the child's chat vanish / stop updating.
+    final mine = forChild.toList();
     debugPrint(
       '[ChildChat] child=$child total=${list.length} '
       'matchedChild=${forChild.length} shown=${mine.length} '

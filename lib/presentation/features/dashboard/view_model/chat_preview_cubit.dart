@@ -82,16 +82,9 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   /// when Firestore itself says so.
   final Map<String, int> _liveUnread = {};
 
-  /// Final per-viewer presentation of a ranked row: live unread overlay, and
-  /// for a guardian a neutral preview when private messaging is active.
+  /// Final per-viewer presentation of a ranked row: live unread overlay.
   ConversationEntity _present(ConversationEntity c) {
-    final withUnread = _withLiveUnread(c);
-    if (_isGuardianViewer &&
-        (c.hasActivePrivateMode ||
-            c.lastMessagePreview.trim().toLowerCase() == 'private message')) {
-      return withUnread.copyWith(lastMessagePreview: 'Private message');
-    }
-    return withUnread;
+    return _withLiveUnread(c);
   }
 
   ConversationEntity _withLiveUnread(ConversationEntity c) {
