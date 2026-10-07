@@ -122,6 +122,7 @@ class ConversationEntity extends Equatable {
   ConversationEntity copyWith({
     String? lastMessageSenderName,
     int? unreadCount,
+    String? lastMessagePreview,
   }) {
     return ConversationEntity(
       id: id,
@@ -139,7 +140,7 @@ class ConversationEntity extends Equatable {
       updatedBy: updatedBy,
       participantCount: participantCount,
       unreadCount: unreadCount ?? this.unreadCount,
-      lastMessagePreview: lastMessagePreview,
+      lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       participants: participants,
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,

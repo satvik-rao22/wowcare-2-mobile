@@ -117,6 +117,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                   ),
                   SizedBox(width: spacing),
                   Expanded(
+                    flex: 3,
                     child: Text(
                       student.name,
                       style: AppTextStyles.value.copyWith(
@@ -127,13 +128,14 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Flexible(
+                  Expanded(
+                    flex: 2,
                     child: Text(
                       student.roomName,
                       style: AppTextStyles.value.copyWith(
                         fontSize: isTablet ? 16 : 14,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.right,
                     ),
@@ -180,7 +182,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                       context,
                       'Start Date',
                       student.startDate.isNotEmpty
-                          ? student.startDate.split('T')[0]
+                          ? formatAbsentCardDate(student.startDate)
                           : 'N/A',
                     ),
                     const SizedBox(height: AppSpacing.s10),
@@ -188,7 +190,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                       context,
                       'End Date',
                       student.endDate.isNotEmpty
-                          ? student.endDate.split('T')[0]
+                          ? formatAbsentCardDate(student.endDate)
                           : 'N/A',
                     ),
                     if (widget.onView != null) ...[

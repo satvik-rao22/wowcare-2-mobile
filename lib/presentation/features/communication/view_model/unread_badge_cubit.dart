@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/widgets.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
@@ -24,18 +25,34 @@ import 'unread_badge_state.dart';
 /// subscribe time (see `ConversationEntityRepositoryImpl.watchUnreadCountForType`),
 /// so cancel-and-resubscribe is sufficient; no separate scope-key plumbing
 /// needed here beyond knowing WHEN to do it.
-class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
+class UnreadBadgeCubit extends Cubit<UnreadBadgeState>
+    with WidgetsBindingObserver {
   UnreadBadgeCubit({
     required WatchUnreadCountForTypeUseCase watchUnreadCountForTypeUseCase,
     required WatchTotalUnreadCountUseCase watchTotalUnreadCountUseCase,
+    Future<String> Function()? scopeKeyResolver,
   }) : _watchUnreadCountForTypeUseCase = watchUnreadCountForTypeUseCase,
        _watchTotalUnreadCountUseCase = watchTotalUnreadCountUseCase,
+       _scopeKeyResolver = scopeKeyResolver,
        super(const UnreadBadgeState.initial()) {
     SchoolSwitchEvents.epoch.addListener(_handleSchoolSwitch);
+    TabVisibilityEvents.activeBranchIndex.addListener(_verifyScope);
+    WidgetsFlutterBinding.ensureInitialized().addObserver(this);
   }
 
   final WatchUnreadCountForTypeUseCase _watchUnreadCountForTypeUseCase;
   final WatchTotalUnreadCountUseCase _watchTotalUnreadCountUseCase;
+
+  /// Identifies the org/school/user/persona the live streams were attached
+  /// under. Each stream resolves those from storage ONCE, when it subscribes,
+  /// so a subscription made while the session was still settling (or before a
+  /// persona switch finished writing storage) silently watches the wrong
+  /// inbox — no error, just counts that never show. Comparing this on every
+  /// [startWatching]/resume/tab switch lets us re-attach when it has moved.
+  final Future<String> Function()? _scopeKeyResolver;
+  String? _scopeKey;
+  bool _verifyingScope = false;
+  bool _verifyAgain = false;
 
   int _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
 
@@ -49,6 +66,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// [CustomAppBar]) directly, independent of the per-type breakdown below.
   StreamSubscription<int>? _totalSubscription;
   int? _firestoreTotal;
+  bool _watching = false;
 
   /// Conversation-type keys whose live Firestore stream has delivered at
   /// least once. Distinguishes a genuine "just read" 0 from a spurious
@@ -61,12 +79,29 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
 
   @override
   Future<void> close() {
+    WidgetsBinding.instance.removeObserver(this);
+    TabVisibilityEvents.activeBranchIndex.removeListener(_verifyScope);
     SchoolSwitchEvents.epoch.removeListener(_handleSchoolSwitch);
     unawaited(_totalSubscription?.cancel());
     for (final sub in _subscriptions.values) {
       sub.cancel();
     }
     return super.close();
+  }
+
+  /// A Firestore listener can go quiet while the app is backgrounded (socket
+  /// dropped, auth token rotated, retries exhausted). Re-attach everything on
+  /// resume — WITHOUT clearing the counts already showing, so the badges never
+  /// blank while the fresh listeners reconnect.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _watching && !isClosed) {
+      for (final type in ConversationType.values) {
+        _subscribeToType(type);
+      }
+      _subscribeToTotal();
+      unawaited(_verifyScope());
+    }
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────────
@@ -77,11 +112,68 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// bootstrap. The badge shows nothing for the brief moment before the
   /// first snapshot arrives, rather than risk ever showing a value that
   /// didn't come from Firestore.
+  ///
+  /// Idempotent: this is a session singleton that several screens call on
+  /// mount. Re-subscribing on every call tore down live streams and let the
+  /// fresh stream's first (cache/empty) emit blank the badge. A school/persona
+  /// switch resets [_watching] and re-subscribes explicitly.
   void startWatching() {
+    if (_watching) {
+      unawaited(_verifyScope());
+      return;
+    }
+    _watching = true;
+    unawaited(_attachAll());
+  }
+
+  Future<void> _attachAll() async {
+    final resolver = _scopeKeyResolver;
+    if (resolver != null) {
+      try {
+        _scopeKey = await resolver();
+      } catch (_) {
+        _scopeKey = null;
+      }
+    }
+    if (isClosed) return;
     for (final type in ConversationType.values) {
       _subscribeToType(type);
     }
     _subscribeToTotal();
+  }
+
+  /// Re-attaches all streams if the session scope moved since they were
+  /// attached. Counts from the old scope are dropped; a no-op otherwise.
+  Future<void> verifyScope() => _verifyScope();
+
+  Future<void> _verifyScope() async {
+    final resolver = _scopeKeyResolver;
+    if (resolver == null || !_watching || isClosed) return;
+    if (_verifyingScope) {
+      // A check is already in flight against possibly-older storage; run once
+      // more when it finishes rather than dropping this request.
+      _verifyAgain = true;
+      return;
+    }
+    _verifyingScope = true;
+    try {
+      final key = await resolver();
+      if (isClosed || key == _scopeKey) return;
+      debugPrint('[UnreadDebug][badge] scope changed $_scopeKey -> $key');
+      _counts.clear();
+      _firestoreDelivered.clear();
+      _firestoreTotal = null;
+      emit(const UnreadBadgeState.initial());
+      await _attachAll();
+    } catch (_) {
+      // Keep the current streams if the scope can't be read right now.
+    } finally {
+      _verifyingScope = false;
+      if (_verifyAgain && !isClosed) {
+        _verifyAgain = false;
+        unawaited(_verifyScope());
+      }
+    }
   }
 
   /// Re-subscribes everything under the new org/school/persona scope after a
@@ -103,7 +195,8 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     _firestoreDelivered.clear();
     _firestoreTotal = null;
     emit(const UnreadBadgeState.initial());
-    startWatching();
+    _watching = true;
+    unawaited(_attachAll());
   }
 
   // ─── Private ─────────────────────────────────────────────────────────────────
@@ -112,30 +205,34 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     final key = type.toApiString();
     _subscriptions[key]?.cancel();
 
-    _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen((count) {
-      if (isClosed) return;
-      // A spurious 0 on the FIRST emit (custom-token sign-in still propagating, or an
-      // empty/mismatched inbox path) must not clobber whatever count is already showing.
-      // A real (>0) emit, or a later 0 once Firestore is already live (a genuine read),
-      // still applies.
-      final alreadyLive = _firestoreDelivered.contains(key);
-      if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
+    _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen(
+      (count) {
+        if (isClosed) return;
+        // A spurious 0 on the FIRST emit (custom-token sign-in still propagating, or an
+        // empty/mismatched inbox path) must not clobber whatever count is already showing.
+        // A real (>0) emit, or a later 0 once Firestore is already live (a genuine read),
+        // still applies.
+        final alreadyLive = _firestoreDelivered.contains(key);
+        if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
+          debugPrint(
+            '[UnreadDebug][badge:$key] ignoring spurious first-emit 0 '
+            '(current=${_counts[key]})',
+          );
+          return;
+        }
         debugPrint(
-          '[UnreadDebug][badge:$key] ignoring spurious first-emit 0 '
-          '(current=${_counts[key]})',
+          '[UnreadDebug][badge:$key] Firestore aggregate emit: $count '
+          '(was ${_counts[key]}, alreadyLive=$alreadyLive)',
         );
-        return;
-      }
-      debugPrint(
-        '[UnreadDebug][badge:$key] Firestore aggregate emit: $count '
-        '(was ${_counts[key]}, alreadyLive=$alreadyLive)',
-      );
-      _firestoreDelivered.add(
-        key,
-      ); // Firestore is now authoritative for this type
-      _counts[key] = count;
-      _emit();
-    }, onError: (_) => _retrySubscribeToType(type));
+        _firestoreDelivered.add(
+          key,
+        ); // Firestore is now authoritative for this type
+        _counts[key] = count;
+        _emit();
+      },
+      onError: (_) => _retrySubscribeToType(type),
+      onDone: () => _retrySubscribeToType(type),
+    );
   }
 
   /// No REST fallback on a stream error — Firestore is the only source for
@@ -152,11 +249,24 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// separate.
   void _subscribeToTotal() {
     _totalSubscription?.cancel();
-    _totalSubscription = _watchTotalUnreadCountUseCase().listen((total) {
-      if (isClosed) return;
-      debugPrint('[UnreadDebug][badge:TOTAL] Firestore inbox sum: $total');
-      _firestoreTotal = total;
-      _emit();
+    _totalSubscription = _watchTotalUnreadCountUseCase().listen(
+      (total) {
+        if (isClosed) return;
+        debugPrint('[UnreadDebug][badge:TOTAL] Firestore inbox sum: $total');
+        _firestoreTotal = total;
+        _emit();
+      },
+      // A dead total stream used to stay dead for the whole session (no error
+      // handler at all) — retry like the per-type streams do. The last known
+      // total is kept meanwhile.
+      onError: (_) => _retrySubscribeToTotal(),
+      onDone: _retrySubscribeToTotal,
+    );
+  }
+
+  void _retrySubscribeToTotal() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!isClosed) _subscribeToTotal();
     });
   }
 

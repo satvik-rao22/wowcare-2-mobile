@@ -441,6 +441,7 @@ Map<String, String>? consumePendingNotificationOrgSchool() {
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
+  observers: [DashboardReturnObserver(dashboardOnly: true)],
   initialLocation: AppRoutes.splash,
 
   // An unmatched location previously fell through to go_router's default
@@ -1003,6 +1004,7 @@ final GoRouter appRouter = GoRouter(
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
+        TabVisibilityEvents.currentShellIndex = navigationShell.currentIndex;
         // Expose the shell to descendants. CustomNavigationBar reads it and
         // switches tabs via goBranch — preserving each branch's widget tree
         // and navigation stack instead of rebuilding screens on every tap.
@@ -1026,6 +1028,7 @@ final GoRouter appRouter = GoRouter(
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
             navigationShell.goBranch(0);
+            TabVisibilityEvents.notifyBranchActivated(0);
           },
           child: _ShellScope(
             shell: navigationShell,
@@ -1045,6 +1048,7 @@ final GoRouter appRouter = GoRouter(
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
           navigatorKey: dashboardBranchKey,
+          observers: [DashboardReturnObserver(dashboardOnly: false)],
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,

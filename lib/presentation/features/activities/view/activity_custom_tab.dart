@@ -3239,6 +3239,7 @@ class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
                                                                       activity,
                                                                       isAdminPersona:
                                                                           _isAdminPersona,
+                                                                      viewerStaffCode: _viewerStaffCode,
                                                                     ))
                                                                   PopupMenuItem<
                                                                     String

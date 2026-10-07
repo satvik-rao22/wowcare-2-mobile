@@ -3496,6 +3496,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                           activity,
                                                                           isAdminPersona:
                                                                               _isAdminPersona,
+                                                                          viewerStaffCode: _viewerStaffCode,
                                                                         ))
                                                                       PopupMenuItem<
                                                                         String
@@ -4377,6 +4378,7 @@ class _ActivityDailyTabViewState extends State<_ActivityDailyTabView>
                                                                             canDeleteActivityItem(
                                                                               activity,
                                                                               isAdminPersona: _isAdminPersona,
+                                                                              viewerStaffCode: _viewerStaffCode,
                                                                             ))
                                                                           PopupMenuItem<
                                                                             String

@@ -68,13 +68,19 @@ bool canEditActivityItem(
 bool canDeleteActivityItem(
   ActivityItem activity, {
   required bool isAdminPersona,
+  String? viewerStaffCode,
 }) {
   final status = normalizeApprovalStatus(activity.approvalStatus);
   if (isAdminPersona) {
     return true;
   }
   if (status == 'REJECTED') return false;
-  if (!staffMayEditDeleteByApprovalStatus(status)) return false;
+  final viewerCode = (viewerStaffCode ?? '').trim().toUpperCase();
+  final presentCode = (activity.staffPresentCode ?? '').trim().toUpperCase();
+  if (viewerCode.isEmpty || presentCode.isEmpty || viewerCode != presentCode) {
+    return false;
+  }
+  if (!staffMayEditByApprovalStatus(status)) return false;
   if (isIncidentActivityItem(activity) &&
       isLikelyAdminDesignationLabel(activity.createdBy)) {
     return false;

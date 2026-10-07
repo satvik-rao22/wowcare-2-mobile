@@ -111,7 +111,15 @@ class BottomNavigationCubit extends Cubit<BottomNavigationState> {
        _unreadBadgeCubit = unreadBadgeCubit,
        super(const BottomNavigationState()) {
     _recompute();
-    _roleSub = _roleCubit.stream.listen((_) => _recompute());
+    _roleSub = _roleCubit.stream.listen((_) {
+      _recompute();
+      // The unread streams pick their role bucket (STAFF/ADMIN/GUARDIAN) from
+      // storage when they attach. On a multi-persona account that can be
+      // BEFORE the active persona was persisted, i.e. the wrong bucket, which
+      // reads every doc as 0 unread for this persona. RoleCubit persists the
+      // persona before it emits, so re-verify the scope on every role change.
+      unawaited(_unreadBadgeCubit.verifyScope());
+    });
     _badgeSub = _unreadBadgeCubit.stream.listen((_) => _recompute());
   }
 
@@ -177,6 +185,7 @@ class BottomNavigationCubit extends Cubit<BottomNavigationState> {
     final showParentMsg = _roleCubit.canReadModule(
       AppAccessModules.parentMessaging,
     );
+    // Admin Chat is never visible to the staff persona, so never counted.
     final showAdminChat = !isStaff;
     final unread = _unreadBadgeCubit.state;
     final unreadTotal =

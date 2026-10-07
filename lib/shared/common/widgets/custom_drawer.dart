@@ -243,7 +243,6 @@ class _CustomDrawerState extends State<CustomDrawer> {
       ),
     );
   }
-
   Widget _buildSchoolSwitcher() {
     if (_isLoadingSchools) {
       return const SizedBox.shrink();
