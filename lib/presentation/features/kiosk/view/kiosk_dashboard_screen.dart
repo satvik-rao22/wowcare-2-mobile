@@ -218,7 +218,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                             child: CircleAvatar(
                               radius: 20,
                               backgroundImage: AssetImage(
-                                'assets/images/WowCarePNG.png',
+                                'assets/bgImages/WowCare_2.png',
                               ),
                             ),
                           ),

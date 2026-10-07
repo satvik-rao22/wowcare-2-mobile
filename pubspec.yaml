@@ -141,7 +141,6 @@ flutter:
   assets:
     - assets/icons/
     - assets/forte_auto_pay.html
-    - assets/images/WowCarePNG.png
     - assets/images/defaultNewsletter.jpg
     - assets/images/logout_image.png
     - assets/images/upload-photo-video-image.png

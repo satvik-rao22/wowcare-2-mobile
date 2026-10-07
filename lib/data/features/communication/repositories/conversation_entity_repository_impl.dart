@@ -30,7 +30,13 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   /// watchConversations). Prevents re-fetching the same missing item on every
   /// inbox emission. The repository is a singleton, so this is shared across
   /// all watchers (dashboard, list, unread badge).
-  final Set<String> _hydrationAttempted = {};
+  /// Conversation code -> when its metadata fetch last FAILED. A failed fetch
+  /// used to be remembered forever (the code was marked "attempted" up front),
+  /// leaving that chat as a metadata-less minimal entity (no studentCode,
+  /// title or roster) for the rest of the session. Now only a SUCCESS is final;
+  /// a failure is retried after a short cooldown.
+  final Map<String, DateTime> _hydrationFailedAt = {};
+  static const Duration _hydrationRetryAfter = Duration(seconds: 30);
 
   ConversationEntityRepositoryImpl({
     required ConversationEntityRemoteDataSource remoteDataSource,
@@ -644,9 +650,10 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
           final missing = <String>[];
           for (final item in inboxItems) {
             final code = item.conversationCode;
-            if (!cacheMap.containsKey(code) &&
-                !_hydrationAttempted.contains(code)) {
-              _hydrationAttempted.add(code);
+            if (cacheMap.containsKey(code)) continue;
+            final failedAt = _hydrationFailedAt[code];
+            if (failedAt == null ||
+                DateTime.now().difference(failedAt) > _hydrationRetryAfter) {
               missing.add(code);
             }
           }
@@ -656,8 +663,10 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
                 try {
                   final dto = await _remote.getConversation(code);
                   await _local.saveConversation(dto.toEntity());
+                  _hydrationFailedAt.remove(code);
                 } catch (_) {
-                  // Best-effort: leave the minimal entity if the fetch fails.
+                  // Best-effort: leave the minimal entity for now, retry later.
+                  _hydrationFailedAt[code] = DateTime.now();
                 }
               }),
             );

@@ -160,20 +160,27 @@ class _CustomDrawerState extends State<CustomDrawer> {
           )
           .toList();
 
-      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
-      // from the switcher, using the cached `/users/details` snapshot. An
-      // unknown/missing status is treated as active so a stale snapshot
-      // never hides a school the user should be able to reach.
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval),
+      // or that this user has no role at all, from the switcher — using the
+      // cached `/users/details` snapshot. `names-by-org` lists every school
+      // in the organization regardless of this user's own access, so without
+      // this an account with a role at only one school of three saw all
+      // three in the dropdown (two of them unusable, just padding the list).
+      // A missing snapshot entry is only let through for the CURRENTLY
+      // active school — never hidden just because the cache is momentarily
+      // stale — not for every other school in the org.
       if (orgCode != null && orgCode.isNotEmpty) {
         final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
         if (cachedUsers.isNotEmpty) {
           schoolsForOrg = schoolsForOrg.where((e) {
+            final code = e['schoolCode'] ?? '';
             final status = schoolStatusFromUserDetails(
               cachedUsers,
               orgCode,
-              e['schoolCode'] ?? '',
+              code,
             );
-            return status == null || status == 'ACTIVE';
+            if (status != null) return status == 'ACTIVE';
+            return code == schoolCode;
           }).toList();
         }
       }
@@ -779,6 +786,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           );
                         },
                       ),
+                      SizedBox(height: MediaQuery.of(context).viewPadding.bottom),
+                      const SizedBox(height: 15),
                     ],
                   ),
                 ),

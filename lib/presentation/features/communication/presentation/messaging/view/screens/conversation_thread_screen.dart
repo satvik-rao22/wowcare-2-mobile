@@ -58,6 +58,10 @@ class ConversationThreadScreen extends StatefulWidget {
     super.key,
     required this.conversation,
 
+    /// The persona the opener is in. When given it wins over the stored active
+    /// role, which can lag behind a persona switch.
+    this.viewerRoleOverride,
+
     /// When false the widget renders only its body (no GlobalScaffold / nav
     /// bar). Use this to embed the thread inline inside a parent screen.
     this.showOwnScaffold = true,
@@ -79,6 +83,7 @@ class ConversationThreadScreen extends StatefulWidget {
   });
 
   final ConversationEntity conversation;
+  final ParticipantRole? viewerRoleOverride;
   final bool showOwnScaffold;
   final bool showPrivateModeToggle;
   final bool isDraft;
@@ -212,6 +217,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// mode state arrive after the conversation resolves).
   TabController? _tabController;
 
+  /// Whether [m] was sent from the staff/admin side of the room. Decided from
+  /// the room's participant list by user code, not from the message's own
+  /// sender role, which can be missing or mis-parsed.
+  bool _isStaffSide(MessageEntity m) {
+    final senders = _conversation.participants.where(
+      (p) => p.userCode == m.senderCode,
+    );
+    if (senders.isEmpty) return m.senderRole != ParticipantRole.parent;
+    return senders.any((p) => p.role != ParticipantRole.parent);
+  }
+
   /// Every active guardian gets their own private tab — a student can have
   /// more than two parents/guardians on the roster (e.g. 4), and each one
   /// needs a way to be shown their own private thread with staff.
@@ -314,25 +330,37 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   List<MessageEntity> _visibleMessagesForActiveTab(
     List<MessageEntity> messages,
   ) {
-    if (_senderRole == ParticipantRole.parent) {
-      return messages
-          .where((m) => !m.isPrivate || m.privateParentUserCode == _senderCode)
-          .toList();
-    }
+    // A guardian never sees another guardian's private messages, whichever
+    // persona is active. Private mode puts every guardian's thread private
+    // together, so while the room is private their group messages are held
+    // back too.
+    final guardianRules = _senderRole == ParticipantRole.parent;
+    final roomPrivate = _conversation.hasActivePrivateMode;
+    final visible = guardianRules
+        ? messages.where((m) {
+            if (m.isPrivate) return m.privateParentUserCode == _senderCode;
+            if (roomPrivate && m.senderCode != _senderCode && !_isStaffSide(m)) {
+              return false;
+            }
+            return true;
+          }).toList()
+        : messages;
+
+    if (_senderRole == ParticipantRole.parent) return visible;
     if (!_showChatTabs) {
-      return messages.where((m) => !m.isPrivate).toList();
+      return visible.where((m) => !m.isPrivate).toList();
     }
     final activeIndex = _tabController?.index ?? 0;
     if (activeIndex == 0) {
-      return messages.where((m) => !m.isPrivate).toList();
+      return visible.where((m) => !m.isPrivate).toList();
     }
     final guardians = _tabGuardians;
     final guardianIndex = activeIndex - 1;
     if (guardianIndex >= guardians.length) {
-      return messages.where((m) => !m.isPrivate).toList();
+      return visible.where((m) => !m.isPrivate).toList();
     }
     final guardianCode = guardians[guardianIndex].userCode;
-    return messages
+    return visible
         .where((m) => m.isPrivate && m.privateParentUserCode == guardianCode)
         .toList();
   }
@@ -404,6 +432,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // from the moment the screen is built. _loadSenderInfo will confirm/update it
     // from storage (same value) along with the other sender fields.
     _senderCode = userCodeFromAuth;
+    if (widget.viewerRoleOverride != null) {
+      _senderRole = widget.viewerRoleOverride!;
+    }
 
     _cubit.startWatchingMessages();
     // Fire an immediate, undebounced mark-read on open — matches Room
@@ -502,7 +533,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _senderName = displayName.isNotEmpty ? displayName : userCode;
     _organizationCode = orgCode;
     _schoolCode = school;
-    _senderRole = ParticipantRole.fromApiString(activeRole);
+    _senderRole =
+        widget.viewerRoleOverride ?? ParticipantRole.fromApiString(activeRole);
     // Set-once identity fields stay plain; bump the rev to trigger the rebuild.
     _identityRev.value++;
   }
@@ -719,7 +751,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       DateTime? readAt,
     }) {
       return MessageInfoRecipient(
-        name: r.userName.isNotEmpty ? r.userName : AppStrings.participantFallback,
+        name: r.userName.isNotEmpty
+            ? r.userName
+            : AppStrings.participantFallback,
         role: r.role,
         avatarSource: _avatarForCode(r.userCode),
         deliveredAt: deliveredAt,
@@ -1024,9 +1058,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       width: double.infinity,
       decoration: const BoxDecoration(
         color: AppColors.transparentColor,
-        border: Border(bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.messagingBorderSubtle, width: 1),
+        ),
       ),
-      padding: const EdgeInsets.fromLTRB(AppSizes.md, AppSizes.xsPlus, AppSizes.md, AppSizes.xsPlus),
+      padding: const EdgeInsets.fromLTRB(
+        AppSizes.md,
+        AppSizes.xsPlus,
+        AppSizes.md,
+        AppSizes.xsPlus,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1136,8 +1177,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                             onChanged: canOperate
                                 ? (_) => _privateModeToggleCubit!.toggle()
                                 : null,
-                            activeThumbColor: AppColors.messagingRoleBadgeGuardian,
-                            activeTrackColor: AppColors.messagingRoleBadgeGuardian.withValues(alpha: 0.4),
+                            activeThumbColor:
+                                AppColors.messagingRoleBadgeGuardian,
+                            activeTrackColor: AppColors
+                                .messagingRoleBadgeGuardian
+                                .withValues(alpha: 0.4),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -1364,7 +1408,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         if (controller.index != tabIndex) controller.animateTo(tabIndex);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: 3),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.xsPlus,
+          vertical: 3,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
@@ -1388,7 +1435,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               Icon(
                 Icons.visibility_off,
                 size: 12,
-                color: isSelected ? AppColors.messagingOnAccent : AppColors.messagingPrivateLock,
+                color: isSelected
+                    ? AppColors.messagingOnAccent
+                    : AppColors.messagingPrivateLock,
               ),
             ],
           ],
@@ -1466,7 +1515,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.7,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xsPlus, vertical: 5),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.xsPlus,
+          vertical: 5,
+        ),
         decoration: BoxDecoration(
           color: AppColors.messagingNoticeBg,
           borderRadius: BorderRadius.circular(20),
@@ -1475,7 +1527,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.lock_outline, size: 14, color: AppColors.messagingNoticeText),
+            const Icon(
+              Icons.lock_outline,
+              size: 14,
+              color: AppColors.messagingNoticeText,
+            ),
             const SizedBox(width: 5),
             Flexible(
               child: Text(
@@ -1590,7 +1646,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 child: Center(
                   child: Text(
                     AppStrings.noMessagesYetSayHello,
-                    style: AppTextStyles.size14.copyWith(color: AppColors.messagingTextPlaceholder),
+                    style: AppTextStyles.size14.copyWith(
+                      color: AppColors.messagingTextPlaceholder,
+                    ),
                   ),
                 ),
               ),
@@ -1640,7 +1698,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         // stay scrollable (and therefore pull-to-refresh-able) regardless
         // of message count.
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xs, vertical: AppSizes.sm),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.xs,
+          vertical: AppSizes.sm,
+        ),
         reverse: true,
         itemCount: messages.length,
         itemBuilder: (context, index) {
@@ -1666,7 +1727,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             children: [
               if (showDateHeader) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: AppSizes.xs, bottom: AppSizes.xsPlus),
+                  padding: const EdgeInsets.only(
+                    top: AppSizes.xs,
+                    bottom: AppSizes.xsPlus,
+                  ),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -2026,7 +2090,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: !isLandscape,
-      body: Padding(padding: const EdgeInsets.all(AppSizes.xsPlus), child: body),
+      body: Padding(
+        padding: const EdgeInsets.all(AppSizes.xsPlus),
+        child: body,
+      ),
     );
   }
 

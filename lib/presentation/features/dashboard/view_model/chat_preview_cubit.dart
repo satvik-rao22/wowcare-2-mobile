@@ -61,11 +61,72 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   Timer? _timeout;
   bool _started = false;
+  bool _isGuardianViewer = false;
+
+  /// Admin Chat is never visible to the staff persona (admin/director and
+  /// guardian only), so it is kept off a staff viewer's preview entirely.
+  bool _isStaffViewer = false;
+
+  /// Classroom codes a classroom-scoped staff viewer may see. Null means the
+  /// viewer is not scoped. Until resolved, classroom-bound rooms are held back
+  /// so a scoped staff member never briefly sees one outside their classes.
+  Set<String>? _scopedClassroomCodes;
+  bool _scopeResolved = false;
+  final Map<String, ConversationEntity> _known = {};
+
+  /// Unread count per conversation, taken ONLY from the live Firestore inbox
+  /// snapshot. Cache and REST copies carry a stale or forced-0 count, and the
+  /// merge below picks a winner by timestamp, not by source — so a REST/cache
+  /// copy could blank (or freeze) a count Firestore had already delivered.
+  /// Overlaid onto the ranked rows at the end, so the badge only ever changes
+  /// when Firestore itself says so.
+  final Map<String, int> _liveUnread = {};
+
+  /// Final per-viewer presentation of a ranked row: live unread overlay.
+  ConversationEntity _present(ConversationEntity c) {
+    return _withLiveUnread(c);
+  }
+
+  ConversationEntity _withLiveUnread(ConversationEntity c) {
+    final live = _liveUnread[c.code.trim()];
+    return (live == null || live == c.unreadCount)
+        ? c
+        : c.copyWith(unreadCount: live);
+  }
 
   /// Idempotent: the card can be rebuilt without re-running the pipeline.
-  Future<void> load() async {
+  ///
+  /// [isGuardianViewer] — when the viewer is acting as a guardian, rooms where
+  /// another guardian has private messaging enabled are kept off the preview
+  /// (their last-message text and unread count would otherwise leak it).
+  Future<void> load({
+    bool isGuardianViewer = false,
+    bool isStaffViewer = false,
+  }) async {
     if (_started) return;
     _started = true;
+    _isGuardianViewer = isGuardianViewer;
+    _isStaffViewer = isStaffViewer;
+
+    if (!isGuardianViewer) {
+      unawaited(
+        resolveScopedStaffClassroomCodes(storage: _storage)
+            .then((codes) {
+              if (isClosed) return;
+              _scopedClassroomCodes = codes;
+              _scopeResolved = true;
+              _safeEmit(state.copyWith(items: _rank(const [])));
+            })
+            .catchError((_) {
+              if (isClosed) return;
+              _scopedClassroomCodes = <String>{};
+              _scopeResolved = true;
+              _safeEmit(state.copyWith(items: _rank(const [])));
+            }),
+      );
+    } else {
+      _scopeResolved = true;
+    }
 
     final currentUserCode =
         (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
@@ -153,6 +214,10 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       (list) {
         if (isClosed) return;
         _timeout?.cancel();
+        for (final c in list) {
+          final code = c.code.trim();
+          if (code.isNotEmpty) _liveUnread[code] = c.unreadCount;
+        }
         // If Firestore returns items, use them (merged to preserve names if
         // needed). If it returns empty, only overwrite if we didn't get any
         // from REST/cache.
@@ -197,10 +262,57 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
   static DateTime _rankTime(ConversationEntity c) =>
       c.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// True when the viewer must not see [c] on the dashboard. A guardian is kept
+  /// out of rooms with private messaging on or a private last message; the list
+  /// payload does not say which message is private, so the whole room is held.
+  bool _hiddenFromViewer(ConversationEntity c) {
+    if (_isGuardianViewer) {
+      // The REST preview is the neutral placeholder whenever the room's last
+      // message is private, and the per-parent flags can lag behind — so a
+      // room with private messaging active, or showing that placeholder, is
+      // held back from the guardian preview entirely.
+      // Not hidden: a room another guardian has private messaging on stays
+      // visible with a neutral preview (see [_present]).
+      return false;
+    }
+
+    if (_isStaffViewer && c.type == ConversationType.adminChat) return true;
+
+    final classroomBound =
+        c.type == ConversationType.roomChat ||
+        c.type == ConversationType.classroomChat;
+    if (!classroomBound) return false;
+    if (!_scopeResolved) return true;
+
+    final scope = _scopedClassroomCodes;
+    if (scope == null) return false;
+    final code = c.classroomCode?.trim() ?? '';
+    return code.isEmpty || !scope.contains(code);
+  }
+
   List<ConversationEntity> _rank(
-    List<ConversationEntity> list, {
+    List<ConversationEntity> input, {
     String? primaryClassroomCode,
   }) {
+    // Every conversation ever seen is kept, so a room hidden while the viewer's
+    // scope was still loading comes back once that scope resolves.
+    for (final c in input) {
+      final code = c.code.trim();
+      if (code.isEmpty) continue;
+      final known = _known[code];
+      if (known == null || !_rankTime(c).isBefore(_rankTime(known))) {
+        // REST copies carry unreadCount 0 (Firestore is the only source of
+        // unread counts), so never let one blank a live count on a tie.
+        _known[code] =
+            (known != null &&
+                c.unreadCount == 0 &&
+                known.unreadCount > 0 &&
+                _rankTime(c) == _rankTime(known))
+            ? c.copyWith(unreadCount: known.unreadCount)
+            : c;
+      }
+    }
+    final list = _known.values.where((c) => !_hiddenFromViewer(c)).toList();
     // Callers pass `[...items, ...freshSnapshot]` — the OLD top-2 selection
     // first, the fresh cache/REST/Firestore data second. Cache, REST and the
     // live watch all resolve independently and can arrive in ANY order (a slow
@@ -236,10 +348,15 @@ class ChatPreviewCubit extends Cubit<ChatPreviewState> {
       }
     }
 
-    if (primaryNotes == null) return unique.take(2).toList(growable: false);
+    if (primaryNotes == null) {
+      return unique.take(2).map(_present).toList(growable: false);
+    }
     return <ConversationEntity>[
-      primaryNotes,
-      ...unique.where((c) => c.code != primaryNotes!.code).take(1),
+      _present(primaryNotes),
+      ...unique
+          .where((c) => c.code != primaryNotes!.code)
+          .take(1)
+          .map(_present),
     ];
   }
 
