@@ -1,9 +1,9 @@
-import 'package:any_link_preview/any_link_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/url_preview_resolver.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
 /// Extracts the first HTTP/HTTPS URL from [text] and returns it, or null if
@@ -14,18 +14,16 @@ String? extractFirstUrl(String text) {
   return preview.value;
 }
 
-/// Plain clickable link — shown for the first URL found in a message.
+/// WhatsApp-style link preview for the first URL in a message bubble.
 ///
-/// No Open Graph/metadata fetch, no async-loaded thumbnail: just the raw
-/// URL as tappable, underlined text. A prior version fetched a rich
-/// WhatsApp-style preview card via [AnyLinkPreview], but that card resizes
-/// itself asynchronously once its fetch completes — the message bubble
-/// wraps its content in IntrinsicWidth/IntrinsicHeight to shrink-fit, and a
-/// descendant resizing itself after that ancestor's first layout pass
-/// repeatedly tripped Flutter's relayout-boundary/semantics assertions
-/// ('_debugRelayoutBoundaryAlreadyMarkedNeedsLayout',
-/// '!semantics.parentDataDirty'). A static, fixed-size widget has no such
-/// resize to trigger it.
+/// Shows the plain tappable URL while [UrlPreviewResolver] is working, and
+/// forever if no metadata is found. Once resolved, swaps to a card.
+///
+/// Layout note: the bubble shrink-fits via IntrinsicWidth/IntrinsicHeight.
+/// A widget that resizes *itself* after layout (the old AnyLinkPreview card)
+/// tripped Flutter's relayout-boundary/semantics assertions. So the card has a
+/// fixed width, a fixed-height image box, and no LayoutBuilder — its size is
+/// known the moment it is built and never changes afterwards.
 ///
 /// Pass [isMe] = true to use the sender (purple gradient) colour scheme;
 /// false for the receiver (light blue) scheme.
@@ -35,10 +33,21 @@ class LinkPreviewCard extends StatelessWidget {
   final String url;
   final bool isMe;
 
+  static const double _imageHeight = 140;
+
   @override
   Widget build(BuildContext context) {
-    if (!AnyLinkPreview.isValidLink(url)) return const SizedBox.shrink();
+    return FutureBuilder<UrlPreviewResult>(
+      future: UrlPreviewResolver.resolve(url),
+      initialData: UrlPreviewResolver.cached(url),
+      builder: (context, snapshot) => switch (snapshot.data) {
+        UrlPreviewFound(:final data) => _buildCard(context, data),
+        _ => _buildPlainLink(),
+      },
+    );
+  }
 
+  Widget _buildPlainLink() {
     return Padding(
       padding: const EdgeInsets.only(top: AppSizes.xxs),
       child: GestureDetector(
@@ -49,6 +58,95 @@ class LinkPreviewCard extends StatelessWidget {
             color: isMe ? AppColors.messagingOnAccent : AppColors.primaryColor,
             fontSize: 13,
             decoration: TextDecoration.underline,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, UrlPreviewData data) {
+    // Bubble max width (72% of screen) minus its horizontal padding.
+    final cardWidth = MediaQuery.sizeOf(context).width * 0.72 - AppSizes.sm * 2;
+    final textColor = isMe
+        ? AppColors.messagingOnAccent
+        : AppColors.messagingTextStrong;
+    final subColor = isMe
+        ? AppColors.messagingOnAccent.withValues(alpha: 0.75)
+        : AppColors.messagingCloseIcon;
+    final cardColor = isMe
+        ? AppColors.messagingOnAccent.withValues(alpha: 0.15)
+        : AppColors.messagingContactChipBg;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSizes.xxs),
+      child: GestureDetector(
+        onTap: () => MessageContentProcessor.launchLink(url),
+        child: Container(
+          width: cardWidth,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (data.imageUrl != null)
+                SizedBox(
+                  width: cardWidth,
+                  height: _imageHeight,
+                  child: Image.network(
+                    data.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => ColoredBox(
+                      color: AppColors.primaryColor.withValues(alpha: 0.08),
+                      child: Icon(Icons.link_rounded, color: subColor),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(AppSizes.xs),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (data.siteName != null)
+                      Text(
+                        data.siteName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.size14.copyWith(
+                          fontSize: 11,
+                          color: subColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    if (data.title != null)
+                      Text(
+                        data.title!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.size14.copyWith(
+                          fontSize: 13,
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    if (data.description != null)
+                      Text(
+                        data.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.size14.copyWith(
+                          fontSize: 12,
+                          color: subColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -87,7 +185,6 @@ class PreviewCard extends StatelessWidget {
       ),
     };
   }
-
 }
 
 class ComposerLinkPreview extends StatelessWidget {
@@ -103,62 +200,7 @@ class ComposerLinkPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = switch (preview.kind) {
-      PreviewKind.url => AnyLinkPreview(
-        link: preview.value,
-        displayDirection: UIDirection.uiDirectionHorizontal,
-        showMultimedia: true,
-        bodyMaxLines: 1,
-        bodyTextOverflow: TextOverflow.ellipsis,
-        titleStyle: AppTextStyles.size14.copyWith(
-          color: AppColors.primaryColor,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
-        bodyStyle: AppTextStyles.size14.copyWith(
-          color: AppColors.messagingCloseIcon,
-          fontSize: 11,
-        ),
-        cache: const Duration(days: 1),
-        backgroundColor: AppColors.transparentColor,
-        borderRadius: 8,
-        removeElevation: true,
-        errorWidget: Text(
-          preview.value,
-          style: AppTextStyles.size14.copyWith(
-            fontSize: 11,
-            color: AppColors.primaryColor,
-            decoration: TextDecoration.underline,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        placeholderWidget: SizedBox(
-          height: 36,
-          child: Row(
-            children: [
-              SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-              const SizedBox(width: AppSizes.xs),
-              Expanded(
-                child: Text(
-                  preview.value,
-                  style: AppTextStyles.size14.copyWith(
-                    fontSize: 11,
-                    color: AppColors.primaryColor.withValues(alpha: 0.7),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      PreviewKind.url => _ComposerUrlPreview(url: preview.value),
       PreviewKind.email => _ComposerContactPreview(
         icon: Icons.email_outlined,
         title: AppStrings.email,
@@ -186,7 +228,12 @@ class ComposerLinkPreview extends StatelessWidget {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(AppSizes.sm, AppSizes.xs, 0, AppSizes.xs),
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.sm,
+                AppSizes.xs,
+                0,
+                AppSizes.xs,
+              ),
               child: child,
             ),
           ),
@@ -201,7 +248,6 @@ class ComposerLinkPreview extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// Contact (email/phone) preview chip shown inside a message bubble.
@@ -346,6 +392,120 @@ class _ComposerContactPreview extends StatelessWidget {
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// URL preview shown in the composer's link-preview strip: a compact
+/// thumbnail + title row once resolved, the plain URL while loading or when
+/// nothing is found.
+class _ComposerUrlPreview extends StatelessWidget {
+  const _ComposerUrlPreview({required this.url});
+
+  final String url;
+
+  static const double _thumbSize = 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<UrlPreviewResult>(
+      future: UrlPreviewResolver.resolve(url),
+      initialData: UrlPreviewResolver.cached(url),
+      builder: (context, snapshot) {
+        if (snapshot.data case UrlPreviewFound(:final data)) {
+          return _buildResolved(data);
+        }
+        return _buildPlainUrl(
+          isLoading: snapshot.connectionState != ConnectionState.done,
+        );
+      },
+    );
+  }
+
+  Widget _buildPlainUrl({required bool isLoading}) {
+    return SizedBox(
+      height: _thumbSize,
+      child: Row(
+        children: [
+          if (isLoading) ...[
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(width: AppSizes.xs),
+          ],
+          Expanded(
+            child: Text(
+              url,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.size14.copyWith(
+                fontSize: 11,
+                color: AppColors.primaryColor,
+                decoration: isLoading ? null : TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResolved(UrlPreviewData data) {
+    return SizedBox(
+      height: _thumbSize,
+      child: Row(
+        children: [
+          if (data.imageUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                data.imageUrl!,
+                width: _thumbSize,
+                height: _thumbSize,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox(
+                  width: _thumbSize,
+                  height: _thumbSize,
+                  child: Icon(Icons.link_rounded, size: 18),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSizes.xs),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  data.title ?? data.siteName ?? url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.size14.copyWith(
+                    color: AppColors.primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  data.description ?? url,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.size14.copyWith(
+                    color: AppColors.messagingCloseIcon,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),

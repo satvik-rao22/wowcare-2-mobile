@@ -1071,7 +1071,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               padding: const EdgeInsets.only(top: AppSizes.xs),
                               child: PreviewCard(
                                 // Stable key so the preview (esp. the async
-                                // AnyLinkPreview for URLs) is preserved across the
+                                // URL preview card) is preserved across the
                                 // frequent live-sync rebuilds instead of being torn
                                 // down + rebuilt mid-frame. Key by the MESSAGE code
                                 // (unique) — keying by preview.value would collide
