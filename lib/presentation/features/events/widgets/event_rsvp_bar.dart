@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Three-option RSVP selector (Attending / Maybe / Not Attending). The
 /// current selection is filled; the rest are outlined.
@@ -40,7 +41,10 @@ class EventRsvpBar extends StatelessWidget {
         color: isSelected ? color : color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          onTap: () => onChanged(status),
+          onTap: () {
+            AppHaptics.select();
+            onChanged(status);
+          },
           borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: dense ? 6 : 9),

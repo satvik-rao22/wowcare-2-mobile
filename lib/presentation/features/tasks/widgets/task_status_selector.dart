@@ -5,6 +5,7 @@ import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/theme/skeu_decoration.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Segmented status control — the task detail screen's primary action.
 ///
@@ -90,7 +91,12 @@ class TaskStatusSelector extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             // Already on this status, or read-only: nothing to do.
-            onTap: enabled && !selected ? () => onChanged!(option) : null,
+            onTap: enabled && !selected
+                ? () {
+                    AppHaptics.select();
+                    onChanged!(option);
+                  }
+                : null,
             borderRadius: BorderRadius.circular(10),
             child: content,
           ),

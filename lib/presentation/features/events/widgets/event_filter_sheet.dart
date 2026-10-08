@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Bottom-drawer filter panel for events. Short, fixed dimensions (scope,
 /// event types) stay inline as chips; the open-ended Classrooms dimension
@@ -105,7 +106,10 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
               ),
               if (state.activeFilterCount > 0)
                 TextButton(
-                  onPressed: cubit.clearAllFilters,
+                  onPressed: () {
+                    AppHaptics.tap();
+                    cubit.clearAllFilters();
+                  },
                   child: const Text('Clear all',
                       style: TextStyle(fontSize: 12.5)),
                 ),
@@ -312,7 +316,10 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
       color: selected ? color : color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          AppHaptics.select();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -459,7 +466,10 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          onPressed: onTap,
+          onPressed: () {
+            AppHaptics.tap();
+            onTap();
+          },
           child: Text(
             label,
             style: TextStyle(
@@ -623,7 +633,10 @@ class _CategoryFilterListState extends State<_CategoryFilterList> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  onPressed: widget.onBack,
+                  onPressed: () {
+                    AppHaptics.tap();
+                    widget.onBack();
+                  },
                   child: Text(
                     'Done',
                     style: TextStyle(

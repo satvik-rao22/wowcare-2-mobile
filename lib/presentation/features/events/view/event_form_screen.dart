@@ -25,6 +25,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Create/edit form for an event. A single scrollable mobile form replaces
 /// the web design's multi-step wizard: basics up top, audience pickers
@@ -543,6 +544,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   /// picking them inside Custom, so their students/staff show as selected.
   void _onTypeChanged(EventType next) {
     if (next == _type) return;
+    AppHaptics.select();
     if (next == EventType.custom && _classrooms.isNotEmpty) {
       final allStudents = context.read<StudentCubit>().state.items;
       final allStaff = context.read<StaffCubit>().state.items;
@@ -995,6 +997,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   }
 
   void _onWeekdaySelectAll() {
+    AppHaptics.select();
     setState(() {
       if (_recurDays.length == 7) {
         // "Clear all": weekly keeps at least the start date's weekday.
@@ -1040,6 +1043,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
               color: AppColors.primaryColor.withValues(alpha: 0.3),
             ),
             onSelected: (selected) {
+              AppHaptics.select();
               setState(() {
                 final next = Set<int>.of(_recurDays);
                 if (selected) {
@@ -1228,6 +1232,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
   }
 
   Future<void> _save() async {
+    AppHaptics.tap();
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final error = _validateAudienceAndTime();
     if (error != null) {
@@ -1441,11 +1446,17 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             child: Text(_isEditing ? 'Save anyway' : 'Create anyway'),
           ),
         ],
@@ -1689,6 +1700,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                     ),
                     TextButton(
                       onPressed: () {
+                        AppHaptics.select();
                         setState(() {
                           if (allSelected) {
                             for (final a in filtered) {
@@ -1780,6 +1792,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                         ),
                       ),
                       onPressed: () {
+                        AppHaptics.tap();
                         final byCode = {
                           for (final option in widget.options)
                             option.code: option,

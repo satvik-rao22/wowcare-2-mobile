@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Searchable, multi-select assignee picker used by the task form. Add mode
 /// creates one task per assignee (PRD FR-TK-03). Edit mode pre-checks the
@@ -198,7 +199,10 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: () => Navigator.pop(context, _selection),
+                      onPressed: () {
+                        AppHaptics.tap();
+                        Navigator.pop(context, _selection);
+                      },
                       child: Text(
                         'Done (${_selection.length})',
                         style: TextStyle(

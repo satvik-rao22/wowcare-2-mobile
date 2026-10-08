@@ -7,6 +7,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/view_model/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Asks how far an edit to a **recurring** task should reach before it is
 /// persisted, mirroring the web app's "Modify …" dialog.
@@ -137,7 +138,12 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
       key: ValueKey('task-edit-scope-${scope.name}'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: GestureDetector(
-        onTap: enabled ? () => setState(() => _selected = scope) : null,
+        onTap: enabled
+            ? () {
+                AppHaptics.select();
+                setState(() => _selected = scope);
+              }
+            : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
@@ -216,7 +222,10 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel', style: TextStyle(fontSize: 13.5)),
           ),
           const SizedBox(width: 8),
@@ -225,7 +234,10 @@ class _TaskEditScopeSheetState extends State<TaskEditScopeSheet> {
             child: DecoratedBox(
               decoration: AppSurfaces.key(KeyVariant.primary, radius: 10),
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context, _selected),
+                onPressed: () {
+                  AppHaptics.tap();
+                  Navigator.pop(context, _selected);
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,

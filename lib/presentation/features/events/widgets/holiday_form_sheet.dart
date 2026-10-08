@@ -9,6 +9,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/utils/holiday_year_window.dart';
 import 'package:wowcare/presentation/features/events/view_model/events_cubit.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Bottom sheet for creating or editing a SCHOOL holiday (federal holidays
 /// only carry an observance decision and aren't edited here).
@@ -280,6 +281,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   }
 
   Future<void> _save() async {
+    AppHaptics.tap();
     if (!_isFormValid) return;
     final name = _nameController.text.trim();
     final startDate = _startDate!;
