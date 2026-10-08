@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wowcare/core/observability/telemetry_config.dart';
 import 'package:wowcare/core/observability/telemetry_privacy.dart';
+import 'package:wowcare/core/observability/telemetry_redactor.dart';
 
 /// Severity of a [Telemetry.log] line.
 enum TelemetryLogLevel { debug, info, warn, error }
@@ -87,6 +88,7 @@ abstract final class Telemetry {
     if (release != null) options.release = release;
     final dist = config.dist;
     if (dist != null) options.dist = dist;
+    options.addEventProcessor(_KeysEventProcessor());
     TelemetryPrivacy.configure(options);
   }
 
@@ -106,7 +108,11 @@ abstract final class Telemetry {
       stackTrace: stackTrace,
       withScope: reason == null
           ? null
-          : (scope) => scope.setContexts(_reasonContextKey, {'reason': reason}),
+          // Unlike the exception, contexts are not scrubbed on the way out,
+          // and the reason is often a log line with a value interpolated.
+          : (scope) => scope.setContexts(_reasonContextKey, {
+              'reason': TelemetryRedactor.redactPathsAndUrls(reason),
+            }),
     );
   }
 
@@ -185,7 +191,29 @@ abstract final class Telemetry {
     return Sentry.configureScope((scope) => scope.removeTag(key));
   }
 
+  /// Records a fact for every later error event, like a Crashlytics custom
+  /// key: overwrites on repeat, and is cheap enough for upload progress.
+  ///
+  /// Held here and attached when an event is sent, under the `keys` context,
+  /// rather than written to the scope: every scope write is mirrored to the
+  /// native SDK, which progress callbacks would flood.
+  ///
+  /// Same PII rule as [breadcrumb]. [value] should be a String, num or bool;
+  /// anything else is stringified.
+  static void setKey(String key, Object value) {
+    if (!isEnabled) return;
+    _keys[key] = value is String || value is num || value is bool
+        ? value
+        : value.toString();
+  }
+
+  static final Map<String, Object> _keys = {};
+
+  @visibleForTesting
+  static void resetKeys() => _keys.clear();
+
   static const String _reasonContextKey = 'report';
+  static const String _keysContextKey = 'keys';
 
   static SentryAttribute _toAttribute(Object value) {
     return switch (value) {
@@ -195,5 +223,18 @@ abstract final class Telemetry {
       double() => SentryAttribute.double(value),
       _ => SentryAttribute.string(value.toString()),
     };
+  }
+}
+
+/// Attaches [Telemetry.setKey] facts to error events. Transactions skip them:
+/// they describe a screen load, not the app's state at a failure.
+class _KeysEventProcessor implements EventProcessor {
+  @override
+  SentryEvent? apply(SentryEvent event, Hint hint) {
+    if (event is SentryTransaction || Telemetry._keys.isEmpty) return event;
+    event.contexts[Telemetry._keysContextKey] = Map<String, Object>.of(
+      Telemetry._keys,
+    );
+    return event;
   }
 }

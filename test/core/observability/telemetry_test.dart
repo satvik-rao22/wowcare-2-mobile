@@ -81,6 +81,7 @@ void main() {
       await Telemetry.setTag('k', 'v');
       await Telemetry.removeTag('k');
       await Telemetry.clearUser();
+      Telemetry.setKey('k', 1);
     });
 
     test(
@@ -138,6 +139,18 @@ void main() {
       expect(event.level, isNot(SentryLevel.fatal));
       expect(event.exceptions!.single.type, 'StateError');
       expect(event.contexts['report'], {'reason': 'attendance.sign_in'});
+    });
+
+    test('captureError redacts paths and URLs in the reason', () async {
+      await Telemetry.captureError(
+        StateError('boom'),
+        null,
+        reason: 'upload failed for https://s3.example.com/a.mp4?sig=x',
+      );
+
+      expect(events.single.contexts['report'], {
+        'reason': 'upload failed for <url>',
+      });
     });
 
     test('breadcrumb lands on the scope with category and data', () async {
@@ -200,6 +213,62 @@ void main() {
       await Telemetry.removeTag('persona');
       await Sentry.configureScope((scope) => tags = scope.tags);
       expect(tags, isEmpty);
+    });
+  });
+
+  group('Telemetry.setKey', () {
+    final events = <SentryEvent>[];
+
+    setUp(() async {
+      events.clear();
+      Telemetry.resetKeys();
+      await Sentry.init(
+        (options) {
+          Telemetry.configureOptions(
+            options as SentryFlutterOptions,
+            const TelemetryConfig(
+              dsn: dsn,
+              environment: 'DEV',
+              isDebugBuild: false,
+            ),
+          );
+          options
+            ..transport = _DiscardingTransport()
+            ..beforeSend = (event, hint) {
+              events.add(event);
+              return event;
+            };
+        },
+        // What SentryFlutter.init passes, so the Flutter options type holds.
+        // ignore: invalid_use_of_internal_member
+        options: SentryFlutterOptions(),
+      );
+    });
+
+    tearDown(() async {
+      Telemetry.resetKeys();
+      await Sentry.close();
+    });
+
+    test('attaches the latest value of each key to error events', () async {
+      Telemetry.setKey('upload.bytes_uploaded', 10);
+      Telemetry.setKey('upload.bytes_uploaded', 20);
+      Telemetry.setKey('upload.source', 'camera');
+      Telemetry.setKey('upload.elapsed', const Duration(seconds: 1));
+
+      await Telemetry.captureError(StateError('x'), null);
+
+      expect(events.single.contexts['keys'], {
+        'upload.bytes_uploaded': 20,
+        'upload.source': 'camera',
+        'upload.elapsed': '0:00:01.000000',
+      });
+    });
+
+    test('adds no keys context when nothing was set', () async {
+      await Telemetry.captureError(StateError('x'), null);
+
+      expect(events.single.contexts.containsKey('keys'), isFalse);
     });
   });
 }

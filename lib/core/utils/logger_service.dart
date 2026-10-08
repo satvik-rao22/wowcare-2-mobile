@@ -1,6 +1,9 @@
 // ignore_for_file: avoid_print
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:wowcare/core/observability/telemetry.dart';
 
 /// A centralized, environment-aware logging utility.
 ///
@@ -11,6 +14,10 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 /// them anywhere in production would exfiltrate sensitive/PII data. Genuine
 /// error reporting still reaches Crashlytics via [e]/[c] (which take an
 /// explicit error object), keeping crash observability intact.
+///
+/// [e], [recordError], [trail] and [setKey] also feed Sentry through
+/// [Telemetry], which is a no-op unless Sentry is on for this build. Sentry
+/// never gets a fatal: Crashlytics owns those.
 class AppLogger {
   // ANSI Color codes for console output formatting
   static const String _reset = '\x1B[0m';
@@ -46,6 +53,16 @@ class AppLogger {
 
   /// Logs an error message (Red)
   static void e(Object? message, [Object? error, StackTrace? stackTrace]) {
+    final reported = error ?? message;
+    if (reported != null) {
+      unawaited(
+        Telemetry.captureError(
+          reported,
+          stackTrace,
+          reason: error == null ? null : '$message',
+        ),
+      );
+    }
     if (kDebugMode) {
       print('$_red[ERROR] $message$_reset');
       if (error != null) {
@@ -107,6 +124,7 @@ class AppLogger {
   /// this is for stage transitions — anything high-frequency (upload progress,
   /// poll ticks) belongs in [setKey], which overwrites instead of accumulating.
   static void trail(String message) {
+    unawaited(Telemetry.breadcrumb(message, category: 'trail'));
     if (kDebugMode) {
       print('$_cyan[TRAIL] $message$_reset');
       return;
@@ -128,6 +146,7 @@ class AppLogger {
   /// object whose `toString()` could carry user data.
   static void setKey(String key, Object? value) {
     if (value == null) return;
+    Telemetry.setKey(key, value);
     if (kDebugMode) {
       print('$_cyan[KEY] $key=$value$_reset');
       return;
@@ -157,6 +176,7 @@ class AppLogger {
     required String reason,
     bool fatal = false,
   }) {
+    unawaited(Telemetry.captureError(error, stackTrace, reason: reason));
     if (kDebugMode) {
       print('$_red[${fatal ? 'FATAL' : 'NON-FATAL'}] $reason$_reset');
       print('$_red[Error Detail] $error$_reset');
