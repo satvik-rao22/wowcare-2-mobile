@@ -327,9 +327,11 @@ class _DocumentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconData =
-        Thumbnailer.getIconDataForMimeType(document.mimeType) ??
-        FontAwesomeIcons.file;
+    // Thumbnailer has no video mappings, so videos need their own icon.
+    final iconData = document.isVideo
+        ? FontAwesomeIcons.fileVideo
+        : Thumbnailer.getIconDataForMimeType(document.mimeType) ??
+              FontAwesomeIcons.file;
     final isPdf =
         document.mimeType.contains('pdf') ||
         document.name.toLowerCase().endsWith('.pdf');
