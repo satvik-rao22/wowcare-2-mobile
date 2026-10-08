@@ -531,8 +531,6 @@ import '../../domain/features/student/usecases/get_student_profile_usecase.dart'
 import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
 import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
 import '../../domain/features/geofencing/repositories/geofencing_repository.dart';
-import '../../domain/features/geofencing/usecases/check_location_permission_usecase.dart';
-import '../../domain/features/geofencing/usecases/request_location_permission_usecase.dart';
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/view_model/geofence_cubit.dart';
@@ -3079,12 +3077,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storage: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
-    () => CheckLocationPermissionUseCase(serviceLocator()),
-  );
-  serviceLocator.registerFactory<RequestLocationPermissionUseCase>(
-    () => RequestLocationPermissionUseCase(serviceLocator()),
-  );
   serviceLocator.registerFactory<GetSchoolLocationUseCase>(
     () => GetSchoolLocationUseCase(serviceLocator()),
   );
@@ -3095,8 +3087,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // navigation. Never call close() on this from a dashboard widget.
   serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
-      checkLocationPermissionUseCase: serviceLocator(),
-      requestLocationPermissionUseCase: serviceLocator(),
       getSchoolLocationUseCase: serviceLocator(),
       watchGeofenceUseCase: serviceLocator(),
       notificationService: serviceLocator(),
