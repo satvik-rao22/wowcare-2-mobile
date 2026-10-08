@@ -406,7 +406,14 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   // MARK: - Local notification
 
+  // Off: on entering the zone the app shows its own "You've entered the
+  // school zone" sheet with Sign-In, so this notification was a duplicate.
+  // The leave notification stays — nothing in the app replaces it.
+  // Set true to bring it back. Keep in sync with GeofenceNotifications.kt.
+  private static let showEnterNotification = false
+
   private func showLocalNotification(isInside: Bool) {
+    if isInside && !Self.showEnterNotification { return }
     let content = UNMutableNotificationContent()
     if isInside {
       content.title = "Sign In/Out"
