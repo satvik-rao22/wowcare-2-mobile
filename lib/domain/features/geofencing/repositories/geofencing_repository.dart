@@ -1,9 +1,9 @@
-import 'package:geolocator/geolocator.dart';
 import '../entities/attendance_settings_entity.dart';
 import '../entities/geofence_config.dart';
 
 abstract class GeofencingRepository {
-  // Location permission / GPS-on checks: PermissionManager (core/utils).
+  // Permission / GPS-on checks: PermissionManager. Device location and the
+  // inside/outside rule: LocationService (both in core/utils).
 
   /// Returns school lat/lon combined with attendance-settings radius + flags.
   Future<GeofenceConfig> getSchoolLocation({required String schoolCode});
@@ -13,7 +13,4 @@ abstract class GeofencingRepository {
   Future<AttendanceSettingsEntity> getAttendanceSettings({
     required String schoolCode,
   });
-
-  Future<Position> getCurrentPosition();
-  Stream<Position> getPositionStream();
 }

@@ -14,7 +14,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_f
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:wowcare/core/utils/location_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/utils/school_zone_datetime.dart';
@@ -388,24 +388,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
-    // GPS is optional for kiosk (fixed location device)
-    Position? position;
-    if (!widget.isKiosk) {
-      try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
-      } catch (_) {
-        try {
-          position = await Geolocator.getLastKnownPosition();
-        } catch (e) {
-          AppLogger.d('StaffSignOutForm: getLastKnownPosition failed: $e');
-        }
-      }
-    }
+    // Recorded on the attendance record for audit; it doesn't gate it.
+    // A kiosk is a fixed device, so it sends no GPS.
+    final location = widget.isKiosk
+        ? null
+        : await LocationService.getCurrentLocation(
+            timeLimit: const Duration(seconds: 10),
+            fallbackToLastKnown: true,
+          );
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
     // 'PIN' is reserved for an actual kiosk device (widget.isKiosk) — a
@@ -433,8 +423,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       classroomCodeByStaffCode: classroomCodeByStaffCode,
       signOutMethod: signOutMethod,
       isKiosk: widget.isKiosk,
-      latitude: position?.latitude ?? 0,
-      longitude: position?.longitude ?? 0,
+      latitude: location?.latitude ?? 0,
+      longitude: location?.longitude ?? 0,
       withinGeofence: withinGeofence,
       timeZone: schoolTimeZone,
       occurredAtIso: occurredAt.toUtc().toIso8601String(),

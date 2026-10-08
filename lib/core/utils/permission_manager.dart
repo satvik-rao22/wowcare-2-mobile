@@ -158,7 +158,6 @@ abstract final class PermissionManager {
   // iOS location uses Geolocator: the Podfile deliberately leaves
   // PERMISSION_LOCATION unset (it would link the "Always" API App Review
   // rejected), and without it permission_handler reports location as denied.
-  // Same split as GeofencingLocalDataSource.
   static bool _useGeolocator(AppPermission p) =>
       p == AppPermission.location &&
       defaultTargetPlatform == TargetPlatform.iOS;

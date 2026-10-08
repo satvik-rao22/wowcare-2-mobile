@@ -528,11 +528,9 @@ import '../../shared/services/image_upload/staff_photo_background_upload_service
 import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
-import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
 import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
 import '../../domain/features/geofencing/repositories/geofencing_repository.dart';
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
-import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/view_model/geofence_cubit.dart';
 import '../../shared/common/app/cubits/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
@@ -2954,14 +2952,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Geofencing Feature
-  serviceLocator.registerLazySingleton<GeofencingLocalDataSource>(
-    () => GeofencingLocalDataSourceImpl(),
-  );
   serviceLocator.registerLazySingleton<GeofencingRepository>(
-    () => GeofencingRepositoryImpl(
-      localDataSource: serviceLocator(),
-      apiClient: serviceLocator(),
-    ),
+    () => GeofencingRepositoryImpl(apiClient: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<GeofenceNotificationService>(
     () => GeofenceNotificationService(),
@@ -3080,15 +3072,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetSchoolLocationUseCase>(
     () => GetSchoolLocationUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<WatchGeofenceUseCase>(
-    () => WatchGeofenceUseCase(serviceLocator()),
-  );
   // Singleton — one cubit for the entire app lifetime so GPS state survives
   // navigation. Never call close() on this from a dashboard widget.
   serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
       getSchoolLocationUseCase: serviceLocator(),
-      watchGeofenceUseCase: serviceLocator(),
       notificationService: serviceLocator(),
     ),
   );

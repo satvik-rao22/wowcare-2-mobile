@@ -5,15 +5,13 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/core/background/geofence_background_task.dart';
+import 'package:wowcare/core/utils/location_service.dart';
 import 'package:wowcare/core/utils/permission_manager.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
-import '../../../../domain/features/geofencing/entities/geofence_status.dart';
 import '../../../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
-import '../../../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -37,15 +35,11 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   static const _prefsSchoolRadiusKey = 'geofence_school_radius_m';
   static const _prefsGpsSignInEnabledKey = 'geofence_gps_sign_in_enabled';
   static const _prefsLastGeofenceStatusKey = 'geofence_last_status';
-  // Hysteresis: exit threshold = radius + 50 m to prevent boundary flickering.
-  static const double _hysteresisExitExtraMeters = 50.0;
 
   GeofenceCubit({
     required GetSchoolLocationUseCase getSchoolLocationUseCase,
-    required WatchGeofenceUseCase watchGeofenceUseCase,
     required GeofenceNotificationService notificationService,
   }) : _getSchoolLocation = getSchoolLocationUseCase,
-       _watchGeofence = watchGeofenceUseCase,
        _notifications = notificationService,
        super(const GeofenceState.initial()) {
     _nativeGeofenceChannel.setMethodCallHandler(_handleNativeCallbacks);
@@ -53,7 +47,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   }
 
   final GetSchoolLocationUseCase _getSchoolLocation;
-  final WatchGeofenceUseCase _watchGeofence;
   final GeofenceNotificationService _notifications;
 
   StreamSubscription<GeofenceStatus>? _subscription;
@@ -70,7 +63,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     if (_config?.gpsSignInEnabled == false) return;
     final args = call.arguments as Map?;
     final isInside = args?['isInside'] == true;
-    final newStatus = isInside ? GeofenceStatus.within : GeofenceStatus.outside;
     final newCubitStatus = isInside
         ? GeofenceCubitStatus.withinRange
         : GeofenceCubitStatus.outsideRange;
@@ -317,29 +309,16 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       return AtSchoolCheck.gpsSignInOff;
     }
 
-    final Position position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-    } catch (e) {
-      AppLogger.d('[GeofenceCubit] checkAtSchoolNow: no GPS fix ($e)');
-      return AtSchoolCheck.locationUnavailable;
-    }
+    final location = await LocationService.getCurrentLocation();
+    if (location == null) return AtSchoolCheck.locationUnavailable;
     // Same rule as the live stream: a mocked position never counts.
-    if (position.isMocked) return AtSchoolCheck.fakeLocation;
+    if (location.isMocked) return AtSchoolCheck.fakeLocation;
     if (isClosed) return AtSchoolCheck.notReady;
 
-    final distance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      config.latitude,
-      config.longitude,
-    );
-    final isInside = distance <= config.radiusMeters;
+    final distance = LocationService.distanceInMeters(location, config.area);
+    final isInside =
+        LocationService.geofenceStatus(location, config.area) ==
+        GeofenceStatus.within;
     AppLogger.d(
       '[GeofenceCubit] checkAtSchoolNow — '
       'distance=${distance.toStringAsFixed(1)}m '
@@ -562,32 +541,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       }
 
       // ── Resolve state from the parallel GPS fetch (likely already done) ──
-      final position = await positionFuture;
+      final location = await positionFuture;
       GeofenceCubitStatus immediateStatus;
-      GeofenceStatus? immediateGeofenceStatus;
 
-      if (position != null) {
-        final distance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          _config!.latitude,
-          _config!.longitude,
+      if (location != null) {
+        final geofenceStatus = LocationService.geofenceStatus(
+          location,
+          _config!.area,
         );
-        // Inside: trust the GPS-reported distance directly.
-        // Using (distance + accuracy <= radius) was too pessimistic — a user
-        // at 180 m with 100 m medium-accuracy never resolved to withinRange.
-        //
-        // Outside: apply hysteresis so a noisy fix near the boundary doesn't
-        // incorrectly flip the user to outsideRange.
-        final accuracy = position.accuracy.clamp(0.0, double.infinity);
-        final isInside = distance <= _config!.radiusMeters;
-        final confidentlyOutside =
-            distance - accuracy >
-            _config!.radiusMeters + _hysteresisExitExtraMeters;
 
-        if (isInside) {
+        if (geofenceStatus == GeofenceStatus.within) {
           immediateStatus = GeofenceCubitStatus.withinRange;
-          immediateGeofenceStatus = GeofenceStatus.within;
 
           if (isRefresh) {
             final nothingToDo =
@@ -621,9 +585,8 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
               );
             }
           }
-        } else if (confidentlyOutside) {
+        } else if (geofenceStatus == GeofenceStatus.outside) {
           immediateStatus = GeofenceCubitStatus.outsideRange;
-          immediateGeofenceStatus = GeofenceStatus.outside;
         } else {
           // Near boundary: GPS accuracy is too large to be sure either way.
           // Try the last-persisted status; if there is none (first launch),
@@ -638,31 +601,11 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           }
         }
 
-        // ── Comprehensive GPS diagnostic log ──────────────────────────────
-        debugPrint('╔══════════════════════════════════════════════════════╗');
-        debugPrint('║  GPS POSITION CHECK                                  ║');
-        debugPrint('╠══════════════════════════════════════════════════════╣');
-        debugPrint('║  Device lat      : ${position.latitude}');
-        debugPrint('║  Device lon      : ${position.longitude}');
-        debugPrint('║  School lat      : ${_config!.latitude}');
-        debugPrint('║  School lon      : ${_config!.longitude}');
-        debugPrint('║  Distance        : ${distance.toStringAsFixed(1)} m');
-        debugPrint('║  Allowed radius  : ${_config!.radiusMeters} m');
-        debugPrint('║  GPS accuracy    : ±${accuracy.toStringAsFixed(1)} m');
-        debugPrint('║  Is inside       : $isInside');
-        debugPrint('║  Confidently out : $confidentlyOutside');
-        debugPrint('║  → Status        : $immediateStatus');
-        debugPrint('╚══════════════════════════════════════════════════════╝');
-
         AppLogger.d(
-          '[GeofenceCubit] GPS check — '
-          'deviceLat=${position.latitude} deviceLon=${position.longitude} '
-          'schoolLat=${_config!.latitude} schoolLon=${_config!.longitude} '
-          'distance=${distance.toStringAsFixed(1)}m '
-          'accuracy=±${accuracy.toStringAsFixed(1)}m '
+          '[GeofenceCubit] GPS check — $location '
+          'distance=${LocationService.distanceInMeters(location, _config!.area).toStringAsFixed(1)}m '
           'radius=${_config!.radiusMeters}m '
-          'isInside=$isInside confidentlyOutside=$confidentlyOutside '
-          'status=$immediateStatus',
+          '$geofenceStatus → $immediateStatus',
         );
       } else {
         // GPS unavailable — fall back to last-known persisted status.
@@ -763,14 +706,12 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
     AppLogger.d(
       '[GeofenceCubit] Starting stream — radius=${config.radiusMeters}m '
-      'hysteresisExit=${config.radiusMeters + _hysteresisExitExtraMeters}m',
+      'exitBuffer=${LocationService.exitBufferMeters}m',
     );
 
-    // WatchGeofenceUseCase emits GeofenceStatus (within/outside) but we also
-    // need raw distance to display in the UI, so we tap into the position
-    // stream separately via a custom listener on the same WatchGeofenceUseCase
-    // observable (which already filters mocked/stale positions).
-    _subscription = _watchGeofence(config: config).distinct().listen(
+    // Only confident within/outside changes arrive here; fake-GPS, coarse
+    // and stale fixes are already filtered out by LocationService.
+    _subscription = LocationService.watchGeofence(config.area).distinct().listen(
       (geofenceStatus) {
         final newCubitStatus = geofenceStatus == GeofenceStatus.within
             ? GeofenceCubitStatus.withinRange
@@ -852,107 +793,52 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   /// user is not permanently stuck on 'checking' on their first visit.
   Future<void> _refineWithHighAccuracyFix() async {
     if (_config == null || isClosed) return;
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-      if (_config == null || isClosed) return;
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        _config!.latitude,
-        _config!.longitude,
-      );
-      final isInside = distance <= _config!.radiusMeters;
-      final newStatus = isInside
-          ? GeofenceCubitStatus.withinRange
-          : GeofenceCubitStatus.outsideRange;
-      AppLogger.d(
-        '[GeofenceCubit] High-accuracy refinement — '
-        'distance=${distance.toStringAsFixed(1)}m '
-        'radius=${_config!.radiusMeters}m '
-        'status=$newStatus',
-      );
-      if (state.status == GeofenceCubitStatus.checking) {
-        emit(state.copyWith(status: newStatus));
-      }
-    } catch (e) {
-      // High-accuracy fix failed (timeout or hardware error).
+    final location = await LocationService.getCurrentLocation();
+    if (_config == null || isClosed) return;
+    if (location == null) {
       // Do NOT emit outsideRange — that would lock the button even when the
       // user is physically inside the zone. Leave the state as 'checking' so
       // the Dart position stream and the native CLRegion callback can still
       // resolve it when the next GPS fix arrives.
       AppLogger.d(
-        '[GeofenceCubit] High-accuracy refinement failed: $e — keeping checking state',
+        '[GeofenceCubit] High-accuracy refinement got no fix — keeping checking state',
       );
+      return;
+    }
+    // A yes/no answer on purpose: this runs because the first fix was too
+    // unsure, so it must settle the status rather than stay 'checking'.
+    final isInside =
+        LocationService.geofenceStatus(location, _config!.area) ==
+        GeofenceStatus.within;
+    final newStatus = isInside
+        ? GeofenceCubitStatus.withinRange
+        : GeofenceCubitStatus.outsideRange;
+    AppLogger.d(
+      '[GeofenceCubit] High-accuracy refinement — $location '
+      'distance=${LocationService.distanceInMeters(location, _config!.area).toStringAsFixed(1)}m '
+      'radius=${_config!.radiusMeters}m status=$newStatus',
+    );
+    if (state.status == GeofenceCubitStatus.checking) {
+      emit(state.copyWith(status: newStatus));
     }
   }
 
-  /// Fetches device position quickly using medium accuracy so it resolves
-  /// from Wi-Fi/cell towers in under a second on most devices.
-  /// Falls back to the last known position if the timed request fails.
-  Future<Position?> _fetchPositionQuickly() async {
+  /// Start-up fix, run in parallel with the school-location API. Falls back
+  /// to the last known position: the result is only a first guess, which
+  /// the live stream / native events and the sign-in tap check correct.
+  Future<LocationPoint?> _fetchPositionQuickly() async {
     // iOS GPS cold start needs up to 15 s to get a first fix; 8 s caused
     // frequent timeouts that left state as 'checking' and then got incorrectly
     // resolved to 'outsideRange' by the native-sync guard.
-    // Android WiFi/cell-tower fixes resolve in 1-3 s so 12 s is still fast.
-    // LocationAccuracy.high → kCLLocationAccuracyNearestTenMeters on iOS (≈10 m).
-    final timeout = Platform.isIOS
-        ? const Duration(seconds: 15)
-        : const Duration(seconds: 8);
-
-    AppLogger.d(
-      '[GeofenceCubit] Fetching GPS position (timeout=${timeout.inSeconds}s, platform=${Platform.operatingSystem})',
+    // Android WiFi/cell-tower fixes resolve in 1-3 s so 8 s is still fast.
+    final location = await LocationService.getCurrentLocation(
+      timeLimit: Platform.isIOS
+          ? const Duration(seconds: 15)
+          : const Duration(seconds: 8),
+      fallbackToLastKnown: true,
     );
-
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: timeout,
-        ),
-      );
-      AppLogger.d(
-        '[GeofenceCubit] GPS fix obtained — '
-        'lat=${pos.latitude} lon=${pos.longitude} '
-        'accuracy=±${pos.accuracy.toStringAsFixed(1)}m '
-        'isMocked=${pos.isMocked}',
-      );
-      debugPrint(
-        '[GeofenceCubit] 📍 GPS fix: lat=${pos.latitude} lon=${pos.longitude} accuracy=±${pos.accuracy.toStringAsFixed(1)}m',
-      );
-      return pos;
-    } catch (e) {
-      AppLogger.d(
-        '[GeofenceCubit] getCurrentPosition failed ($e) — trying getLastKnownPosition',
-      );
-      debugPrint(
-        '[GeofenceCubit] ⚠️ getCurrentPosition timed out or failed: $e',
-      );
-      try {
-        final last = await Geolocator.getLastKnownPosition();
-        if (last != null) {
-          AppLogger.d(
-            '[GeofenceCubit] Using last known position — '
-            'lat=${last.latitude} lon=${last.longitude} '
-            'accuracy=±${last.accuracy.toStringAsFixed(1)}m '
-            'age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
-          );
-          debugPrint(
-            '[GeofenceCubit] 📍 Last known position: lat=${last.latitude} lon=${last.longitude} accuracy=±${last.accuracy.toStringAsFixed(1)}m age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
-          );
-        } else {
-          debugPrint('[GeofenceCubit] ⚠️ No last known position available');
-        }
-        return last;
-      } catch (_) {
-        debugPrint('[GeofenceCubit] ⚠️ getLastKnownPosition also failed');
-        return null;
-      }
-    }
+    AppLogger.d('[GeofenceCubit] Start-up fix: ${location ?? 'none'}');
+    return location;
   }
 
   /// Queries the native Android GeofencingClient's last-persisted inside/outside
@@ -1136,7 +1022,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       // Hysteresis exit extra is a constant — persist so background task can read it.
       await prefs.setDouble(
         'geofence_exit_hysteresis_extra_m',
-        _hysteresisExitExtraMeters,
+        LocationService.exitBufferMeters,
       );
     } catch (e) {
       AppLogger.d('[GeofenceCubit] Failed to persist config: $e');

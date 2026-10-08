@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/domain/features/geofencing/entities/geofence_config.dart';
 import 'package:wowcare/domain/features/geofencing/repositories/geofencing_repository.dart';
 import 'package:wowcare/domain/features/geofencing/usecases/get_school_location_usecase.dart';
-import 'package:wowcare/domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
 import 'package:wowcare/shared/services/geofence_notification_service.dart';
 
@@ -27,9 +26,6 @@ class _FakeRepository implements GeofencingRepository {
   Future<GeofenceConfig> getSchoolLocation({
     required String schoolCode,
   }) async => config;
-
-  @override
-  Stream<Position> getPositionStream() => const Stream.empty();
 
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -73,7 +69,6 @@ void main() {
     repository = _FakeRepository();
     cubit = GeofenceCubit(
       getSchoolLocationUseCase: GetSchoolLocationUseCase(repository),
-      watchGeofenceUseCase: WatchGeofenceUseCase(repository),
       notificationService: _FakeNotifications(),
     );
   });
