@@ -203,6 +203,9 @@ class _TasksScreenState extends State<TasksScreen> {
   }) {
     return Expanded(
       child: GestureDetector(
+        // Unselected tabs have no fill, so without this only the label
+        // takes the tap.
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           AppHaptics.select();
           onTap();
@@ -233,6 +236,7 @@ class _TasksScreenState extends State<TasksScreen> {
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             AppHaptics.select();
             setState(() => _viewMode = mode);

@@ -297,6 +297,9 @@ class _EventsScreenState extends State<EventsScreen> {
       final selected = _tabIndex == index;
       return Expanded(
         child: GestureDetector(
+          // Unselected tabs have no fill, so without this only the label
+          // and icon take the tap.
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             AppHaptics.select();
             setState(() => _tabIndex = index);
@@ -589,6 +592,7 @@ class _EventsScreenState extends State<EventsScreen> {
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             AppHaptics.select();
             setState(() {
