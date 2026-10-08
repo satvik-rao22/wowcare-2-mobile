@@ -1613,7 +1613,9 @@ class _MyChildsDayChatPreviewRowState
     final senderPrefix = isSentByMe ? 'You: ' : '';
 
     final preview = conversation != null
-        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        ? MessageContentProcessor.previewText(
+            conversation.previewForGuardian(_currentUserCode),
+          )
         : '';
     final displayText = preview.isNotEmpty
         ? '$senderPrefix$preview'

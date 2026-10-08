@@ -93,6 +93,40 @@ class ConversationEntity extends Equatable {
   bool isPrivateModeEnabledFor(String parentUserCode) =>
       privateModeStates[parentUserCode]?.enabled ?? false;
 
+  static const String privateMessagePlaceholder = 'Private message';
+
+  /// Whether the room is in private mode for someone other than
+  /// [viewerUserCode] — a per-parent slot owned by another guardian, or a
+  /// room-wide switch not activated by the viewer.
+  bool isPrivateModeActiveForOthers(String viewerUserCode) {
+    final viewer = viewerUserCode.trim();
+    final otherParentActive = privateModeStates.entries.any(
+      (e) => e.value.enabled && e.key.trim() != viewer,
+    );
+    if (otherParentActive) return true;
+    return privateModeActive && (privateModeActivatedBy ?? '').trim() != viewer;
+  }
+
+  /// Last-message preview safe to show a guardian. The list payload has no
+  /// per-message private flag, so the last message counts as private when the
+  /// preview already is the backend's "Private message" placeholder, or when
+  /// another guardian has private mode on in the room. Otherwise the real
+  /// preview is returned unchanged.
+  String previewForGuardian(String viewerUserCode) {
+    // The viewer's own message is never another guardian's private message.
+    if (viewerUserCode.trim().isNotEmpty &&
+        (lastMessageBy ?? '').trim() == viewerUserCode.trim()) {
+      return lastMessagePreview;
+    }
+    final isPlaceholder =
+        lastMessagePreview.trim().toLowerCase() ==
+        privateMessagePlaceholder.toLowerCase();
+    if (isPlaceholder || isPrivateModeActiveForOthers(viewerUserCode)) {
+      return privateMessagePlaceholder;
+    }
+    return lastMessagePreview;
+  }
+
   /// The last message's sender, resolved to a display name. Prefers
   /// [lastMessageSenderName] (in case the backend ever starts sending it —
   /// the DTO already parses it), but that field is NOT actually present in
