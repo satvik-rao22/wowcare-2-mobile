@@ -206,6 +206,43 @@ abstract final class Telemetry {
     return Sentry.configureScope((scope) => scope.setUser(null));
   }
 
+  /// Labels every later event with the signed-in context: [userCode] as the
+  /// user id, and persona, organisation, school and kiosk mode as tags. An
+  /// empty code removes its tag rather than setting a blank one.
+  static Future<void> setSession({
+    required String userCode,
+    required String persona,
+    required String organizationCode,
+    required String schoolCode,
+    required bool kiosk,
+  }) async {
+    if (!isEnabled) return;
+    await setUser(userCode);
+    final tags = {
+      _personaTag: persona,
+      _organizationTag: organizationCode,
+      _schoolTag: schoolCode,
+      _kioskTag: kiosk.toString(),
+    };
+    for (final MapEntry(:key, :value) in tags.entries) {
+      await (value.isEmpty ? removeTag(key) : setTag(key, value));
+    }
+  }
+
+  /// Undoes [setSession], for logout and session expiry.
+  static Future<void> clearSession() async {
+    if (!isEnabled) return;
+    await clearUser();
+    for (final key in const [
+      _personaTag,
+      _organizationTag,
+      _schoolTag,
+      _kioskTag,
+    ]) {
+      await removeTag(key);
+    }
+  }
+
   /// Sets a low-cardinality, indexed label on every later event.
   static FutureOr<void> setTag(String key, String value) {
     if (!isEnabled) return null;
@@ -240,6 +277,10 @@ abstract final class Telemetry {
 
   static const String _reasonContextKey = 'report';
   static const String _keysContextKey = 'keys';
+  static const String _personaTag = 'persona';
+  static const String _organizationTag = 'org_code';
+  static const String _schoolTag = 'school_code';
+  static const String _kioskTag = 'kiosk';
 
   static SentryAttribute _toAttribute(Object value) {
     return switch (value) {

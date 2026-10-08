@@ -82,6 +82,14 @@ void main() {
       await Telemetry.removeTag('k');
       await Telemetry.clearUser();
       Telemetry.setKey('k', 1);
+      await Telemetry.setSession(
+        userCode: 'U1',
+        persona: 'staff',
+        organizationCode: 'ORG1',
+        schoolCode: 'SCH1',
+        kiosk: false,
+      );
+      await Telemetry.clearSession();
     });
 
     test('navigatorObserver is a plain observer', () {
@@ -224,6 +232,33 @@ void main() {
 
       await Telemetry.removeTag('persona');
       await Sentry.configureScope((scope) => tags = scope.tags);
+      expect(tags, isEmpty);
+    });
+
+    test('setSession labels the scope and clearSession undoes it', () async {
+      await Telemetry.setSession(
+        userCode: 'USR-1',
+        persona: 'staff',
+        organizationCode: 'ORG-1',
+        schoolCode: '',
+        kiosk: false,
+      );
+      late SentryUser? user;
+      late Map<String, String> tags;
+      await Sentry.configureScope((scope) {
+        user = scope.user;
+        tags = scope.tags;
+      });
+      expect(user!.id, 'USR-1');
+      // An empty school (org picked, school not yet) sets no blank tag.
+      expect(tags, {'persona': 'staff', 'org_code': 'ORG-1', 'kiosk': 'false'});
+
+      await Telemetry.clearSession();
+      await Sentry.configureScope((scope) {
+        user = scope.user;
+        tags = scope.tags;
+      });
+      expect(user, isNull);
       expect(tags, isEmpty);
     });
 

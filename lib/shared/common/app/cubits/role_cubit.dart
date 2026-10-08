@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/auth/kiosk_access_control.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/observability/telemetry.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
@@ -98,7 +104,56 @@ class RoleState extends Equatable {
 /// widgets, navigation).
 class RoleCubit extends Cubit<RoleState> {
   RoleCubit() : super(const RoleState()) {
+    SchoolSwitchEvents.epoch.addListener(_onSchoolSwitched);
     _bootstrap();
+  }
+
+  @override
+  void onChange(Change<RoleState> change) {
+    super.onChange(change);
+    unawaited(_syncTelemetrySession());
+  }
+
+  @override
+  Future<void> close() {
+    SchoolSwitchEvents.epoch.removeListener(_onSchoolSwitched);
+    return super.close();
+  }
+
+  // A switch can leave the state unchanged (same persona and permissions in
+  // the new school), so it does not always reach [onChange].
+  void _onSchoolSwitched() => unawaited(_syncTelemetrySession());
+
+  /// Labels Sentry and Crashlytics reports with the signed-in user code and
+  /// where the user is. Every persona change passes through here, which covers
+  /// cold start, login, logout and session expiry. Codes only, never a name.
+  Future<void> _syncTelemetrySession() async {
+    // A debug build reports nowhere unless Sentry is forced on.
+    if (kDebugMode && !Telemetry.isEnabled) return;
+    try {
+      final storage = serviceLocator<StorageService>();
+      final userCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      if (!state.personaResolved || userCode.isEmpty) {
+        AppLogger.setUserIdentifier('');
+        await Telemetry.clearSession();
+        return;
+      }
+      AppLogger.setUserIdentifier(userCode);
+      await Telemetry.setSession(
+        userCode: userCode,
+        persona: state.role,
+        organizationCode:
+            (await storage.getString(StorageKeys.organizationCode) ?? '')
+                .trim(),
+        schoolCode: (await storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim(),
+        kiosk: serviceLocator.isRegistered<KioskAccessControl>() &&
+            await serviceLocator<KioskAccessControl>().isKioskModeActive(),
+      );
+    } catch (_) {
+      // Labels are best effort and must never disturb the session.
+    }
   }
 
   /// Internal control flag (non-reactive, mirrors the old `_initialized`).

@@ -194,4 +194,13 @@ class AppLogger {
       );
     } catch (_) {}
   }
+
+  /// Ties later Crashlytics reports to [id], an opaque user code (never a
+  /// name or email). Pass an empty string to clear it on logout.
+  static void setUserIdentifier(String id) {
+    if (kDebugMode) return;
+    try {
+      FirebaseCrashlytics.instance.setUserIdentifier(id);
+    } catch (_) {}
+  }
 }
