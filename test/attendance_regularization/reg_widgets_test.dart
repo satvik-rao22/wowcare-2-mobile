@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/modules/attendance_v2/core/theme/av2_colors.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
 import 'package:wowcare/modules/attendance_regularization/domain/entities/regularization_request.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/entry/reg_requests_list.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_field_label.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_request_detail_sheet.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_request_tile.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_view.dart';
@@ -144,6 +146,38 @@ void main() {
 
     expect(find.text('Mohan Sonone'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  group('RegFieldLabel', () {
+    testWidgets('a required field gets a red asterisk, not a word', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: RegFieldLabel('Reason', isRequired: true)),
+        ),
+      );
+
+      final span = tester.widget<Text>(find.byType(Text)).textSpan!;
+      expect(span.toPlainText(), 'Reason *');
+      // The marker must be the app's red, or it reads as part of the label.
+      final marker = (span as TextSpan).children!.last as TextSpan;
+      expect(marker.text, ' *');
+      expect(marker.style?.color, Av2Colors.danger);
+    });
+
+    testWidgets('an optional field carries no marker', (tester) async {
+      // No `*` means optional. A pre-filled field that cannot be blank gets
+      // none either, so the marker never promises an empty state.
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: RegFieldLabel('Sign-out time'))),
+      );
+
+      expect(
+        tester.widget<Text>(find.byType(Text)).textSpan!.toPlainText(),
+        'Sign-out time',
+      );
+    });
   });
 
   group('request detail sheet', () {
@@ -331,9 +365,11 @@ void main() {
     expect(find.textContaining("won't be counted"), findsOneWidget);
     expect(find.text('Actual sign-out time'), findsOneWidget);
     // §8.2 — no "confirm" shortcut: a reason is required whether or not the
-    // pre-filled time was changed.
-    expect(find.text('(required)'), findsOneWidget);
-    expect(find.text('(optional)'), findsNothing);
+    // pre-filled time was changed. Marked the way every other form in the
+    // app marks one: a red `*`, not the word "(required)".
+    expect(find.text('Reason *'), findsOneWidget);
+    expect(find.textContaining('(required)'), findsNothing);
+    expect(find.textContaining('(optional)'), findsNothing);
     expect(find.text('Confirm & submit'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -469,8 +505,9 @@ void main() {
       // Staff are listed by name (sorted), each with its own row.
       expect(find.text('Aisha Rahman'), findsOneWidget);
       // §8.2 — the shared reason is required even when no row was corrected.
-      expect(find.text('(required)'), findsOneWidget);
-      expect(find.text('(optional)'), findsNothing);
+      expect(find.text('Reason *'), findsOneWidget);
+      expect(find.textContaining('(required)'), findsNothing);
+      expect(find.textContaining('(optional)'), findsNothing);
 
       // So submitting without one is refused.
       await tester.tap(find.text('Close all 10 & sign them in'));

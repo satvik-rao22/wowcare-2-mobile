@@ -8,6 +8,7 @@ import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart
 
 import '../../core/config/reg_config.dart';
 import '../../domain/entities/regularization_request.dart';
+import 'reg_field_label.dart';
 
 class RegDecision {
   const RegDecision({this.signOutLocal, this.note = ''});
@@ -129,11 +130,11 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
               const SizedBox(height: Av2Spacing.sm),
               _reasonBox(r.reason),
               const SizedBox(height: Av2Spacing.md),
-              Text('Sign-out time', style: Av2Text.bodyMedium),
+              const RegFieldLabel('Sign-out time'),
               const SizedBox(height: Av2Spacing.xs),
               _timeField(_outTime, _pickOutTime),
               const SizedBox(height: Av2Spacing.md),
-              Text('Reason for change', style: Av2Text.bodyMedium),
+              const RegFieldLabel('Reason for change'),
               const SizedBox(height: Av2Spacing.xs),
               _noteField(),
               const SizedBox(height: Av2Spacing.lg),
