@@ -92,6 +92,32 @@ abstract final class Telemetry {
     TelemetryPrivacy.configure(options);
   }
 
+  /// A navigator observer that records screen views as breadcrumbs and
+  /// screen-load transactions. Each navigator needs its own instance.
+  ///
+  /// Screen names are path templates (see [screenName]). A disabled build gets
+  /// a plain observer, so its navigators behave exactly as before.
+  static NavigatorObserver navigatorObserver({
+    TelemetryConfig config = TelemetryConfig.fromBuild,
+  }) {
+    if (!config.isEnabled) return NavigatorObserver();
+    return SentryNavigatorObserver(routeNameExtractor: screenName);
+  }
+
+  /// Names a screen by its route template and drops its arguments.
+  ///
+  /// go_router names `_fastPage` pages by their concrete location
+  /// (`/events/EVT_99E5`), which carries record codes and splits one screen
+  /// into one name per record. The app reads those names back to detect
+  /// duplicate pushes, so they are rewritten here, for Sentry only. Arguments
+  /// go because go_router copies every path and query parameter into them.
+  @visibleForTesting
+  static RouteSettings? screenName(RouteSettings? settings) {
+    final name = settings?.name;
+    if (name == null) return settings;
+    return RouteSettings(name: TelemetryRedactor.templatePath(name));
+  }
+
   /// Reports a handled error as a non-fatal event.
   ///
   /// [reason] names the operation that failed, in the fixed-vocabulary style

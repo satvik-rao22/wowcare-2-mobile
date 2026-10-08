@@ -84,6 +84,18 @@ void main() {
       Telemetry.setKey('k', 1);
     });
 
+    test('navigatorObserver is a plain observer', () {
+      const config = TelemetryConfig(
+        dsn: '',
+        environment: 'DEV',
+        isDebugBuild: false,
+      );
+
+      final observer = Telemetry.navigatorObserver(config: config);
+
+      expect(observer, isNot(isA<SentryNavigatorObserver>()));
+    });
+
     test(
       'run just runs the app and wrapApp returns the child itself',
       () async {
@@ -213,6 +225,38 @@ void main() {
       await Telemetry.removeTag('persona');
       await Sentry.configureScope((scope) => tags = scope.tags);
       expect(tags, isEmpty);
+    });
+
+    test('navigatorObserver is Sentry\'s when enabled', () {
+      const config = TelemetryConfig(
+        dsn: dsn,
+        environment: 'DEV',
+        isDebugBuild: false,
+      );
+
+      final observer = Telemetry.navigatorObserver(config: config);
+
+      expect(observer, isA<SentryNavigatorObserver>());
+    });
+  });
+
+  group('Telemetry.screenName', () {
+    test('templates record codes and drops the arguments', () {
+      const settings = RouteSettings(
+        name: '/events/EVT_99E594B6AC',
+        arguments: {'code': 'EVT_99E594B6AC'},
+      );
+
+      final named = Telemetry.screenName(settings)!;
+
+      expect(named.name, '/events/{id}');
+      expect(named.arguments, isNull);
+    });
+
+    test('passes unnamed routes through', () {
+      expect(Telemetry.screenName(null), isNull);
+      const settings = RouteSettings();
+      expect(Telemetry.screenName(settings), same(settings));
     });
   });
 

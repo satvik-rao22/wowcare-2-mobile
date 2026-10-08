@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/modules/attendance_regularization/regularization.dart';
+import 'package:wowcare/core/observability/telemetry.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
@@ -441,7 +442,10 @@ Map<String, String>? consumePendingNotificationOrgSchool() {
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
-  observers: [DashboardReturnObserver(dashboardOnly: true)],
+  observers: [
+    DashboardReturnObserver(dashboardOnly: true),
+    Telemetry.navigatorObserver(),
+  ],
   initialLocation: AppRoutes.splash,
 
   // An unmatched location previously fell through to go_router's default
@@ -1048,7 +1052,10 @@ final GoRouter appRouter = GoRouter(
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
           navigatorKey: dashboardBranchKey,
-          observers: [DashboardReturnObserver(dashboardOnly: false)],
+          observers: [
+            DashboardReturnObserver(dashboardOnly: false),
+            Telemetry.navigatorObserver(),
+          ],
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
@@ -2371,6 +2378,7 @@ final GoRouter appRouter = GoRouter(
         // Branch 1 — Classrooms (staff/admin only).
         StatefulShellBranch(
           navigatorKey: classroomBranchKey,
+          observers: [Telemetry.navigatorObserver()],
           routes: [
             GoRoute(
               path: AppRoutes.classroom,
@@ -2391,6 +2399,7 @@ final GoRouter appRouter = GoRouter(
         // Branch 2 — Activities.
         StatefulShellBranch(
           navigatorKey: activityBranchKey,
+          observers: [Telemetry.navigatorObserver()],
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
@@ -2480,6 +2489,7 @@ final GoRouter appRouter = GoRouter(
         // pass arguments through the URL.
         StatefulShellBranch(
           navigatorKey: messagingBranchKey,
+          observers: [Telemetry.navigatorObserver()],
           routes: [
             GoRoute(
               path: AppRoutes.messaging,
@@ -2547,6 +2557,7 @@ final GoRouter appRouter = GoRouter(
         // Branch 4 — Parent billing (parent only).
         StatefulShellBranch(
           navigatorKey: billingBranchKey,
+          observers: [Telemetry.navigatorObserver()],
           routes: [
             GoRoute(
               path: AppRoutes.parentBilling,
