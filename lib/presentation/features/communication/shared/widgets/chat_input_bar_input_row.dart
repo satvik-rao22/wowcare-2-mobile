@@ -259,7 +259,7 @@ class _InputRow extends StatelessWidget {
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 48),
-              decoration: AppSurfaces.card(radius: 26),
+              decoration: AppSurfaces.field(radius: 26),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
