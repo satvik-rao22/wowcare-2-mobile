@@ -107,12 +107,15 @@ class ConversationEntity extends Equatable {
     return privateModeActive && (privateModeActivatedBy ?? '').trim() != viewer;
   }
 
-  /// Last-message preview safe to show a guardian. The list payload has no
+  /// Last-message preview safe to show a guardian (Room Chat only). The list payload has no
   /// per-message private flag, so the last message counts as private when the
   /// preview already is the backend's "Private message" placeholder, or when
   /// another guardian has private mode on in the room. Otherwise the real
   /// preview is returned unchanged.
   String previewForGuardian(String viewerUserCode) {
+    // Only Room Chat has other guardians' private messages. Admin Chat (and
+    // every other type) always shows its real preview.
+    if (type != ConversationType.roomChat) return lastMessagePreview;
     // The viewer's own message is never another guardian's private message.
     if (viewerUserCode.trim().isNotEmpty &&
         (lastMessageBy ?? '').trim() == viewerUserCode.trim()) {
