@@ -5,11 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/conversation_list_cubit_factory.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/shared/common/model/bottom_navigation_item.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/presentation/features/activities/model/activity_route_args.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_filter_screen.dart';
@@ -44,6 +45,9 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
+import 'package:wowcare/modules/attendance_v2/core/config/av2_config.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/controllers/av2_day_filter.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
@@ -437,6 +441,7 @@ Map<String, String>? consumePendingNotificationOrgSchool() {
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
+  observers: [DashboardReturnObserver(dashboardOnly: true)],
   initialLocation: AppRoutes.splash,
 
   // An unmatched location previously fell through to go_router's default
@@ -563,6 +568,8 @@ final GoRouter appRouter = GoRouter(
     return null;
   },
   routes: [
+    // Attendance Regularization — staff list + admin inbox.
+    ...Regularization.routes(),
     GoRoute(
       path: AppRoutes.splash,
       // RoleCubit/ParentChildCubit/AuthCubit are read from the ANCESTOR
@@ -997,6 +1004,7 @@ final GoRouter appRouter = GoRouter(
 
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
+        TabVisibilityEvents.currentShellIndex = navigationShell.currentIndex;
         // Expose the shell to descendants. CustomNavigationBar reads it and
         // switches tabs via goBranch — preserving each branch's widget tree
         // and navigation stack instead of rebuilding screens on every tap.
@@ -1020,6 +1028,7 @@ final GoRouter appRouter = GoRouter(
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
             navigationShell.goBranch(0);
+            TabVisibilityEvents.notifyBranchActivated(0);
           },
           child: _ShellScope(
             shell: navigationShell,
@@ -1039,6 +1048,7 @@ final GoRouter appRouter = GoRouter(
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
           navigatorKey: dashboardBranchKey,
+          observers: [DashboardReturnObserver(dashboardOnly: false)],
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
@@ -1997,12 +2007,21 @@ final GoRouter appRouter = GoRouter(
                     final q = state.uri.queryParameters;
                     return _fastPage(
                       state,
-                      StaffAttendanceProfile(
-                        staffCode: q['code'] ?? '',
-                        staffId: 0,
-                        staffName: q['name'] ?? '-',
-                        roomName: '-',
-                      ),
+                      // Deep links (notifications) can name the chip to open
+                      // on, which only the V2 screen has; behind the same
+                      // Av2Config.enabled switch as StaffAttendanceProfile.
+                      Av2Config.enabled
+                          ? StaffDetailScreen(
+                              staffCode: q['code'] ?? '',
+                              staffName: q['name'] ?? '',
+                              initialFilter: av2DayFilterFromName(q['tab']),
+                            )
+                          : StaffAttendanceProfile(
+                              staffCode: q['code'] ?? '',
+                              staffId: 0,
+                              staffName: q['name'] ?? '-',
+                              roomName: '-',
+                            ),
                     );
                   },
                 ),

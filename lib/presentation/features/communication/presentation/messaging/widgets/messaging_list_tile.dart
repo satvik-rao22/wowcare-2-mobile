@@ -49,6 +49,11 @@ class MessagingListTile extends StatelessWidget {
     if (body == null) return AppStrings.startANewConversation;
     final senderName = conversation.lastMessageSenderDisplayName?.trim();
     if (senderName == null || senderName.isEmpty) return body;
+    // Some sources (Firestore inbox docs) already store the preview as
+    // "Sender: text"; never prefix the sender twice.
+    if (body.toLowerCase().startsWith('${senderName.toLowerCase()}:')) {
+      return body;
+    }
     return '$senderName: $body';
   }
 

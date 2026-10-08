@@ -1,5 +1,6 @@
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_absent_toggle_query.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_profile_query.dart';
@@ -92,7 +93,8 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
         );
       }).toList();
       return profile.copyWith(days: enrichedDays);
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 absence backfill failed (showing profile as-is)', e, st);
       return profile;
     }
   }
@@ -265,7 +267,9 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
           schoolCode: schoolCode,
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      AppLogger.e('Av2 absent-days shift sync failed (absence edit kept)', e, st);
+    }
   }
 
   @override

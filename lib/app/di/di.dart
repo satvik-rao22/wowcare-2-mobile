@@ -40,6 +40,8 @@ import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/utils/storage_keys.dart';
+import '../../core/utils/user_details_school_roles.dart' show resolveActiveBackendRole;
 import '../../core/auth/secure_credential_store.dart';
 import '../../core/utils/api_constants.dart';
 import '../../core/cache/cache_service.dart';
@@ -199,6 +201,7 @@ import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../modules/attendance_regularization/regularization.dart';
 import '../../modules/attendance_v2/di/attendance_v2_di.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
@@ -898,6 +901,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
     ),
   );
+  // Attendance V2 module (staff overtime detail) — reuses AttendanceRepository.
+  registerAttendanceV2(serviceLocator);
+  // Attendance Regularization module. Also installs the sign-in gate as a Dio
+  // interceptor, which is why no sign-in call site needs editing.
+  Regularization.register(serviceLocator);
   // Attendance V2 module (staff overtime detail) — reuses AttendanceRepository.
   registerAttendanceV2(serviceLocator);
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
@@ -2219,6 +2227,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => UnreadBadgeCubit(
       watchUnreadCountForTypeUseCase: serviceLocator(),
       watchTotalUnreadCountUseCase: serviceLocator(),
+      scopeKeyResolver: () async {
+        final storage = serviceLocator<StorageService>();
+        final org = await storage.getString(StorageKeys.organizationCode);
+        final school = await storage.getString(StorageKeys.schoolCode);
+        final user = await storage.getString(StorageKeys.userCode);
+        final role = await resolveActiveBackendRole(storage);
+        return '$org|$school|$user|$role';
+      },
     ),
   );
   // MessageEntityRepository use cases

@@ -10,11 +10,11 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
+import 'package:wowcare/shared/common/widgets/app_image/app_image.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/skeu_press.dart';
@@ -242,18 +242,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
 
     switch (_kind) {
       case _DocKind.image:
-        return PhotoView(
-          imageProvider: NetworkImage(widget.url),
-          backgroundDecoration: const BoxDecoration(
-            color: AppColors.blackColor,
-          ),
-          loadingBuilder: (context, event) =>
-              const Center(child: PrimaryCircularLoader()),
+        return AppImage(
+          source: widget.url,
+          interaction: AppImageInteraction.zoom,
+          placeholder: const Center(child: PrimaryCircularLoader()),
           errorBuilder: (context, error, stackTrace) {
             AppLogger.e(
               '[DocumentViewerScreen] image load failed url=${widget.url}',
               error,
-              stackTrace is StackTrace ? stackTrace : null,
+              stackTrace,
             );
             return _buildFallback('Unable to load image.');
           },

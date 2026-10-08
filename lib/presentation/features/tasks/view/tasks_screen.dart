@@ -23,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// How the Tasks module lays out its content. Mobile Kanban uses status tabs
 /// over a single column (PRD FR-TK-14) rather than the desktop's 3 columns.
@@ -144,7 +145,10 @@ class _TasksScreenState extends State<TasksScreen> {
         borderRadius: AppRadius.allR14,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => _openCreateForm(context),
+          onTap: () {
+            AppHaptics.tap();
+            _openCreateForm(context);
+          },
           child: const Center(
             child: Icon(Icons.add, color: AppPalette.onBrand, size: 32),
           ),
@@ -199,7 +203,13 @@ class _TasksScreenState extends State<TasksScreen> {
   }) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        // Unselected tabs have no fill, so without this only the label
+        // takes the tap.
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          AppHaptics.select();
+          onTap();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 7),
@@ -226,7 +236,11 @@ class _TasksScreenState extends State<TasksScreen> {
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
-          onTap: () => setState(() => _viewMode = mode),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            AppHaptics.select();
+            setState(() => _viewMode = mode);
+          },
           child: Container(
             width: 30,
             height: 30,
@@ -355,7 +369,10 @@ class _TasksScreenState extends State<TasksScreen> {
       final count = counts[status] ?? 0;
       return Expanded(
         child: GestureDetector(
-          onTap: () => setState(() => _kanbanStatus = status),
+          onTap: () {
+            AppHaptics.select();
+            setState(() => _kanbanStatus = status);
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -556,11 +573,17 @@ class _TasksScreenState extends State<TasksScreen> {
         content: Text('Do you want to delete this task - "${task.title}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Delete'),
           ),

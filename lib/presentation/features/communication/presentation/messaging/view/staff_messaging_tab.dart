@@ -68,6 +68,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   bool _classroomFilterUserSet = false;
   static const int _conversationPageSize = 50;
 
+  /// "first last" of a possibly middle-named title, lower-cased.
+  static String _firstLastKey(String title) {
+    final parts = title.trim().toLowerCase().split(RegExp(r'\s+'));
+    return parts.length <= 2 ? parts.join(' ') : '${parts.first} ${parts.last}';
+  }
+
   /// Drives the inbox's "load more" — fetches the next page once the user
   /// scrolls within this many pixels of the end, instead of capping the
   /// list at whatever the first fixed-size fetch returned.
@@ -141,9 +147,15 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
               .toSet(),
         );
       } else {
-        _contactFilter.setStudentContactNames(
-          page.items.map((c) => c.title.trim().toLowerCase()).toSet(),
-        );
+        // Chat titles carry the child's middle name, but the contact list
+        // matches on "first last" - register both forms so a child with an
+        // existing chat is never also offered as "start new chat".
+        _contactFilter.setStudentContactNames({
+          for (final c in page.items) ...[
+            c.title.trim().toLowerCase(),
+            _firstLastKey(c.title),
+          ],
+        });
       }
     });
   }

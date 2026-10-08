@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Confirmation dialog shown before deleting a school holiday.
 ///
@@ -23,11 +24,17 @@ Future<bool> showDeleteHolidayConfirmation(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
+          onPressed: () {
+            AppHaptics.tap();
+            Navigator.pop(dialogContext, false);
+          },
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
+          onPressed: () {
+            AppHaptics.tap();
+            Navigator.pop(dialogContext, true);
+          },
           style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
           child: const Text('Delete'),
         ),

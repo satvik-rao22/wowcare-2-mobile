@@ -221,15 +221,21 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
 
     // ── Serve from cache if available ────────────────────────────────────────
     final cached = await _cacheManager.loadCache(key);
-    if (cached != null) {
-      final list = cached['items'] as List<dynamic>? ?? const [];
+    final cachedItems = cached?['items'] as List<dynamic>? ?? const [];
+    // A cache where no classroom has a ratio was written by the fallback
+    // endpoint (ratio unknown -> always green); refetch instead of trusting it.
+    final cacheHasRatios = cachedItems.any(
+      (e) => ((e as Map<String, dynamic>)['allowedRatio'] as num? ?? 0) > 0,
+    );
+    if (cached != null && cacheHasRatios) {
+      final list = cachedItems;
       return list.map((e) {
         final m = e as Map<String, dynamic>;
         return RatioMonitoringClassroom(
           code: m['code'] as String? ?? '',
           name: m['name'] as String? ?? '',
           capacity: m['capacity'] as int? ?? 0,
-          allowedRatio: m['allowedRatio'] as int? ?? 0,
+          allowedRatio: (m['allowedRatio'] as num?)?.toDouble() ?? 0,
           studentPresent: 0,
           staffPresent: 0,
         );
@@ -284,23 +290,12 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
             code: e.code,
             name: e.name,
             capacity: 0,
-            allowedRatio: 0,
+            allowedRatio: 0.0,
             studentPresent: 0,
             staffPresent: 0,
           ),
         )
         .toList();
-
-    if (result.isNotEmpty) {
-      await _cacheManager.saveCache(key, {
-        'items': result.map((e) => {
-          'code': e.code,
-          'name': e.name,
-          'capacity': e.capacity,
-          'allowedRatio': e.allowedRatio,
-        }).toList(),
-      });
-    }
 
     return result;
   }

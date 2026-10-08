@@ -1699,13 +1699,9 @@ class _StudentScreenState extends State<StudentScreen> {
                           itemCount: students.length,
                           itemBuilder: (context, index) {
                             final student = students[index];
-                            final studentMap = _studentToMap(
-                              student,
-                              classroomNameByCode: mergedClassroomNames,
-                            );
                             final isActive =
                                 (student.status).toUpperCase() == 'ACTIVE';
-                            final studentCode = studentMap['code'] as String;
+                            final studentCode = student.code;
                             final isHighlightTarget = _isHighlightTarget(
                               studentCode,
                             );
@@ -1735,31 +1731,11 @@ class _StudentScreenState extends State<StudentScreen> {
                                   },
                                   child: StudentCard(
                                     initiallyExpanded: isHighlightTarget,
-                                    studentCode: studentCode,
-                                    name: studentMap['name'] as String,
-                                    profileImage:
-                                        studentMap['profileImage'] as String?,
-                                    profilePhotoAssetCode:
-                                        studentMap['profilePhotoAssetCode']
-                                            as String?,
-                                    classroom:
-                                        studentMap['Classroom'] as String,
-                                    tags: studentMap['Tags'] as List<String>,
-                                    sibling:
-                                        studentMap['sibling']
-                                            as StudentSiblingInfo,
-                                    schedule:
-                                        studentMap['schedule'] as List<String>,
-                                    scheduleByDay:
-                                        studentMap['scheduleByDay']
-                                            as Map<String, String>? ??
-                                        const <String, String>{},
-                                    birthDate:
-                                        studentMap['birthDate'] as String,
-                                    movementDate:
-                                        studentMap['movementDate'] as String,
-                                    status: studentMap['Status'] as String,
-                                    isActive: isActive,
+                                    student: student,
+                                    classroomName: _classroomDisplayName(
+                                      student.classroom,
+                                      classroomNameByCode: mergedClassroomNames,
+                                    ),
                                     isSelected: index < _selectedDemo.length
                                         ? _selectedDemo[index]
                                         : false,

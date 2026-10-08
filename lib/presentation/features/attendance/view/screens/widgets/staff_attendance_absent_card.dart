@@ -191,7 +191,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                       context,
                       'Start Date',
                       staff.startDate.isNotEmpty
-                          ? staff.startDate.split('T')[0]
+                          ? formatAbsentCardDate(staff.startDate)
                           : 'N/A',
                     ),
                     const SizedBox(height: AppSpacing.s10),
@@ -199,7 +199,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                       context,
                       'End Date',
                       staff.endDate.isNotEmpty
-                          ? staff.endDate.split('T')[0]
+                          ? formatAbsentCardDate(staff.endDate)
                           : 'N/A',
                     ),
                     if (widget.onView != null) ...[

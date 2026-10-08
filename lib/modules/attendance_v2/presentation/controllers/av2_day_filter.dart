@@ -1,8 +1,18 @@
 import '../../domain/entities/attendance_day.dart';
 
-/// The single segmented filter. Maps directly to the overview endpoint's
-/// `overtimeOnly` / `absentOnly` server filters.
-enum Av2DayFilter { all, overtime, absent }
+/// The single segmented filter that replaces the old Summarised/Separate +
+/// Show-Absent toggles.
+enum Av2DayFilter { all, overtime, absent, requests }
+
+/// Parses the `tab` deep-link parameter. Unknown or absent falls back to
+/// [Av2DayFilter.all], so a stale link lands somewhere sensible.
+Av2DayFilter av2DayFilterFromName(String? name) {
+  final wanted = (name ?? '').trim().toLowerCase();
+  for (final f in Av2DayFilter.values) {
+    if (f.name == wanted) return f;
+  }
+  return Av2DayFilter.all;
+}
 
 extension Av2DayFilterX on Av2DayFilter {
   String get label {
@@ -13,6 +23,8 @@ extension Av2DayFilterX on Av2DayFilter {
         return 'Overtime';
       case Av2DayFilter.absent:
         return 'Absent';
+      case Av2DayFilter.requests:
+        return 'Requests';
     }
   }
 
@@ -24,6 +36,9 @@ extension Av2DayFilterX on Av2DayFilter {
         return !day.isAbsent && day.hasOvertime;
       case Av2DayFilter.absent:
         return day.isAbsent;
+      // Not a day filter: the tab renders the regularization list instead.
+      case Av2DayFilter.requests:
+        return false;
     }
   }
 

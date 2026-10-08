@@ -92,14 +92,11 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// Identity/session values, exposed so views read them through their owning
   /// cubit instead of reaching storage directly (Mandate 5). These are thin
   /// passthroughs over the injected [MessagingSession] — same read, same value.
-  Future<String?> readActiveSchoolRole() =>
-      _session.activeSchoolRole();
+  Future<String?> readActiveSchoolRole() => _session.activeSchoolRole();
 
-  Future<String?> readCurrentUserCode() =>
-      _session.userCode();
+  Future<String?> readCurrentUserCode() => _session.userCode();
 
-  Future<String?> readActiveSchoolCode() =>
-      _session.schoolCode();
+  Future<String?> readActiveSchoolCode() => _session.schoolCode();
 
   /// Use-case/repository access exposed so views go through their owning cubit
   /// rather than resolving these directly (Mandate 5). Each forwards to the
@@ -136,12 +133,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> startWatching() async {
     emit(state.copyWith(isLoading: true));
 
-    final String debugUserCode =
-        (await _session.userCode()) ?? '';
-    final String debugOrgCode =
-        (await _session.organizationCode()) ?? '';
-    final String debugSchoolCode =
-        (await _session.schoolCode()) ?? '';
+    final String debugUserCode = (await _session.userCode()) ?? '';
+    final String debugOrgCode = (await _session.organizationCode()) ?? '';
+    final String debugSchoolCode = (await _session.schoolCode()) ?? '';
 
     // 1. Emit Isar cache immediately for a fast first frame.
     final cacheResult = await _getCachedConversationsUseCase(
@@ -191,7 +185,20 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // a filter is active, let the REST-driven filtered result stand
         // rather than silently overwriting it with the unfiltered live
         // snapshot; live updates resume once filters are cleared.
-        if (state.hasActiveFilters) return;
+        if (state.hasActiveFilters) {
+          // The filtered (REST) result stands, but its unread counts must keep
+          // following Firestore — they were stamped once, when the REST
+          // response landed (usually BEFORE Firestore's first snapshot, i.e.
+          // 0), and never updated again until a manual pull-to-refresh.
+          final updated = state.conversations.map((c) {
+            final live = _latestFirestoreUnread[c.code];
+            return (live == null || live == c.unreadCount)
+                ? c
+                : c.copyWith(unreadCount: live);
+          }).toList();
+          emit(state.copyWith(conversations: updated));
+          return;
+        }
         final int debugPrevCount = state.conversations.length;
         debugPrint(
           '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
@@ -265,11 +272,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     emit(state.copyWith(isSearchingStaff: true, clearStaffSearchError: true));
 
-    final orgCode =
-        (await _session.organizationCode() ?? '')
-            .trim();
-    final schoolCode =
-        (await _session.schoolCode() ?? '').trim();
+    final orgCode = (await _session.organizationCode() ?? '').trim();
+    final schoolCode = (await _session.schoolCode() ?? '').trim();
 
     if (isClosed) return;
 
@@ -470,6 +474,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       studentStatuses: resolvedStudentStatuses,
       staffStatuses: _networkStaffStatuses(resolvedStaffStatuses),
       search: search,
+      includeRestUnreadCounts: false,
     );
 
     if (isClosed) return;
@@ -481,23 +486,32 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           errorMessage: failure.message ?? 'Failed to apply filters.',
         ),
       ),
-      (conversations) => emit(
-        ConversationListState.loaded(
-          conversationType: _conversationType,
-          conversations: _sortedByLatest(
-            _reconcileLastMessageSenderNames(conversations),
+      (restConversations) {
+        // Unread counts are Firestore-only app-wide: overlay the live values
+        // instead of whatever REST carries (0/null), so a freshly filtered
+        // list shows its counts immediately rather than only after a manual
+        // pull-to-refresh.
+        final conversations = restConversations
+            .map((c) => c.copyWith(unreadCount: _knownUnread(c.code)))
+            .toList();
+        emit(
+          ConversationListState.loaded(
+            conversationType: _conversationType,
+            conversations: _sortedByLatest(
+              _reconcileLastMessageSenderNames(conversations),
+            ),
+            isFromCache: false,
+            page: 0,
+            hasMore: conversations.length >= _pageSize,
+            activeClassroomCodes: resolvedClassrooms,
+            activeTagCodes: resolvedTags,
+            activeDesignations: resolvedDesignations,
+            activeStudentStatuses: resolvedStudentStatuses,
+            activeStaffStatuses: resolvedStaffStatuses,
+            activeSearch: search,
           ),
-          isFromCache: false,
-          page: 0,
-          hasMore: conversations.length >= _pageSize,
-          activeClassroomCodes: resolvedClassrooms,
-          activeTagCodes: resolvedTags,
-          activeDesignations: resolvedDesignations,
-          activeStudentStatuses: resolvedStudentStatuses,
-          activeStaffStatuses: resolvedStaffStatuses,
-          activeSearch: search,
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -524,6 +538,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       page: 0,
       size: _pageSize,
       staffStatuses: _networkStaffStatuses(const []),
+      includeRestUnreadCounts: false,
     );
 
     if (isClosed) return;
@@ -535,17 +550,22 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           errorMessage: failure.message ?? 'Failed to clear filters.',
         ),
       ),
-      (conversations) => emit(
-        ConversationListState.loaded(
-          conversationType: _conversationType,
-          conversations: _sortedByLatest(
-            _reconcileLastMessageSenderNames(conversations),
+      (restConversations) {
+        final conversations = restConversations
+            .map((c) => c.copyWith(unreadCount: _knownUnread(c.code)))
+            .toList();
+        emit(
+          ConversationListState.loaded(
+            conversationType: _conversationType,
+            conversations: _sortedByLatest(
+              _reconcileLastMessageSenderNames(conversations),
+            ),
+            isFromCache: false,
+            page: 0,
+            hasMore: conversations.length >= _pageSize,
           ),
-          isFromCache: false,
-          page: 0,
-          hasMore: conversations.length >= _pageSize,
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -610,10 +630,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // defaults to 0 until the live Firestore stream delivers its real
         // count moments later.
         final withFirestoreUnread = conversations
-            .map(
-              (c) =>
-                  c.copyWith(unreadCount: _latestFirestoreUnread[c.code] ?? 0),
-            )
+            .map((c) => c.copyWith(unreadCount: _knownUnread(c.code)))
             .toList();
         debugPrint(
           '[UnreadDebug][${_conversationType.toApiString()}] refresh() result '
@@ -648,6 +665,20 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
+
+  /// Unread count to show for [code] when a REST result (which carries no
+  /// trustworthy count) is merged in: the live Firestore value when we have
+  /// one, otherwise whatever this list is ALREADY showing for it — never a
+  /// blind 0, which blanked every badge whenever REST landed before (or
+  /// instead of) Firestore's snapshot.
+  int _knownUnread(String code) {
+    final live = _latestFirestoreUnread[code];
+    if (live != null) return live;
+    for (final c in state.conversations) {
+      if (c.code == code) return c.unreadCount;
+    }
+    return 0;
+  }
 
   /// Immediately set unreadCount = 0 for [conversationCode] in local state.
   /// Called when [MessagingEventService] emits a mark-read event, before
@@ -739,10 +770,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // concurrently, delivers its real count moments later. Mirrors
         // refresh()'s identical merge.
         final withFirestoreUnread = conversations
-            .map(
-              (c) =>
-                  c.copyWith(unreadCount: _latestFirestoreUnread[c.code] ?? 0),
-            )
+            .map((c) => c.copyWith(unreadCount: _knownUnread(c.code)))
             .toList();
         emit(
           ConversationListState.loaded(

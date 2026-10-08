@@ -38,6 +38,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/filter_icon_button.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// How the Events tab lays out its content, mirroring the web design's
 /// calendar / grid / list switcher.
@@ -279,7 +280,10 @@ class _EventsScreenState extends State<EventsScreen> {
         borderRadius: BorderRadius.circular(AppRadius.r14),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            AppHaptics.tap();
+            onTap();
+          },
           child: const Center(
             child: Icon(Icons.add, color: AppPalette.onBrand, size: 32),
           ),
@@ -293,7 +297,11 @@ class _EventsScreenState extends State<EventsScreen> {
       final selected = _tabIndex == index;
       return Expanded(
         child: GestureDetector(
+          // Unselected tabs have no fill, so without this only the label
+          // and icon take the tap.
+          behavior: HitTestBehavior.opaque,
           onTap: () {
+            AppHaptics.select();
             setState(() => _tabIndex = index);
             // Holidays are the scheduler API's source of truth — fetch fresh
             // whenever the tab is opened so the list can't go stale.
@@ -437,12 +445,15 @@ class _EventsScreenState extends State<EventsScreen> {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => setState(() {
-            _showCompleted = !_showCompleted;
-            if (_showCompleted && _viewMode == _EventsViewMode.calendar) {
-              _jumpToLatestCompleted(state);
-            }
-          }),
+          onTap: () {
+            AppHaptics.select();
+            setState(() {
+              _showCompleted = !_showCompleted;
+              if (_showCompleted && _viewMode == _EventsViewMode.calendar) {
+                _jumpToLatestCompleted(state);
+              }
+            });
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
@@ -581,14 +592,18 @@ class _EventsScreenState extends State<EventsScreen> {
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
-          onTap: () => setState(() {
-            _viewMode = mode;
-            // Entering the calendar while viewing completed events should
-            // land on the most recently completed event.
-            if (_showCompleted && mode == _EventsViewMode.calendar) {
-              _jumpToLatestCompleted(state);
-            }
-          }),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            AppHaptics.select();
+            setState(() {
+              _viewMode = mode;
+              // Entering the calendar while viewing completed events should
+              // land on the most recently completed event.
+              if (_showCompleted && mode == _EventsViewMode.calendar) {
+                _jumpToLatestCompleted(state);
+              }
+            });
+          },
           child: Container(
             width: 30,
             height: 30,

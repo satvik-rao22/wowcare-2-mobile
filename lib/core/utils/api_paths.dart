@@ -209,6 +209,7 @@ class ApiPaths {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'staff-attendance-regularizations':
       case 'staff-overtime-records':
       case 'attendance':
         return ApiMicroservices.attendance;
@@ -1319,7 +1320,7 @@ class ApiPaths {
 
   // —— Auto Pay / Forte payment methods (Billing MS) ——
   /// School-level Forte config (returns `apiLoginId`).
-  static const String schoolForteConfigs = '/api/v1/school-forte-configs';
+  static const String schoolForteConfigs = '/api/v1/school-forte-configs/search';
 
   /// School payment settings — which method types are accepted and who pays the
   /// convenience fee. `GET /api/v1/payment/settings?schoolCode=...`.

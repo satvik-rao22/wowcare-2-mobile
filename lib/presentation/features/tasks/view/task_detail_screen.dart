@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_shee
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).
@@ -530,11 +531,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         content: Text('Do you want to remove $name from this task?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Remove'),
           ),
@@ -632,11 +639,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         content: Text('Do you want to delete this task - "${task.title}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Delete'),
           ),

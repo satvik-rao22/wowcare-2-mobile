@@ -1452,7 +1452,12 @@ class ImageUploadService {
         _assetUrlFailedAt[normalized] = AppTime.nowUtc();
       }
       return url;
-    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+    }).whenComplete(() {
+      // Block body on purpose: `=> map.remove(...)` would return the removed
+      // value — this very future — and whenComplete waits for a returned
+      // future, so the future would wait on itself and never complete.
+      _assetUrlInFlight.remove(normalized);
+    });
 
     _assetUrlInFlight[normalized] = future;
     return future;

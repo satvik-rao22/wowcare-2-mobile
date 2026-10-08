@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:wowcare/core/responsive/app_breakpoints.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -63,8 +64,7 @@ class _StaffDashboardState extends State<StaffDashboard>
     // recreating it — initState alone only ever fired once, on the first-ever
     // dashboard build, so every later tap silently redirected without
     // scrolling. Re-check here too, same guard as initState.
-    if (widget.focus == 'ratioMonitoring' &&
-        oldWidget.focus != widget.focus) {
+    if (widget.focus == 'ratioMonitoring' && oldWidget.focus != widget.focus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _scrollToRatioCard();
       });
@@ -130,29 +130,26 @@ class _StaffDashboardState extends State<StaffDashboard>
       child: Builder(
         builder: (context) {
           final coordinator = context.read<StaffDashboardCoordinatorCubit>();
-          return Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: MultiBlocProvider(
-              providers: [
-                BlocProvider<StaffDashboardCubit>.value(
-                  value: coordinator.dashboardCubit,
-                ),
-                BlocProvider<GeofenceCubit>.value(
-                  value: coordinator.geofenceCubit,
-                ),
-                BlocProvider<RatioMonitoringCubit>.value(
-                  value: coordinator.ratioMonitoringCubit,
-                ),
-                BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
-                BlocProvider<MyShiftsCubit>.value(
-                  value: coordinator.myShiftsCubit,
-                ),
-                BlocProvider<MyAttendanceCubit>.value(
-                  value: coordinator.myAttendanceCubit,
-                ),
-              ],
-              child: _buildScaffold(context),
-            ),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<StaffDashboardCubit>.value(
+                value: coordinator.dashboardCubit,
+              ),
+              BlocProvider<GeofenceCubit>.value(
+                value: coordinator.geofenceCubit,
+              ),
+              BlocProvider<RatioMonitoringCubit>.value(
+                value: coordinator.ratioMonitoringCubit,
+              ),
+              BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
+              BlocProvider<MyShiftsCubit>.value(
+                value: coordinator.myShiftsCubit,
+              ),
+              BlocProvider<MyAttendanceCubit>.value(
+                value: coordinator.myAttendanceCubit,
+              ),
+            ],
+            child: _buildScaffold(context),
           );
         },
       ),
@@ -247,8 +244,17 @@ class _StaffDashboardCardList extends StatelessWidget {
                     // takes the list's 24px top inset, and is zero height
                     // unless an update is waiting, so the cards sit exactly
                     // where they did.
+                    // Attendance Regularization — unresolved missed sign-out
+                    // banner. Renders nothing when there is none, so it is
+                    // safe to keep here unconditionally.
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                        child: Regularization.gateWatcher(),
+                      ),
+                    ),
                     SliverPadding(
-                      padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                      padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
                       sliver: const SliverToBoxAdapter(
                         child: OptionalUpdateBanner(),
                       ),

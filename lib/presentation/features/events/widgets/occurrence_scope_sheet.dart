@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Which part of a recurring series an edit/delete applies to.
 enum OccurrenceScope { thisOnly, thisAndFuture, wholeSeries }
@@ -51,8 +52,10 @@ Future<OccurrenceScope?> showOccurrenceScopeSheet(
               'Other events in the series stay unchanged',
               style: TextStyle(fontSize: 12),
             ),
-            onTap: () =>
-                Navigator.pop(sheetContext, OccurrenceScope.thisOnly),
+            onTap: () {
+              AppHaptics.tap();
+              Navigator.pop(sheetContext, OccurrenceScope.thisOnly);
+            },
           ),
           ListTile(
             leading: const Icon(Icons.fast_forward_outlined),
@@ -64,8 +67,10 @@ Future<OccurrenceScope?> showOccurrenceScopeSheet(
               'From this date to the end of the series',
               style: TextStyle(fontSize: 12),
             ),
-            onTap: () =>
-                Navigator.pop(sheetContext, OccurrenceScope.thisAndFuture),
+            onTap: () {
+              AppHaptics.tap();
+              Navigator.pop(sheetContext, OccurrenceScope.thisAndFuture);
+            },
           ),
           ListTile(
             leading: const Icon(Icons.repeat),
@@ -77,8 +82,10 @@ Future<OccurrenceScope?> showOccurrenceScopeSheet(
               'Applies to every occurrence, including past ones',
               style: TextStyle(fontSize: 12),
             ),
-            onTap: () =>
-                Navigator.pop(sheetContext, OccurrenceScope.wholeSeries),
+            onTap: () {
+              AppHaptics.tap();
+              Navigator.pop(sheetContext, OccurrenceScope.wholeSeries);
+            },
           ),
           const SizedBox(height: 6),
         ],
@@ -106,12 +113,17 @@ Future<String?> promptOccurrenceCancelReason(BuildContext context) {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
+          onPressed: () {
+            AppHaptics.tap();
+            Navigator.pop(dialogContext);
+          },
           child: const Text('Keep event'),
         ),
         TextButton(
-          onPressed: () =>
-              Navigator.pop(dialogContext, controller.text.trim()),
+          onPressed: () {
+            AppHaptics.tap();
+            Navigator.pop(dialogContext, controller.text.trim());
+          },
           child: const Text(
             'Cancel event',
             style: TextStyle(color: AppColors.errorColor),

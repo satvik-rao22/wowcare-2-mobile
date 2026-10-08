@@ -159,6 +159,9 @@ class _InputRow extends StatelessWidget {
             fontSize: 15,
           ),
           border: InputBorder.none,
+          // The pill below is the field's fill; the theme's square fill
+          // would cover the well's inset.
+          filled: false,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 12,
@@ -256,47 +259,59 @@ class _InputRow extends StatelessWidget {
           const SizedBox(width: AppSizes.xs),
 
           // ── Text field pill ────────────────────────────────────────
+          // The same full well as the search bar and the other text fields.
           Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 48),
-              decoration: AppSurfaces.card(radius: 26),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    // ConstrainedBox caps the field at ~5 lines (~130 px).
-                    // Beyond that the TextField scrolls internally — the
-                    // composer never pushes the message list off-screen.
-                    child: fieldWithShortcuts,
-                  ),
+            child: SkeuFieldWell(
+              radius: 26,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                decoration: BoxDecoration(
+                  color: AppSurfaces.fieldFill,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      // ConstrainedBox caps the field at ~5 lines (~130 px).
+                      // Beyond that the TextField scrolls internally — the
+                      // composer never pushes the message list off-screen.
+                      child: fieldWithShortcuts,
+                    ),
 
-                  // Attachment icon inside pill — stays pinned to the bottom
-                  // of the pill regardless of how tall the text field grows.
-                  Tooltip(
-                    message: 'Add Attachment',
-                    child: GestureDetector(
-                      onTap: onAttachmentTap,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 0, AppSizes.xsPlus, AppSizes.xsPlus),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryColor.withValues(
-                              alpha: 0.08,
-                            ),
-                            shape: BoxShape.circle,
+                    // Attachment icon inside pill — stays pinned to the bottom
+                    // of the pill regardless of how tall the text field grows.
+                    Tooltip(
+                      message: 'Add Attachment',
+                      child: GestureDetector(
+                        onTap: onAttachmentTap,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            0,
+                            0,
+                            AppSizes.xsPlus,
+                            AppSizes.xsPlus,
                           ),
-                          child: Icon(
-                            Icons.attach_file_rounded,
-                            color: AppColors.primaryColor,
-                            size: 18,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.08,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.attach_file_rounded,
+                              color: AppColors.primaryColor,
+                              size: 18,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/communication/model/communication_
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
+import 'package:wowcare/core/theme/skeu_inner_shadow.dart';
 part 'chat_input_bar_previews.dart';
 part 'chat_input_bar_input_row.dart';
 

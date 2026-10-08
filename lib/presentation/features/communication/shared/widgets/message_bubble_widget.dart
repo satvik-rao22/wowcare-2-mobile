@@ -1536,9 +1536,12 @@ class _MessageBubbleState extends State<MessageBubble>
             // filenames are shown separately below and must never make this
             // box grow, or its parent RenderFlex overflows (seen with long
             // names like "WhatsApp Image 2026-06-16 at 10.21.27.jpeg").
-            final iconData =
-                Thumbnailer.getIconDataForMimeType(att.mimeType) ??
-                FontAwesomeIcons.filePdf;
+            // Thumbnailer has no video mappings, so videos fell through to
+            // the PDF fallback.
+            final iconData = att.isVideo
+                ? FontAwesomeIcons.fileVideo
+                : Thumbnailer.getIconDataForMimeType(att.mimeType) ??
+                      FontAwesomeIcons.filePdf;
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSizes.sm),
               child: GestureDetector(

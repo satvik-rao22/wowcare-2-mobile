@@ -27,7 +27,46 @@ class TabVisibilityEvents {
 
   /// Call from the bottom-nav's tap handler right after `shell.goBranch(...)`.
   static void notifyBranchActivated(int branchIndex) {
+    // A ValueNotifier ignores a write of the value it already holds, so a
+    // re-tap of the active tab (or popping back to it from a drill-down, where
+    // the active branch never changed) would never reach the listeners. Clear
+    // first so every call is a real change; listeners ignore the null.
+    if (activeBranchIndex.value == branchIndex) {
+      activeBranchIndex.value = null;
+    }
     activeBranchIndex.value = branchIndex;
+  }
+
+  /// Index of the shell branch currently on screen, kept up to date by the
+  /// shell builder in app_router.dart.
+  static int currentShellIndex = 0;
+}
+
+/// Signals that the Dashboard is visible again after a full-page route that
+/// was sitting on top of it is popped (Android back / app-bar back from a
+/// drill-down such as Billing, Staff or Reports, or from a screen pushed over
+/// the shell). Popping doesn't change the active branch, so nothing else tells
+/// the kept-alive Dashboard to reload.
+///
+/// Attach one to the Dashboard branch's navigator (`dashboardOnly: false`) and
+/// one to the root navigator (`dashboardOnly: true`, which only fires while the
+/// shell is showing the Dashboard branch).
+class DashboardReturnObserver extends NavigatorObserver {
+  DashboardReturnObserver({required this.dashboardOnly});
+
+  final bool dashboardOnly;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    // Dialogs / bottom sheets are not PageRoutes; only a landing on the
+    // navigator's first route means we are back on the Dashboard itself.
+    if (route is! PageRoute ||
+        previousRoute == null ||
+        !previousRoute.isFirst) {
+      return;
+    }
+    if (dashboardOnly && TabVisibilityEvents.currentShellIndex != 0) return;
+    TabVisibilityEvents.notifyBranchActivated(0);
   }
 }
 

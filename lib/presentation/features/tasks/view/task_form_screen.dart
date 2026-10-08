@@ -27,6 +27,7 @@ import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
 /// web design's dialog: basics up top, scheduling and recurrence below.
@@ -1142,6 +1143,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   }
 
   Future<void> _save() async {
+    AppHaptics.tap();
     // The button is disabled while busy, but a queued tap can still land
     // between the tap and the first frame that reflects it — and a second
     // entry here would open its own upload session and POST a duplicate task.

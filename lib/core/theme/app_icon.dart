@@ -36,6 +36,9 @@
 /// has no filter, so it never paid for a layer.
 library;
 
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vector_graphics/vector_graphics_compat.dart'
@@ -170,4 +173,120 @@ class AppArtwork extends StatelessWidget {
         ? RenderingStrategy.raster
         : RenderingStrategy.picture,
   );
+}
+
+/// An SVG that is **content** — a user's upload, a server-sent badge — rather
+/// than one of the app's own glyphs, loaded from somewhere other than the
+/// bundle.
+///
+/// The `assets/icons` gradient problem [AppIcon] exists for does not apply:
+/// these files are not ours to re-tone, so the colours stay the content's,
+/// exactly as with [AppArtwork]. A [tint] is honoured only because a caller
+/// asked for one explicitly. Kept here, beside [AppIcon], so this file stays
+/// the one place in `lib/` that paints an SVG.
+class AppSvgContent extends StatelessWidget {
+  const AppSvgContent.network(
+    String this.url, {
+    super.key,
+    this.headers,
+    this.width,
+    this.height,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
+    this.tint,
+    this.semanticsLabel,
+    this.placeholderBuilder,
+    this.errorBuilder,
+  }) : path = null,
+       bytes = null;
+
+  const AppSvgContent.file(
+    String this.path, {
+    super.key,
+    this.width,
+    this.height,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
+    this.tint,
+    this.semanticsLabel,
+    this.placeholderBuilder,
+    this.errorBuilder,
+  }) : url = null,
+       headers = null,
+       bytes = null;
+
+  const AppSvgContent.memory(
+    Uint8List this.bytes, {
+    super.key,
+    this.width,
+    this.height,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
+    this.tint,
+    this.semanticsLabel,
+    this.placeholderBuilder,
+    this.errorBuilder,
+  }) : url = null,
+       headers = null,
+       path = null;
+
+  final String? url;
+  final Map<String, String>? headers;
+  final String? path;
+  final Uint8List? bytes;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final AlignmentGeometry alignment;
+
+  /// Recolours every fill (srcIn). Leave null to keep the content's palette.
+  final Color? tint;
+  final String? semanticsLabel;
+  final WidgetBuilder? placeholderBuilder;
+  final SvgErrorWidgetBuilder? errorBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final filter = tint == null
+        ? null
+        : ColorFilter.mode(tint!, BlendMode.srcIn);
+    if (url != null) {
+      return SvgPicture.network(
+        url!,
+        headers: headers,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticsLabel,
+        placeholderBuilder: placeholderBuilder,
+        errorBuilder: errorBuilder,
+      );
+    }
+    if (path != null) {
+      return SvgPicture.file(
+        File(path!),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticsLabel,
+        placeholderBuilder: placeholderBuilder,
+        errorBuilder: errorBuilder,
+      );
+    }
+    return SvgPicture.memory(
+      bytes!,
+      width: width,
+      height: height,
+      fit: fit,
+      alignment: alignment,
+      colorFilter: filter,
+      semanticsLabel: semanticsLabel,
+      placeholderBuilder: placeholderBuilder,
+      errorBuilder: errorBuilder,
+    );
+  }
 }

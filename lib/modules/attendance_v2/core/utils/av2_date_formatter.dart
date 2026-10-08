@@ -19,14 +19,10 @@ class Av2DateFormatter {
   /// "Jun 2026"
   static String monthYear(DateTime d) => _monthYear.format(d);
 
-  /// Compact lower-case time used in session tiles: "08:03a", "02:14p".
-  static String compactTime(DateTime d) {
-    final s = _time12.format(d); // "08:03 AM"
-    final parts = s.split(' ');
-    if (parts.length != 2) return s;
-    final meridiem = parts[1].toLowerCase().startsWith('p') ? 'p' : 'a';
-    return '${parts[0]}$meridiem';
-  }
+  /// Time used in session tiles and regularization rows: "08:03 AM",
+  /// "02:14 PM". Same `hh:mm a` shape as the rest of the app — a lone "a"/"p"
+  /// read as a typo next to every other screen's AM/PM.
+  static String compactTime(DateTime d) => _time12.format(d);
 
   /// "Jun 1 – Jun 30, 2026" for a range chip / header.
   static String range(DateTime from, DateTime to) {

@@ -48,15 +48,15 @@ class NotificationPreferenceGroupModel {
   }
 
   NotificationPreferenceGroup toEntity() => NotificationPreferenceGroup(
-        groupCode: groupCode,
-        title: title,
-        description: description,
-        categoryCode: categoryCode,
-        categoryName: categoryName,
-        displayOrder: displayOrder,
-        channels: channels,
-        overridden: overridden,
-      );
+    groupCode: groupCode,
+    title: title,
+    description: description,
+    categoryCode: categoryCode,
+    categoryName: categoryName,
+    displayOrder: displayOrder,
+    channels: channels,
+    overridden: overridden,
+  );
 }
 
 /// One entry in the `preferences` array of the
@@ -74,9 +74,9 @@ class NotificationPreferenceGroupUpdate {
   final Map<String, bool> channels;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'groupCode': groupCode,
-        'channels': channels,
-      };
+    'groupCode': groupCode,
+    'channels': channels,
+  };
 }
 
 /// Request body for `PATCH /api/v1/notification/preferences/groups`.
@@ -86,6 +86,6 @@ class UpdateNotificationPreferenceGroupsRequest {
   final List<NotificationPreferenceGroupUpdate> preferences;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'preferences': preferences.map((p) => p.toJson()).toList(growable: false),
-      };
+    'preferences': preferences.map((p) => p.toJson()).toList(growable: false),
+  };
 }

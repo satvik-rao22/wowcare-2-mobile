@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../../core/config/av2_config.dart';
 import '../../domain/entities/attendance_day.dart';
@@ -59,11 +60,15 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
   final Map<String, Future<DayDetail>> _detailCache = {};
 
   /// Full load (entry + date change): shows the loading state, resets to "All".
+  ///
+  /// [initialFilter] opens a chip other than All (deep links). All still loads
+  /// first so the hero is captured unfiltered, then the chip switches.
   Future<void> load({
     required String staffCode,
     String staffName = '',
     required DateTime from,
     required DateTime to,
+    Av2DayFilter initialFilter = Av2DayFilter.all,
   }) async {
     _staffCode = staffCode;
     _staffName = staffName;
@@ -73,6 +78,8 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     _days = const [];
     await _calculate();
     await _loadFirstPage(Av2DayFilter.all, fullLoader: true);
+    if (isClosed || initialFilter == Av2DayFilter.all) return;
+    if (state.status == Av2Status.loaded) await setFilter(initialFilter);
   }
 
   /// Pull-to-refresh / app-bar refresh: recompute + reload page 0 with the
@@ -96,14 +103,23 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
   }
 
   /// User tapped a filter chip — reload page 0 with the new server filter.
+  ///
+  /// [Av2DayFilter.requests] is not a server filter: that tab renders the
+  /// regularization list, so it only switches the chip. Leaving it reloads,
+  /// since the days on hand belong to whichever filter was open before.
   Future<void> setFilter(Av2DayFilter filter) async {
-    if (filter == state.filter || _from == null) return;
+    if (filter == state.filter) return;
+    if (filter == Av2DayFilter.requests || _from == null) {
+      emit(state.copyWith(filter: filter));
+      return;
+    }
     await _loadFirstPage(filter, fullLoader: false);
   }
 
   /// Scroll reached the bottom — fetch and append the next page.
   Future<void> loadMore() async {
     if (state.loadingMore || !state.hasMore || _from == null) return;
+    if (state.filter == Av2DayFilter.requests) return;
     emit(state.copyWith(loadingMore: true));
     final next = state.page + 1;
     try {
@@ -126,8 +142,13 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
   Future<void> _calculate() async {
     try {
       await calculateOvertimeUseCase(staffCode: _staffCode, from: _from!, to: _to!);
-    } catch (e) {
-      debugPrint('Av2 calculate failed (continuing to overview): $e');
+    } catch (e, st) {
+      AppLogger.e(
+        'Av2 calculate failed (continuing to overview) '
+        'staff=$_staffCode range=$_from..$_to',
+        e,
+        st,
+      );
     }
   }
 
@@ -144,7 +165,13 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
       final page = await _fetch(filter, 0);
       if (isClosed) return;
       _days = page.days;
-      if (filter == Av2DayFilter.all || _header == null) _header = page;
+      // Requests fetches unfiltered too (overtimeOnly/absentOnly both false),
+      // so its page is as good a header as All's.
+      if (filter == Av2DayFilter.all ||
+          filter == Av2DayFilter.requests ||
+          _header == null) {
+        _header = page;
+      }
       emit(state.copyWith(
         status: Av2Status.loaded,
         profile: _merged(),
@@ -154,7 +181,16 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
         loadingMore: false,
         reloadId: state.reloadId + 1,
       ));
-    } catch (e) {
+    } catch (e, st) {
+      // The user only ever sees a sanitized message, so the raw cause MUST be
+      // logged here — a client-side mapping/type error on a 200 response is
+      // otherwise completely invisible (no API error log, generic message).
+      AppLogger.e(
+        'Av2 overview load failed (${e.runtimeType}) '
+        'staff=$_staffCode range=$_from..$_to filter=${filter.name}',
+        e,
+        st,
+      );
       if (isClosed) return;
       // Only take over the screen with an error when there's nothing to show;
       // a failed filter/refresh keeps the existing data visible.

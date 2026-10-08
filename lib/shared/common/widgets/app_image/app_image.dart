@@ -1,0 +1,420 @@
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lottie/lottie.dart';
+import 'package:wowcare/core/theme/app_theme_config.dart';
+
+import '../custom_shimmer_loader.dart';
+import 'app_image_source.dart';
+
+export 'app_image_source.dart';
+
+// Zoom surface and full-screen viewer are private to this library: AppImage is
+// the only entry point, configured through [AppImage.interaction].
+part 'app_image_viewer.dart';
+part 'app_zoomable_image.dart';
+
+/// Builds the failure state. [error] is null when the source itself could not
+/// be resolved (null, blank or unsupported).
+typedef AppImageErrorBuilder =
+    Widget Function(BuildContext context, Object? error, StackTrace? stackTrace);
+
+/// What an [AppImage] does beyond showing the image.
+enum AppImageInteraction {
+  /// Display only (or a custom [AppImage.onTap]).
+  none,
+
+  /// Tap opens a full-screen viewer with pinch, pan and double-tap zoom.
+  /// For thumbnails in lists, cards and chat bubbles.
+  openFullScreen,
+
+  /// The image itself is the zoom surface, filling its constraints. For a
+  /// screen that is already full-screen, e.g. the document viewer.
+  zoom,
+}
+
+/// The single image widget for the app: raster (png/jpg/webp/gif/heic), SVG
+/// and Lottie, from network, asset, file or memory.
+///
+/// ```dart
+/// AppImage(source: user.photoUrl, width: 48, height: 48, shape: BoxShape.circle)
+/// AppImage(source: MediaRes.sleepIcon, width: 20, color: AppColors.primaryColor)
+/// AppImage(
+///   source: photo.url,
+///   height: 200,
+///   fit: BoxFit.cover,
+///   interaction: AppImageInteraction.openFullScreen,
+/// )
+/// AppImage(source: doc.url, interaction: AppImageInteraction.zoom)
+/// ```
+///
+/// [source] is resolved by [AppImageSource.from]; pass an [AppImageSource] when
+/// auto-detection can't tell (e.g. an extension-less SVG URL).
+///
+/// Network rasters are disk-cached. Network SVG/Lottie are only memory-cached.
+class AppImage extends StatelessWidget {
+  const AppImage({
+    super.key,
+    required this.source,
+    this.width,
+    this.height,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
+    this.color,
+    this.borderRadius,
+    this.shape = BoxShape.rectangle,
+    this.backgroundColor,
+    this.placeholder,
+    this.errorWidget,
+    this.errorBuilder,
+    this.interaction = AppImageInteraction.none,
+    this.heroTag,
+    this.onTap,
+    this.semanticLabel,
+    this.lottieRepeat = true,
+  }) : assert(
+         onTap == null || interaction == AppImageInteraction.none,
+         'onTap replaces the built-in interaction; leave interaction as none.',
+       );
+
+  /// URL, `assets/…` path, absolute file path, `Uint8List`, `File`, or an
+  /// [AppImageSource]. Null/blank shows [errorWidget].
+  final Object? source;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final AlignmentGeometry alignment;
+
+  /// Tints SVGs and rasters (srcIn). Ignored for Lottie.
+  final Color? color;
+  final BorderRadius? borderRadius;
+
+  /// [BoxShape.circle] clips to a circle (avatars); [borderRadius] is ignored.
+  final BoxShape shape;
+  final Color? backgroundColor;
+  final Widget? placeholder;
+  final Widget? errorWidget;
+
+  /// Like [errorWidget] but receives the failure, e.g. to log it. Wins over
+  /// [errorWidget] when both are set.
+  final AppImageErrorBuilder? errorBuilder;
+
+  final AppImageInteraction interaction;
+
+  /// Opt-in Hero animation into the full-screen viewer. Must be unique on the
+  /// screen — never derive it from the URL alone, a list can repeat a URL.
+  final Object? heroTag;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
+  final bool lottieRepeat;
+
+  /// Drops a network image from the memory and disk cache, e.g. after the
+  /// object behind a stable URL/cache key was replaced.
+  static Future<void> evict(String url, {String? cacheKey}) {
+    return CachedNetworkImage.evictFromCache(
+      url,
+      cacheKey: cacheKey ?? NetworkAppImageSource.stableCacheKey(url),
+    );
+  }
+
+  /// Opens the full-screen zoomable viewer without a thumbnail, e.g. from a
+  /// "View" button. Pushed on the root navigator so it covers the go_router
+  /// shell's bottom navigation bar.
+  static Future<void> openFullScreen(
+    BuildContext context,
+    Object? source, {
+    Object? heroTag,
+  }) => _AppImageViewer.open(context, source, heroTag: heroTag);
+
+  @override
+  Widget build(BuildContext context) {
+    if (interaction == AppImageInteraction.zoom) {
+      return SizedBox(
+        width: width,
+        height: height,
+        child: _ZoomableImage(
+          source: source,
+          backgroundColor: backgroundColor ?? Colors.transparent,
+          placeholder: placeholder,
+          errorBuilder: errorBuilder,
+          heroTag: heroTag,
+        ),
+      );
+    }
+
+    final resolved = AppImageSource.from(source);
+
+    Widget child = resolved == null
+        ? _error(context)
+        : switch (resolved.format) {
+            AppImageFormat.raster => _raster(context, resolved),
+            AppImageFormat.svg => _svg(context, resolved),
+            AppImageFormat.lottie => _lottie(context, resolved),
+          };
+
+    child = SizedBox(width: width, height: height, child: child);
+    if (backgroundColor != null) {
+      child = ColoredBox(color: backgroundColor!, child: child);
+    }
+    if (shape == BoxShape.circle) {
+      child = ClipOval(child: child);
+    } else if (borderRadius != null) {
+      child = ClipRRect(borderRadius: borderRadius!, child: child);
+    }
+    if (heroTag != null) {
+      child = Hero(tag: heroTag!, child: child);
+    }
+
+    final tap =
+        onTap ??
+        (interaction == AppImageInteraction.openFullScreen && resolved != null
+            ? () => _AppImageViewer.open(context, resolved, heroTag: heroTag)
+            : null);
+    if (tap == null) return child;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: child,
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------- raster
+
+  Widget _raster(BuildContext context, AppImageSource src) {
+    final decode = _decodeSize(context);
+    final blend = color == null ? null : BlendMode.srcIn;
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
+
+    return switch (src) {
+      NetworkAppImageSource() => CachedNetworkImage(
+        imageUrl: src.url,
+        cacheKey: src.effectiveCacheKey,
+        httpHeaders: src.headers,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment.resolve(Directionality.of(context)),
+        color: color,
+        colorBlendMode: blend,
+        memCacheWidth: decode.width,
+        memCacheHeight: decode.height,
+        fadeInDuration: const Duration(milliseconds: 150),
+        placeholder: (c, _) => _placeholder(c),
+        errorWidget: (c, _, e) => _error(c, e),
+      ),
+      AssetAppImageSource() => Image.asset(
+        src.path,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        color: color,
+        colorBlendMode: blend,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
+        semanticLabel: semanticLabel,
+        errorBuilder: onError,
+      ),
+      FileAppImageSource() => Image.file(
+        File(src.path),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        color: color,
+        colorBlendMode: blend,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
+        semanticLabel: semanticLabel,
+        errorBuilder: onError,
+      ),
+      MemoryAppImageSource() => Image.memory(
+        src.bytes,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        color: color,
+        colorBlendMode: blend,
+        cacheWidth: decode.width,
+        cacheHeight: decode.height,
+        gaplessPlayback: true,
+        semanticLabel: semanticLabel,
+        errorBuilder: onError,
+      ),
+    };
+  }
+
+  /// Decode rasters at display size instead of full resolution: a 4000px
+  /// camera photo in a 48px avatar otherwise costs ~64MB of memory.
+  ///
+  /// Only one dimension is ever passed, so aspect ratio is kept:
+  /// - width only / height only → hint that same dimension (hinting a height
+  ///   as a width would blur landscape images sized by height);
+  /// - both → hint width with the larger box side, which keeps [BoxFit.cover]
+  ///   sharp for portrait images; very wide images in a tall box may soften.
+  /// No hint when the size is unbounded (e.g. the full-screen viewer).
+  ({int? width, int? height}) _decodeSize(BuildContext context) {
+    final w = (width?.isFinite ?? false) ? width : null;
+    final h = (height?.isFinite ?? false) ? height : null;
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+    int px(double v) => (v * dpr).round();
+    return switch ((w, h)) {
+      (null, null) => (width: null, height: null),
+      (final w?, null) => (width: px(w), height: null),
+      (null, final h?) => (width: null, height: px(h)),
+      (final w?, final h?) => (width: px(math.max(w, h)), height: null),
+    };
+  }
+
+
+  // ------------------------------------------------------------------- svg
+
+  Widget _svg(BuildContext context, AppImageSource src) {
+    final filter = color == null
+        ? null
+        : ColorFilter.mode(color!, BlendMode.srcIn);
+    Widget onError(BuildContext c, Object e, StackTrace st) =>
+        _error(c, e, st);
+    // Local SVGs parse in a frame or two — a shimmer would just flicker.
+    Widget blank(BuildContext _) => SizedBox(width: width, height: height);
+
+    return switch (src) {
+      NetworkAppImageSource() => SvgPicture.network(
+        src.url,
+        headers: src.headers,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticLabel,
+        placeholderBuilder: _placeholder,
+        errorBuilder: onError,
+      ),
+      AssetAppImageSource() => SvgPicture.asset(
+        src.path,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticLabel,
+        placeholderBuilder: blank,
+        errorBuilder: onError,
+      ),
+      FileAppImageSource() => SvgPicture.file(
+        File(src.path),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticLabel,
+        placeholderBuilder: blank,
+        errorBuilder: onError,
+      ),
+      MemoryAppImageSource() => SvgPicture.memory(
+        src.bytes,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        colorFilter: filter,
+        semanticsLabel: semanticLabel,
+        placeholderBuilder: blank,
+        errorBuilder: onError,
+      ),
+    };
+  }
+
+  // ---------------------------------------------------------------- lottie
+
+  Widget _lottie(BuildContext context, AppImageSource src) {
+    Widget frame(BuildContext c, Widget child, LottieComposition? comp) =>
+        comp == null ? _placeholder(c) : child;
+    Widget onError(BuildContext c, Object e, StackTrace? st) =>
+        _error(c, e, st);
+
+    return switch (src) {
+      NetworkAppImageSource() => Lottie.network(
+        src.url,
+        headers: src.headers,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        repeat: lottieRepeat,
+        frameBuilder: frame,
+        errorBuilder: onError,
+      ),
+      AssetAppImageSource() => Lottie.asset(
+        src.path,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        repeat: lottieRepeat,
+        errorBuilder: onError,
+      ),
+      FileAppImageSource() => Lottie.file(
+        File(src.path),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        repeat: lottieRepeat,
+        errorBuilder: onError,
+      ),
+      MemoryAppImageSource() => Lottie.memory(
+        src.bytes,
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: alignment,
+        repeat: lottieRepeat,
+        errorBuilder: onError,
+      ),
+    };
+  }
+
+  // ---------------------------------------------------------------- states
+
+  Widget _placeholder(BuildContext context) {
+    return placeholder ??
+        ShimmerLoader(
+          width: width,
+          height: height,
+          borderRadius: shape == BoxShape.circle
+              ? BorderRadius.circular(9999)
+              : (borderRadius ?? BorderRadius.zero),
+        );
+  }
+
+  Widget _error(BuildContext context, [Object? error, StackTrace? stackTrace]) {
+    if (errorBuilder != null) return errorBuilder!(context, error, stackTrace);
+    if (errorWidget != null) return errorWidget!;
+    final sides = [width, height].whereType<double>().where((v) => v.isFinite);
+    final iconSize = sides.isEmpty
+        ? 24.0
+        : (sides.reduce(math.min) * 0.45).clamp(12.0, 48.0);
+    return Container(
+      width: width,
+      height: height,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.broken_image_outlined,
+        size: iconSize,
+        color: Colors.grey.shade500,
+      ),
+    );
+  }
+}

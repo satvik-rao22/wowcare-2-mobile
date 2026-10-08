@@ -34,10 +34,15 @@ class StaffDetailScreen extends StatefulWidget {
     super.key,
     required this.staffCode,
     this.staffName = '',
+    this.initialFilter = Av2DayFilter.all,
   });
 
   final String staffCode;
   final String staffName;
+
+  /// Which filter chip to open on, for deep links. Applies to the first load
+  /// only; a period or staff change starts again from All.
+  final Av2DayFilter initialFilter;
 
   @override
   State<StaffDetailScreen> createState() => _StaffDetailScreenState();
@@ -50,6 +55,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
   late String _staffName = widget.staffName;
   bool _refreshing = false;
   bool _exporting = false;
+  bool _initialLoadDone = false;
 
   @override
   void initState() {
@@ -71,8 +77,12 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
         staffName: _staffName,
         from: _period.start,
         to: _period.end,
+        initialFilter: _initialLoadDone
+            ? Av2DayFilter.all
+            : widget.initialFilter,
       ),
     );
+    _initialLoadDone = true;
   }
 
   void _onPeriodChanged(Av2Period period) {
@@ -210,7 +220,8 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     final tab = switch (data.filter) {
       Av2DayFilter.overtime => 'Overtime',
       Av2DayFilter.absent => 'Absent',
-      Av2DayFilter.all => 'AllDays',
+      // The Requests tab exports the unfiltered days it was loaded with.
+      Av2DayFilter.all || Av2DayFilter.requests => 'AllDays',
     };
     String d(DateTime x) =>
         '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';

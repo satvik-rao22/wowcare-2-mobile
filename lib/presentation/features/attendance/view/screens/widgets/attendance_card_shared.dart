@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/core/theme/app_icon.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -17,6 +18,13 @@ enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
 /// declared as `StaffAbsentMarkMethod`/`AbsentMarkMethod` with identical
 /// values in each file.
 enum AbsentMarkMethod { gps, qr, kiosk, app, web }
+
+/// Formats a backend date string (`2024-10-01` or `2024-10-01T00:00:00`) as
+/// `Oct 01, 2024`. Returns [raw] unchanged if it can't be parsed.
+String formatAbsentCardDate(String raw) {
+  final date = DateTime.tryParse(raw.split('T')[0]);
+  return date == null ? raw : DateFormat('MMM dd, yyyy').format(date);
+}
 
 Widget buildAttendanceDetailRow(
   BuildContext context,

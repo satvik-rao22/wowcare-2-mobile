@@ -78,6 +78,13 @@ class NotificationRouteResolver {
   static const String _kFocusParam = 'focus';
   static const String _kFocusRatioMonitoring = 'ratioMonitoring';
 
+  /// Every regularization event code starts with this (e.g.
+  /// `STAFF_REGULARIZATION_APPROVED`).
+  static const String _regularizationActionPrefix = 'STAFF_REGULARIZATION';
+
+  /// `Av2DayFilter.requests.name` — the chip those notifications land on.
+  static const String _requestsTab = 'requests';
+
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
   ///
@@ -152,6 +159,17 @@ class NotificationRouteResolver {
     // server state, so there's no reason to gate the routing itself.
     final incidentDestination = _incidentApprovalDestination(n, action);
     if (incidentDestination != null) return incidentDestination;
+
+    // Regularization notifications are *about* one request, so they open the
+    // staff's attendance profile on the Requests chip rather than dropping the
+    // reader on All days to go hunting for it.
+    //
+    // Matched on the prefix, not an exact code: the server sends
+    // `STAFF_REGULARIZATION_APPROVED` today and will add pending/edited
+    // variants, and every one of them belongs on the same chip.
+    if (action.startsWith(_regularizationActionPrefix)) {
+      return _staffAttendanceProfile(n, tab: _requestsTab);
+    }
 
     final builder = _table[action];
     if (builder != null) return builder(n);
@@ -645,11 +663,18 @@ class NotificationRouteResolver {
   );
 
   /// Open a staff member's ATTENDANCE profile by code.
-  static NotificationDestination _staffAttendanceProfile(PushNotification n) =>
-      NotificationDestination(
-        path: _staffAttendanceProfileByCode,
-        queryParameters: {'code': _firstCode(n, _kStaff) ?? ''},
-      );
+  ///
+  /// [tab] names the filter chip to land on; omitted means All days.
+  static NotificationDestination _staffAttendanceProfile(
+    PushNotification n, {
+    String? tab,
+  }) => NotificationDestination(
+    path: _staffAttendanceProfileByCode,
+    queryParameters: {
+      'code': _firstCode(n, _kStaff) ?? '',
+      if (tab != null) 'tab': tab,
+    },
+  );
 
   // `taskCode` is the SERIES (`TSK_…`, one row per task definition);
   // `assignmentCode` is one assignee on one occurrence (`TSA_…`) — the actual

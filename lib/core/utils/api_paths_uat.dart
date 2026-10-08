@@ -175,6 +175,7 @@ class ApiPathsUat {
       // call fell through to the default `user` host — the whole screen was
       // dead on any gateway environment, which is all of them.
       case 'staff-overtime-records':
+      case 'staff-attendance-regularizations':
       case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':

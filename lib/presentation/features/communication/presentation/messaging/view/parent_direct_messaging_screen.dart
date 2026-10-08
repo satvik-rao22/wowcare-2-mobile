@@ -221,84 +221,6 @@ class _ParentDirectMessagingScreenState
 
   /// Converts a v2 [ConversationEntity] into the legacy [parentInfo] map that
   /// [ParentMessagingThread] expects.
-  ParentThreadInfo _buildParentInfo(ConversationEntity conv) {
-    final legacyParticipants = conv.participants.map((p) {
-      final roleStr = p.role == ParticipantRole.parent
-          ? 'GUARDIAN'
-          : p.role.name.toUpperCase();
-      return ConversationParticipant(
-        id: 0,
-        conversationId: 0,
-        userCode: p.userCode,
-        userName: p.userName,
-        role: roleStr,
-        joinedAt: AppTime.now(),
-        // Was missing entirely — every participant defaulted to
-        // leftAt: null / active: true regardless of the real backend
-        // values, silently defeating every `isActive`-based filter/count
-        // downstream (chip bars, "N participants" header, tab chips).
-        leftAt: p.leftAt,
-        active: p.active,
-        muted: false,
-        notificationsEnabled: true,
-        createdAt: AppTime.now(),
-        updatedAt: AppTime.now(),
-        privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
-        avatarUrl: p.avatarUrl,
-        staffCode: p.staffCode,
-      );
-    }).toList();
-
-    final parentNames = legacyParticipants
-        .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
-        .map((p) => p.userName)
-        .toList();
-    final guardians = legacyParticipants
-        .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
-        .toList();
-
-    final staffCodes = legacyParticipants
-        .where(
-          (p) =>
-              p.role == 'STAFF' ||
-              p.role == 'ADMIN' ||
-              p.role == 'DIRECTOR' ||
-              p.role == 'TEACHER',
-        )
-        .map((p) => p.userCode)
-        .toList();
-
-    final privateModeParentNames = legacyParticipants
-        .where(
-          (p) =>
-              (p.role == 'GUARDIAN' || p.role == 'PARENT') &&
-              p.privateModeEnabled,
-        )
-        .map((p) => p.userName)
-        .toList();
-
-    return ParentThreadInfo(
-      name: conv.title,
-      avatar: conv.avatarUrl,
-      code: conv.code,
-      // The conversation's own org/school — used to build the realtime
-      // (Firestore) watch path correctly even when the session's currently
-      // active org/school differs (multi-school parent, recent switch).
-      organizationCode: conv.organizationCode,
-      schoolCode: conv.schoolCode,
-      parents: parentNames,
-      guardianMap: {
-        for (final guardian in guardians) guardian.userCode: guardian.userName,
-      },
-      participants: legacyParticipants,
-      staffList: staffCodes,
-      privateModeParents: privateModeParentNames,
-      privateModeActive: conv.privateModeActive,
-      privateModeActivatedBy: conv.privateModeActivatedBy,
-      privateModeActivatedAt: conv.privateModeActivatedAt,
-      studentStatus: conv.studentStatus,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -530,7 +452,7 @@ class _ParentDirectMessagingScreenState
             ..seedRecipientCount(selected.code, recipientCount),
       child: ParentMessagingThread(
         key: ValueKey(selected.code),
-        parentInfo: _buildParentInfo(selected),
+        parentInfo: buildParentThreadInfo(selected),
         showOwnScaffold: false,
         isGuardian: true,
         conversationType: widget.conversationType,
@@ -630,7 +552,7 @@ class _ParentDirectMessagingScreenState
         );
       },
       (conversation) async {
-        final parentInfo = _buildParentInfo(conversation);
+        final parentInfo = buildParentThreadInfo(conversation);
         final authState = context.read<AuthCubit>().state;
         final senderName = authState is AuthLoaded
             ? authState.loginResponse.displayName
@@ -816,4 +738,85 @@ class _ParentDirectMessagingScreenState
       ],
     );
   }
+}
+
+/// Builds the thread info the parent-tab thread screen renders from a v2
+/// conversation. Shared by the Messages tab and the staff recent-chat entry.
+ParentThreadInfo buildParentThreadInfo(ConversationEntity conv) {
+  final legacyParticipants = conv.participants.map((p) {
+    final roleStr = p.role == ParticipantRole.parent
+        ? 'GUARDIAN'
+        : p.role.name.toUpperCase();
+    return ConversationParticipant(
+      id: 0,
+      conversationId: 0,
+      userCode: p.userCode,
+      userName: p.userName,
+      role: roleStr,
+      joinedAt: AppTime.now(),
+      // Was missing entirely — every participant defaulted to
+      // leftAt: null / active: true regardless of the real backend
+      // values, silently defeating every `isActive`-based filter/count
+      // downstream (chip bars, "N participants" header, tab chips).
+      leftAt: p.leftAt,
+      active: p.active,
+      muted: false,
+      notificationsEnabled: true,
+      createdAt: AppTime.now(),
+      updatedAt: AppTime.now(),
+      privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
+      avatarUrl: p.avatarUrl,
+      staffCode: p.staffCode,
+    );
+  }).toList();
+
+  final parentNames = legacyParticipants
+      .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
+      .map((p) => p.userName)
+      .toList();
+  final guardians = legacyParticipants
+      .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
+      .toList();
+
+  final staffCodes = legacyParticipants
+      .where(
+        (p) =>
+            p.role == 'STAFF' ||
+            p.role == 'ADMIN' ||
+            p.role == 'DIRECTOR' ||
+            p.role == 'TEACHER',
+      )
+      .map((p) => p.userCode)
+      .toList();
+
+  final privateModeParentNames = legacyParticipants
+      .where(
+        (p) =>
+            (p.role == 'GUARDIAN' || p.role == 'PARENT') &&
+            p.privateModeEnabled,
+      )
+      .map((p) => p.userName)
+      .toList();
+
+  return ParentThreadInfo(
+    name: conv.title,
+    avatar: conv.avatarUrl,
+    code: conv.code,
+    // The conversation's own org/school — used to build the realtime
+    // (Firestore) watch path correctly even when the session's currently
+    // active org/school differs (multi-school parent, recent switch).
+    organizationCode: conv.organizationCode,
+    schoolCode: conv.schoolCode,
+    parents: parentNames,
+    guardianMap: {
+      for (final guardian in guardians) guardian.userCode: guardian.userName,
+    },
+    participants: legacyParticipants,
+    staffList: staffCodes,
+    privateModeParents: privateModeParentNames,
+    privateModeActive: conv.privateModeActive,
+    privateModeActivatedBy: conv.privateModeActivatedBy,
+    privateModeActivatedAt: conv.privateModeActivatedAt,
+    studentStatus: conv.studentStatus,
+  );
 }

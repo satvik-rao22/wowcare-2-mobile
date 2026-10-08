@@ -25,7 +25,67 @@ PushNotification _newsletter({required String action}) => PushNotification(
   },
 );
 
+/// A regularization push exactly as DEV sends it — captured from the
+/// notification inbox response, not invented.
+PushNotification _regularization({
+  required String action,
+  String staffCode = 'STF_C1A32C4F-B',
+}) => PushNotification(
+  title: 'Missed sign-out approved',
+  body: 'Missed Sign out form is approved by the Admin for Sep 23, 2026',
+  action: action,
+  type: null,
+  data: {
+    'action': action,
+    'module': 'ATTENDANCE',
+    'staffCode': staffCode,
+    'staffName': 'Mohan Staff',
+    'regularizationCode': 'SREG_2FDA64C0-7',
+    'attendanceDateIso': '2026-09-23',
+  },
+);
+
 void main() {
+  group('NotificationRouteResolver: regularization', () {
+    test('opens the staff attendance profile on the Requests chip', () {
+      final destination = NotificationRouteResolver.resolve(
+        _regularization(action: 'STAFF_REGULARIZATION_APPROVED'),
+      );
+
+      expect(destination, isNotNull);
+      expect(destination!.path, '/dashboard/staff-attendance-profile-by-code');
+      expect(destination.queryParameters['code'], 'STF_C1A32C4F-B');
+      // Without this the tap landed on All days, leaving the reader to hunt
+      // for the request the notification was about.
+      expect(destination.queryParameters['tab'], 'requests');
+    });
+
+    test('every regularization variant lands on the same chip', () {
+      // Matched on the prefix, so a pending/edited variant the server adds
+      // later routes correctly without a code change here.
+      for (final action in [
+        'STAFF_REGULARIZATION_APPROVED',
+        'STAFF_REGULARIZATION_PENDING',
+        'STAFF_REGULARIZATION_RAISED_SELF',
+        'STAFF_REGULARIZATION_SOMETHING_NEW',
+      ]) {
+        final destination =
+            NotificationRouteResolver.resolve(_regularization(action: action));
+        expect(destination?.queryParameters['tab'], 'requests', reason: action);
+      }
+    });
+
+    test('an ordinary attendance push still opens on All days', () {
+      // The ATTENDANCE module fallback must not acquire a Requests chip.
+      final destination = NotificationRouteResolver.resolve(
+        _regularization(action: 'STAFF_SIGN_IN'),
+      );
+
+      expect(destination!.path, '/dashboard/staff-attendance-profile-by-code');
+      expect(destination.queryParameters.containsKey('tab'), isFalse);
+    });
+  });
+
   group('NotificationRouteResolver: CLASSROOM_CHAT new-message routing', () {
     test(
       'a CLASSROOM_CHAT message with a classroomCode opens the Dashboard, '

@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/events/widgets/event_rsvp_summary.
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 class EventDetailScreen extends StatelessWidget {
   const EventDetailScreen({
@@ -627,11 +628,17 @@ class EventDetailScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Keep events'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             child: const Text(
               'Delete from here',
               style: TextStyle(color: AppColors.errorColor),
@@ -653,11 +660,17 @@ class EventDetailScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              AppHaptics.tap();
+              Navigator.pop(dialogContext, true);
+            },
             style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Delete'),
           ),

@@ -4,6 +4,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
+import 'package:wowcare/core/theme/app_haptics.dart';
 
 /// List card for the Holidays tab. Federal holidays expose the school's
 /// observance decision (Pending / Observed / Not Observed); school
@@ -230,7 +231,10 @@ class HolidayCard extends StatelessWidget {
           color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            onTap: () => onStatusChanged!(target),
+            onTap: () {
+              AppHaptics.tap();
+              onStatusChanged!(target);
+            },
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),

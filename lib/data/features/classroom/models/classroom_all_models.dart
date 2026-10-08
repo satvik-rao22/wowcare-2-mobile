@@ -53,7 +53,7 @@ class RatioClassroomItemModel {
   final String code;
   final String name;
   final int capacity;
-  final int studentsTeacherRatio;
+  final double studentsTeacherRatio;
 
   factory RatioClassroomItemModel.fromJson(Map<String, dynamic> json) {
     final code = (json['code'] as String? ??
@@ -66,9 +66,37 @@ class RatioClassroomItemModel {
     return RatioClassroomItemModel(
       code: code,
       name: name,
-      capacity: json['capacity'] as int? ?? 0,
-      studentsTeacherRatio: json['studentsTeacherRatio'] as int? ?? 0,
+      capacity: (json['capacity'] as num?)?.toInt() ?? 0,
+      studentsTeacherRatio: _parseRatio(json),
     );
+  }
+
+  /// Tolerates int / double / numeric string / "students:teachers" text.
+  /// A strict `as int?` cast threw on any non-int payload, which silently
+  /// dropped the whole list to the fallback endpoint (ratio 0 -> always green).
+  static double _parseRatio(Map<String, dynamic> json) {
+    for (final key in const [
+      'studentsTeacherRatio',
+      'studentTeacherRatio',
+      'studentsPerTeacher',
+      'ratio',
+    ]) {
+      final text = (json[key] ?? '').toString().trim();
+      if (text.isEmpty) continue;
+      final fraction = RegExp(
+        r'^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$',
+      ).firstMatch(text);
+      if (fraction != null) {
+        final students = double.tryParse(fraction.group(1)!);
+        final teachers = double.tryParse(fraction.group(2)!);
+        if (students != null && teachers != null && teachers > 0) {
+          return students / teachers;
+        }
+      }
+      final n = double.tryParse(text);
+      if (n != null && n > 0) return n;
+    }
+    return 0;
   }
 }
 

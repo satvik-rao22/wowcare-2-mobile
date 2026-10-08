@@ -20,7 +20,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -30,19 +30,8 @@ import 'package:wowcare/core/theme/skeu_press.dart';
 class StudentCard extends StatefulWidget {
   const StudentCard({
     super.key,
-    required this.studentCode,
-    required this.name,
-    this.profileImage,
-    this.profilePhotoAssetCode,
-    required this.classroom,
-    required this.tags,
-    required this.sibling,
-    required this.schedule,
-    this.scheduleByDay = const <String, String>{},
-    required this.birthDate,
-    required this.movementDate,
-    required this.status,
-    required this.isActive,
+    required this.student,
+    required this.classroomName,
     this.onPrimaryAction,
     this.onDeleteAction,
     this.onEdit,
@@ -52,19 +41,11 @@ class StudentCard extends StatefulWidget {
     this.initiallyExpanded = false,
   });
 
-  final String studentCode;
-  final String name;
-  final String? profileImage;
-  final String? profilePhotoAssetCode;
-  final String classroom;
-  final List<String> tags;
-  final StudentSiblingInfo sibling;
-  final List<String> schedule;
-  final Map<String, String> scheduleByDay;
-  final String birthDate;
-  final String movementDate;
-  final String status;
-  final bool isActive;
+  final Student student;
+
+  /// Resolved by the screen from its classroom code→name map, since
+  /// [Student.classroom] may still be a raw `CLS_` code.
+  final String classroomName;
   final VoidCallback? onPrimaryAction;
   final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
@@ -176,12 +157,12 @@ class _StudentCardState extends State<StudentCard> {
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
     final responsive = ResponsiveHelper(context);
     final isTablet = responsive.isTabletCompact;
-    final tags = widget.tags;
+    final tags = widget.student.tags;
     // Upcoming students get the same actions as active ones (Deactivate + Edit),
     // not the inactive set (Reactivate + Delete + Edit).
     final bool showActiveActions =
-        widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
-    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.birthDate);
+        widget.student.status.trim().toUpperCase() == 'ACTIVE' || widget.student.status.trim().toUpperCase() == 'UPCOMING';
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.student.dob);
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -250,13 +231,13 @@ class _StudentCardState extends State<StudentCard> {
                             clipBehavior: Clip.none,
                             children: [
                               DocumentImageWidget(
-                                fileUuid: widget.studentCode,
-                                imageUrl: widget.profileImage,
-                                mediaAssetCode: widget.profilePhotoAssetCode,
-                                name: widget.name,
+                                fileUuid: widget.student.code,
+                                imageUrl: widget.student.profileImage,
+                                mediaAssetCode: widget.student.profilePhotoAssetCode,
+                                name: widget.student.fullName,
                                 size: 45,
-                                studentCode: widget.studentCode,
-                                studentEnrollmentStatus: widget.status,
+                                studentCode: widget.student.code,
+                                studentEnrollmentStatus: widget.student.status,
                                 disableProfileLookupFallback: true,
                               ),
                               if (widget.isNapping)
@@ -288,7 +269,7 @@ class _StudentCardState extends State<StudentCard> {
                                     children: [
                                       Flexible(
                                         child: Text(
-                                          widget.name,
+                                          widget.student.fullName,
                                           style: TextStyle(
                                             fontFamily: AppFonts.body,
                                             fontSize: isTablet ? 16 : 14,
@@ -311,7 +292,7 @@ class _StudentCardState extends State<StudentCard> {
                                 AppSpacing.gapHXs,
                                 Flexible(
                                   child: Text(
-                                    widget.classroom,
+                                    widget.classroomName,
                                     style: TextStyle(
                                       fontFamily: AppFonts.body,
                                       fontSize: isTablet ? 16 : 14,
@@ -473,8 +454,8 @@ class _StudentCardState extends State<StudentCard> {
                                       })().map((day) {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
-                                            widget.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.schedule
+                                            widget.student.scheduleByDay[enumDay];
+                                        final hasDayInList = widget.student.schedule
                                             .any(
                                               (d) =>
                                                   d.trim().toLowerCase() ==
@@ -548,7 +529,7 @@ class _StudentCardState extends State<StudentCard> {
                                   style: AppTextStyles.label,
                                 ),
                                 Text(
-                                  _formatDate(widget.birthDate),
+                                  _formatDate(widget.student.dob),
                                   style: AppTextStyles.value,
                                 ),
                               ],
@@ -563,7 +544,7 @@ class _StudentCardState extends State<StudentCard> {
                                   style: AppTextStyles.label,
                                 ),
                                 Text(
-                                  _formatDate(widget.movementDate),
+                                  _formatDate(widget.student.movementDate),
                                   style: AppTextStyles.value,
                                 ),
                               ],
@@ -584,7 +565,7 @@ class _StudentCardState extends State<StudentCard> {
                                                 AppColors.transparentColor,
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
-                                                name: widget.name,
+                                                name: widget.student.fullName,
                                                 type: showActiveActions
                                                     ? 'student_deactivate'
                                                     : 'student_reactivate',
@@ -640,7 +621,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   AppColors.transparentColor,
                                               builder: (ctx) {
                                                 return DeleteConfirmationBottomSheet(
-                                                  name: widget.name,
+                                                  name: widget.student.fullName,
                                                   type: 'student_delete',
                                                   onDelete: () {
                                                     widget.onDeleteAction

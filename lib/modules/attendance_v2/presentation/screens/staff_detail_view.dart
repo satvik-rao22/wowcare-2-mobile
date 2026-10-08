@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import '../../core/responsive/av2_breakpoints.dart';
 import '../../core/theme/av2_spacing.dart';
@@ -209,11 +212,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Attendance deleted',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 delete attendance failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t delete attendance. Try again.',
+        message: _failure(e, 'Couldn’t delete attendance. Try again.'),
         isError: true,
       );
     }
@@ -257,11 +261,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Absence updated',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 update absence failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t update absence. Try again.',
+        message: _failure(e, 'Couldn’t update absence. Try again.'),
         isError: true,
       );
     }
@@ -286,11 +291,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Absence deleted',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 delete absence failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t delete absence. Try again.',
+        message: _failure(e, 'Couldn’t delete absence. Try again.'),
         isError: true,
       );
     }
@@ -313,14 +319,25 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         message: 'Attendance updated',
         isSuccess: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e('Av2 update attendance failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Couldn’t update attendance. Try again.',
+        message: _failure(e, 'Couldn’t update attendance. Try again.'),
         isError: true,
       );
     }
+  }
+
+  /// The server's own reason when it gave one (e.g. a rejected overlap), so an
+  /// admin can act on it; [fallback] only when there is nothing better than
+  /// the generic "something went wrong".
+  String _failure(Object error, String fallback) {
+    final message = ApiErrorHandler.extractErrorMessage(error);
+    return message.isEmpty || message == ApiErrorHandler.genericError
+        ? fallback
+        : message;
   }
 
   @override
@@ -338,7 +355,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     profile: _profile,
     periodLabel: widget.period.label,
     onPickRange: _pickPeriod,
-    onTapNeedsAttention: () => _onFilter(Av2DayFilter.all),
+    onTapNeedsAttention: () => _onFilter(Av2DayFilter.requests),
   );
 
   Widget _bottomLoader() => const Padding(
@@ -366,15 +383,23 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
-              Av2DayTimeline(
-                days: _days,
-                loadDetail: widget.loadDetail,
-                reloadId: widget.reloadId,
-                emptyMessage: _emptyMessage(),
-                onSessionAction: widget.canEdit ? _onSessionAction : null,
-                onAbsentAction: widget.canEdit ? _onAbsentAction : null,
-              ),
-              if (widget.loadingMore) _bottomLoader(),
+              if (_filter == Av2DayFilter.requests)
+                Regularization.requestsList(
+                  staffCode: _profile.staffCode,
+                  from: widget.period.start,
+                  to: widget.period.end,
+                )
+              else ...[
+                Av2DayTimeline(
+                  days: _days,
+                  loadDetail: widget.loadDetail,
+                  reloadId: widget.reloadId,
+                  emptyMessage: _emptyMessage(),
+                  onSessionAction: widget.canEdit ? _onSessionAction : null,
+                  onAbsentAction: widget.canEdit ? _onAbsentAction : null,
+                ),
+                if (widget.loadingMore) _bottomLoader(),
+              ],
             ],
           ),
         ),
@@ -406,7 +431,13 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
-              if (days.isEmpty)
+              if (_filter == Av2DayFilter.requests)
+                Regularization.requestsList(
+                  staffCode: _profile.staffCode,
+                  from: widget.period.start,
+                  to: widget.period.end,
+                )
+              else if (days.isEmpty)
                 Av2DayTimeline(
                   days: days,
                   loadDetail: widget.loadDetail,
@@ -419,7 +450,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
                   reloadId: widget.reloadId,
                   onSessionAction: widget.canEdit ? _onSessionAction : null,
                 ),
-              if (widget.loadingMore) _bottomLoader(),
+              if (_filter != Av2DayFilter.requests && widget.loadingMore)
+                _bottomLoader(),
             ],
           ),
         ),
@@ -433,6 +465,8 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         return 'No overtime in this range';
       case Av2DayFilter.absent:
         return 'No absences in this range';
+      case Av2DayFilter.requests:
+        return 'No regularization requests';
       case Av2DayFilter.all:
         return 'No attendance records for this range';
     }

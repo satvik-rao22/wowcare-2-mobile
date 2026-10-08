@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:wowcare/core/responsive/app_breakpoints.dart';
+import 'package:wowcare/modules/attendance_regularization/regularization.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 
@@ -359,6 +360,14 @@ class _AdminDashboardCardList extends StatelessWidget {
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
                       sliver: SliverToBoxAdapter(child: buildHeader(userName)),
+                    ),
+                    // Attendance Regularization — "needs your approval" card
+                    // with the pending count badge. Hidden at zero.
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Regularization.gateWatcher(),
+                      ),
                     ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
