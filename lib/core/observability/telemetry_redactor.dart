@@ -41,6 +41,31 @@ abstract final class TelemetryRedactor {
     return text.replaceAllMapped(_url, (match) => stripQueryString(match[0]!));
   }
 
+  static const String idPlaceholder = '{id}';
+
+  /// API version segments (`v1`, `v2`): the only static segments with a digit.
+  static final RegExp _versionSegment = RegExp(r'^v\d+$');
+  static final RegExp _idSegment = RegExp(r'[0-9@]');
+
+  /// Turns a concrete path into its template, for grouping and for keeping
+  /// record codes out: every segment holding a digit or an `@` becomes
+  /// `{id}`, so `/api/v1/events/EVT_99E5/rsvps` reads
+  /// `/api/v1/events/{id}/rsvps`. Record codes all carry digits; no static
+  /// API or app route segment does, apart from the version.
+  ///
+  /// Takes a path, not a URL; any query or fragment is dropped.
+  static String templatePath(String path) {
+    return stripQueryString(path)
+        .split('/')
+        .map(
+          (segment) =>
+              _idSegment.hasMatch(segment) && !_versionSegment.hasMatch(segment)
+              ? idPlaceholder
+              : segment,
+        )
+        .join('/');
+  }
+
   /// Returns [url] cut before its first `?` or `#`.
   static String stripQueryString(String url) {
     final query = url.indexOf('?');

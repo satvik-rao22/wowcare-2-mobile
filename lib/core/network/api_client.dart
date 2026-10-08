@@ -2,6 +2,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/observability/telemetry_http.dart';
 
 import 'api_logger.dart';
 
@@ -116,6 +117,9 @@ class ApiClient {
         ),
       );
     }
+
+    // Last: Sentry wraps the adapter and transformer as configured above.
+    TelemetryHttp.instrument(_dio);
   }
 
   late final Dio _dio;

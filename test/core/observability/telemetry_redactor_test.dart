@@ -84,4 +84,37 @@ void main() {
       expect(TelemetryRedactor.stripQueryStrings(raw), raw);
     });
   });
+
+  group('TelemetryRedactor.templatePath', () {
+    test('replaces record codes and keeps the API version', () {
+      expect(
+        TelemetryRedactor.templatePath(
+          '/api/v1/events/EVT_99E594B6AC/occurrences/OCC_DB3558B6C4/rsvps',
+        ),
+        '/api/v1/events/{id}/occurrences/{id}/rsvps',
+      );
+    });
+
+    test('treats UUIDs and emails as ids', () {
+      expect(
+        TelemetryRedactor.templatePath(
+          '/users/0b8f7c2e-4d1a-4e9b-a3f0-6c2d1e9f8a7b/invite/a@b.co',
+        ),
+        '/users/{id}/invite/{id}',
+      );
+    });
+
+    test('leaves a static path alone and drops any query', () {
+      expect(
+        TelemetryRedactor.templatePath(
+          '/api/v2/school-forte-configs/search?studentCode=STU-1',
+        ),
+        '/api/v2/school-forte-configs/search',
+      );
+      expect(
+        TelemetryRedactor.templatePath('student/absent'),
+        'student/absent',
+      );
+    });
+  });
 }
