@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/attendance_action_result.dart';
 import '../entities/student_transfer_request.dart';
 import '../repositories/attendance_repository.dart';
@@ -17,9 +19,14 @@ class SubmitStudentTransferUseCase {
     required StudentTransferRequest request,
     String? idempotencyKey,
   }) {
-    return _repository.submitStudentTransfer(
-      request: request,
-      idempotencyKey: idempotencyKey,
+    return AppEvents.track(
+      AppEvent.attendanceStudentTransfer,
+      () => _repository.submitStudentTransfer(
+        request: request,
+        idempotencyKey: idempotencyKey,
+      ),
+      count: request.studentCodes.length,
+      failureOf: (result) => result.success ? null : EventFailure.server,
     );
   }
 }

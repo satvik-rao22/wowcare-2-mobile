@@ -247,7 +247,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           );
           return;
         }
-      } catch (_) {
+      } catch (e, st) {
+        AppLogger.recordError(
+          e,
+          st,
+          reason: 'attendance.student_sign_out.qr_validate',
+        );
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,

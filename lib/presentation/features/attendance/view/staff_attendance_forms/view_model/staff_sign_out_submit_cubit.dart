@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/idempotency_key.dart';
 import 'package:wowcare/core/utils/school_timezone_resolver.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -95,10 +96,11 @@ class StaffSignOutSubmitCubit extends Cubit<StaffSignOutSubmitState> {
       _idempotencyKey = null;
       _idempotencyKeyRequest = null;
       return result;
-    } catch (e) {
+    } catch (e, st) {
       if (!isClosed) {
         emit(StaffSignOutSubmitFailure(ApiErrorHandler.extractErrorMessage(e)));
       }
+      AppLogger.recordError(e, st, reason: 'attendance.staff_sign_out.submit');
       rethrow;
     }
   }

@@ -206,6 +206,11 @@ class StudentSignInSubmitCubit extends Cubit<StudentSignInSubmitState> {
           : baseMessage;
       emit(StudentSignInSubmitFailure(message));
     }
+    AppLogger.recordError(
+      lastError,
+      lastStackTrace,
+      reason: 'attendance.student_sign_in.submit',
+    );
     Error.throwWithStackTrace(lastError, lastStackTrace);
   }
 }

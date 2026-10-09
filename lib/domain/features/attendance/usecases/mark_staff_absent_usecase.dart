@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -46,6 +47,7 @@ class MarkStaffAbsentUseCase {
 
       String lastMessage = '';
       final markedDays = <DateTime>[];
+      final stopwatch = Stopwatch()..start();
       for (; !day.isAfter(endDay); day = day.add(const Duration(days: 1))) {
         final dayStr = _ymd(day);
         try {
@@ -65,6 +67,12 @@ class MarkStaffAbsentUseCase {
           );
           markedDays.add(day);
         } catch (e) {
+          AppEvents.failed(
+            AppEvent.attendanceStaffMarkAbsent,
+            e,
+            count: staffCodes.length,
+            durationMs: stopwatch.elapsedMilliseconds,
+          );
           // Strip shifts for any partial successes before bailing so we don't
           // leave a half-marked staff with conflicting shifts.
           await _stripShiftsOnAbsentDays(staffCodes, markedDays);
@@ -72,6 +80,11 @@ class MarkStaffAbsentUseCase {
           throw Exception('Could not mark absent for $dayStr: $msg');
         }
       }
+      AppEvents.succeeded(
+        AppEvent.attendanceStaffMarkAbsent,
+        count: staffCodes.length,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
       // Delete existing shifts on all newly-marked absent days.
       await _stripShiftsOnAbsentDays(staffCodes, markedDays);
       return lastMessage;

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/idempotency_key.dart';
 import '../repositories/attendance_repository.dart';
@@ -34,6 +35,7 @@ class MarkStudentsAbsentUseCase {
       }
 
       String lastMessage = '';
+      final stopwatch = Stopwatch()..start();
       for (; !day.isAfter(endDay); day = day.add(const Duration(days: 1))) {
         final dayStr = _ymd(day);
         try {
@@ -56,10 +58,21 @@ class MarkStudentsAbsentUseCase {
             idempotencyKey: IdempotencyKey.generate(),
           );
         } catch (e) {
+          AppEvents.failed(
+            AppEvent.attendanceStudentMarkAbsent,
+            e,
+            count: studentCodes.length,
+            durationMs: stopwatch.elapsedMilliseconds,
+          );
           final msg = ApiErrorHandler.extractErrorMessage(e);
           throw Exception('Could not mark absent for $dayStr: $msg');
         }
       }
+      AppEvents.succeeded(
+        AppEvent.attendanceStudentMarkAbsent,
+        count: studentCodes.length,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
       return lastMessage;
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

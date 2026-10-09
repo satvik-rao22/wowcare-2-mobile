@@ -16,7 +16,15 @@ enum AppEvent {
   authLogin('auth.login'),
   authLogout('auth.logout'),
   authSchoolSwitch('auth.school_switch'),
-  authSession('auth.session');
+  authSession('auth.session'),
+  attendanceStudentSignIn('attendance.student_sign_in'),
+  attendanceStudentSignOut('attendance.student_sign_out'),
+  attendanceStudentTransfer('attendance.student_transfer'),
+  attendanceStudentMarkAbsent('attendance.student_mark_absent'),
+  attendanceStaffSignIn('attendance.staff_sign_in'),
+  attendanceStaffSignOut('attendance.staff_sign_out'),
+  attendanceStaffTransfer('attendance.staff_transfer'),
+  attendanceStaffMarkAbsent('attendance.staff_mark_absent');
 
   const AppEvent(this.key);
 

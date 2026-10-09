@@ -202,6 +202,11 @@ class StaffSignInSubmitCubit extends Cubit<StaffSignInSubmitState> {
           : baseMessage;
       emit(StaffSignInSubmitFailure(message));
     }
+    AppLogger.recordError(
+      lastError,
+      lastStackTrace,
+      reason: 'attendance.staff_sign_in.submit',
+    );
     Error.throwWithStackTrace(lastError, lastStackTrace);
   }
 }

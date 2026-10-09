@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/attendance_action_result.dart';
 import '../entities/staff_sign_out_request.dart';
 import '../repositories/attendance_repository.dart';
@@ -22,10 +24,15 @@ class SubmitStaffSignOutUseCase {
     bool isSelf = false,
     String? idempotencyKey,
   }) {
-    return _repository.submitStaffSignOut(
-      request: request,
-      isSelf: isSelf,
-      idempotencyKey: idempotencyKey,
+    return AppEvents.track(
+      AppEvent.attendanceStaffSignOut,
+      () => _repository.submitStaffSignOut(
+        request: request,
+        isSelf: isSelf,
+        idempotencyKey: idempotencyKey,
+      ),
+      count: request.staffCodes.length,
+      failureOf: (result) => result.success ? null : EventFailure.server,
     );
   }
 }

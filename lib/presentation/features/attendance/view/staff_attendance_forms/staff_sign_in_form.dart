@@ -280,7 +280,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       expectedFromApi = await _gateCubit.fetchExpectedToday(
         attendanceDate: attendanceDate,
       );
-    } catch (_) {
+    } catch (e, st) {
+      // The cached map is a safe fallback, but a failure here still matters.
+      AppLogger.recordError(
+        e,
+        st,
+        reason: 'attendance.staff_sign_in.expected_today',
+      );
       expectedFromApi = Map<String, bool>.from(
         _gateCubit.state.expectedTodayFromApi,
       );

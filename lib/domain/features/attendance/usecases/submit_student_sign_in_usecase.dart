@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/attendance_action_result.dart';
 import '../entities/student_sign_in_request.dart';
 import '../repositories/attendance_repository.dart';
@@ -22,10 +24,15 @@ class SubmitStudentSignInUseCase {
     required bool isParent,
     String? idempotencyKey,
   }) {
-    return _repository.submitStudentSignIn(
-      request: request,
-      isParent: isParent,
-      idempotencyKey: idempotencyKey,
+    return AppEvents.track(
+      AppEvent.attendanceStudentSignIn,
+      () => _repository.submitStudentSignIn(
+        request: request,
+        isParent: isParent,
+        idempotencyKey: idempotencyKey,
+      ),
+      count: request.studentCodes.length,
+      failureOf: (result) => result.success ? null : EventFailure.server,
     );
   }
 }
