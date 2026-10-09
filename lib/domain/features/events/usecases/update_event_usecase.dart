@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/event.dart';
 import '../repositories/event_repository.dart';
 
@@ -14,10 +16,13 @@ class UpdateEventUseCase {
     String splitFromOccurrenceCode = '',
     List<String>? assetCodes,
   }) {
-    return _repository.updateEvent(
-      event,
-      splitFromOccurrenceCode: splitFromOccurrenceCode,
-      assetCodes: assetCodes,
+    return AppEvents.track(
+      AppEvent.eventUpdate,
+      () => _repository.updateEvent(
+        event,
+        splitFromOccurrenceCode: splitFromOccurrenceCode,
+        assetCodes: assetCodes,
+      ),
     );
   }
 }

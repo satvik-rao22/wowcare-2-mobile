@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/event_repository.dart';
 
 class DeleteEventUseCase {
@@ -9,6 +11,12 @@ class DeleteEventUseCase {
   /// from that occurrence to the end (THIS_AND_FUTURE), keeping earlier
   /// occurrences intact.
   Future<void> call(String code, {String fromOccurrenceCode = ''}) {
-    return _repository.deleteEvent(code, fromOccurrenceCode: fromOccurrenceCode);
+    return AppEvents.track(
+      AppEvent.eventDelete,
+      () => _repository.deleteEvent(
+        code,
+        fromOccurrenceCode: fromOccurrenceCode,
+      ),
+    );
   }
 }

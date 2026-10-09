@@ -36,7 +36,29 @@ enum AppEvent {
   activityShare('activity.share'),
 
   /// One batch of media uploaded for one activity; count is the item count.
-  activityUploadBatch('activity.upload_batch');
+  activityUploadBatch('activity.upload_batch'),
+  eventCreate('event.create'),
+
+  /// Whole series, or this-and-future when split from an occurrence.
+  eventUpdate('event.update'),
+
+  /// Whole series, or cancelling from one occurrence onward.
+  eventDelete('event.delete'),
+  eventOccurrenceUpdate('event.occurrence_update'),
+
+  /// Deleting a single occurrence, which the server records as a cancel.
+  eventOccurrenceCancel('event.occurrence_cancel'),
+
+  /// count is the number of assignees.
+  taskCreate('task.create'),
+
+  /// Series-wide edit; count is the new assignee roster when it changed.
+  taskUpdate('task.update'),
+
+  /// One assignment edited from the form, which can also change its status.
+  taskAssignmentUpdate('task.assignment_update'),
+  taskUnassign('task.unassign'),
+  taskStatusChange('task.status_change');
 
   const AppEvent(this.key);
 

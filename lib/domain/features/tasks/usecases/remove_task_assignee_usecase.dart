@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/task_repository.dart';
 
 /// Removes one assignee from a task's roster (Tasks API §4a) without touching
@@ -11,9 +13,12 @@ class RemoveTaskAssigneeUseCase {
     required String seriesCode,
     required String staffCode,
   }) {
-    return _repository.removeAssignee(
-      seriesCode: seriesCode,
-      staffCode: staffCode,
+    return AppEvents.track(
+      AppEvent.taskUnassign,
+      () => _repository.removeAssignee(
+        seriesCode: seriesCode,
+        staffCode: staffCode,
+      ),
     );
   }
 }

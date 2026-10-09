@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/event_repository.dart';
 
 class UpdateOccurrenceUseCase {
@@ -16,14 +18,17 @@ class UpdateOccurrenceUseCase {
     String? scheduledStartTime,
     String? scheduledEndTime,
   }) {
-    return _repository.updateOccurrence(
-      eventCode: eventCode,
-      occurrenceCode: occurrenceCode,
-      overrideName: overrideName,
-      overrideDescription: overrideDescription,
-      scheduledStartDate: scheduledStartDate,
-      scheduledStartTime: scheduledStartTime,
-      scheduledEndTime: scheduledEndTime,
+    return AppEvents.track(
+      AppEvent.eventOccurrenceUpdate,
+      () => _repository.updateOccurrence(
+        eventCode: eventCode,
+        occurrenceCode: occurrenceCode,
+        overrideName: overrideName,
+        overrideDescription: overrideDescription,
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+      ),
     );
   }
 }

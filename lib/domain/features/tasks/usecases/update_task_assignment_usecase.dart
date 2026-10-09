@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/task.dart';
 import '../entities/task_assignee.dart';
 import '../repositories/task_repository.dart';
@@ -26,20 +28,23 @@ class UpdateTaskAssignmentUseCase {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
   }) {
-    return _repository.updateAssignment(
-      assignmentCode: assignmentCode,
-      title: title,
-      description: description,
-      occurrenceDate: occurrenceDate,
-      startTime: startTime,
-      dueDate: dueDate,
-      dueTime: dueTime,
-      priority: priority,
-      status: status,
-      effort: effort,
-      schedule: schedule,
-      assignees: assignees,
-      assetCodes: assetCodes,
+    return AppEvents.track(
+      AppEvent.taskAssignmentUpdate,
+      () => _repository.updateAssignment(
+        assignmentCode: assignmentCode,
+        title: title,
+        description: description,
+        occurrenceDate: occurrenceDate,
+        startTime: startTime,
+        dueDate: dueDate,
+        dueTime: dueTime,
+        priority: priority,
+        status: status,
+        effort: effort,
+        schedule: schedule,
+        assignees: assignees,
+        assetCodes: assetCodes,
+      ),
     );
   }
 }

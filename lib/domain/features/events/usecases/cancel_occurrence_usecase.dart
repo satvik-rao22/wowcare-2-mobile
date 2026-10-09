@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/event_repository.dart';
 
 class CancelOccurrenceUseCase {
@@ -12,10 +14,13 @@ class CancelOccurrenceUseCase {
     required String occurrenceCode,
     String reason = '',
   }) {
-    return _repository.cancelOccurrence(
-      eventCode: eventCode,
-      occurrenceCode: occurrenceCode,
-      reason: reason,
+    return AppEvents.track(
+      AppEvent.eventOccurrenceCancel,
+      () => _repository.cancelOccurrence(
+        eventCode: eventCode,
+        occurrenceCode: occurrenceCode,
+        reason: reason,
+      ),
     );
   }
 }
