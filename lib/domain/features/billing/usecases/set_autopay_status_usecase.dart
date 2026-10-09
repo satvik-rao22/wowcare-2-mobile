@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/auto_pay_entity.dart';
 import '../repositories/auto_pay_repository.dart';
 
@@ -11,9 +13,13 @@ class SetAutoPayStatusUseCase {
   Future<AutoPayStatusEntity> call({
     required GuardianScopeParams scope,
     required bool autopayEnabled,
-  }) =>
-      _repository.setAutoPayStatus(
-        scope: scope,
-        autopayEnabled: autopayEnabled,
-      );
+  }) => AppEvents.track(
+    autopayEnabled
+        ? AppEvent.billingAutopayEnable
+        : AppEvent.billingAutopayDisable,
+    () => _repository.setAutoPayStatus(
+      scope: scope,
+      autopayEnabled: autopayEnabled,
+    ),
+  );
 }

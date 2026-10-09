@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/auto_pay_entity.dart';
 import '../repositories/auto_pay_repository.dart';
 
@@ -9,5 +11,8 @@ class GuardianPayUseCase {
   final AutoPayRepository _repository;
 
   Future<GuardianPayResultEntity> call(GuardianPayParams params) =>
-      _repository.guardianPay(params);
+      AppEvents.track(
+        AppEvent.billingGuardianPay,
+        () => _repository.guardianPay(params),
+      );
 }

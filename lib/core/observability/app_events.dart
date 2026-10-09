@@ -58,7 +58,21 @@ enum AppEvent {
   /// One assignment edited from the form, which can also change its status.
   taskAssignmentUpdate('task.assignment_update'),
   taskUnassign('task.unassign'),
-  taskStatusChange('task.status_change');
+  taskStatusChange('task.status_change'),
+
+  /// An admin recording a payment against an invoice.
+  billingPayment('billing.payment'),
+
+  /// Succeeded means the server accepted the charge, not that it settled.
+  billingGuardianPay('billing.guardian_pay'),
+  billingPaymentMethodAdd('billing.payment_method_add'),
+  billingPaymentMethodRemove('billing.payment_method_remove'),
+  billingAutopayEnable('billing.autopay_enable'),
+  billingAutopayDisable('billing.autopay_disable'),
+  billingInvoiceCreate('billing.invoice_create'),
+  billingInvoiceIssue('billing.invoice_issue'),
+  billingInvoiceCancel('billing.invoice_cancel'),
+  billingRefund('billing.refund');
 
   const AppEvent(this.key);
 
