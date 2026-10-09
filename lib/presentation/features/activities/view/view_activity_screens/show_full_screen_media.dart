@@ -5,8 +5,7 @@ import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -45,8 +44,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
 
     if (_isHlsUrl(url)) {
       Future<bool> runCopy(List<String> args) async {
@@ -85,8 +83,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
     await Dio().download(url, outPath);
     return outPath;
   }
@@ -127,8 +124,8 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       }
 
       final isVideo = videoUrl != null && videoUrl.trim().isNotEmpty;
-      final ext = path.extension(Uri.parse(raw).path).trim().toLowerCase();
-      final safeExt = ext.isNotEmpty ? ext : (isVideo ? '.mp4' : '.jpg');
+      final ext = FileUtils.extension(raw);
+      final safeExt = '.${ext.isNotEmpty ? ext : (isVideo ? 'mp4' : 'jpg')}';
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       final baseName = 'wowcare_${isVideo ? 'video' : 'photo'}_$stamp$safeExt';
       final tempVideoName = isVideo && _isHlsUrl(raw)

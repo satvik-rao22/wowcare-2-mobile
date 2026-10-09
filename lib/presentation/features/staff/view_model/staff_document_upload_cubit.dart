@@ -3,12 +3,11 @@ import 'dart:io';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:mime/mime.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../../../../core/utils/storage_keys.dart';
-import '../../../../core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 import 'staff_profile_cubit.dart';
 
@@ -108,9 +107,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       // extension filter), which surfaces as a meaningless "Content type
       // 'application/octet-stream' is not allowed" instead of the backend's
       // actual, specific rejection reason.
-      final mimeType =
-          lookupMimeType(selectedPath) ??
-          FilePickerUtils.getMimeType(selectedFile.extension);
+      final mimeType = FileUtils.mimeType(selectedPath);
       final uploadSession = await _imageUploadService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,

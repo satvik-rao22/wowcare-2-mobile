@@ -1,3 +1,4 @@
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -12,8 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_upload_cubit.dart';
@@ -200,9 +200,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
     if (_selectedFile != null) {
       fileSizeKb = (_selectedFile!.size / 1024).ceil();
-      mimeType =
-          lookupMimeType(_selectedFile!.path ?? _selectedFile!.name) ??
-          FilePickerUtils.getMimeType(_selectedFile!.extension);
+      mimeType = FileUtils.mimeType(_selectedFile!.path ?? _selectedFile!.name);
       documentUrl = _uploadedDocumentUrl ?? _selectedFile!.name;
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
         CoreUtils.showTopSnackBar(

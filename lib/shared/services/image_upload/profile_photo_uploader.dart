@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 

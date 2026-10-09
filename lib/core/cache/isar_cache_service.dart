@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:isar_community/isar.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
@@ -68,7 +68,7 @@ class IsarCacheService implements CacheService {
   }
 
   Future<void> init() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await FileUtils.documentsDirectory();
     await _wipeIfSchemaVersionMismatch(dir.path);
     _isar = await Isar.open([
       // Existing schemas — do not remove

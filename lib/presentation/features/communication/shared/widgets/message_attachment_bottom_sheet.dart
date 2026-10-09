@@ -2,13 +2,12 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 /// Modern attachment bottom sheet with quick emoji reactions, attachment
@@ -150,14 +149,14 @@ class _MessageAttachmentBottomSheetState
     final oversized = <String, int>{};
     final unsupported = <String>[];
     for (final file in files) {
-      final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
+      final ext = FileUtils.extension(file.path);
       final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
       final isVideo = FilePickerUtils.allowedVideoExtensions.contains(ext);
       final isDocument = FilePickerUtils.allowedDocumentExtensions.contains(
         ext,
       );
       if (!isImage && !isVideo && !isDocument) {
-        unsupported.add(p.basename(file.path));
+        unsupported.add(FileUtils.fileName(file.path));
         continue;
       }
       final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
@@ -165,16 +164,15 @@ class _MessageAttachmentBottomSheetState
       final size = await file.length();
       final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
       if (size > maxSize) {
-        oversized[p.basename(file.path)] = maxSize;
+        oversized[FileUtils.fileName(file.path)] = maxSize;
         continue;
       }
 
-      final mime = lookupMimeType(file.path) ??
-          FilePickerUtils.getMimeType(ext);
+      final mime = FileUtils.mimeType(file.path);
       valid.add(
         ChatAttachment(
           localPath: file.path,
-          name: p.basename(file.path),
+          name: FileUtils.fileName(file.path),
           type: type,
           sizeBytes: size,
           mimeType: mime,

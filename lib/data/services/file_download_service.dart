@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:open_filex/open_filex.dart' as open_filex;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
 /// Hands [filePath] to the OS. Defaults to open_filex; a seam so the
@@ -27,8 +27,8 @@ class FileDownloadService {
   /// whether a download is still needed. Uses the exact same path/sanitizing
   /// rules as [saveFile] so a previously saved file is always found again.
   Future<File> resolveCacheFile(String fileName) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    return File('${appDir.path}/${_sanitizeFileName(fileName)}');
+    final appDir = await FileUtils.documentsDirectory();
+    return File('${appDir.path}/${FileUtils.safeFileName(fileName)}');
   }
 
   /// Save file to device storage with validation
@@ -65,10 +65,8 @@ class FileDownloadService {
         return null;
       }
 
-      // Get app documents directory for reliable storage
-      final appDir = await getApplicationDocumentsDirectory();
-      final fileName_safe = _sanitizeFileName(fileName);
-      final targetPath = '${appDir.path}/$fileName_safe';
+      // App documents directory, same location resolveCacheFile looks in.
+      final targetPath = (await resolveCacheFile(fileName)).path;
 
       AppLogger.d(
         '[FILE-SAVE] Saving to explicit path:\n'
@@ -234,38 +232,6 @@ class FileDownloadService {
   }
 
   /// Get MIME type from file extension
-  String getMimeType(String fileName) {
-    final ext = _getExtension(fileName).toLowerCase();
-
-    return switch (ext) {
-      'pdf' => 'application/pdf',
-      'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'xls' => 'application/vnd.ms-excel',
-      'csv' => 'text/csv',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'doc' => 'application/msword',
-      'ppt' => 'application/vnd.ms-powerpoint',
-      'pptx' =>
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'txt' => 'text/plain',
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'heic' => 'image/heic',
-      _ => 'application/octet-stream',
-    };
-  }
-
-  /// Sanitize filename to prevent path traversal
-  String _sanitizeFileName(String fileName) {
-    return fileName
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .replaceAll(RegExp(r'\s+'), '_');
-  }
-
-  /// Get file extension
-  String _getExtension(String fileName) {
-    if (!fileName.contains('.')) return '';
-    return fileName.split('.').last;
-  }
+  String getMimeType(String fileName) =>
+      FileUtils.mimeTypeForExtension(FileUtils.extension(fileName));
 }

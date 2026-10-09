@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
-import 'package:path/path.dart' as p;
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
@@ -185,26 +184,21 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
         _showWarningMessage(AppStrings.doNotExceed10MB);
         continue;
       }
-      final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
-      final ext = p.extension(file.path).toLowerCase();
+      final mime = FileUtils.mimeType(file.path);
+      final ext = FileUtils.extension(file.path);
 
-      if (isPhoto &&
-          !FilePickerUtils.allowedImageExtensions
-              .map((e) => '.$e')
-              .contains(ext)) {
+      if (isPhoto && !FilePickerUtils.allowedImageExtensions.contains(ext)) {
         continue;
       }
       if (!isPhoto &&
-          !FilePickerUtils.allowedDocumentExtensions
-              .map((e) => '.$e')
-              .contains(ext)) {
+          !FilePickerUtils.allowedDocumentExtensions.contains(ext)) {
         continue;
       }
 
       valid.add(
         ChatAttachment(
           localPath: file.path,
-          name: p.basename(file.path),
+          name: FileUtils.fileName(file.path),
           type: isPhoto ? 'image' : 'document',
           sizeBytes: size,
           mimeType: mime,

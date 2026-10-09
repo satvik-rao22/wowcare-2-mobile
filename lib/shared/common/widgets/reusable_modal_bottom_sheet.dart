@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 

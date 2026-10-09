@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/observability/media_upload_trace.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -414,7 +414,7 @@ class _MediaUploaderState extends State<MediaUploader>
     for (final path in paths.take(remaining)) {
       final file = File(path);
       if (!await file.exists()) continue;
-      final ext = file.path.split('.').last.toLowerCase();
+      final ext = FileUtils.extension(file.path);
       if (!_photoExt.contains(ext)) continue;
       final sizeMB = (await file.length()) / (1024 * 1024);
       if (sizeMB > photoMaxSizeMB) continue;
@@ -487,7 +487,7 @@ class _MediaUploaderState extends State<MediaUploader>
 
     MediaUploadTrace.stage(MediaUploadStage.thumbnailStarted);
     try {
-      final tempDir = await getTemporaryDirectory();
+      final tempDir = await FileUtils.tempDirectory();
       final thumbnailPath = await VideoThumbnail.thumbnailFile(
         video: _newVideoFile!.path,
         thumbnailPath: tempDir.path,
@@ -628,7 +628,7 @@ class _MediaUploaderState extends State<MediaUploader>
 
     List<File> valid = [];
     for (final f in candidates.take(remaining)) {
-      final ext = f.path.split('.').last.toLowerCase();
+      final ext = FileUtils.extension(f.path);
       if (!_photoExt.contains(ext)) {
         _showWarning(ActivityMediaStrings.unsupportedImageFormat);
         continue;

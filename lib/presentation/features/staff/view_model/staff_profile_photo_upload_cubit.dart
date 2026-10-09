@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/app_time.dart';
-import '../../../../core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import '../../../../core/utils/storage_keys.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 

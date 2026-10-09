@@ -1,3 +1,4 @@
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -5,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
@@ -687,7 +687,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // or constructs a Cookie header by hand. Stored under Application Support
   // (not Documents — this is app-internal state, not user-facing) so it
   // survives app restarts, not just hot reloads.
-  final cookieDir = await getApplicationSupportDirectory();
+  final cookieDir = await FileUtils.supportDirectory();
   final cookieJar = PersistCookieJar(
     storage: FileStorage('${cookieDir.path}/.cookies/'),
   );

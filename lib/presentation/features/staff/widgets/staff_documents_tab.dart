@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:gal/gal.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -330,15 +328,11 @@ class _StaffDocumentsTabViewState extends State<_StaffDocumentsTabView> {
           return;
         }
 
-        final tempDir = await getTemporaryDirectory();
-        var ext = p.extension(Uri.parse(url).path).trim().toLowerCase();
-        if (ext.isEmpty) ext = isVideo ? '.mp4' : '.jpg';
-        final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
-        final base = doc.documentName.trim().isNotEmpty
-            ? doc.documentName.trim()
-            : 'wowcare_document_$stamp';
-        final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-        final outPath = p.join(tempDir.path, '$safeBase$ext');
+        final outPath = await FileUtils.tempPathForDownload(
+          url,
+          name: doc.documentName,
+          fallbackExtension: isVideo ? 'mp4' : 'jpg',
+        );
 
         // Plain-Dio download via the shared service: the URL is a pre-signed
         // external (CloudFront) link, so the app's auth header / API base URL

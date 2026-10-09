@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
-import 'package:mime/mime.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:thumbnailer/thumbnailer.dart';
@@ -578,8 +578,7 @@ class _MessageCompositionBulkMessagingState
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Thumbnail(
-              mimeType:
-                  lookupMimeType(att.file.path) ?? 'application/octet-stream',
+              mimeType: FileUtils.mimeType(att.file.path),
               dataResolver: () async {
                 return await att.file.readAsBytes();
               },

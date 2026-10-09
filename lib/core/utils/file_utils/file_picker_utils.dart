@@ -1,7 +1,16 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 
+/// Lets the user pick a file from the device (documents, photos, videos).
+///
+/// Which file util?
+/// | Need                                        | Use                         |
+/// |---------------------------------------------|-----------------------------|
+/// | Name, extension, MIME type, app folders     | FileUtils                   |
+/// | Let the user pick a file / photo / video    | FilePickerUtils (this file) |
+/// | Download a URL into a file                  | FileDownloadService         |
 class FilePickerUtils {
   const FilePickerUtils._();
 
@@ -89,54 +98,6 @@ class FilePickerUtils {
   }
 
   /// Returns the mime type based on the file extension.
-  static String getMimeType(String? extension) {
-    if (extension == null) return 'application/octet-stream';
-
-    final ext = extension.toLowerCase().replaceAll('.', '');
-
-    const mimeTypes = {
-      'pdf': 'application/pdf',
-      'doc': 'application/msword',
-      'docx':
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'jpeg': 'image/jpeg',
-      'jpg': 'image/jpeg',
-      'png': 'image/png',
-      'webp': 'image/webp',
-      'heic': 'image/heic',
-      'heif': 'image/heif',
-      'heic-sequence': 'image/heic-sequence',
-      'heif-sequence': 'image/heif-sequence',
-      'avif': 'image/avif',
-      'gif': 'image/gif',
-      'bmp': 'image/bmp',
-      'tif': 'image/tiff',
-      'tiff': 'image/tiff',
-      'xls': 'application/vnd.ms-excel',
-      'xlsx':
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'ppt': 'application/vnd.ms-powerpoint',
-      'pptx':
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'mp4': 'video/mp4',
-      'mov': 'video/quicktime',
-      'webm': 'video/webm',
-      'csv': 'text/csv',
-      // Not accepted as a DOCUMENT/IMAGE/VIDEO by the backend, but real
-      // extensions a device file picker can still hand back (e.g. Android's
-      // "Files"/WhatsApp pickers ignore allowedExtensions on some OEMs) -
-      // mapping them to their real audio/* type lets the backend's own
-      // "Content type 'audio/mpeg' is not allowed for ..." message reach the
-      // user instead of a meaningless "'application/octet-stream' is not
-      // allowed" fallback.
-      'mp3': 'audio/mpeg',
-      'm4a': 'audio/mp4',
-      'wav': 'audio/x-wav',
-      'aac': 'audio/aac',
-      'ogg': 'audio/ogg',
-      'opus': 'audio/opus',
-    };
-
-    return mimeTypes[ext] ?? 'application/octet-stream';
-  }
+  static String getMimeType(String? extension) =>
+      FileUtils.mimeTypeForExtension(extension);
 }

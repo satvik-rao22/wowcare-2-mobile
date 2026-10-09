@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 // import 'package:flutter_windowmanager/flutter_windowmanager.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -87,7 +87,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         } catch (e) {
           debugPrint("Error saving to downloads: $e");
           // Fallback to app documents directory
-          final appDir = await getApplicationDocumentsDirectory();
+          final appDir = await FileUtils.documentsDirectory();
           final fileName =
               'payslip_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           filePath = '${appDir.path}/$fileName';
@@ -102,7 +102,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         }
       } else {
         // iOS implementation
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await FileUtils.documentsDirectory();
         final fileName =
             'payslip_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
         filePath = '${directory.path}/$fileName';

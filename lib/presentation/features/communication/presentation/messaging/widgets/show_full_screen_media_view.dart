@@ -4,6 +4,7 @@ import 'package:chewie/chewie.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
@@ -11,7 +12,6 @@ import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
 import 'package:wowcare/data/services/messaging_media_downloader.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -147,7 +147,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
 
     if (_isHlsUrl(url)) {
       Future<bool> runCopy(List<String> args) async {
@@ -185,7 +185,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     String url,
     String fileName,
   ) async {
-    final outPath = path.join(await messagingMediaTempDirPath(), fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
     await downloadMessagingMediaToFile(url, outPath);
     return outPath;
   }
@@ -228,7 +228,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
           final videoUrl = widget.videoUrl!;
           final tempName = _isHlsUrl(videoUrl)
               ? 'wowcare_video_$stamp.mp4'
-              : 'wowcare_video_$stamp${path.extension(Uri.parse(videoUrl).path).isNotEmpty ? path.extension(Uri.parse(videoUrl).path) : '.mp4'}';
+              : 'wowcare_video_$stamp.${FileUtils.extension(videoUrl).isNotEmpty ? FileUtils.extension(videoUrl) : 'mp4'}';
           filePath = await _materializeVideoToTempFile(videoUrl, tempName);
           isTemp = true;
         } else {
@@ -245,14 +245,10 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         var isTemp = false;
         if (_hasUsableImageUrl) {
           final imageUrl = widget.imageUrl!;
-          final ext = path
-              .extension(Uri.parse(imageUrl).path)
-              .trim()
-              .toLowerCase();
-          final safeExt = ext.isNotEmpty ? ext : '.jpg';
+          final ext = FileUtils.extension(imageUrl);
           filePath = await _materializePhotoToTempFile(
             imageUrl,
-            'wowcare_photo_$stamp$safeExt',
+            'wowcare_photo_$stamp.${ext.isNotEmpty ? ext : 'jpg'}',
           );
           isTemp = true;
         } else {

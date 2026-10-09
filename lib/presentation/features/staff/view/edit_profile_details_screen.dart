@@ -3,7 +3,7 @@ import 'package:wowcare/core/utils/app_time.dart';
 import 'dart:io';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen_formatters.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

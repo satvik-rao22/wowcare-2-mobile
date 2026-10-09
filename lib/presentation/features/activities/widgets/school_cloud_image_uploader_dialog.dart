@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
@@ -115,7 +115,10 @@ class _SchoolCloudImageUploaderDialogState
           final fileName = image.uri.pathSegments.isNotEmpty
               ? image.uri.pathSegments.last
               : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg';
-          final contentType = lookupMimeType(image.path) ?? 'image/jpeg';
+          final contentType = FileUtils.mimeType(
+            image.path,
+            fallback: 'image/jpeg',
+          );
           final contentLengthBytes = await image.length();
 
           final presign = await cubit.createAssetPresign(
