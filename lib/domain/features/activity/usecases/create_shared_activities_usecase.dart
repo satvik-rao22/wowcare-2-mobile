@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
@@ -24,18 +25,22 @@ class CreateSharedActivitiesUseCase {
     List<ActivityParameterValue> parameterValues = const [],
   }) async {
     try {
-      return await _repository.createSharedActivities(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        requireAdminApproval: requireAdminApproval,
-        attachments: attachments,
-        parameterValues: parameterValues,
+      return await AppEvents.track(
+        AppEvent.activityShare,
+        () => _repository.createSharedActivities(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDate,
+          description: description,
+          requireAdminApproval: requireAdminApproval,
+          attachments: attachments,
+          parameterValues: parameterValues,
+        ),
+        count: studentCodes.length,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

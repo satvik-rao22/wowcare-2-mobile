@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
 
@@ -24,20 +25,24 @@ class UploadActivityAssetsUseCase {
     onAssetUploaded,
     CancelToken? cancelToken,
   }) {
-    return _repository.uploadAssets(
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      classroomCode: classroomCode,
-      activityTypeCode: activityTypeCode,
-      bindingMode: bindingMode,
-      studentCodes: studentCodes,
-      ownerType: ownerType,
-      ownerCode: ownerCode,
-      items: items,
-      onItemProgress: onItemProgress,
-      onItemComplete: onItemComplete,
-      onAssetUploaded: onAssetUploaded,
-      cancelToken: cancelToken,
+    return AppEvents.track(
+      AppEvent.activityUploadBatch,
+      () => _repository.uploadAssets(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        classroomCode: classroomCode,
+        activityTypeCode: activityTypeCode,
+        bindingMode: bindingMode,
+        studentCodes: studentCodes,
+        ownerType: ownerType,
+        ownerCode: ownerCode,
+        items: items,
+        onItemProgress: onItemProgress,
+        onItemComplete: onItemComplete,
+        onAssetUploaded: onAssetUploaded,
+        cancelToken: cancelToken,
+      ),
+      count: items.length,
     );
   }
 }

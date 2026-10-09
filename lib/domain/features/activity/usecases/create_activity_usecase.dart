@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/activity/entities/activity_attachment.dart';
@@ -28,23 +29,27 @@ class CreateActivityUseCase {
     List<ActivityAttachment> attachments = const [],
   }) async {
     try {
-      return await _repository.createActivity(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDate,
-        description: description,
-        napStart: napStart,
-        napEnd: napEnd,
-        napReminderEnabled: napReminderEnabled,
-        napReminderUserCode: napReminderUserCode,
-        napReminderRole: napReminderRole,
-        requireAdminApproval: requireAdminApproval,
-        parameterValues: parameterValues,
-        attachments: attachments,
+      return await AppEvents.track(
+        AppEvent.activityCreate,
+        () => _repository.createActivity(
+          activityTypeCode: activityTypeCode,
+          classroomCode: classroomCode,
+          studentCodes: studentCodes,
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          activityDate: activityDate,
+          description: description,
+          napStart: napStart,
+          napEnd: napEnd,
+          napReminderEnabled: napReminderEnabled,
+          napReminderUserCode: napReminderUserCode,
+          napReminderRole: napReminderRole,
+          requireAdminApproval: requireAdminApproval,
+          parameterValues: parameterValues,
+          attachments: attachments,
+        ),
+        count: studentCodes.length,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

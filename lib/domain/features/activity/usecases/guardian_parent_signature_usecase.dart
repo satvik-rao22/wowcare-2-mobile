@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
@@ -14,11 +15,14 @@ class GuardianParentSignatureUseCase {
     String? signatureValue,
   }) async {
     try {
-      return await _repository.guardianParentSignature(
-        code: code,
-        parameterCode: parameterCode,
-        guardianCode: guardianCode,
-        signatureValue: signatureValue,
+      return await AppEvents.track(
+        AppEvent.activityParentSignature,
+        () => _repository.guardianParentSignature(
+          code: code,
+          parameterCode: parameterCode,
+          guardianCode: guardianCode,
+          signatureValue: signatureValue,
+        ),
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

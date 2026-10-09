@@ -24,7 +24,19 @@ enum AppEvent {
   attendanceStaffSignIn('attendance.staff_sign_in'),
   attendanceStaffSignOut('attendance.staff_sign_out'),
   attendanceStaffTransfer('attendance.staff_transfer'),
-  attendanceStaffMarkAbsent('attendance.staff_mark_absent');
+  attendanceStaffMarkAbsent('attendance.staff_mark_absent'),
+  activityCreate('activity.create'),
+  activityUpdate('activity.update'),
+  activityApprove('activity.approve'),
+  activityReject('activity.reject'),
+  activityAcknowledge('activity.acknowledge'),
+
+  /// The guardian's incident signature, which is how the app acknowledges.
+  activityParentSignature('activity.parent_signature'),
+  activityShare('activity.share'),
+
+  /// One batch of media uploaded for one activity; count is the item count.
+  activityUploadBatch('activity.upload_batch');
 
   const AppEvent(this.key);
 
