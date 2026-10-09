@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
@@ -570,10 +571,16 @@ class AuthCubit extends Cubit<AuthState> {
       password: password,
     );
 
+    final stopwatch = Stopwatch()..start();
     final result = await _loginUseCase(request);
 
     result.fold(
       (failure) {
+        AppEvents.failed(
+          AppEvent.authLogin,
+          failure,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
         // Always surface backend / low-level error messages,
         // instead of inventing UI text here.
         final message = failure.message ?? failure.toString();
@@ -586,6 +593,7 @@ class AuthCubit extends Cubit<AuthState> {
         // SUPERADMIN SHORT-CIRCUIT: this role is web-portal only. Block before
         // anything is cached or persisted so no mobile session is established.
         if (loginResponseIsSuperAdmin(response.roles)) {
+          AppEvents.failed(AppEvent.authLogin, EventFailure.blocked);
           emit(
             const AuthError(
               'Super Admin accounts can only be accessed through the web portal.',
@@ -599,9 +607,14 @@ class AuthCubit extends Cubit<AuthState> {
         // PENDING approval), so no mobile session is established.
         final blockMessage = await _pendingSchoolBlockMessage(response);
         if (blockMessage != null) {
+          AppEvents.failed(AppEvent.authLogin, EventFailure.blocked);
           emit(AuthError(blockMessage));
           return;
         }
+        AppEvents.succeeded(
+          AppEvent.authLogin,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
 
         // KIOSK SHORT-CIRCUIT: check role BEFORE any further processing.
         // This prevents all unnecessary APIs (context, staff lookup, profile, PIN) for kiosk users.
@@ -1369,6 +1382,7 @@ class AuthCubit extends Cubit<AuthState> {
         navCtx.read<RoleCubit>().resetSessionForLogout();
       } catch (_) {}
     }
+    AppEvents.succeeded(AppEvent.authLogout);
     emit(const AuthInitial());
   }
 

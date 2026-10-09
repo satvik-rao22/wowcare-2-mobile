@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -100,6 +101,8 @@ class SessionExpiredCoordinator {
     if (!fromEntryRoute && _isOnPreAuthRoute()) return;
     _lastHandledAt = now;
     _busy = true;
+    // Before the session is cleared, so the log still carries the user.
+    AppEvents.record(AppEvent.authSession, EventOutcome.expired);
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
       final cached = await authLocal.getCachedLoginResponse();

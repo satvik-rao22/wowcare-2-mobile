@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 
 /// Process-wide signal fired whenever the active organisation/school changes
 /// (drawer school picker or an FCM-driven switch).
@@ -20,7 +21,12 @@ class SchoolSwitchEvents {
 
   /// Call AFTER the new selection is persisted and caches are cleared, so
   /// listeners reload against the new context with empty caches.
-  static void notifySwitched() => epoch.value++;
+  ///
+  /// Every switch path ends here, so this is also where the switch is logged.
+  static void notifySwitched() {
+    AppEvents.succeeded(AppEvent.authSchoolSwitch);
+    epoch.value++;
+  }
 }
 
 /// Drop-in mixin for a long-lived [State] that must reload when the active
