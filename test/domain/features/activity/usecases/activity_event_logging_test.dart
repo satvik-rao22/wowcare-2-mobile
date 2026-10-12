@@ -1,9 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:wowcare/domain/features/activity/entities/recovered_media.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_repository.dart';
+import 'package:wowcare/domain/features/activity/repositories/lost_media_repository.dart';
 import 'package:wowcare/domain/features/activity/usecases/approve_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/create_activity_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/delete_activity_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/retrieve_lost_media_usecase.dart';
 
 class _FakeActivityRepository implements ActivityRepository {
   Object? error;
@@ -12,6 +16,15 @@ class _FakeActivityRepository implements ActivityRepository {
   dynamic noSuchMethod(Invocation invocation) {
     return error == null ? Future.value('ok') : Future<String>.error(error!);
   }
+}
+
+class _FakeLostMediaRepository implements LostMediaRepository {
+  _FakeLostMediaRepository(this.recovered);
+
+  final RecoveredMedia recovered;
+
+  @override
+  Future<RecoveredMedia> retrieveLostMedia() async => recovered;
 }
 
 void main() {
@@ -75,6 +88,91 @@ void main() {
       expect(logs.single.attributes['failure']!.value, 'forbidden');
     },
   );
+
+  test('delete logs its outcome and not the activity code', () async {
+    await DeleteActivityUseCase(repo)(code: 'ACT-9');
+    await settle();
+
+    final log = logs.single;
+    expect(log.body, 'activity.delete.succeeded');
+    expect(log.attributes['count'], isNull);
+    expect(
+      log.attributes.values.map((a) => '${a.value}'),
+      isNot(contains('ACT-9')),
+    );
+  });
+
+  test('a delete the server cannot find is bucketed notFound', () async {
+    final request = RequestOptions(path: '/x');
+    repo.error = DioException.badResponse(
+      statusCode: 404,
+      requestOptions: request,
+      response: Response<dynamic>(requestOptions: request, statusCode: 404),
+    );
+
+    await expectLater(
+      DeleteActivityUseCase(repo)(code: 'ACT-9'),
+      throwsA(isA<String>()),
+    );
+    await settle();
+
+    expect(logs.single.body, 'activity.delete.failed');
+    expect(logs.single.attributes['failure']!.value, 'notFound');
+  });
+
+  group('lost media recovery', () {
+    test('logs the recovered item count and no file path', () async {
+      const recovered = RecoveredMedia(
+        type: RecoveredMediaType.image,
+        filePaths: ['/data/cache/a.jpg', '/data/cache/b.jpg'],
+      );
+
+      final result = await RetrieveLostMediaUseCase(
+        _FakeLostMediaRepository(recovered),
+      )();
+      await settle();
+
+      expect(result, same(recovered));
+      final log = logs.single;
+      expect(log.body, 'activity.media_recover.succeeded');
+      expect(log.attributes['count']!.value, 2);
+      expect(
+        log.attributes.values.map((a) => '${a.value}'),
+        isNot(contains(startsWith('/data/'))),
+      );
+    });
+
+    test('logs nothing when nothing was pending', () async {
+      await RetrieveLostMediaUseCase(
+        _FakeLostMediaRepository(RecoveredMedia.none),
+      )();
+      await settle();
+
+      expect(logs, isEmpty);
+    });
+
+    test(
+      'a capture the camera app lost is failed, without its message',
+      () async {
+        const recovered = RecoveredMedia(
+          type: RecoveredMediaType.video,
+          filePaths: [],
+          errorMessage: 'camera crashed',
+        );
+
+        await RetrieveLostMediaUseCase(_FakeLostMediaRepository(recovered))();
+        await settle();
+
+        final log = logs.single;
+        expect(log.body, 'activity.media_recover.failed');
+        expect(log.attributes['failure']!.value, 'unknown');
+        expect(
+          log.attributes.values.map((a) => '${a.value}'),
+          isNot(contains('camera crashed')),
+        );
+      },
+    );
+  });
 }
 
 /// Nothing a unit test produces may reach the network.

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
@@ -24,17 +25,30 @@ class UploadEventAttachmentsUseCase {
     void Function(AttachmentUploadState state)? onProgress,
     CancelToken? cancelToken,
   }) {
-    return _manager.upload(
-      files: files,
-      openSession: () async {
-        final session = await _repository.createUploadSession();
-        return UploadSessionResult(
-          sessionCode: session.sessionCode,
-          documentApiBasePath: session.documentApiBasePath,
-        );
+    // The manager reports a failed batch in the state it returns, never by
+    // throwing. By then each file's error is a message, so only a cancel can
+    // be bucketed more precisely than unknown.
+    return AppEvents.track(
+      AppEvent.eventAttachmentUpload,
+      () => _manager.upload(
+        files: files,
+        openSession: () async {
+          final session = await _repository.createUploadSession();
+          return UploadSessionResult(
+            sessionCode: session.sessionCode,
+            documentApiBasePath: session.documentApiBasePath,
+          );
+        },
+        onProgress: onProgress,
+        cancelToken: cancelToken,
+      ),
+      count: files.length,
+      failureOf: (state) {
+        if (!state.hasFailures) return null;
+        return (cancelToken?.isCancelled ?? false)
+            ? EventFailure.cancelled
+            : EventFailure.unknown;
       },
-      onProgress: onProgress,
-      cancelToken: cancelToken,
     );
   }
 }

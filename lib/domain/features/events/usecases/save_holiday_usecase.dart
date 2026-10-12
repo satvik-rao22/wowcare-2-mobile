@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/holiday.dart';
 import '../repositories/event_repository.dart';
 
@@ -13,11 +15,14 @@ class CreateHolidayUseCase {
     required DateTime endDate,
     String description = '',
   }) {
-    return _repository.createHoliday(
-      name: name,
-      startDate: startDate,
-      endDate: endDate,
-      description: description,
+    return AppEvents.track(
+      AppEvent.eventHolidayCreate,
+      () => _repository.createHoliday(
+        name: name,
+        startDate: startDate,
+        endDate: endDate,
+        description: description,
+      ),
     );
   }
 }
@@ -36,13 +41,16 @@ class UpdateHolidayUseCase {
     DateTime? endDate,
     String? description,
   }) {
-    return _repository.updateHoliday(
-      code: code,
-      version: version,
-      name: name,
-      startDate: startDate,
-      endDate: endDate,
-      description: description,
+    return AppEvents.track(
+      AppEvent.eventHolidayUpdate,
+      () => _repository.updateHoliday(
+        code: code,
+        version: version,
+        name: name,
+        startDate: startDate,
+        endDate: endDate,
+        description: description,
+      ),
     );
   }
 }

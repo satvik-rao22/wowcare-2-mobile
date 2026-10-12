@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/task_repository.dart';
 
 /// Removes one attachment from a task series by its attachment code.
@@ -10,9 +12,12 @@ class DetachTaskAttachmentUseCase {
     required String taskCode,
     required String attachmentCode,
   }) {
-    return _repository.detachAttachment(
-      taskCode: taskCode,
-      attachmentCode: attachmentCode,
+    return AppEvents.track(
+      AppEvent.taskAttachmentDetach,
+      () => _repository.detachAttachment(
+        taskCode: taskCode,
+        attachmentCode: attachmentCode,
+      ),
     );
   }
 }

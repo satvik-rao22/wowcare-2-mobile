@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/event_repository.dart';
 
 class DeleteHolidayUseCase {
@@ -6,6 +8,9 @@ class DeleteHolidayUseCase {
   final EventRepository _repository;
 
   Future<String> call(String code) {
-    return _repository.deleteHoliday(code);
+    return AppEvents.track(
+      AppEvent.eventHolidayDelete,
+      () => _repository.deleteHoliday(code),
+    );
   }
 }

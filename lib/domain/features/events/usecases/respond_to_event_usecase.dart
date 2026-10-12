@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/event.dart';
 import '../repositories/event_repository.dart';
 
@@ -15,12 +17,15 @@ class RespondToEventUseCase {
     required String partyType,
     required EventRsvpStatus status,
   }) {
-    return _repository.respondToOccurrence(
-      eventCode: eventCode,
-      occurrenceCode: occurrenceCode,
-      partyCode: partyCode,
-      partyType: partyType,
-      status: status,
+    return AppEvents.track(
+      AppEvent.eventRsvp,
+      () => _repository.respondToOccurrence(
+        eventCode: eventCode,
+        occurrenceCode: occurrenceCode,
+        partyCode: partyCode,
+        partyType: partyType,
+        status: status,
+      ),
     );
   }
 }

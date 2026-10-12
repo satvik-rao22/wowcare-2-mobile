@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/attendance_repository.dart';
 
 /// Deletes a staff absence record (e.g. before an admin override sign-in).
@@ -15,9 +17,12 @@ class DeleteStaffAbsenceRecordUseCase {
     required String absenceRecordCode,
     required String staffCode,
   }) {
-    return _repository.deleteStaffAbsenceRecord(
-      absenceRecordCode: absenceRecordCode,
-      staffCode: staffCode,
+    return AppEvents.track(
+      AppEvent.attendanceStaffAbsenceDelete,
+      () => _repository.deleteStaffAbsenceRecord(
+        absenceRecordCode: absenceRecordCode,
+        staffCode: staffCode,
+      ),
     );
   }
 }

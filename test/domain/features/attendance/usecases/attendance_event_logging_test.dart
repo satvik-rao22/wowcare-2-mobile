@@ -2,10 +2,15 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:wowcare/domain/features/attendance/entities/attendance_action_result.dart';
+import 'package:wowcare/domain/features/attendance/entities/qr_validation_result.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_sign_in_request.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_staff_attendance_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/delete_student_absence_record_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/mark_students_absent_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/submit_student_sign_in_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 
 /// Answers every repository call generically, so the test does not have to
 /// mirror the repository's long signatures.
@@ -15,6 +20,13 @@ class _FakeAttendanceRepository implements AttendanceRepository {
     message: 'ok',
   );
   Object? markAbsentError;
+  QrValidationResult qrResult = const QrValidationResult(
+    valid: true,
+    schoolCode: 'SCH-1',
+  );
+
+  /// Thrown by the record corrections when set.
+  Object? recordError;
 
   @override
   dynamic noSuchMethod(Invocation invocation) {
@@ -24,6 +36,15 @@ class _FakeAttendanceRepository implements AttendanceRepository {
         markAbsentError == null
             ? Future.value('ok')
             : Future<String>.error(markAbsentError!),
+      #validateQrCode => Future.value(qrResult),
+      #updateStudentAttendanceRecord =>
+        recordError == null
+            ? Future.value('updated')
+            : Future<String>.error(recordError!),
+      #deleteStaffAttendanceRecord || #deleteStudentAbsenceRecord =>
+        recordError == null
+            ? Future<void>.value()
+            : Future<void>.error(recordError!),
       _ => throw UnimplementedError('${invocation.memberName}'),
     };
   }
@@ -114,6 +135,117 @@ void main() {
     expect(log.body, 'attendance.student_mark_absent.failed');
     expect(log.attributes['failure']!.value, 'network');
     expect(log.attributes['count']!.value, 2);
+  });
+
+  group('QR validate', () {
+    Future<QrValidationResult> validate() => ValidateQrCodeUseCase(repo)(
+      schoolCode: 'SCH-1',
+      qrToken: 'QR-TOKEN-1',
+      useCase: QrAttendanceUseCase.staffSignIn,
+    );
+
+    test('a valid code is logged as succeeded, without the token', () async {
+      await validate();
+      await settle();
+
+      final log = logs.single;
+      expect(log.body, 'attendance.qr_validate.succeeded');
+      expect(
+        log.attributes.values.map((a) => '${a.value}'),
+        isNot(contains(anyOf('QR-TOKEN-1', 'SCH-1'))),
+      );
+    });
+
+    test(
+      'an invalid code reported in the result is a validation failure',
+      () async {
+        repo.qrResult = const QrValidationResult(
+          valid: false,
+          schoolCode: 'SCH-1',
+          reason: 'expired',
+        );
+
+        final result = await validate();
+        await settle();
+
+        expect(result.valid, isFalse);
+        final log = logs.single;
+        expect(log.body, 'attendance.qr_validate.failed');
+        expect(log.attributes['failure']!.value, 'validation');
+        expect(
+          log.attributes.values.map((a) => '${a.value}'),
+          isNot(contains('expired')),
+        );
+      },
+    );
+  });
+
+  group('record corrections', () {
+    test('a record delete logs its outcome, not the record code', () async {
+      await DeleteStaffAttendanceRecordUseCase(repo)(
+        attendanceRecordCode: 'ATT-7',
+        staffCode: 'STF-1',
+      );
+      await DeleteStudentAbsenceRecordUseCase(repo)(
+        absenceRecordCode: 'ABS-3',
+        staffCode: 'STF-1',
+      );
+      await settle();
+
+      expect(logs.map((log) => log.body), [
+        'attendance.staff_record_delete.succeeded',
+        'attendance.student_absence_delete.succeeded',
+      ]);
+      for (final log in logs) {
+        expect(
+          log.attributes.values.map((a) => '${a.value}'),
+          isNot(contains(anyOf('ATT-7', 'ABS-3', 'STF-1'))),
+        );
+      }
+    });
+
+    test('an update keeps the raw error bucket under its message', () async {
+      final request = RequestOptions(path: '/x');
+      repo.recordError = DioException.badResponse(
+        statusCode: 409,
+        requestOptions: request,
+        response: Response<dynamic>(requestOptions: request, statusCode: 409),
+      );
+
+      await expectLater(
+        UpdateStudentAttendanceRecordUseCase(repo)(
+          attendanceRecordCode: 'ATT-7',
+          staffCode: 'STF-1',
+          notes: 'late pickup',
+        ),
+        throwsA(isA<String>()),
+      );
+      await settle();
+
+      final log = logs.single;
+      expect(log.body, 'attendance.student_record_update.failed');
+      expect(log.attributes['failure']!.value, 'validation');
+    });
+
+    test('a delete that throws is rethrown untouched', () async {
+      final error = DioException.receiveTimeout(
+        timeout: const Duration(seconds: 1),
+        requestOptions: RequestOptions(path: '/x'),
+      );
+      repo.recordError = error;
+
+      await expectLater(
+        DeleteStaffAttendanceRecordUseCase(repo)(
+          attendanceRecordCode: 'ATT-7',
+          staffCode: 'STF-1',
+        ),
+        throwsA(same(error)),
+      );
+      await settle();
+
+      expect(logs.single.body, 'attendance.staff_record_delete.failed');
+      expect(logs.single.attributes['failure']!.value, 'timeout');
+    });
   });
 }
 

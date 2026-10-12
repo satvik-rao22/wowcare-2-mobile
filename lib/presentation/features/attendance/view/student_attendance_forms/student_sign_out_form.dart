@@ -12,7 +12,6 @@ import 'package:wowcare/domain/features/attendance/entities/student_sign_out_req
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -25,6 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_redirect.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_location_fix.dart';
 import 'package:wowcare/shared/common/app/cubits/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
@@ -299,21 +299,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
-    Position? position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-    } catch (_) {
-      try {
-        position = await Geolocator.getLastKnownPosition();
-      } catch (e) {
-        AppLogger.d('StudentSignOutForm: getLastKnownPosition failed: $e');
-      }
-    }
+    final position = await const AttendanceLocationFix().take(
+      caller: 'StudentSignOutForm',
+    );
 
     // Resolve persona-specific values (with the same guards as before), then
     // assemble a typed StudentSignOutRequest whose toPayload() reproduces the

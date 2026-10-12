@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/staff_attendance_daily_update_request.dart';
 import '../repositories/attendance_repository.dart';
 
@@ -14,9 +16,12 @@ class UpdateStaffAttendanceRecordUseCase {
     required String attendanceCode,
     required StaffAttendanceDailyUpdateRequest request,
   }) {
-    return _repository.updateStaffAttendanceDailyRecord(
-      attendanceCode: attendanceCode,
-      request: request,
+    return AppEvents.track(
+      AppEvent.attendanceStaffRecordUpdate,
+      () => _repository.updateStaffAttendanceDailyRecord(
+        attendanceCode: attendanceCode,
+        request: request,
+      ),
     );
   }
 }

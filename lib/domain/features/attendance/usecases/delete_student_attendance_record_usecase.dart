@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/attendance_repository.dart';
 
 /// Deletes a student attendance record (sign-in / sign-out / transfer day row).
@@ -15,9 +17,12 @@ class DeleteStudentAttendanceRecordUseCase {
     required String attendanceRecordCode,
     required String staffCode,
   }) {
-    return _repository.deleteStudentAttendanceRecord(
-      attendanceRecordCode: attendanceRecordCode,
-      staffCode: staffCode,
+    return AppEvents.track(
+      AppEvent.attendanceStudentRecordDelete,
+      () => _repository.deleteStudentAttendanceRecord(
+        attendanceRecordCode: attendanceRecordCode,
+        staffCode: staffCode,
+      ),
     );
   }
 }

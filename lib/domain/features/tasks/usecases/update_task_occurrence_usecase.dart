@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/task_occurrence.dart';
 import '../repositories/task_repository.dart';
 
@@ -17,14 +19,17 @@ class UpdateTaskOccurrenceUseCase {
     String? overrideTitle,
     String? overrideDescription,
   }) {
-    return _repository.updateOccurrence(
-      seriesCode: seriesCode,
-      occurrenceCode: occurrenceCode,
-      scheduledStartDate: scheduledStartDate,
-      scheduledStartTime: scheduledStartTime,
-      scheduledEndTime: scheduledEndTime,
-      overrideTitle: overrideTitle,
-      overrideDescription: overrideDescription,
+    return AppEvents.track(
+      AppEvent.taskOccurrenceUpdate,
+      () => _repository.updateOccurrence(
+        seriesCode: seriesCode,
+        occurrenceCode: occurrenceCode,
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        overrideTitle: overrideTitle,
+        overrideDescription: overrideDescription,
+      ),
     );
   }
 }

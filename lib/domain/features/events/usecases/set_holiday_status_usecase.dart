@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/holiday.dart';
 import '../repositories/event_repository.dart';
 
@@ -13,10 +15,13 @@ class SetHolidayStatusUseCase {
     required int version,
     required HolidayStatusAction action,
   }) {
-    return _repository.setHolidayStatus(
-      code: code,
-      version: version,
-      action: action,
+    return AppEvents.track(
+      AppEvent.eventHolidayStatusChange,
+      () => _repository.setHolidayStatus(
+        code: code,
+        version: version,
+        action: action,
+      ),
     );
   }
 }

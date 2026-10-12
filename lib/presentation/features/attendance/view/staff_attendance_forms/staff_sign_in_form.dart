@@ -25,6 +25,7 @@ import '../../model/staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view_model/attendance_redirect.dart';
+import 'package:wowcare/presentation/features/attendance/view_model/attendance_location_fix.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -310,20 +311,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // GPS is optional for kiosk (fixed location device)
     Position? position;
     if (!widget.isKiosk) {
-      try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
-      } catch (_) {
-        try {
-          position = await Geolocator.getLastKnownPosition();
-        } catch (e) {
-          AppLogger.d('StaffSignInForm: getLastKnownPosition failed: $e');
-        }
-      }
+      position = await const AttendanceLocationFix().take(
+        caller: 'StaffSignInForm',
+      );
     }
 
     final bool isQrSignIn = widget.qrToken.isNotEmpty;

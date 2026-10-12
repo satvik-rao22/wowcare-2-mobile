@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/qr_validation_result.dart';
 import '../repositories/attendance_repository.dart';
 
@@ -22,10 +24,15 @@ class ValidateQrCodeUseCase {
     required String qrToken,
     required QrAttendanceUseCase useCase,
   }) {
-    return _repository.validateQrCode(
-      schoolCode: schoolCode,
-      qrToken: qrToken,
-      useCase: useCase.apiValue,
+    // An expired or unknown QR comes back as `valid: false`, not a throw.
+    return AppEvents.track(
+      AppEvent.attendanceQrValidate,
+      () => _repository.validateQrCode(
+        schoolCode: schoolCode,
+        qrToken: qrToken,
+        useCase: useCase.apiValue,
+      ),
+      failureOf: (result) => result.valid ? null : EventFailure.validation,
     );
   }
 }
