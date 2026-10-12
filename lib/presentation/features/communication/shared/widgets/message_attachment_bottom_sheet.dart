@@ -9,6 +9,7 @@ import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 /// Modern attachment bottom sheet with quick emoji reactions, attachment
@@ -91,7 +92,7 @@ class _MessageAttachmentBottomSheetState
     try {
       file = await _picker.pickImage(source: ImageSource.camera);
     } catch (e) {
-      debugPrint('Chat camera pick failed: $e');
+      AppLogger.w('Chat camera pick failed: $e');
       widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
       return;
     }
@@ -123,7 +124,7 @@ class _MessageAttachmentBottomSheetState
         allowMultiple: true,
       );
     } catch (e) {
-      debugPrint('Chat file pick failed: $e');
+      AppLogger.w('Chat file pick failed: $e');
       widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
       return;
     }

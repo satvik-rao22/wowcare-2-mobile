@@ -96,8 +96,7 @@ class CommunicationRemoteDataSourceImpl
       final dataMap = response.data['data'] as Map<String, dynamic>?;
       final List<dynamic> messagesJson =
           (dataMap?['messages'] as List<dynamic>?) ?? [];
-      // ignore: avoid_print
-      print(
+      AppLogger.d(
         '[Messages] conversation=$threadId page=$page received=${messagesJson.length}',
       );
       final messages = messagesJson
@@ -108,8 +107,7 @@ class CommunicationRemoteDataSourceImpl
             ),
           )
           .toList();
-      // ignore: avoid_print
-      print('[Messages] mapped=${messages.length}');
+      AppLogger.d('[Messages] mapped=${messages.length}');
 
       // Marking-as-read only makes sense for the latest window (page 0) —
       // an older-history page fetch shouldn't re-trigger it.

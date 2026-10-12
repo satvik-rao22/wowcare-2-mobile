@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -98,7 +97,7 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
       if (isClosed || list.isEmpty) return;
       emit(state.copyWith(staff: list));
     } catch (e) {
-      debugPrint('Av2 loadStaffList failed: $e');
+      AppLogger.w('Av2 loadStaffList failed: $e');
     }
   }
 
@@ -134,7 +133,7 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
       ));
     } catch (e) {
       if (isClosed) return;
-      debugPrint('Av2 loadMore failed: $e');
+      AppLogger.w('Av2 loadMore failed: $e');
       emit(state.copyWith(loadingMore: false));
     }
   }

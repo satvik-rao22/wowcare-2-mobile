@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
@@ -47,7 +47,7 @@ int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
 
   final dottedKey = data['unreadByRole.$roleBucket'];
   if (dottedKey is num) {
-    debugPrint(
+    AppLogger.d(
       '[UnreadDebug][resolve] conv=${data['conversationCode']} '
       'roleBucket=$roleBucket source=dottedKey flat=$flat '
       'resolved=${dottedKey.toInt()}',
@@ -59,7 +59,7 @@ int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
   if (byRole is Map) {
     final perRole = byRole[roleBucket];
     if (perRole is num) {
-      debugPrint(
+      AppLogger.d(
         '[UnreadDebug][resolve] conv=${data['conversationCode']} '
         'roleBucket=$roleBucket source=nestedMap flat=$flat '
         'unreadByRole=$byRole resolved=${perRole.toInt()}',
@@ -84,14 +84,14 @@ int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
       data.keys.any((k) => k.startsWith('unreadByRole.')) ||
       (byRole is Map && byRole.isNotEmpty);
   if (hasAnyRoleAwareEntry) {
-    debugPrint(
+    AppLogger.d(
       '[UnreadDebug][resolve] conv=${data['conversationCode']} '
       'roleBucket=$roleBucket source=roleAwareNoEntry flat=$flat resolved=0',
     );
     return 0;
   }
 
-  debugPrint(
+  AppLogger.d(
     '[UnreadDebug][resolve] conv=${data['conversationCode']} '
     'roleBucket=$roleBucket source=flatFallback flat=$flat',
   );

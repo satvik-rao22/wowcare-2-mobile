@@ -1,10 +1,10 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_my_profile_update.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -269,7 +269,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
           oldEmail.toLowerCase() != email.toLowerCase() &&
           organizationCode.isNotEmpty &&
           schoolCode.isNotEmpty;
-      debugPrint(
+      AppLogger.d(
         '[EmailChange][staff] typedEmail="$email" oldEmail="$oldEmail" '
         '(loadedProfileEmail="$loadedProfileEmail" cachedEmail="$cachedEmail") '
         'userCode="$userCode" org="$organizationCode" school="$schoolCode" '
@@ -285,7 +285,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
             organizationCode: organizationCode,
             schoolCode: schoolCode,
           );
-          debugPrint(
+          AppLogger.d(
             '[EmailChange][staff] changeUserEmail OK apiMessage="$apiMessage"',
           );
           // The backend call succeeded — it either applied the change or
@@ -305,7 +305,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
           // congratulate.
           _emailChangeFailed = true;
           emailChangeMessage = ApiErrorHandler.extractErrorMessage(e);
-          debugPrint(
+          AppLogger.w(
             '[EmailChange][staff] changeUserEmail FAILED error=$e '
             'extractedMessage="$emailChangeMessage"',
           );
@@ -324,7 +324,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
         emailChangeMessage: emailChangeMessage,
         profileMessage: profileMessage,
       );
-      debugPrint(
+      AppLogger.w(
         '[EmailChange][staff] final lastSaveMessage="$_lastSaveMessage" '
         'emailChangeFailed=$_emailChangeFailed profileMessage="$profileMessage"',
       );
@@ -333,7 +333,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
       return EditProfileSaveResult.success;
     } catch (e) {
       CoreUtils.logApiError(e.toString());
-      debugPrint('[EmailChange][staff] outer save FAILED error=$e');
+      AppLogger.w('[EmailChange][staff] outer save FAILED error=$e');
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return EditProfileSaveResult.failed;
     }
@@ -469,7 +469,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
           oldEmail.toLowerCase() != email.toLowerCase() &&
           organizationCode.isNotEmpty &&
           schoolCode.isNotEmpty;
-      debugPrint(
+      AppLogger.d(
         '[EmailChange][guardian] typedEmail="$email" oldEmail="$oldEmail" '
         '(loadedProfileEmail="$loadedProfileEmail" cachedEmail="$cachedEmail") '
         'userCode="$userCode" org="$organizationCode" school="$schoolCode" '
@@ -486,14 +486,14 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
             schoolCode: schoolCode,
           );
           await _storageService.saveString(StorageKeys.email, email);
-          debugPrint(
+          AppLogger.d(
             '[EmailChange][guardian] changeUserEmail OK apiMessage="$apiMessage"',
           );
           emailChangeMessage = _emailVerificationSentMessage;
         } catch (e) {
           _emailChangeFailed = true;
           emailChangeMessage = ApiErrorHandler.extractErrorMessage(e);
-          debugPrint(
+          AppLogger.w(
             '[EmailChange][guardian] changeUserEmail FAILED error=$e '
             'extractedMessage="$emailChangeMessage"',
           );

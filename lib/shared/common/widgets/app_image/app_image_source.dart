@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// How the bytes behind an [AppImageSource] must be decoded.
 enum AppImageFormat { raster, svg, lottie }
@@ -86,7 +87,7 @@ sealed class AppImageSource {
 
   static AppImageSource? _unsupported(Object value) {
     if (kDebugMode) {
-      debugPrint(
+      AppLogger.d(
         'AppImage: cannot resolve source of type ${value.runtimeType}: '
         '"$value". Pass a URL, an assets/ path, an absolute file path, '
         'Uint8List, File, or an explicit AppImageSource.',

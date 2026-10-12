@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:mime/mime.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// What kind of files a picker call should offer.
 ///
@@ -290,7 +291,7 @@ class FilePickerUtils {
         allowMultiple: allowMultiple,
       );
     } catch (e) {
-      debugPrint('Error picking files: $e');
+      AppLogger.w('Error picking files: $e');
       if (context != null && context.mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
@@ -509,7 +510,7 @@ class FilePickerUtils {
         return null;
       }
     } catch (e) {
-      debugPrint('Error picking file: $e');
+      AppLogger.w('Error picking file: $e');
       if (context != null && context.mounted) {
         CoreUtils.showTopSnackBar(
           context: context,

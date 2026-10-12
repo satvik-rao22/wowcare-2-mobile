@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_surfaces.dart';
@@ -124,7 +125,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final selectedName = await storage.getString(
         StorageKeys.selectedSchoolName,
       );
-      print(
+      AppLogger.d(
         'CustomDrawer: _loadSchoolContext: orgCode=$orgCode, schoolCode=$schoolCode, selectedName=$selectedName',
       );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];

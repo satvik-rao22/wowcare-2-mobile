@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
@@ -192,7 +193,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
             // Default preserved from the previous parse: an
             // unrecognised segment fell through to 'ACTIVE'.
             final filter = filterValue ?? 'ACTIVE';
-            debugPrint(
+            AppLogger.d(
               '[EnrollmentCard] Navigating to Student Attendance: '
               'filter=$filter, route=${StudentAttendanceTabbedView.routeName}',
             );
@@ -236,7 +237,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
             // Default preserved from the previous parse: an
             // unrecognised segment fell through to 'Expected'.
             final filter = filterValue ?? 'Expected';
-            debugPrint(
+            AppLogger.d(
               '[EnrollmentCard] Navigating to Student Attendance: '
               'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}',
             );

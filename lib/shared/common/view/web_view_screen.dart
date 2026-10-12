@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/app_error_state.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/src/app_router.dart';
@@ -70,7 +71,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   void dispose() {
-    debugPrint('WEBVIEW_DISPOSE');
+    AppLogger.d('WEBVIEW_DISPOSE');
     super.dispose();
   }
 
@@ -91,7 +92,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
       // leave the screen once there is nothing left to go back to.
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
-        debugPrint('WEBVIEW_POP_INVOKED didPop=$didPop');
+        AppLogger.d('WEBVIEW_POP_INVOKED didPop=$didPop');
         if (didPop) return;
         final controller = _controller;
         if (controller != null && await controller.canGoBack()) {

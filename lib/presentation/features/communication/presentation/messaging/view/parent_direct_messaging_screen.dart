@@ -8,6 +8,7 @@ import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/model/thread_info.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
@@ -271,7 +272,7 @@ class _ParentDirectMessagingScreenState
               ]),
               builder: (context, _) {
                 final childState = context.watch<ParentChildCubit>().state;
-                debugPrint(
+                AppLogger.d(
                   'ParentLoaded=${childState.isLoaded}, '
                   'ConversationLoading=${state.isLoading}, '
                   'SelectedConversation=${_selectedConversation.value?.code}',

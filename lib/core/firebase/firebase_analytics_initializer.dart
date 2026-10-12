@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// iOS foreground notification presentation + FirebaseAnalytics linking.
 ///
@@ -18,7 +18,7 @@ Future<void> initializeFirebaseAnalyticsAndForegroundOptions() async {
       badge: true,
       sound: true,
     );
-    debugPrint('[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)');
+    AppLogger.d('[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)');
   }
 
   try {

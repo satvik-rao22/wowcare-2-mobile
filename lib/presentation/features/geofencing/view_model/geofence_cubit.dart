@@ -203,17 +203,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   Future<void> initForSchool({required String schoolCode}) async {
-    debugPrint('╔══════════════════════════════════════════════════╗');
-    debugPrint('║  GEOFENCE initForSchool CALLED                   ║');
-    debugPrint('╠══════════════════════════════════════════════════╣');
-    debugPrint('║  schoolCode : "$schoolCode"');
-    debugPrint('║  currentStatus : ${state.status}');
-    debugPrint('║  currentSchoolCode : "${state.schoolCode}"');
-    debugPrint('╚══════════════════════════════════════════════════╝');
+    AppLogger.d('╔══════════════════════════════════════════════════╗');
+    AppLogger.d('║  GEOFENCE initForSchool CALLED                   ║');
+    AppLogger.d('╠══════════════════════════════════════════════════╣');
+    AppLogger.d('║  schoolCode : "$schoolCode"');
+    AppLogger.d('║  currentStatus : ${state.status}');
+    AppLogger.d('║  currentSchoolCode : "${state.schoolCode}"');
+    AppLogger.d('╚══════════════════════════════════════════════════╝');
     AppLogger.d('[GeofenceCubit] initForSchool: $schoolCode');
 
     if (schoolCode.isEmpty) {
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] ⚠️ EARLY EXIT — schoolCode is empty! Check StorageKeys.schoolCode in storage.',
       );
       return;
@@ -232,7 +232,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
             state.status == GeofenceCubitStatus.checking ||
             state.status == GeofenceCubitStatus.fetchingSchoolLocation)) {
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] ⚠️ EARLY EXIT — already monitoring "$schoolCode" in state ${state.status} — skipping re-init',
       );
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
@@ -397,17 +397,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     bool isRefresh = false,
   }) async {
     try {
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"',
       );
 
       final permCheck = await _checkPerm();
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permissionLevel=${permCheck.permissionLevel}',
       );
 
       if (!permCheck.serviceEnabled) {
-        debugPrint(
+        AppLogger.d(
           '[GeofenceCubit] ⚠️ EARLY EXIT — location service is DISABLED on device. User must enable in Settings > Privacy > Location Services.',
         );
         emit(
@@ -420,17 +420,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       }
       var permissionLevel = permCheck.permissionLevel;
       if (!_hasUsablePermission(permissionLevel)) {
-        debugPrint(
+        AppLogger.d(
           '[GeofenceCubit] No location permission — requesting now...',
         );
         await _requestAllPermissions();
         final recheck = await _checkPerm();
         permissionLevel = recheck.permissionLevel;
-        debugPrint(
+        AppLogger.d(
           '[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permissionLevel=${recheck.permissionLevel}',
         );
         if (!_hasUsablePermission(permissionLevel)) {
-          debugPrint(
+          AppLogger.d(
             '[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".',
           );
           emit(
@@ -441,9 +441,9 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           );
           return;
         }
-        debugPrint('[GeofenceCubit] ✅ Permission granted after request');
+        AppLogger.d('[GeofenceCubit] ✅ Permission granted after request');
       } else {
-        debugPrint(
+        AppLogger.d(
           '[GeofenceCubit] ✅ Permission already granted — skipping request',
         );
         // Permission already granted — _requestAllPermissions was skipped, so
@@ -462,29 +462,29 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       // This way both complete at the same time instead of one after the other.
       final positionFuture = _fetchPositionQuickly();
 
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] ▶ calling getSchoolLocation API for "$schoolCode"...',
       );
       // Fetches school lat/lon AND attendance-settings (radius + gpsSignInEnabled)
       // in a single call — the repository fans out both API calls in parallel.
       _config = await _getSchoolLocation(schoolCode: schoolCode);
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] ✅ getSchoolLocation API returned successfully',
       );
 
       // ── DEBUG: print geofence values to terminal ──────────────────────────
-      debugPrint('╔══════════════════════════════════════════════════╗');
-      debugPrint('║  GEOFENCE CONFIG LOADED                          ║');
-      debugPrint('╠══════════════════════════════════════════════════╣');
-      debugPrint('║  schoolCode  : ${_config?.schoolCode}');
-      debugPrint('║  latitude    : ${_config?.latitude}');
-      debugPrint('║  longitude   : ${_config?.longitude}');
-      debugPrint('║  radius (m)  : ${_config?.radiusMeters}');
-      debugPrint('║  gpsEnabled  : ${_config?.gpsSignInEnabled}');
-      debugPrint(
+      AppLogger.d('╔══════════════════════════════════════════════════╗');
+      AppLogger.d('║  GEOFENCE CONFIG LOADED                          ║');
+      AppLogger.d('╠══════════════════════════════════════════════════╣');
+      AppLogger.d('║  schoolCode  : ${_config?.schoolCode}');
+      AppLogger.d('║  latitude    : ${_config?.latitude}');
+      AppLogger.d('║  longitude   : ${_config?.longitude}');
+      AppLogger.d('║  radius (m)  : ${_config?.radiusMeters}');
+      AppLogger.d('║  gpsEnabled  : ${_config?.gpsSignInEnabled}');
+      AppLogger.d(
         '║  autoSignOut : ${_config?.autoSignOutEnabled}  (delay: ${_config?.autoSignOutDelayMinutes} min)',
       );
-      debugPrint('╚══════════════════════════════════════════════════╝');
+      AppLogger.d('╚══════════════════════════════════════════════════╝');
       // ── end debug ─────────────────────────────────────────────────────────
       AppLogger.d(
         '[GeofenceCubit] Config loaded — lat=${_config?.latitude} '
@@ -589,20 +589,20 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         }
 
         // ── Comprehensive GPS diagnostic log ──────────────────────────────
-        debugPrint('╔══════════════════════════════════════════════════════╗');
-        debugPrint('║  GPS POSITION CHECK                                  ║');
-        debugPrint('╠══════════════════════════════════════════════════════╣');
-        debugPrint('║  Device lat      : ${position.latitude}');
-        debugPrint('║  Device lon      : ${position.longitude}');
-        debugPrint('║  School lat      : ${_config!.latitude}');
-        debugPrint('║  School lon      : ${_config!.longitude}');
-        debugPrint('║  Distance        : ${distance.toStringAsFixed(1)} m');
-        debugPrint('║  Allowed radius  : ${_config!.radiusMeters} m');
-        debugPrint('║  GPS accuracy    : ±${accuracy.toStringAsFixed(1)} m');
-        debugPrint('║  Is inside       : $isInside');
-        debugPrint('║  Confidently out : $confidentlyOutside');
-        debugPrint('║  → Status        : $immediateStatus');
-        debugPrint('╚══════════════════════════════════════════════════════╝');
+        AppLogger.d('╔══════════════════════════════════════════════════════╗');
+        AppLogger.d('║  GPS POSITION CHECK                                  ║');
+        AppLogger.d('╠══════════════════════════════════════════════════════╣');
+        AppLogger.d('║  Device lat      : ${position.latitude}');
+        AppLogger.d('║  Device lon      : ${position.longitude}');
+        AppLogger.d('║  School lat      : ${_config!.latitude}');
+        AppLogger.d('║  School lon      : ${_config!.longitude}');
+        AppLogger.d('║  Distance        : ${distance.toStringAsFixed(1)} m');
+        AppLogger.d('║  Allowed radius  : ${_config!.radiusMeters} m');
+        AppLogger.d('║  GPS accuracy    : ±${accuracy.toStringAsFixed(1)} m');
+        AppLogger.d('║  Is inside       : $isInside');
+        AppLogger.d('║  Confidently out : $confidentlyOutside');
+        AppLogger.d('║  → Status        : $immediateStatus');
+        AppLogger.d('╚══════════════════════════════════════════════════════╝');
 
         AppLogger.d(
           '[GeofenceCubit] GPS check — '
@@ -618,7 +618,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         // GPS unavailable — fall back to last-known persisted status.
         final restored = await _restoreLastKnownStatus();
         immediateStatus = restored ?? GeofenceCubitStatus.checking;
-        debugPrint(
+        AppLogger.d(
           '[GeofenceCubit] ⚠️ GPS position unavailable — using '
           'persisted status: $immediateStatus',
         );
@@ -689,12 +689,12 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         );
       }
     } catch (e, st) {
-      debugPrint('╔══════════════════════════════════════════════════╗');
-      debugPrint('║  GEOFENCE INIT ERROR                             ║');
-      debugPrint('╠══════════════════════════════════════════════════╣');
-      debugPrint('║  $e');
-      debugPrint('║  $st');
-      debugPrint('╚══════════════════════════════════════════════════╝');
+      AppLogger.d('╔══════════════════════════════════════════════════╗');
+      AppLogger.w('║  GEOFENCE INIT ERROR                             ║');
+      AppLogger.d('╠══════════════════════════════════════════════════╣');
+      AppLogger.d('║  $e');
+      AppLogger.d('║  $st');
+      AppLogger.d('╚══════════════════════════════════════════════════╝');
       AppLogger.d('[GeofenceCubit] Init error: $e');
       emit(
         state.copyWith(
@@ -871,7 +871,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         'accuracy=±${pos.accuracy.toStringAsFixed(1)}m '
         'isMocked=${pos.isMocked}',
       );
-      debugPrint(
+      AppLogger.d(
         '[GeofenceCubit] 📍 GPS fix: lat=${pos.latitude} lon=${pos.longitude} accuracy=±${pos.accuracy.toStringAsFixed(1)}m',
       );
       return pos;
@@ -879,7 +879,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       AppLogger.d(
         '[GeofenceCubit] getCurrentPosition failed ($e) — trying getLastKnownPosition',
       );
-      debugPrint(
+      AppLogger.w(
         '[GeofenceCubit] ⚠️ getCurrentPosition timed out or failed: $e',
       );
       try {
@@ -891,15 +891,15 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             'accuracy=±${last.accuracy.toStringAsFixed(1)}m '
             'age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
           );
-          debugPrint(
+          AppLogger.d(
             '[GeofenceCubit] 📍 Last known position: lat=${last.latitude} lon=${last.longitude} accuracy=±${last.accuracy.toStringAsFixed(1)}m age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
           );
         } else {
-          debugPrint('[GeofenceCubit] ⚠️ No last known position available');
+          AppLogger.d('[GeofenceCubit] ⚠️ No last known position available');
         }
         return last;
       } catch (_) {
-        debugPrint('[GeofenceCubit] ⚠️ getLastKnownPosition also failed');
+        AppLogger.w('[GeofenceCubit] ⚠️ getLastKnownPosition also failed');
         return null;
       }
     }

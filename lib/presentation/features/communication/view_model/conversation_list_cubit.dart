@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
@@ -200,7 +200,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           return;
         }
         final int debugPrevCount = state.conversations.length;
-        debugPrint(
+        AppLogger.d(
           '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
           '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
         );
@@ -632,7 +632,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         final withFirestoreUnread = conversations
             .map((c) => c.copyWith(unreadCount: _knownUnread(c.code)))
             .toList();
-        debugPrint(
+        AppLogger.d(
           '[UnreadDebug][${_conversationType.toApiString()}] refresh() result '
           '(unread from Firestore-backed state, not REST): '
           '${withFirestoreUnread.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',

@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../widgets/custom_curved_appbar.dart';
 
@@ -58,22 +59,22 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   // }
 
   Future<bool> _requestPermissions() async {
-    debugPrint("Requesting permissions...");
+    AppLogger.d("Requesting permissions...");
 
     if (Platform.isAndroid) {
       final androidInfo = await deviceInfo.androidInfo;
       final sdkInt = androidInfo.version.sdkInt;
-      debugPrint("Android SDK Version: $sdkInt");
+      AppLogger.d("Android SDK Version: $sdkInt");
 
       if (sdkInt >= 33) {
         // For Android 13+, only request all media permissions
         final status = await Permission.manageExternalStorage.request();
-        debugPrint("Manage external storage permission status: $status");
+        AppLogger.d("Manage external storage permission status: $status");
         return status.isGranted;
       } else {
         // For Android 12 and below
         final status = await Permission.storage.request();
-        debugPrint("Storage permission status: $status");
+        AppLogger.d("Storage permission status: $status");
         return status.isGranted;
       }
     }
@@ -81,14 +82,14 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   }
 
   Future<void> _downloadPdf(Uint8List fileBytes, BuildContext context) async {
-    debugPrint("Starting PDF download process...");
+    AppLogger.d("Starting PDF download process...");
 
     try {
       final hasPermission = await _requestPermissions();
-      debugPrint("Has permission: $hasPermission");
+      AppLogger.d("Has permission: $hasPermission");
 
       if (!hasPermission) {
-        debugPrint("Permission not granted");
+        AppLogger.d("Permission not granted");
         final bool shouldOpenSettings =
             await showDialog(
               context: context,
@@ -126,20 +127,20 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
           bool dirExists = await downloadsDir.exists();
           if (!dirExists) {
             await downloadsDir.create(recursive: true);
-            debugPrint("Downloads directory created");
+            AppLogger.d("Downloads directory created");
           }
 
           final fileName = 'payslip_${widget.month}_${widget.year}.pdf';
           filePath = '${downloadsDir.path}/$fileName';
-          debugPrint("Attempting to save file to: $filePath");
+          AppLogger.d("Attempting to save file to: $filePath");
 
           final file = File(filePath);
           await file.writeAsBytes(fileBytes);
-          debugPrint("File written successfully");
+          AppLogger.d("File written successfully");
 
           CoreUtils.showSnackBar(context, 'File saved to Downloads folder');
         } catch (e) {
-          debugPrint("Error saving to downloads: $e");
+          AppLogger.w("Error saving to downloads: $e");
           // Fallback to app documents directory
           final appDir = await getApplicationDocumentsDirectory();
           final fileName =
@@ -166,7 +167,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         CoreUtils.showSnackBar(context, 'File saved to Documents folder');
       }
     } catch (e) {
-      debugPrint("Error in download process: $e");
+      AppLogger.w("Error in download process: $e");
       CoreUtils.showSnackBar(context, 'Could not save the file. Please try again.');
     }
   }
@@ -180,7 +181,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: () {
-              debugPrint("Download button pressed");
+              AppLogger.d("Download button pressed");
               _downloadPdf(widget.pdfData, context);
             },
           ),

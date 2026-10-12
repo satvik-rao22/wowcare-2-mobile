@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/my_day_chat_preview_row.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_forms/staff_mark_absent_form.dart';
@@ -244,7 +245,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       final endTimeSet = ws.workEndTime.hour != 0 || ws.workEndTime.minute != 0;
 
       if (!startTimeSet || !endTimeSet) {
-        debugPrint(
+        AppLogger.d(
           '[MyDayCard._resolveWorkScheduleForDay] Skipping ${ws.dayOfWeek}: '
           'start=${ws.workStartTime.hour}:${ws.workStartTime.minute}, '
           'end=${ws.workEndTime.hour}:${ws.workEndTime.minute} (unset)',
@@ -382,11 +383,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      debugPrint(
+      AppLogger.d(
         '[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted',
       );
       if (schoolCode.isEmpty) {
-        debugPrint(
+        AppLogger.d(
           '[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.',
         );
         return;
@@ -396,7 +397,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       // Initialize GPS geofencing with the school code
       await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
     } catch (e, st) {
-      debugPrint('[MyDayCard] ❌ _initializeGeofencing error: $e\n$st');
+      AppLogger.w('[MyDayCard] ❌ _initializeGeofencing error: $e\n$st');
     }
   }
 

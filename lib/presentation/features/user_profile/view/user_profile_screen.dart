@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -289,7 +290,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       image = await _picker.pickImage(source: source);
     } catch (e) {
-      debugPrint('Profile photo pick failed: $e');
+      AppLogger.w('Profile photo pick failed: $e');
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,

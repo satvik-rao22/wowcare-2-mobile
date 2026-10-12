@@ -6,6 +6,7 @@ import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/html_aware_text_controller.dart';
@@ -54,7 +55,7 @@ class _MessageCompositionBulkMessagingState
     try {
       picked = await ImagePicker().pickMultiImage();
     } catch (e) {
-      debugPrint('Bulk message image pick failed: $e');
+      AppLogger.w('Bulk message image pick failed: $e');
       if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
       return;
     }
@@ -75,7 +76,7 @@ class _MessageCompositionBulkMessagingState
         allowMultiple: true,
       );
     } catch (e) {
-      debugPrint('Bulk message file pick failed: $e');
+      AppLogger.w('Bulk message file pick failed: $e');
       if (mounted) _showErrorMessage(AppStrings.attachmentPickFailed);
       return;
     }

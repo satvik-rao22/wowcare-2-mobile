@@ -10,6 +10,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/view_model/auto_pay_methods_cubit.dart';
 import 'package:go_router/go_router.dart';
@@ -1131,7 +1132,7 @@ class _AutoPayPaymentMethodsScreenState
         ? PaymentMethodType.echeck
         : PaymentMethodTypeX.fromApi(data['card_type']?.toString());
     // Never log the one-time payment token — only the non-sensitive shape.
-    debugPrint(
+    AppLogger.d(
       '[AUTOPAY] tokenization result (type=${type.apiValue}, tokenPresent=${token.isNotEmpty})',
     );
 

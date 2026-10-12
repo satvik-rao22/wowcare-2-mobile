@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 // import 'package:schoolerp/core/common/app/providers/auth_providers.dart'; // backend provider not available
 
 class DateUtilsNew {
@@ -26,9 +26,9 @@ class DateUtilsNew {
     // Assuming time format is "HH:MM:SS AM/PM"
     DateTime now = AppTime.now();
 
-    debugPrint('startTime $startTime');
-    debugPrint('endTime $endTime');
-    debugPrint('timeToCheck $timeToCheck');
+    AppLogger.d('startTime $startTime');
+    AppLogger.d('endTime $endTime');
+    AppLogger.d('timeToCheck $timeToCheck');
 
     // Create base date to attach times to
     DateTime baseDate = DateTime(now.year, now.month, now.day);

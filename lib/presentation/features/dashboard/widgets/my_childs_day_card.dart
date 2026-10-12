@@ -1,4 +1,5 @@
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
@@ -1537,7 +1538,7 @@ class _MyChildsDayChatPreviewRowState
     // Private-mode rooms are shown with their real last-message preview —
     // hiding or masking them made the child's chat vanish / stop updating.
     final mine = forChild.toList();
-    debugPrint(
+    AppLogger.d(
       '[ChildChat] child=$child total=${list.length} '
       'matchedChild=${forChild.length} shown=${mine.length} '
       'studentCodes=${list.map((c) => c.studentCode).toSet()}',

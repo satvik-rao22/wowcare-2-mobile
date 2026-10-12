@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dartz/dartz.dart' show Either;
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/domain/features/communication/services/messaging_session.dart';
 import 'package:wowcare/domain/features/communication/policies/message_delete_permission.dart';
 import 'package:wowcare/domain/features/communication/usecases/resolve_message_delete_permission_usecase.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -1257,7 +1257,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // backgrounded would be stamped read — zeroing their unread badge for a message they never
     // actually saw (the unread badges are receipt-based).
     if (!_isAppForegrounded()) {
-      debugPrint(
+      AppLogger.d(
         '[UnreadDebug][markRead] SKIPPED conv=${state.conversationCode} '
         '(app backgrounded)',
       );
@@ -1267,12 +1267,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // Publish event so ConversationListCubit zeroes the badge immediately —
     // before Firestore confirms the read receipt.
     result.fold(
-      (failure) => debugPrint(
+      (failure) => AppLogger.w(
         '[UnreadDebug][markRead] FAILED conv=${state.conversationCode}: '
         '$failure',
       ),
       (_) {
-        debugPrint('[UnreadDebug][markRead] OK conv=${state.conversationCode}');
+        AppLogger.d('[UnreadDebug][markRead] OK conv=${state.conversationCode}');
         MessagingEventService.instance.notifyMarkedRead(state.conversationCode);
       },
     );

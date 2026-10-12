@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/widgets.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/school_switch_events.dart';
 import 'package:wowcare/core/utils/tab_visibility_events.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -159,7 +160,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState>
     try {
       final key = await resolver();
       if (isClosed || key == _scopeKey) return;
-      debugPrint('[UnreadDebug][badge] scope changed $_scopeKey -> $key');
+      AppLogger.d('[UnreadDebug][badge] scope changed $_scopeKey -> $key');
       _counts.clear();
       _firestoreDelivered.clear();
       _firestoreTotal = null;
@@ -214,13 +215,13 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState>
         // still applies.
         final alreadyLive = _firestoreDelivered.contains(key);
         if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
-          debugPrint(
+          AppLogger.d(
             '[UnreadDebug][badge:$key] ignoring spurious first-emit 0 '
             '(current=${_counts[key]})',
           );
           return;
         }
-        debugPrint(
+        AppLogger.d(
           '[UnreadDebug][badge:$key] Firestore aggregate emit: $count '
           '(was ${_counts[key]}, alreadyLive=$alreadyLive)',
         );
@@ -252,7 +253,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState>
     _totalSubscription = _watchTotalUnreadCountUseCase().listen(
       (total) {
         if (isClosed) return;
-        debugPrint('[UnreadDebug][badge:TOTAL] Firestore inbox sum: $total');
+        AppLogger.d('[UnreadDebug][badge:TOTAL] Firestore inbox sum: $total');
         _firestoreTotal = total;
         _emit();
       },

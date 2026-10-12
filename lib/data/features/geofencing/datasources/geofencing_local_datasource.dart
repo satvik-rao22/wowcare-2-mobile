@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
 
@@ -76,13 +76,13 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
       // of truth for location permission on iOS.
       final perm = await Geolocator.checkPermission();
       final level = _mapIOSPermission(perm);
-      debugPrint('[GeofenceDS] iOS getPermissionLevel: $perm → $level');
+      AppLogger.d('[GeofenceDS] iOS getPermissionLevel: $perm → $level');
       return level;
     }
     // Android: permission_handler is correctly configured via AndroidManifest.xml.
     final status = await Permission.location.status;
     final level = await _mapAndroidPermission(status);
-    debugPrint('[GeofenceDS] Android getPermissionLevel: $status → $level');
+    AppLogger.d('[GeofenceDS] Android getPermissionLevel: $status → $level');
     return level;
   }
 
@@ -96,7 +96,7 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
       // and only ever asks for what the OS prompt naturally offers next.
       final perm = await Geolocator.requestPermission();
       final level = _mapIOSPermission(perm);
-      debugPrint('[GeofenceDS] iOS requestLocationPermission: $perm → $level');
+      AppLogger.d('[GeofenceDS] iOS requestLocationPermission: $perm → $level');
       return level;
     }
     // Android: request only foreground ("While Using the App") location.
@@ -104,7 +104,7 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
     // be a deliberate, separate request triggered by explicit user action.
     final status = await Permission.location.request();
     final level = await _mapAndroidPermission(status);
-    debugPrint('[GeofenceDS] Android requestLocationPermission: $status → $level');
+    AppLogger.d('[GeofenceDS] Android requestLocationPermission: $status → $level');
     return level;
   }
 
@@ -145,7 +145,7 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
       (position) {
         // Security: reject mocked / fake GPS (Android only — iOS never sets isMocked).
         if (position.isMocked) {
-          debugPrint('[GeofenceStream] ❌ Rejected mocked position');
+          AppLogger.w('[GeofenceStream] ❌ Rejected mocked position');
           return false;
         }
 
@@ -153,18 +153,18 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
         // iOS WiFi/cell fixes commonly report 200–400 m accuracy, so 500 m ceiling
         // keeps those positions in. The cubit's hysteresis logic handles coarse fixes.
         if (position.accuracy <= 0 || position.accuracy > 500) {
-          debugPrint('[GeofenceStream] ❌ Rejected position — accuracy=±${position.accuracy.toStringAsFixed(1)}m (out of 0–500 m range)');
+          AppLogger.w('[GeofenceStream] ❌ Rejected position — accuracy=±${position.accuracy.toStringAsFixed(1)}m (out of 0–500 m range)');
           return false;
         }
 
         // Reject stale cached positions older than 60 seconds.
         final age = DateTime.now().toUtc().difference(position.timestamp);
         if (age.inSeconds > 60) {
-          debugPrint('[GeofenceStream] ❌ Rejected stale position — age=${age.inSeconds}s');
+          AppLogger.w('[GeofenceStream] ❌ Rejected stale position — age=${age.inSeconds}s');
           return false;
         }
 
-        debugPrint('[GeofenceStream] ✅ Accepted — lat=${position.latitude} lon=${position.longitude} accuracy=±${position.accuracy.toStringAsFixed(1)}m age=${age.inSeconds}s');
+        AppLogger.d('[GeofenceStream] ✅ Accepted — lat=${position.latitude} lon=${position.longitude} accuracy=±${position.accuracy.toStringAsFixed(1)}m age=${age.inSeconds}s');
         return true;
       },
     );
