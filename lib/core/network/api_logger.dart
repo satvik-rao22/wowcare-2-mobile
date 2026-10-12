@@ -1,8 +1,20 @@
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:wowcare/core/utils/app_console.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
-// Simple API logger to centralize request/response/error logging for all APIs.
+/// Request, response and error logging for API calls.
+///
+/// In debug builds each call prints one block to the console through
+/// [AppConsole]: blue for requests and successes, orange for 4xx, red for 5xx
+/// and dropped connections, with the status and the time the call took. JSON
+/// bodies are indented while they stay short enough to read.
+///
+/// Release builds print nothing. An error still leaves a Crashlytics log line,
+/// and an unexpected one (not a 4xx, not a timeout or dropped connection) is
+/// reported through [AppLogger.e], exactly as before.
 class ApiLogger {
   ApiLogger._();
 
@@ -13,36 +25,21 @@ class ApiLogger {
     Map<String, dynamic>? queryParameters,
     dynamic body,
   }) {
-    AppLogger.d('═══════════════════════════════════════════════════════');
-    AppLogger.d('🔵 API REQUEST');
-    AppLogger.d('Method: $method');
-
-    // URL already includes query parameters from Dio (options.uri),
-    // so just log it as-is to avoid duplicating the query string.
-    AppLogger.d('URL: $url');
-
+    if (!kDebugMode) return;
+    final block = StringBuffer('⇡ ${method.toUpperCase()} $url');
     if (queryParameters != null && queryParameters.isNotEmpty) {
-      final String queryString = _stringify(queryParameters);
-      AppLogger.d('Query Parameters: $queryString');
+      block.write('\nQuery: ${formatBody(queryParameters)}');
     }
-
-    if (headers != null) {
-      // Print headers line-by-line to avoid logcat truncation on long tokens.
-      // ignore: avoid_print
-      print('Headers:');
+    if (headers != null && headers.isNotEmpty) {
+      block.write('\nHeaders:');
       headers.forEach((key, value) {
-        final normalizedKey = key.toLowerCase();
-        final displayValue = normalizedKey == 'authorization'
-            ? _maskToken(value?.toString() ?? '')
-            : (value?.toString() ?? '');
-        _printInChunks('  $key: $displayValue');
+        block.write('\n  $key: ${maskHeader(key, value?.toString() ?? '')}');
       });
     }
     if (body != null) {
-      final String bodyString = _stringify(body);
-      AppLogger.d('Body: $bodyString');
+      block.write('\nBody: ${formatBody(body)}');
     }
-    AppLogger.d('═══════════════════════════════════════════════════════');
+    AppConsole.http(block.toString());
   }
 
   static void logResponse({
@@ -51,22 +48,14 @@ class ApiLogger {
     Map<String, dynamic>? queryParameters,
     int? statusCode,
     dynamic data,
+    Duration? elapsed,
   }) {
-    AppLogger.d('═══════════════════════════════════════════════════════');
-    AppLogger.d('🟢 API RESPONSE');
-    AppLogger.d('Method: $method');
-
-    // URL already includes query parameters from Dio (requestOptions.uri),
-    // so just log it as-is to avoid duplicating the query string.
-    AppLogger.d('URL: $url');
-    AppLogger.d('Status Code: $statusCode');
-    if (data != null) {
-      final String dataString = _stringify(data);
-      _printInChunks('Response Data: $dataString');
-    } else {
-      AppLogger.d('Response Data: null');
-    }
-    AppLogger.d('═══════════════════════════════════════════════════════');
+    if (!kDebugMode) return;
+    final block = StringBuffer(
+      '⇣ $statusCode ${method.toUpperCase()} $url${_took(elapsed)}',
+    );
+    block.write('\nData: ${data == null ? 'null' : formatBody(data)}');
+    AppConsole.http(block.toString(), status: statusCode);
   }
 
   static bool _isExpectedStatusCode(int? statusCode) {
@@ -94,25 +83,15 @@ class ApiLogger {
     dynamic errorData,
     DioException? dioError,
     StackTrace? stackTrace,
+    Duration? elapsed,
   }) {
-    AppLogger.c('═══════════════════════════════════════════════════════');
-    AppLogger.c('🔴 API ERROR');
-    AppLogger.c('Method: $method');
-    AppLogger.c('URL: $url');
-    if (type != null) {
-      AppLogger.c('Error Type: $type');
-    }
-    if (message != null) {
-      AppLogger.c('Error Message: $message');
-    }
-    if (statusCode != null) {
-      AppLogger.c('Status Code: $statusCode');
-    }
-    if (errorData != null) {
-      final String errorString = _stringify(errorData);
-      _printInChunks('Error Response Data: $errorString', isError: true);
-    }
-    AppLogger.c('═══════════════════════════════════════════════════════');
+    final block = StringBuffer(
+      '✕ ${statusCode ?? '---'} ${method.toUpperCase()} $url${_took(elapsed)}',
+    );
+    if (type != null) block.write('\nType: $type');
+    if (message != null) block.write('\nMessage: $message');
+    if (errorData != null) block.write('\nData: ${formatBody(errorData)}');
+    _emitError(block.toString(), status: statusCode);
 
     if (!_isExpectedStatusCode(statusCode)) {
       AppLogger.e(
@@ -128,63 +107,75 @@ class ApiLogger {
     required String method,
     required Object error,
     StackTrace? stackTrace,
+    Duration? elapsed,
   }) {
-    AppLogger.c('═══════════════════════════════════════════════════════');
-    AppLogger.c('🔴 API UNEXPECTED ERROR');
-    AppLogger.c('Method: $method');
-    AppLogger.c('URL: $url');
-    AppLogger.c('Error: $error');
-    if (stackTrace != null) {
-      AppLogger.c('Stack Trace: $stackTrace');
-    }
-    AppLogger.c('═══════════════════════════════════════════════════════');
+    final block = StringBuffer(
+      '✕ --- ${method.toUpperCase()} $url${_took(elapsed)}',
+    );
+    block.write(
+      error is DioException
+          ? '\nType: ${error.type.name}\nMessage: ${error.message}'
+          : '\nError: $error',
+    );
+    _emitError(block.toString(), failed: true);
 
     if (!_isExpectedDioError(error)) {
-      AppLogger.e(
-        'Unexpected API Failure: $method $url',
-        error,
-        stackTrace,
-      );
+      AppLogger.e('Unexpected API Failure: $method $url', error, stackTrace);
     }
   }
 
-  /// Safely converts any body/response object to a full JSON string when possible.
-  static String _stringify(dynamic value) {
-    try {
-      // If it's already a String, return as is (assume it's what caller wants)
-      if (value is String) return value;
+  /// Debug: a red or orange console block. Release: the same text as a
+  /// Crashlytics log line, which is what [AppLogger.c] did here before.
+  static void _emitError(String block, {int? status, bool failed = false}) {
+    if (kDebugMode) {
+      AppConsole.http(block, status: status, failed: failed);
+    } else {
+      AppLogger.c(block);
+    }
+  }
 
-      // If it's a Map/List or other JSON-encodable type, pretty-print as JSON
-      return jsonEncode(value);
+  static String _took(Duration? elapsed) =>
+      elapsed == null ? '' : '  (${elapsed.inMilliseconds} ms)';
+
+  /// Bodies up to this many characters of JSON are indented; longer ones
+  /// stay on one line, which [AppConsole] splits for logcat.
+  static const int _indentLimit = 4000;
+
+  /// Renders a request or response body for the console: JSON indented when
+  /// short, form data as its field names and file sizes.
+  @visibleForTesting
+  static String formatBody(dynamic value) {
+    if (value is String) return value;
+    if (value is FormData) {
+      final fields = value.fields.map((field) => field.key);
+      final files = value.files.map(
+        (file) =>
+            '${file.key}: ${file.value.filename ?? 'file'} '
+            '(${file.value.length} bytes)',
+      );
+      return 'FormData(fields: [${fields.join(', ')}], '
+          'files: [${files.join(', ')}])';
+    }
+    try {
+      final compact = jsonEncode(value);
+      if (compact.length > _indentLimit) return compact;
+      return '\n${const JsonEncoder.withIndent('  ').convert(value)}';
     } catch (_) {
-      // Fallback to default toString if encoding fails
       return value.toString();
     }
   }
 
-  /// Prints long strings in multiple chunks so that logcat does not truncate them.
-  static void _printInChunks(String text, {int chunkSize = 800, bool isError = false}) {
-    if (text.length <= chunkSize) {
-      isError ? AppLogger.c(text) : AppLogger.d(text);
-      return;
+  /// Shortens credentials so a console log never shows a usable one.
+  @visibleForTesting
+  static String maskHeader(String key, String value) {
+    final name = key.toLowerCase();
+    if (name == 'cookie' || name == 'set-cookie') {
+      return value.isEmpty ? value : '***';
     }
-
-    var start = 0;
-    while (start < text.length) {
-      final end = (start + chunkSize < text.length)
-          ? start + chunkSize
-          : text.length;
-      final chunk = text.substring(start, end);
-      isError ? AppLogger.c(chunk) : AppLogger.d(chunk);
-      start = end;
-    }
-  }
-
-  static String _maskToken(String token) {
-    if (token.isEmpty) return token;
+    if (name != 'authorization' || value.isEmpty) return value;
     const prefix = 'Bearer ';
-    if (!token.startsWith(prefix)) return token;
-    final raw = token.substring(prefix.length);
+    if (!value.startsWith(prefix)) return '***';
+    final raw = value.substring(prefix.length);
     if (raw.length <= 16) return '$prefix***';
     return '$prefix${raw.substring(0, 8)}...${raw.substring(raw.length - 8)}';
   }

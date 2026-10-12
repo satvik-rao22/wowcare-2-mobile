@@ -1,11 +1,15 @@
-// ignore_for_file: avoid_print
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:wowcare/core/observability/telemetry.dart';
+import 'package:wowcare/core/utils/app_console.dart';
 
 /// A centralized, environment-aware logging utility.
+///
+/// In debug builds every call prints to the console through [AppConsole]:
+/// coloured by level, timestamped, and with the calling `file:line`, so a
+/// line leads back to its code. Errors also show their stack trace.
 ///
 /// Debug/info/warning messages print to the console in debug builds only and
 /// are **NOT** emitted in release/profile builds. This is deliberate: callers
@@ -19,40 +23,41 @@ import 'package:wowcare/core/observability/telemetry.dart';
 /// [Telemetry], which is a no-op unless Sentry is on for this build. Sentry
 /// never gets a fatal: Crashlytics owns those.
 class AppLogger {
-  // ANSI Color codes for console output formatting
-  static const String _reset = '\x1B[0m';
-  static const String _red = '\x1B[31m';
-  static const String _green = '\x1B[32m';
-  static const String _yellow = '\x1B[33m';
-  static const String _cyan = '\x1B[36m';
-
-  /// Logs a debug message (Cyan). Debug builds only; no-op in release.
+  /// Logs a debug message (cyan). Debug builds only; no-op in release.
   static void d(Object? message) {
     if (kDebugMode) {
-      print('$_cyan[DEBUG] $message$_reset');
+      AppConsole.debug(message);
     }
     // Release/profile: intentionally no-op — never forward raw debug content
     // (may contain API bodies / PII) to any sink.
   }
 
-  /// Logs an info message (Green). Debug builds only; no-op in release.
+  /// Logs an info message (green). Debug builds only; no-op in release.
   static void i(Object? message) {
     if (kDebugMode) {
-      print('$_green[INFO] $message$_reset');
+      AppConsole.info(message);
     }
     // Release/profile: intentionally no-op — see [d].
   }
 
-  /// Logs a warning message (Yellow). Debug builds only; no-op in release.
+  /// Logs a warning message (orange). Debug builds only; no-op in release.
   static void w(Object? message) {
     if (kDebugMode) {
-      print('$_yellow[WARNING] $message$_reset');
+      AppConsole.warning(message);
     }
     // Release/profile: intentionally no-op — see [d].
   }
 
-  /// Logs an error message (Red)
+  /// Logs an error message (red) and reports it as a non-fatal to
+  /// Crashlytics (release) and Sentry.
+  ///
+  /// A [StackTrace] passed as [error] (`AppLogger.e('…', stack)`) is taken as
+  /// the stack trace, so the report carries the message plus that trace.
   static void e(Object? message, [Object? error, StackTrace? stackTrace]) {
+    if (error is StackTrace) {
+      stackTrace ??= error;
+      error = null;
+    }
     final reported = error ?? message;
     if (reported != null) {
       unawaited(
@@ -64,13 +69,7 @@ class AppLogger {
       );
     }
     if (kDebugMode) {
-      print('$_red[ERROR] $message$_reset');
-      if (error != null) {
-        print('$_red[Error Detail] $error$_reset');
-      }
-      if (stackTrace != null) {
-        print('$_red[Stack Trace]\n$stackTrace$_reset');
-      }
+      AppConsole.error(message, cause: error, stackTrace: stackTrace);
     } else {
       try {
         FirebaseCrashlytics.instance.recordError(
@@ -86,14 +85,12 @@ class AppLogger {
   /// Logs a console-only error message (Red) and a Crashlytics breadcrumb.
   /// Does NOT trigger a Crashlytics non-fatal error event.
   static void c(Object? message, [Object? error, StackTrace? stackTrace]) {
+    if (error is StackTrace) {
+      stackTrace ??= error;
+      error = null;
+    }
     if (kDebugMode) {
-      print('$_red[ERROR] $message$_reset');
-      if (error != null) {
-        print('$_red[Error Detail] $error$_reset');
-      }
-      if (stackTrace != null) {
-        print('$_red[Stack Trace]\n$stackTrace$_reset');
-      }
+      AppConsole.error(message, cause: error, stackTrace: stackTrace);
     } else {
       try {
         FirebaseCrashlytics.instance.log('[ERROR] $message');
@@ -126,7 +123,7 @@ class AppLogger {
   static void trail(String message) {
     unawaited(Telemetry.breadcrumb(message, category: 'trail'));
     if (kDebugMode) {
-      print('$_cyan[TRAIL] $message$_reset');
+      AppConsole.trail(message);
       return;
     }
     try {
@@ -148,7 +145,7 @@ class AppLogger {
     if (value == null) return;
     Telemetry.setKey(key, value);
     if (kDebugMode) {
-      print('$_cyan[KEY] $key=$value$_reset');
+      AppConsole.key(key, value);
       return;
     }
     try {
@@ -178,11 +175,12 @@ class AppLogger {
   }) {
     unawaited(Telemetry.captureError(error, stackTrace, reason: reason));
     if (kDebugMode) {
-      print('$_red[${fatal ? 'FATAL' : 'NON-FATAL'}] $reason$_reset');
-      print('$_red[Error Detail] $error$_reset');
-      if (stackTrace != null) {
-        print('$_red[Stack Trace]\n$stackTrace$_reset');
-      }
+      AppConsole.error(
+        '${fatal ? 'FATAL' : 'NON-FATAL'}: $reason',
+        cause: error,
+        stackTrace: stackTrace,
+        fatal: fatal,
+      );
       return;
     }
     try {
@@ -192,6 +190,27 @@ class AppLogger {
         reason: reason,
         fatal: fatal,
       );
+    } catch (_) {}
+  }
+
+  /// The console, breadcrumb and crash-report side of an `AppEvents` line.
+  /// Only `AppEvents` calls this; feature code records events through it.
+  ///
+  /// [attributes] are the event's own, which `AppEvents` guarantees carry no
+  /// personal data. They ride on the Sentry breadcrumb, so an error report
+  /// shows each step's outcome and failure bucket, not just its name.
+  static void event(
+    String name, {
+    required bool succeeded,
+    Map<String, Object> attributes = const {},
+  }) {
+    unawaited(Telemetry.breadcrumb(name, category: 'event', data: attributes));
+    if (kDebugMode) {
+      AppConsole.event(name, attributes, succeeded: succeeded);
+      return;
+    }
+    try {
+      FirebaseCrashlytics.instance.log(name);
     } catch (_) {}
   }
 

@@ -70,6 +70,7 @@ class ApiClient {
       _dio.interceptors.add(
         InterceptorsWrapper(
         onRequest: (options, handler) {
+          options.extra[_logStartedAtKey] = DateTime.now();
           ApiLogger.logRequest(
             url: options.uri.toString(),
             method: options.method,
@@ -89,6 +90,7 @@ class ApiClient {
                 : response.requestOptions.queryParameters,
             statusCode: response.statusCode,
             data: response.data,
+            elapsed: _elapsed(response.requestOptions),
           );
           handler.next(response);
         },
@@ -103,6 +105,7 @@ class ApiClient {
               errorData: error.response?.data,
               dioError: error,
               stackTrace: error.stackTrace,
+              elapsed: _elapsed(request),
             );
           } else {
             ApiLogger.logUnexpectedError(
@@ -110,6 +113,7 @@ class ApiClient {
               method: request.method,
               error: error,
               stackTrace: error.stackTrace,
+              elapsed: _elapsed(request),
             );
           }
           handler.next(error);
@@ -123,6 +127,13 @@ class ApiClient {
   }
 
   late final Dio _dio;
+
+  static const String _logStartedAtKey = 'api_logger_started_at';
+
+  static Duration? _elapsed(RequestOptions options) {
+    final startedAt = options.extra[_logStartedAtKey];
+    return startedAt is DateTime ? DateTime.now().difference(startedAt) : null;
+  }
 
   Dio get client => _dio;
 }

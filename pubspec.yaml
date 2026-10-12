@@ -105,6 +105,8 @@ dependencies:
   app_links: ^7.0.0
   cached_network_image: ^3.4.1
   firebase_remote_config: ^6.5.1
+  # Debug console only (AppConsole): colour, time and caller per log line.
+  logger: ^2.8.0
 
 dev_dependencies:
   build_runner: ^2.1.4

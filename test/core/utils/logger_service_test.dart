@@ -59,6 +59,18 @@ void main() {
     expect(events.single.exceptions!.single.value, '[REPORTS] load failed');
   });
 
+  test('a stack trace passed as the error is taken as the trace', () async {
+    // The console logger rejects a StackTrace as the error; this used to throw
+    // out of AppLogger.e and break the caller.
+    AppLogger.e('[REG] gate pre-check failed', StackTrace.current);
+    AppLogger.c('[REG] recovery failed', StackTrace.current);
+    await settle();
+
+    final event = events.single;
+    expect(event.exceptions!.single.value, '[REG] gate pre-check failed');
+    expect(event.exceptions!.single.stackTrace, isNotNull);
+  });
+
   test('recordError never reaches Sentry as a fatal', () async {
     AppLogger.recordError(
       StateError('boom'),
@@ -89,6 +101,22 @@ void main() {
       expect(event.contexts['keys'], {'media.attempt': 2});
     },
   );
+
+  test('event becomes a breadcrumb that carries its attributes', () async {
+    AppLogger.event(
+      'task.create.failed',
+      succeeded: false,
+      attributes: const {'failure': 'network', 'count': 2},
+    );
+    AppLogger.e('[TASKS] create failed', StateError('boom'));
+    await settle();
+
+    final crumb = events.single.breadcrumbs!.singleWhere(
+      (b) => b.category == 'event',
+    );
+    expect(crumb.message, 'task.create.failed');
+    expect(crumb.data, {'failure': 'network', 'count': 2});
+  });
 }
 
 /// Nothing a unit test produces may reach the network.
