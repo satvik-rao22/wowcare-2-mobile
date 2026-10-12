@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/staff_my_profile_update.dart';
 import '../repositories/staff_repository.dart';
 
@@ -14,6 +16,9 @@ class UpdateMyStaffProfileUseCase {
     required String staffCode,
     required StaffMyProfileUpdate fields,
   }) {
-    return _repository.updateMyProfile(staffCode: staffCode, fields: fields);
+    return AppEvents.track(
+      AppEvent.staffOwnProfileUpdate,
+      () => _repository.updateMyProfile(staffCode: staffCode, fields: fields),
+    );
   }
 }

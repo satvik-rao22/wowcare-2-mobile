@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/availability/repositories/availability_repository.dart';
@@ -11,7 +12,10 @@ class DeleteIndividualMovementUseCase {
     required int id,
   }) async {
     try {
-      return await _repository.deleteIndividualMovement(id: id);
+      return await AppEvents.track(
+        AppEvent.availabilityMovementDelete,
+        () => _repository.deleteIndividualMovement(id: id),
+      );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);
     }

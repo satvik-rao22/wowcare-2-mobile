@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_shift_repository.dart';
 
 class PublishStaffShiftsUseCase {
@@ -14,14 +16,17 @@ class PublishStaffShiftsUseCase {
     DateTime? publishUntilDate,
     List<String> selectedStaffCodes = const <String>[],
   }) {
-    return _repository.publishStaffShifts(
-      schoolCode: schoolCode,
-      organizationCode: organizationCode,
-      dateRangeStart: dateRangeStart,
-      publishAll: publishAll,
-      publishAllStaff: publishAllStaff,
-      publishUntilDate: publishUntilDate,
-      selectedStaffCodes: selectedStaffCodes,
+    return AppEvents.track(
+      AppEvent.schedulingShiftPublish,
+      () => _repository.publishStaffShifts(
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        dateRangeStart: dateRangeStart,
+        publishAll: publishAll,
+        publishAllStaff: publishAllStaff,
+        publishUntilDate: publishUntilDate,
+        selectedStaffCodes: selectedStaffCodes,
+      ),
     );
   }
 }

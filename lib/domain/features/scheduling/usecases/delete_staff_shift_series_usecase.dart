@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_shift_repository.dart';
 
 /// `DELETE /api/v1/staff-shifts/series/{seriesCode}` — remove every shift in a
@@ -11,9 +13,12 @@ class DeleteStaffShiftSeriesUseCase {
     required String seriesCode,
     String? staffCode,
   }) {
-    return _repository.deleteStaffShiftSeries(
-      seriesCode: seriesCode,
-      staffCode: staffCode,
+    return AppEvents.track(
+      AppEvent.schedulingShiftSeriesDelete,
+      () => _repository.deleteStaffShiftSeries(
+        seriesCode: seriesCode,
+        staffCode: staffCode,
+      ),
     );
   }
 }

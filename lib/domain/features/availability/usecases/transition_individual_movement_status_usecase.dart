@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
@@ -15,11 +16,14 @@ class TransitionIndividualMovementStatusUseCase {
     DateTime? newMovementDate,
   }) async {
     try {
-      return await _repository.transitionIndividualMovementStatus(
-        id: id,
-        status: status,
-        comment: comment,
-        newMovementDate: newMovementDate,
+      return await AppEvents.track(
+        AppEvent.availabilityMovementStatusChange,
+        () => _repository.transitionIndividualMovementStatus(
+          id: id,
+          status: status,
+          comment: comment,
+          newMovementDate: newMovementDate,
+        ),
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

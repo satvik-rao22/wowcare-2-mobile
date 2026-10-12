@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_repository.dart';
 
 /// Changes the login email for a user via
@@ -16,12 +18,15 @@ class ChangeUserEmailUseCase {
     required String organizationCode,
     required String schoolCode,
   }) {
-    return _repository.changeUserEmail(
-      userCode: userCode,
-      oldEmail: oldEmail,
-      newEmail: newEmail,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
+    return AppEvents.track(
+      AppEvent.userEmailChange,
+      () => _repository.changeUserEmail(
+        userCode: userCode,
+        oldEmail: oldEmail,
+        newEmail: newEmail,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      ),
     );
   }
 }

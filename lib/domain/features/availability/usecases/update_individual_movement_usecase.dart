@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
@@ -17,13 +18,16 @@ class UpdateIndividualMovementUseCase {
     String? comment,
   }) async {
     try {
-      return await _repository.updateIndividualMovement(
-        id: id,
-        movementType: movementType,
-        fromClassroomCode: fromClassroomCode,
-        toClassroomCode: toClassroomCode,
-        movementDate: movementDate,
-        comment: comment,
+      return await AppEvents.track(
+        AppEvent.availabilityMovementUpdate,
+        () => _repository.updateIndividualMovement(
+          id: id,
+          movementType: movementType,
+          fromClassroomCode: fromClassroomCode,
+          toClassroomCode: toClassroomCode,
+          movementDate: movementDate,
+          comment: comment,
+        ),
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

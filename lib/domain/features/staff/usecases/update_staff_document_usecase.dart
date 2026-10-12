@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -16,10 +18,13 @@ class UpdateStaffDocumentUseCase {
     required String staffCode,
   }) async {
     try {
-      final message = await _repository.updateStaffDocument(
-        documentUuid: documentUuid,
-        document: document,
-        staffCode: staffCode,
+      final message = await AppEvents.track(
+        AppEvent.staffDocumentUpdate,
+        () => _repository.updateStaffDocument(
+          documentUuid: documentUuid,
+          document: document,
+          staffCode: staffCode,
+        ),
       );
       return Right(message);
     } catch (e) {

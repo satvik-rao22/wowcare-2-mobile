@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/staff_shift.dart';
 import '../repositories/staff_shift_repository.dart';
 
@@ -8,6 +10,9 @@ class UpdateStaffShiftUseCase {
   final StaffShiftRepository _repository;
 
   Future<StaffShift> call(StaffShiftUpdateRequest request) {
-    return _repository.updateStaffShift(request);
+    return AppEvents.track(
+      AppEvent.schedulingShiftUpdate,
+      () => _repository.updateStaffShift(request),
+    );
   }
 }

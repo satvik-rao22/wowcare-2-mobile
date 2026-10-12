@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_repository.dart';
 
 /// Use case to update a staff member's allowed classrooms.
@@ -10,9 +12,12 @@ class UpdateStaffAllowedClassroomsUseCase {
     required String staffCode,
     required List<String> classroomCodes,
   }) {
-    return _repository.updateStaffAllowedClassrooms(
-      staffCode: staffCode,
-      classroomCodes: classroomCodes,
+    return AppEvents.track(
+      AppEvent.staffAllowedClassroomsUpdate,
+      () => _repository.updateStaffAllowedClassrooms(
+        staffCode: staffCode,
+        classroomCodes: classroomCodes,
+      ),
     );
   }
 }

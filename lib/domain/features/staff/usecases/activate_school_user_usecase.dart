@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_repository.dart';
 
 /// Use case to activate a school user.
@@ -12,11 +14,14 @@ class ActivateSchoolUserUseCase {
     required String schoolCode,
     required String role,
   }) {
-    return _repository.activateSchoolUser(
-      userCode: userCode,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      role: role,
+    return AppEvents.track(
+      AppEvent.staffActivate,
+      () => _repository.activateSchoolUser(
+        userCode: userCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        role: role,
+      ),
     );
   }
 }

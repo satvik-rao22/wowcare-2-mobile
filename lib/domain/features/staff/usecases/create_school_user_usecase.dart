@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -27,8 +29,28 @@ class CreateSchoolUserUseCase {
     List<String>? allowedClassroomCodes,
   }) async {
     try {
-      if (isAdmin) {
-        final result = await _repository.createSchoolAdminUser(
+      final result = await AppEvents.track(AppEvent.staffCreate, () {
+        if (isAdmin) {
+          return _repository.createSchoolAdminUser(
+            userCode: userCode,
+            firstName: firstName,
+            lastName: lastName,
+            displayName: displayName,
+            mobile: mobile,
+            email: email,
+            organizationCode: organizationCode,
+            schoolCode: schoolCode,
+            role: role,
+            designation: designation,
+          );
+        }
+
+        // Always send status in uppercase as expected by backend (e.g. ACTIVE)
+        final resolvedStatus = (status ?? 'Active').toUpperCase();
+        final resolvedPrimary = primaryClassroomCode ?? '';
+        final resolvedAllowed = allowedClassroomCodes ?? const <String>[];
+
+        return _repository.createStaffUser(
           userCode: userCode,
           firstName: firstName,
           lastName: lastName,
@@ -39,30 +61,11 @@ class CreateSchoolUserUseCase {
           schoolCode: schoolCode,
           role: role,
           designation: designation,
+          status: resolvedStatus,
+          primaryClassroomCode: resolvedPrimary,
+          allowedClassroomCodes: resolvedAllowed,
         );
-        return Right(result);
-      }
-
-      // Always send status in uppercase as expected by backend (e.g. ACTIVE)
-      final resolvedStatus = (status ?? 'Active').toUpperCase();
-      final resolvedPrimary = primaryClassroomCode ?? '';
-      final resolvedAllowed = allowedClassroomCodes ?? const <String>[];
-
-      final result = await _repository.createStaffUser(
-        userCode: userCode,
-        firstName: firstName,
-        lastName: lastName,
-        displayName: displayName,
-        mobile: mobile,
-        email: email,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        role: role,
-        designation: designation,
-        status: resolvedStatus,
-        primaryClassroomCode: resolvedPrimary,
-        allowedClassroomCodes: resolvedAllowed,
-      );
+      });
       return Right(result);
     } catch (e) {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);

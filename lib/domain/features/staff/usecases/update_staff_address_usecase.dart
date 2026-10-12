@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/staff_address_update.dart';
 import '../repositories/staff_repository.dart';
 
@@ -11,6 +13,10 @@ class UpdateStaffAddressUseCase {
     required String staffCode,
     required StaffAddressUpdate fields,
   }) {
-    return _repository.updateStaffAddress(staffCode: staffCode, fields: fields);
+    return AppEvents.track(
+      AppEvent.staffAddressUpdate,
+      () =>
+          _repository.updateStaffAddress(staffCode: staffCode, fields: fields),
+    );
   }
 }

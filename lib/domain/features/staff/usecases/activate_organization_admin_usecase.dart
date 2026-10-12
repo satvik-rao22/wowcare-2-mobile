@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_repository.dart';
 
 /// Use case to activate an organization admin.
@@ -10,9 +12,12 @@ class ActivateOrganizationAdminUseCase {
     required String userCode,
     required String organizationCode,
   }) {
-    return _repository.activateOrganizationAdmin(
-      userCode: userCode,
-      organizationCode: organizationCode,
+    return AppEvents.track(
+      AppEvent.staffOrgAdminActivate,
+      () => _repository.activateOrganizationAdmin(
+        userCode: userCode,
+        organizationCode: organizationCode,
+      ),
     );
   }
 }

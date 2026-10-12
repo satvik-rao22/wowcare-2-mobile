@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../repositories/staff_classroom_repository.dart';
 
@@ -12,10 +13,14 @@ class AssignStaffToClassroomUseCase {
     required List<String> staffCodes,
   }) async {
     try {
-      return await _repository.assignStaffToClassroom(
-        schoolCode: schoolCode,
-        classroomCode: classroomCode,
-        staffCodes: staffCodes,
+      return await AppEvents.track(
+        AppEvent.staffClassroomAssign,
+        () => _repository.assignStaffToClassroom(
+          schoolCode: schoolCode,
+          classroomCode: classroomCode,
+          staffCodes: staffCodes,
+        ),
+        count: staffCodes.length,
       );
     } catch (e) {
       throw ApiErrorHandler.extractErrorMessage(e);

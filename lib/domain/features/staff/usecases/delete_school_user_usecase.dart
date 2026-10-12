@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/staff_repository.dart';
 
 /// Use case to permanently delete a (deactivated) school user.
@@ -12,11 +14,14 @@ class DeleteSchoolUserUseCase {
     required String schoolCode,
     required String role,
   }) {
-    return _repository.deleteSchoolUser(
-      userCode: userCode,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-      role: role,
+    return AppEvents.track(
+      AppEvent.staffDelete,
+      () => _repository.deleteSchoolUser(
+        userCode: userCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        role: role,
+      ),
     );
   }
 }

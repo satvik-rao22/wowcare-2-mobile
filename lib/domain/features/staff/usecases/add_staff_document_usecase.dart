@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -15,9 +17,12 @@ class AddStaffDocumentUseCase {
     required StaffDocument document,
   }) async {
     try {
-      final message = await _repository.addStaffDocument(
-        staffCode: staffCode,
-        document: document,
+      final message = await AppEvents.track(
+        AppEvent.staffDocumentAdd,
+        () => _repository.addStaffDocument(
+          staffCode: staffCode,
+          document: document,
+        ),
       );
       return Right(message);
     } catch (e) {

@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/staff_schedule_entry.dart';
 import '../repositories/staff_repository.dart';
 
@@ -11,10 +13,13 @@ class UpdateStaffSchedulesUseCase {
     required List<StaffWorkScheduleEntry> workSchedules,
     required List<StaffBreakScheduleEntry> breakSchedules,
   }) {
-    return _repository.updateStaffSchedules(
-      staffCode: staffCode,
-      workSchedules: workSchedules,
-      breakSchedules: breakSchedules,
+    return AppEvents.track(
+      AppEvent.staffSchedulesUpdate,
+      () => _repository.updateStaffSchedules(
+        staffCode: staffCode,
+        workSchedules: workSchedules,
+        breakSchedules: breakSchedules,
+      ),
     );
   }
 }

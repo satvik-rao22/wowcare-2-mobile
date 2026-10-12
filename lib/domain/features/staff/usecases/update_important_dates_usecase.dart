@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/api_error_handler.dart';
@@ -14,9 +16,12 @@ class UpdateImportantDatesUseCase {
     required List<StaffImportantDate> dates,
   }) async {
     try {
-      final message = await _repository.updateImportantDates(
-        staffCode: staffCode,
-        dates: dates,
+      final message = await AppEvents.track(
+        AppEvent.staffImportantDatesUpdate,
+        () => _repository.updateImportantDates(
+          staffCode: staffCode,
+          dates: dates,
+        ),
       );
       return Right(message);
     } catch (e) {
