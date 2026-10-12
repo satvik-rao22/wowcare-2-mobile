@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
@@ -1078,13 +1080,18 @@ class _AutoPayPaymentMethodsScreenState
   /// Adds a new saved payment method via the Forte webview (which now collects
   /// the account-holder name and the Make-Primary / Use-for-AutoPay toggles).
   Future<void> _openAddMethod() async {
-    final result = await context.push<dynamic>(
-      AutoPayTokenWebView.routeName,
-      extra: AutoPayTokenWebViewArgs(
-        payload: _cubit.buildWebviewPayload(
-          title: BillingStrings.addPaymentMethod,
+    // One event per WebView session, from what it pops with.
+    final result = await AppEvents.track(
+      AppEvent.billingCardTokenize,
+      () => context.push<dynamic>(
+        AutoPayTokenWebView.routeName,
+        extra: AutoPayTokenWebViewArgs(
+          payload: _cubit.buildWebviewPayload(
+            title: BillingStrings.addPaymentMethod,
+          ),
         ),
       ),
+      failureOf: cardTokenizeFailureOf,
     );
     if (!mounted || result is! Map) return;
 
@@ -1161,6 +1168,33 @@ class _AutoPayPaymentMethodsScreenState
       isSuccess: true,
     );
   }
+}
+
+/// The [AppEvent.billingCardTokenize] failure for what the card WebView popped
+/// with, or null when a one-time token came back. Reads only the shape of the
+/// result, mirroring the checks in `_openAddMethod`; the token is never logged.
+@visibleForTesting
+EventFailure? cardTokenizeFailureOf(Object? result) {
+  // The close button and the back button pop with no result.
+  if (result == null) return EventFailure.cancelled;
+  if (result is! Map) return EventFailure.unknown;
+  if (result['success'] != true) {
+    final error = result['error'];
+    // The form's own check that the card matches the card type picked.
+    if (error is Map && error['event'] == 'card_type_mismatch') {
+      return EventFailure.validation;
+    }
+    // The Forte script failed to load (assets/forte_auto_pay.html).
+    if (error == 'Unable to load Forte payment library') {
+      return EventFailure.network;
+    }
+    return EventFailure.unknown;
+  }
+  final data = result['data'];
+  final token = data is Map
+      ? (data['onetime_token'] ?? data['onetimeToken'])?.toString() ?? ''
+      : '';
+  return token.isEmpty ? EventFailure.unknown : null;
 }
 
 /// UPPERCASE letters only, max 4 words, a single space between words and no

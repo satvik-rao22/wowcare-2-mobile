@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/discount_repository.dart';
 
 class DeactivateDiscountUseCase {
@@ -5,5 +7,8 @@ class DeactivateDiscountUseCase {
 
   final DiscountRepository _repository;
 
-  Future<void> call(String code) => _repository.deactivateDiscount(code);
+  Future<void> call(String code) => AppEvents.track(
+    AppEvent.billingDiscountDeactivate,
+    () => _repository.deactivateDiscount(code),
+  );
 }

@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/ledger_repository.dart';
 
 class DeleteLedgerUseCase {
@@ -5,5 +7,8 @@ class DeleteLedgerUseCase {
 
   final LedgerRepository _repository;
 
-  Future<void> call(String ledgerCode) => _repository.deleteLedger(ledgerCode);
+  Future<void> call(String ledgerCode) => AppEvents.track(
+    AppEvent.billingLedgerDelete,
+    () => _repository.deleteLedger(ledgerCode),
+  );
 }

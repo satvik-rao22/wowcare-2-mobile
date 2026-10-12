@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/reports/repositories/reports_repository.dart';
@@ -14,11 +15,14 @@ class DownloadReportUseCase implements UseCase<List<int>, String> {
   @override
   Future<Either<Failure, List<int>>> call(String assetCode) async {
     try {
-      // Step 1: Resolve asset to get download URL
-      final downloadUrl = await _repository.getReportDownloadUrl(assetCode);
+      // Both steps are one download, so they log as one event.
+      final fileData = await AppEvents.track(AppEvent.reportDownload, () async {
+        // Step 1: Resolve asset to get download URL
+        final downloadUrl = await _repository.getReportDownloadUrl(assetCode);
 
-      // Step 2: Download file from the resolved URL
-      final fileData = await _repository.downloadReportFile(downloadUrl);
+        // Step 2: Download file from the resolved URL
+        return _repository.downloadReportFile(downloadUrl);
+      });
       return Right(fileData);
     } catch (e) {
       if (e is Failure) {

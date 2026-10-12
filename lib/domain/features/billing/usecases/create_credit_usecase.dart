@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/invoice_entity.dart';
 import '../repositories/invoice_repository.dart';
 
@@ -8,5 +10,8 @@ class CreateCreditUseCase {
   final InvoiceRepository _repository;
 
   Future<InvoicePaymentResultEntity> call(CreateCreditParams params) =>
-      _repository.createCredit(params);
+      AppEvents.track(
+        AppEvent.billingCreditCreate,
+        () => _repository.createCredit(params),
+      );
 }

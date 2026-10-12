@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/ledger_transaction_entity.dart';
 import '../repositories/ledger_transaction_repository.dart';
 
@@ -6,6 +8,8 @@ class AddLedgerTransactionUseCase {
 
   final LedgerTransactionRepository _repository;
 
-  Future<void> call(AddTransactionParams params) =>
-      _repository.addTransaction(params);
+  Future<void> call(AddTransactionParams params) => AppEvents.track(
+    AppEvent.billingLedgerTransactionAdd,
+    () => _repository.addTransaction(params),
+  );
 }

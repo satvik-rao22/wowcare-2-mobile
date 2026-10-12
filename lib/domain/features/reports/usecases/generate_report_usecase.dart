@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
@@ -19,11 +20,16 @@ class GenerateReportUseCase implements UseCase<ReportEntity, ReportParams> {
     // Validate params based on report type
     final validationError = _validateParams(params);
     if (validationError != null) {
+      // Refused before any request, so there is no throw for track to see.
+      AppEvents.failed(AppEvent.reportGenerate, EventFailure.validation);
       return Left(ValidationFailure(validationError));
     }
 
     try {
-      final report = await _repository.generateReport(params);
+      final report = await AppEvents.track(
+        AppEvent.reportGenerate,
+        () => _repository.generateReport(params),
+      );
       return Right(report);
     } catch (e) {
       return Left(_mapExceptionToFailure(e));

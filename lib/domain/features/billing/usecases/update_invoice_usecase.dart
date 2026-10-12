@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/invoice_entity.dart';
 import '../repositories/invoice_repository.dart';
 
@@ -9,6 +11,8 @@ class UpdateInvoiceUseCase {
   Future<InvoiceResultEntity> call({
     required String code,
     required UpdateInvoiceParams params,
-  }) =>
-      _repository.updateInvoice(code: code, params: params);
+  }) => AppEvents.track(
+    AppEvent.billingInvoiceUpdate,
+    () => _repository.updateInvoice(code: code, params: params),
+  );
 }

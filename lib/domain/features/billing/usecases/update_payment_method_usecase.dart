@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/auto_pay_entity.dart';
 import '../repositories/auto_pay_repository.dart';
 
@@ -11,9 +13,11 @@ class UpdatePaymentMethodUseCase {
   Future<PaymentMethodEntity> call({
     required String paymentMethodCode,
     required UpdatePaymentMethodParams params,
-  }) =>
-      _repository.updatePaymentMethod(
-        paymentMethodCode: paymentMethodCode,
-        params: params,
-      );
+  }) => AppEvents.track(
+    AppEvent.billingPaymentMethodUpdate,
+    () => _repository.updatePaymentMethod(
+      paymentMethodCode: paymentMethodCode,
+      params: params,
+    ),
+  );
 }

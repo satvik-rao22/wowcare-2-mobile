@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/invoice_repository.dart';
 
 class DeleteInvoiceUseCase {
@@ -5,5 +7,8 @@ class DeleteInvoiceUseCase {
 
   final InvoiceRepository _repository;
 
-  Future<void> call(String code) => _repository.deleteInvoice(code);
+  Future<void> call(String code) => AppEvents.track(
+    AppEvent.billingInvoiceDelete,
+    () => _repository.deleteInvoice(code),
+  );
 }

@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/ledger_entity.dart';
 import '../repositories/ledger_repository.dart';
 
@@ -9,6 +11,8 @@ class UpdateLedgerUseCase {
   Future<LedgerEntity> call({
     required String ledgerCode,
     required CreateLedgerParams params,
-  }) =>
-      _repository.updateLedger(ledgerCode: ledgerCode, params: params);
+  }) => AppEvents.track(
+    AppEvent.billingLedgerUpdate,
+    () => _repository.updateLedger(ledgerCode: ledgerCode, params: params),
+  );
 }

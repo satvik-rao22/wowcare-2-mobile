@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/invoice_entity.dart';
 import '../repositories/invoice_repository.dart';
 
@@ -6,6 +8,8 @@ class ResendInvoiceUseCase {
 
   final InvoiceRepository _repository;
 
-  Future<InvoiceResultEntity> call(String code) =>
-      _repository.resendInvoice(code);
+  Future<InvoiceResultEntity> call(String code) => AppEvents.track(
+    AppEvent.billingInvoiceResend,
+    () => _repository.resendInvoice(code),
+  );
 }
