@@ -350,6 +350,75 @@ void main() {
       expect(events.single.contexts.containsKey('keys'), isFalse);
     });
   });
+
+  group('build tags', () {
+    final events = <SentryEvent>[];
+    final logs = <SentryLog>[];
+
+    setUp(() async {
+      events.clear();
+      logs.clear();
+      await Sentry.init(
+        (options) {
+          Telemetry.configureOptions(
+            options as SentryFlutterOptions,
+            const TelemetryConfig(
+              dsn: dsn,
+              environment: 'UAT',
+              isDebugBuild: false,
+              gitBranch: 'enhancements/sentry-integration',
+              gitCommit: 'abc1234',
+              buildMode: 'profile',
+            ),
+          );
+          options
+            ..transport = _DiscardingTransport()
+            ..beforeSend = (event, hint) {
+              events.add(event);
+              return event;
+            }
+            ..beforeSendLog = (log) {
+              logs.add(log);
+              return log;
+            };
+        },
+        // ignore: invalid_use_of_internal_member
+        options: SentryFlutterOptions(),
+      );
+    });
+
+    tearDown(Sentry.close);
+
+    const expected = {
+      'build_mode': 'profile',
+      'git_branch': 'enhancements/sentry-integration',
+      'git_commit': 'abc1234',
+    };
+
+    test('tag every error event with branch, commit and build mode', () async {
+      await Telemetry.captureError(StateError('x'), null);
+
+      expect(events.single.tags, containsPair('git_commit', 'abc1234'));
+      expect(
+        events.single.tags,
+        allOf([
+          for (final MapEntry(:key, :value) in expected.entries)
+            containsPair(key, value),
+        ]),
+      );
+    });
+
+    test('ride on every log line as attributes', () async {
+      await Telemetry.log('task.create.succeeded');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final attributes = {
+        for (final MapEntry(:key, :value) in logs.single.attributes.entries)
+          if (expected.containsKey(key)) key: value.value,
+      };
+      expect(attributes, expected);
+    });
+  });
 }
 
 /// Nothing a unit test produces may reach the network.

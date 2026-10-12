@@ -90,4 +90,26 @@ void main() {
       expect(config(distOverride: '7').dist, '7');
     });
   });
+
+  test('buildTags leave out what the build did not set', () {
+    expect(
+      const TelemetryConfig(
+        dsn: '',
+        environment: 'PROD',
+        isDebugBuild: false,
+      ).buildTags,
+      {'build_mode': 'release'},
+    );
+    expect(
+      const TelemetryConfig(
+        dsn: '',
+        environment: 'DEV',
+        isDebugBuild: true,
+        gitBranch: 'stage',
+        gitCommit: 'abc1234',
+        buildMode: 'debug',
+      ).buildTags,
+      {'build_mode': 'debug', 'git_branch': 'stage', 'git_commit': 'abc1234'},
+    );
+  });
 }

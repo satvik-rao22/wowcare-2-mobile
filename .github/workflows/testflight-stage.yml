@@ -174,6 +174,8 @@ jobs:
             --dart-define=SENTRY_DSN="$SENTRY_DSN" \
             --dart-define=SENTRY_RELEASE="$SENTRY_RELEASE" \
             --dart-define=SENTRY_DIST="$SENTRY_DIST" \
+            --dart-define=GIT_BRANCH="${{ github.ref_name }}" \
+            --dart-define=GIT_COMMIT="${GITHUB_SHA::7}" \
             --build-number="$BUILD_NUMBER"
 
       - name: Find IPA

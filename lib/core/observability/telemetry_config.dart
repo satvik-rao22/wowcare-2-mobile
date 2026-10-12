@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show immutable, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show immutable, kDebugMode, kProfileMode, kReleaseMode;
 
 /// Compile-time inputs that decide whether Sentry runs and how it labels what
 /// it sends.
@@ -15,6 +16,9 @@ class TelemetryConfig {
     this.forceEnabled = false,
     this.releaseOverride = '',
     this.distOverride = '',
+    this.gitBranch = '',
+    this.gitCommit = '',
+    this.buildMode = 'release',
   });
 
   /// The running build's values.
@@ -28,6 +32,9 @@ class TelemetryConfig {
     forceEnabled: bool.fromEnvironment('SENTRY_FORCE'),
     releaseOverride: String.fromEnvironment('SENTRY_RELEASE'),
     distOverride: String.fromEnvironment('SENTRY_DIST'),
+    gitBranch: String.fromEnvironment('GIT_BRANCH'),
+    gitCommit: String.fromEnvironment('GIT_COMMIT'),
+    buildMode: kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug'),
   );
 
   static const String _localEnvironment = 'LOCAL';
@@ -57,6 +64,24 @@ class TelemetryConfig {
 
   /// `SENTRY_DIST`. Empty means the SDK uses the build number.
   final String distOverride;
+
+  /// `GIT_BRANCH`, set by the Makefile and CI. Empty when built without it.
+  final String gitBranch;
+
+  /// `GIT_COMMIT`, the short hash the build came from.
+  final String gitCommit;
+
+  /// `debug`, `profile` or `release`.
+  final String buildMode;
+
+  /// Labels on every event and log line, so production and test builds can
+  /// be told apart beyond the environment and release: which branch and
+  /// commit, and whether it was a debug build. Empty values are left out.
+  Map<String, String> get buildTags => {
+    'build_mode': buildMode,
+    if (gitBranch.isNotEmpty) 'git_branch': gitBranch,
+    if (gitCommit.isNotEmpty) 'git_commit': gitCommit,
+  };
 
   bool get isLocal => environment.toUpperCase() == _localEnvironment;
 

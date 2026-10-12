@@ -88,7 +88,9 @@ abstract final class Telemetry {
     if (release != null) options.release = release;
     final dist = config.dist;
     if (dist != null) options.dist = dist;
+    _buildTags = config.buildTags;
     options.addEventProcessor(_KeysEventProcessor());
+    options.addEventProcessor(_BuildTagsEventProcessor());
     TelemetryPrivacy.configure(options);
   }
 
@@ -170,6 +172,8 @@ abstract final class Telemetry {
   }) {
     if (!isEnabled) return null;
     final sentryAttributes = {
+      for (final MapEntry(:key, :value) in _buildTags.entries)
+        key: SentryAttribute.string(value),
       for (final MapEntry(:key, :value) in attributes.entries)
         key: _toAttribute(value),
     };
@@ -272,6 +276,9 @@ abstract final class Telemetry {
 
   static final Map<String, Object> _keys = {};
 
+  /// [TelemetryConfig.buildTags] of the running build, set at init.
+  static Map<String, String> _buildTags = const {};
+
   @visibleForTesting
   static void resetKeys() => _keys.clear();
 
@@ -290,6 +297,16 @@ abstract final class Telemetry {
       double() => SentryAttribute.double(value),
       _ => SentryAttribute.string(value.toString()),
     };
+  }
+}
+
+/// Tags every event and transaction with the branch, commit and build mode.
+class _BuildTagsEventProcessor implements EventProcessor {
+  @override
+  SentryEvent? apply(SentryEvent event, Hint hint) {
+    if (Telemetry._buildTags.isEmpty) return event;
+    event.tags = {...Telemetry._buildTags, ...?event.tags};
+    return event;
   }
 }
 

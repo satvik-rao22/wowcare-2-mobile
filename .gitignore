@@ -56,3 +56,6 @@ app.*.map.json
 # Apple APNs auth keys — secret, never commit
 *.p8
 AuthKey_*.p8
+
+# Sentry DSN for local builds (read by the Makefile). Never commit.
+sentry.local.json

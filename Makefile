@@ -1,6 +1,32 @@
 FLUTTER ?= flutter
 
 # -----------------------------------------------------------------------------
+# Sentry
+#
+# The DSN comes from SENTRY_DSN in the environment (CI), else from the untracked
+# sentry.local.json at the repo root. Without either the SDK never starts.
+# Every UAT and PROD build target compiles it in, with the branch and short
+# commit so Sentry can tell builds apart beyond environment and version.
+# Debug builds also need SENTRY_FORCE, since the app keeps Sentry off in debug.
+# SENTRY_RELEASE / SENTRY_DIST override the SDK's runtime default of
+# `com.wiseowl.wowcareapp@<version>+<build>` / `<build>`.
+# -----------------------------------------------------------------------------
+SENTRY_LOCAL_FILE := sentry.local.json
+ifeq ($(SENTRY_DSN),)
+SENTRY_DSN := $(shell sed -n 's/.*"SENTRY_DSN" *: *"\([^"]*\)".*/\1/p' $(SENTRY_LOCAL_FILE) 2>/dev/null)
+endif
+GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null)
+
+SENTRY_DEFINES = \
+	$(if $(SENTRY_DSN),--dart-define=SENTRY_DSN=$(SENTRY_DSN)) \
+	$(if $(SENTRY_RELEASE),--dart-define=SENTRY_RELEASE=$(SENTRY_RELEASE)) \
+	$(if $(SENTRY_DIST),--dart-define=SENTRY_DIST=$(SENTRY_DIST)) \
+	$(if $(GIT_BRANCH),--dart-define=GIT_BRANCH=$(GIT_BRANCH)) \
+	$(if $(GIT_COMMIT),--dart-define=GIT_COMMIT=$(GIT_COMMIT))
+SENTRY_DEBUG_DEFINES = $(SENTRY_DEFINES) $(if $(SENTRY_DSN),--dart-define=SENTRY_FORCE=true)
+
+# -----------------------------------------------------------------------------
 # Gradle JVM network preference
 #
 # :app:uploadCrashlyticsMappingFileRelease PUTs the ~6 MB gzipped R8 mapping as a
@@ -196,10 +222,10 @@ qa-apk-debug:
 	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=QA
 
 uat-apk-debug:
-	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=UAT
+	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=UAT $(SENTRY_DEBUG_DEFINES)
 
 prod-apk-debug:
-	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=PROD
+	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=PROD $(SENTRY_DEBUG_DEFINES)
 
 # -----------------------------------------------------------------------------
 # APK PROFILE
@@ -215,10 +241,10 @@ qa-apk-profile:
 	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=QA
 
 uat-apk-profile:
-	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=UAT
+	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES)
 
 prod-apk-profile:
-	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=PROD
+	$(FLUTTER) build apk --profile --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES)
 
 # -----------------------------------------------------------------------------
 # APK RELEASE
@@ -234,10 +260,10 @@ qa-apk-release:
 	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=QA
 
 uat-apk-release:
-	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=UAT
+	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES)
 
 prod-apk-release:
-	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=PROD
+	$(FLUTTER) build apk --release --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES)
 
 # -----------------------------------------------------------------------------
 # APP BUNDLE
@@ -253,10 +279,10 @@ qa-appbundle:
 	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=QA
 
 uat-appbundle:
-	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=UAT
+	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES)
 
 prod-appbundle:
-	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=PROD
+	$(FLUTTER) build appbundle --release --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES)
 
 # -----------------------------------------------------------------------------
 # IOS DEBUG
@@ -272,10 +298,10 @@ qa-ios-debug:
 	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=QA
 
 uat-ios-debug:
-	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=UAT
+	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=UAT $(SENTRY_DEBUG_DEFINES)
 
 prod-ios-debug:
-	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=PROD
+	$(FLUTTER) build ios --debug --dart-define=ENVIRONMENT=PROD $(SENTRY_DEBUG_DEFINES)
 
 # -----------------------------------------------------------------------------
 # App Links host per environment
@@ -312,10 +338,10 @@ qa-ios-profile:
 	$(call ios_release_build,qa,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=QA)
 
 uat-ios-profile:
-	$(call ios_release_build,uat,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT)
+	$(call ios_release_build,uat,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES))
 
 prod-ios-profile:
-	$(call ios_release_build,prod,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD)
+	$(call ios_release_build,prod,$(FLUTTER) build ios --profile --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES))
 
 # -----------------------------------------------------------------------------
 # IOS RELEASE
@@ -331,10 +357,10 @@ qa-ios-release:
 	$(call ios_release_build,qa,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=QA)
 
 uat-ios-release:
-	$(call ios_release_build,uat,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT)
+	$(call ios_release_build,uat,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES))
 
 prod-ios-release:
-	$(call ios_release_build,prod,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD)
+	$(call ios_release_build,prod,$(FLUTTER) build ios --release --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES))
 
 # -----------------------------------------------------------------------------
 # IPA BUILD
@@ -350,10 +376,10 @@ qa-ipa:
 	$(call ios_release_build,qa,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=QA)
 
 uat-ipa:
-	$(call ios_release_build,uat,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT)
+	$(call ios_release_build,uat,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=UAT $(SENTRY_DEFINES))
 
 prod-ipa:
-	$(call ios_release_build,prod,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD)
+	$(call ios_release_build,prod,$(FLUTTER) build ipa --release --dart-define=ENVIRONMENT=PROD $(SENTRY_DEFINES))
 
 # -----------------------------------------------------------------------------
 # GENERIC BUILD COMMANDS
@@ -385,8 +411,9 @@ help-optimization:
 	@echo "  make prod-ios-optimized        Build optimized iOS (~optimized size)"
 	@echo "  make prod-build-optimized      Build optimized APK + iOS"
 	@echo ""
-	@echo "SENTRY (optional, see docs/observability-privacy.md):"
-	@echo "  SENTRY_DSN=... make <x>-optimized   Compile a DSN into the build"
+	@echo "SENTRY (see docs/observability-privacy.md):"
+	@echo "  Every uat-*/prod-* build compiles in the DSN from sentry.local.json"
+	@echo "  (or SENTRY_DSN), plus the git branch and commit. DEV/QA stay off."
 	@echo "  make sentry-upload             Upload the last build's symbols"
 	@echo ""
 	@echo "SIZE VERIFICATION:"
@@ -410,14 +437,6 @@ help-optimization:
 # =============================================================================
 # OPTIMIZED RELEASE BUILDS
 # =============================================================================
-
-# Sentry is compiled in only when SENTRY_DSN is set in the environment; without
-# it the SDK never starts. SENTRY_RELEASE / SENTRY_DIST override the SDK's
-# runtime default of `com.wiseowl.wowcareapp@<version>+<build>` / `<build>`.
-SENTRY_DEFINES = \
-	$(if $(SENTRY_DSN),--dart-define=SENTRY_DSN=$(SENTRY_DSN)) \
-	$(if $(SENTRY_RELEASE),--dart-define=SENTRY_RELEASE=$(SENTRY_RELEASE)) \
-	$(if $(SENTRY_DIST),--dart-define=SENTRY_DIST=$(SENTRY_DIST))
 
 # Writes the --obfuscate name map next to the split debug info so
 # `make sentry-upload` can restore class and function names. One map per
