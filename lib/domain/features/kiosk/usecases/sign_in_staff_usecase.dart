@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_attendance_entity.dart';
 import 'package:wowcare/domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 
@@ -23,14 +24,17 @@ class SignInStaffUseCase {
     required bool withinGeofence,
     String? pin,
   }) {
-    return _repository.signInStaff(
-      staffCode: staffCode,
-      schoolCode: schoolCode,
-      timeZone: timeZone,
-      latitude: latitude,
-      longitude: longitude,
-      withinGeofence: withinGeofence,
-      pin: pin,
+    return AppEvents.track(
+      AppEvent.kioskStaffSignIn,
+      () => _repository.signInStaff(
+        staffCode: staffCode,
+        schoolCode: schoolCode,
+        timeZone: timeZone,
+        latitude: latitude,
+        longitude: longitude,
+        withinGeofence: withinGeofence,
+        pin: pin,
+      ),
     );
   }
 }

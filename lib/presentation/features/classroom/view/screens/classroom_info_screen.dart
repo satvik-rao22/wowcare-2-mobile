@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
@@ -518,6 +519,9 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         .trim();
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
+    // Started once a file is picked: the upload is one event from the upload
+    // session to the finalize, since only the finalize has a use case.
+    Stopwatch? upload;
     try {
       // Shared file picker → every allowed image format is selectable
       // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
@@ -536,6 +540,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         _isLogoLoading = true;
         _logoUploadPercent = 0;
       });
+      upload = Stopwatch()..start();
 
       final uploadService = serviceLocator<ImageUploadService>();
 
@@ -611,6 +616,11 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       )
       // A non-responding finalize must not lock the overlay at 100% forever.
       .timeout(const Duration(seconds: 30));
+      AppEvents.succeeded(
+        AppEvent.classroomLogoUpload,
+        durationMs: upload.elapsedMilliseconds,
+      );
+      upload = null;
 
       // Resolve the fresh delivery URL; even if this comes back empty the
       // avatar still refetches by classroomCode because the cache is cleared.
@@ -651,6 +661,13 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         isSuccess: true,
       );
     } catch (e) {
+      if (upload != null) {
+        AppEvents.failed(
+          AppEvent.classroomLogoUpload,
+          e,
+          durationMs: upload.elapsedMilliseconds,
+        );
+      }
       if (mounted) {
         setState(() {
           _isLogoLoading = false;

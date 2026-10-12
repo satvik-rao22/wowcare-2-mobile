@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/domain/features/app_update/entities/app_update_policy.dart';
 import 'package:wowcare/domain/features/app_update/repositories/app_update_repository.dart';
 
@@ -8,6 +9,9 @@ class OpenAppStoreUseCase {
 
   final AppUpdateRepository _repository;
 
-  Future<bool> call(AppUpdatePolicy policy) =>
-      _repository.openStore(policy.storeUrl);
+  Future<bool> call(AppUpdatePolicy policy) => AppEvents.track(
+    AppEvent.appStoreOpen,
+    () => _repository.openStore(policy.storeUrl),
+    failureOf: (opened) => opened ? null : EventFailure.unavailable,
+  );
 }

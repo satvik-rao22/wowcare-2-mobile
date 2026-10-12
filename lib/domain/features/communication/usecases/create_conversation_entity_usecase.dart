@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -15,11 +16,15 @@ class CreateConversationEntityUseCase {
     String? classroomCode,
     List<String>? participantCodes,
   }) {
-    return _repository.createConversation(
-      type: type,
-      studentCode: studentCode,
-      classroomCode: classroomCode,
-      participantCodes: participantCodes,
+    return AppEvents.track(
+      AppEvent.communicationConversationOpen,
+      () => _repository.createConversation(
+        type: type,
+        studentCode: studentCode,
+        classroomCode: classroomCode,
+        participantCodes: participantCodes,
+      ),
+      failureOf: AppEvents.leftFailure,
     );
   }
 }

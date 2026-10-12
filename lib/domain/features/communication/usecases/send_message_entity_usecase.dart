@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
@@ -18,15 +19,21 @@ class SendMessageEntityUseCase {
     String? privateParentUserCode,
     String? threadParentCode,
   }) {
-    return _repository.sendMessage(
-      conversationCode: conversationCode,
-      text: text,
-      attachmentIds: attachmentIds,
-      attachments: attachments,
-      localTempCode: localTempCode,
-      isPrivate: isPrivate,
-      privateParentUserCode: privateParentUserCode,
-      threadParentCode: threadParentCode,
+    return AppEvents.track(
+      AppEvent.communicationMessageSend,
+      () => _repository.sendMessage(
+        conversationCode: conversationCode,
+        text: text,
+        attachmentIds: attachmentIds,
+        attachments: attachments,
+        localTempCode: localTempCode,
+        isPrivate: isPrivate,
+        privateParentUserCode: privateParentUserCode,
+        threadParentCode: threadParentCode,
+      ),
+      // The ids are what the server attaches; [attachments] is the local copy.
+      count: attachmentIds.length,
+      failureOf: AppEvents.leftFailure,
     );
   }
 }

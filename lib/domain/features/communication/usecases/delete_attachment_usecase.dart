@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
@@ -8,6 +9,10 @@ class DeleteAttachmentUseCase {
   DeleteAttachmentUseCase(this._repository);
 
   Future<Either<Failure, void>> call(int attachmentId) {
-    return _repository.deleteAttachment(attachmentId);
+    return AppEvents.track(
+      AppEvent.communicationAttachmentDelete,
+      () => _repository.deleteAttachment(attachmentId),
+      failureOf: AppEvents.leftFailure,
+    );
   }
 }

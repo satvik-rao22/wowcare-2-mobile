@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -9,6 +10,10 @@ class EditMessageUseCase {
   EditMessageUseCase(this.repository);
 
   Future<Either<Failure, Message>> call(String messageCode, String content) async {
-    return await repository.editMessage(messageCode, content);
+    return await AppEvents.track(
+      AppEvent.communicationMessageEdit,
+      () => repository.editMessage(messageCode, content),
+      failureOf: AppEvents.leftFailure,
+    );
   }
 }

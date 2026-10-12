@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -16,6 +17,8 @@ class CreateOrOpenConversationUseCase {
 
   CreateOrOpenConversationUseCase(this._repository);
 
+  /// Logged as one `communication.conversation_open`, whether the thread was
+  /// found or created.
   Future<Either<Failure, ConversationEntity>> call({
     required ConversationType type,
     required String studentCode,
@@ -24,6 +27,30 @@ class CreateOrOpenConversationUseCase {
     String title = '',
     String description = '',
     String avatarUrl = '',
+  }) {
+    return AppEvents.track(
+      AppEvent.communicationConversationOpen,
+      () => _createOrOpen(
+        type: type,
+        studentCode: studentCode,
+        classroomCode: classroomCode,
+        participantCodes: participantCodes,
+        title: title,
+        description: description,
+        avatarUrl: avatarUrl,
+      ),
+      failureOf: AppEvents.leftFailure,
+    );
+  }
+
+  Future<Either<Failure, ConversationEntity>> _createOrOpen({
+    required ConversationType type,
+    required String studentCode,
+    required String? classroomCode,
+    required List<String>? participantCodes,
+    required String title,
+    required String description,
+    required String avatarUrl,
   }) async {
     final Either<Failure, ConversationEntity?> existing;
 

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -9,6 +10,11 @@ class SendMessageUseCase {
   SendMessageUseCase(this.repository);
 
   Future<Either<Failure, Message>> call(String threadId, Message message) async {
-    return await repository.sendMessage(threadId, message);
+    return await AppEvents.track(
+      AppEvent.communicationMessageSend,
+      () => repository.sendMessage(threadId, message),
+      count: message.attachments.length,
+      failureOf: AppEvents.leftFailure,
+    );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
@@ -11,9 +12,10 @@ class AddReactionEntityUseCase {
     required String messageCode,
     required String emoji,
   }) {
-    return _repository.addReaction(
-      messageCode: messageCode,
-      emoji: emoji,
+    return AppEvents.track(
+      AppEvent.communicationReactionAdd,
+      () => _repository.addReaction(messageCode: messageCode, emoji: emoji),
+      failureOf: AppEvents.leftFailure,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
@@ -19,6 +20,18 @@ class GetOrCreateClassroomChatUseCase {
     final existing = await _find(classroomCode);
     if (existing != null) return Right(existing);
 
+    // 2-3. Only a first message gets here: logged as a conversation open.
+    return AppEvents.track(
+      AppEvent.communicationConversationOpen,
+      () => _create(classroomCode, classroomName),
+      failureOf: AppEvents.leftFailure,
+    );
+  }
+
+  Future<Either<Failure, ConversationEntity>> _create(
+    String classroomCode,
+    String? classroomName,
+  ) async {
     // 2. Get-or-create + reconcile on the server.
     final recon =
         await _repository.reconcileClassroomChat(classroomCode, classroomName: classroomName);

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 
+import '../../../../core/observability/app_events.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/logger_service.dart';
 import '../../../../core/utils/storage_keys.dart';
@@ -12,6 +13,10 @@ import '../../../../shared/common/app/providers/device_info_provider.dart';
 
 /// Registers the device FCM token with the notification backend when a session
 /// exists (user + org + school selected).
+///
+/// Both calls swallow their errors so a push failure never breaks login or
+/// logout, which is why their `AppEvents` are logged here and not by the use
+/// cases: a use case would only ever see success.
 class FcmTokenRegistrationService {
   FcmTokenRegistrationService({
     required FcmRegistrationRemoteDataSource remote,
@@ -39,21 +44,23 @@ class FcmTokenRegistrationService {
     }
 
     try {
-      final deviceId = await _resolveDeviceId();
-      final deviceInfo = await getDeviceInfo();
-      AppLogger.d('[FCM] Starting token registration: user=${context.userCode}, org=${context.organizationCode}, school=${context.schoolCode}');
-      await _remote.register(
-        FcmRegisterRequestModel(
-          userCode: context.userCode,
-          organizationCode: context.organizationCode,
-          schoolCode: context.schoolCode,
-          role: context.role,
-          fcmToken: token,
-          deviceType: Platform.isIOS ? 'IOS' : 'ANDROID',
-          deviceId: deviceId,
-          deviceInfo: deviceInfo,
-        ),
-      );
+      await AppEvents.track(AppEvent.notificationPushRegister, () async {
+        final deviceId = await _resolveDeviceId();
+        final deviceInfo = await getDeviceInfo();
+        AppLogger.d('[FCM] Starting token registration: user=${context.userCode}, org=${context.organizationCode}, school=${context.schoolCode}');
+        await _remote.register(
+          FcmRegisterRequestModel(
+            userCode: context.userCode,
+            organizationCode: context.organizationCode,
+            schoolCode: context.schoolCode,
+            role: context.role,
+            fcmToken: token,
+            deviceType: Platform.isIOS ? 'IOS' : 'ANDROID',
+            deviceId: deviceId,
+            deviceInfo: deviceInfo,
+          ),
+        );
+      });
       AppLogger.d('[FCM] Token registered successfully with backend for ${context.userCode}');
     } catch (e) {
       AppLogger.w('[FCM] Token registration failed (non-fatal, will not break login): $e');
@@ -64,7 +71,10 @@ class FcmTokenRegistrationService {
     final token = fcmToken.trim();
     if (token.isEmpty) return;
     try {
-      await _remote.unregisterToken(token);
+      await AppEvents.track(
+        AppEvent.notificationPushUnregister,
+        () => _remote.unregisterToken(token),
+      );
       AppLogger.d('[FCM] Token unregistered from backend');
     } catch (e) {
       AppLogger.d('[FCM] Token unregister failed (non-fatal): $e');

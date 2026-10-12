@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:wowcare/data/features/notifications/models/notification_preference_group_model.dart';
 import 'package:wowcare/domain/features/notifications/repositories/notification_preference_groups_repository.dart';
 
@@ -12,6 +13,9 @@ class UpdateNotificationPreferenceGroupsUseCase {
     required String userCode,
     required UpdateNotificationPreferenceGroupsRequest request,
   }) {
-    return _repository.updateGroups(userCode: userCode, request: request);
+    return AppEvents.track(
+      AppEvent.notificationPreferencesUpdate,
+      () => _repository.updateGroups(userCode: userCode, request: request),
+    );
   }
 }
