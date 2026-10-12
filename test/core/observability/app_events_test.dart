@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dartz/dartz.dart' show Either, Left, Right;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -168,6 +169,38 @@ void main() {
 
       expect(logs.single.body, 'auth.logout.failed');
       expect(logs.single.attributes['failure']!.value, 'server');
+    });
+
+    test('leftFailure buckets a Left and passes a Right', () async {
+      await AppEvents.track<Either<Failure, int>>(
+        AppEvent.taskDelete,
+        () async => const Left(NetworkFailure()),
+        failureOf: AppEvents.leftFailure,
+      );
+      await AppEvents.track<Either<Failure, int>>(
+        AppEvent.taskDelete,
+        () async => const Right(1),
+        failureOf: AppEvents.leftFailure,
+      );
+      await settle();
+
+      expect(logs.map((log) => log.body), [
+        'task.delete.failed',
+        'task.delete.succeeded',
+      ]);
+      expect(logs.first.attributes['failure']!.value, 'network');
+    });
+
+    test('countOf reads the count from a successful result', () async {
+      await AppEvents.track(
+        AppEvent.schedulingShiftCreate,
+        () async => [1, 2, 3],
+        count: 1,
+        countOf: (shifts) => shifts.length,
+      );
+      await settle();
+
+      expect(logs.single.attributes['count']!.value, 3);
     });
   });
 }
