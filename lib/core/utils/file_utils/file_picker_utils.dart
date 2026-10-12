@@ -1,7 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 
 /// Lets the user pick a file from the device (documents, photos, videos).
 ///
@@ -96,8 +95,4 @@ class FilePickerUtils {
     }
     return null;
   }
-
-  /// Returns the mime type based on the file extension.
-  static String getMimeType(String? extension) =>
-      FileUtils.mimeTypeForExtension(extension);
 }

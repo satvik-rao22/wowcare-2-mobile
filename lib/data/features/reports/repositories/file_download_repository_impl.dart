@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
@@ -26,7 +27,7 @@ class FileDownloadRepositoryImpl implements FileDownloadRepository {
         return const Left(FileDownloadFailure('File data is empty'));
       }
 
-      final mimeType = _fileDownloadService.getMimeType(fileName);
+      final mimeType = FileUtils.mimeType(fileName);
       AppLogger.d(
         '[REPO-FILE] Detected mimeType for $assetCode:\n'
         '  fileName: $fileName\n'
@@ -64,7 +65,7 @@ class FileDownloadRepositoryImpl implements FileDownloadRepository {
     try {
       AppLogger.d('[REPO-FILE] Open started for $assetCode');
 
-      final mimeType = _fileDownloadService.getMimeType(fileName);
+      final mimeType = FileUtils.mimeType(fileName);
       AppLogger.d('[REPO-FILE] Opening with mimeType: $mimeType');
 
       final opened = await _fileDownloadService.openFile(

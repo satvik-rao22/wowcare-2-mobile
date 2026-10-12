@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -119,12 +119,9 @@ class ProfilePhotoUploader {
     onPercent?.call(15);
     final lowerPath = file.path.toLowerCase();
     final rawName = lowerPath.split(Platform.pathSeparator).last;
-    // Derive the correct content-type from the extension so every allowed image
-    // format (png/webp/heic/gif/bmp/tiff/…) uploads with its real MIME type,
-    // not a hard-coded jpeg. Falls back to jpeg for anything unrecognised.
-    final ext = rawName.contains('.') ? rawName.split('.').last : '';
-    final mime = FilePickerUtils.getMimeType(ext);
-    final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
+    // Every allowed image format (png/webp/heic/gif/bmp/tiff/…) uploads with
+    // its real MIME type, not a hard-coded jpeg.
+    final contentType = await FileUtils.imageMimeTypeOfFile(file.path);
     final presign = await _service.createAssetPresign(
       sessionCode: sessionCode,
       documentApiBasePath: '/api/v1',

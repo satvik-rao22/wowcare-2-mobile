@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mime/mime.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -93,24 +95,27 @@ void main() {
     });
   });
 
-  group('mimeType', () {
+  group('mimeType (by name)', () {
     test('same result as before for every extension we know', () {
-      // Before: lookupMimeType(path) ?? FilePickerUtils.getMimeType(ext).
       for (final MapEntry(key: ext, value: tableType) in _tableBefore.entries) {
-        final before = lookupMimeType('file.$ext') ?? tableType;
-        expect(FileUtils.mimeType('/x/file.$ext'), before, reason: ext);
-        expect(FileUtils.mimeTypeForExtension(ext), tableType, reason: ext);
+        // Was: lookupMimeType(path) ?? FilePickerUtils.getMimeType(ext).
+        expect(
+          FileUtils.mimeType('/x/file.$ext'),
+          lookupMimeType('file.$ext') ?? tableType,
+          reason: ext,
+        );
+        // Was (student documents, profile photos): the table alone.
+        expect(FileUtils.mimeType('/x/file.$ext'), tableType, reason: ext);
       }
     });
 
-    test('unknown → octet-stream, or the given fallback', () {
+    test('case-insensitive; unknown → octet-stream or the given fallback', () {
+      expect(FileUtils.mimeType('Fees.CSV'), 'text/csv');
       expect(FileUtils.mimeType('/x/file.qqq'), 'application/octet-stream');
       expect(
         FileUtils.mimeType('/x/noext', fallback: 'image/jpeg'),
         'image/jpeg',
       );
-      expect(FileUtils.mimeTypeForExtension(null), 'application/octet-stream');
-      expect(FileUtils.mimeTypeForExtension('.PDF'), 'application/pdf');
     });
 
     test('works on URLs', () {
@@ -125,6 +130,84 @@ void main() {
       expect(FileUtils.isVideo('https://cdn.x.com/a.mov?s=1'), isTrue);
       expect(FileUtils.isImage('a.pdf'), isFalse);
       expect(FileUtils.isVideo('a.jpg'), isFalse);
+    });
+  });
+
+  group('mimeTypeOfFile (uploads)', () {
+    late Directory dir;
+    setUp(() async => dir = await Directory.systemTemp.createTemp('fu_'));
+    tearDown(() => dir.delete(recursive: true));
+
+    Future<String> file(String name, List<int> bytes) async {
+      final f = File('${dir.path}/$name');
+      await f.writeAsBytes([...bytes, ...List.filled(64, 0)]);
+      return f.path;
+    }
+
+    final heic = [0, 0, 0, 0x18, ...'ftypheic'.codeUnits];
+    final png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    final pdf = '%PDF-1.7'.codeUnits;
+    final webm = [0x1A, 0x45, 0xDF, 0xA3, ...'webm'.codeUnits];
+    final zip = [0x50, 0x4B, 0x03, 0x04]; // what .docx/.xlsx really are
+
+    test(
+      'a photo with the wrong extension uploads with its real type',
+      () async {
+        expect(
+          await FileUtils.mimeTypeOfFile(await file('IMG_1.jpg', heic)),
+          'image/heic',
+        );
+        expect(
+          await FileUtils.mimeTypeOfFile(await file('shot.jpg', png)),
+          'image/png',
+        );
+      },
+    );
+
+    test('a PDF is recognised from its bytes', () async {
+      expect(
+        await FileUtils.mimeTypeOfFile(await file('scan.dat', pdf)),
+        'application/pdf',
+      );
+    });
+
+    test('videos and Office files keep their name-based type', () async {
+      // The mime package would misread WebM bytes as audio/weba.
+      expect(
+        await FileUtils.mimeTypeOfFile(await file('clip.webm', webm)),
+        'video/webm',
+      );
+      expect(
+        await FileUtils.mimeTypeOfFile(await file('form.docx', zip)),
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+    });
+
+    test(
+      'unrecognised bytes or an unreadable file → the name decides',
+      () async {
+        expect(
+          await FileUtils.mimeTypeOfFile(
+            await file('notes.csv', 'a,b'.codeUnits),
+          ),
+          'text/csv',
+        );
+        expect(
+          await FileUtils.mimeTypeOfFile('${dir.path}/missing.png'),
+          'image/png',
+        );
+      },
+    );
+
+    test('imageMimeTypeOfFile: real image type, else image/jpeg', () async {
+      expect(
+        await FileUtils.imageMimeTypeOfFile(await file('a.jpg', png)),
+        'image/png',
+      );
+      expect(
+        await FileUtils.imageMimeTypeOfFile(await file('a.pdf', pdf)),
+        'image/jpeg',
+      );
     });
   });
 

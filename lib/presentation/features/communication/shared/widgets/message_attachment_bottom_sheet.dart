@@ -168,7 +168,7 @@ class _MessageAttachmentBottomSheetState
         continue;
       }
 
-      final mime = FileUtils.mimeType(file.path);
+      final mime = await FileUtils.mimeTypeOfFile(file.path);
       valid.add(
         ChatAttachment(
           localPath: file.path,

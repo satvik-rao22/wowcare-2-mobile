@@ -129,7 +129,7 @@ Future<List<ActivityAttachment>> uploadActivityPhotoAttachments({
         // content type left non-JPEG uploads stuck at PROCESSING, never
         // reaching READY, because the decoder parsed them as JPEG. Falls back
         // to the extension when the bytes can't be sniffed.
-        final contentType = FileUtils.mimeType(fileName);
+        final contentType = await FileUtils.mimeTypeOfFile(photo.path);
         items.add(
           ActivityUploadItem(
             file: photo,

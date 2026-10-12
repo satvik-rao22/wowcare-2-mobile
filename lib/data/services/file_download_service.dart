@@ -230,8 +230,4 @@ class FileDownloadService {
       return false;
     }
   }
-
-  /// Get MIME type from file extension
-  String getMimeType(String fileName) =>
-      FileUtils.mimeTypeForExtension(FileUtils.extension(fileName));
 }

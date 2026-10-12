@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 
 import 'package:flutter/material.dart';
@@ -552,9 +553,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
 
       final lowerPath = file.path.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(file.path);
 
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,

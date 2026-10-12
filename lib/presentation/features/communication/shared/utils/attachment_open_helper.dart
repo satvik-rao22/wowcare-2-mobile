@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/app/di/messaging_resolvers.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
@@ -46,7 +47,7 @@ class AttachmentOpenHelper {
     final downloadService = resolveFileDownloadService();
     final mimeType = attachment.mimeType.isNotEmpty
         ? attachment.mimeType
-        : downloadService.getMimeType(attachment.name);
+        : FileUtils.mimeType(attachment.name);
     final assetCode = attachment.code ?? attachment.name;
 
     try {

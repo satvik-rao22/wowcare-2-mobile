@@ -184,7 +184,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
         _showWarningMessage(AppStrings.doNotExceed10MB);
         continue;
       }
-      final mime = FileUtils.mimeType(file.path);
+      final mime = await FileUtils.mimeTypeOfFile(file.path);
       final ext = FileUtils.extension(file.path);
 
       if (isPhoto && !FilePickerUtils.allowedImageExtensions.contains(ext)) {

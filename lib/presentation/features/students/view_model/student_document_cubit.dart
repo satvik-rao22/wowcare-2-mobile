@@ -5,8 +5,8 @@ import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
@@ -106,7 +106,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
         return;
       }
 
-      final mimeType = FilePickerUtils.getMimeType(file.extension);
+      final mimeType = await FileUtils.mimeTypeOfFile(selectedPath);
       final uploadSession = await _imageUploadService
           .createStudentDocumentUploadSession(
             studentCode: studentCode,
@@ -222,7 +222,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     if (state.hasSelectedFile) {
       storagePath = state.uploadedStoragePath ?? state.selectedFileName!;
       sizeBytes = state.selectedFileSize ?? 0;
-      mimeType = FilePickerUtils.getMimeType(state.selectedFileExtension);
+      mimeType = FileUtils.mimeType(state.selectedFileName ?? '');
     } else if (isEdit && initialFilePath != null) {
       storagePath = initialFilePath;
       sizeBytes = (initialFileSizeKb ?? 0) * 1024;

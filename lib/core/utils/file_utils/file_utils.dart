@@ -97,10 +97,18 @@ abstract final class FileUtils {
       .replaceAll(RegExp(r'\s+'), '_');
 
   // ── MIME types ────────────────────────────────────────────────────────────
+  //
+  // One rule for the whole app:
+  // - Uploading a file on the device → mimeTypeOfFile (or
+  //   imageMimeTypeOfFile for photos). Reads the file's first bytes.
+  // - Only a name or URL (previews, saved document records) → mimeType.
 
-  /// The MIME type for a file path, name or URL — `image/heic`,
-  /// `application/pdf`… Uses the mime package first, then our own table
-  /// (the types the backend expects), then [fallback].
+  /// The MIME type for a file path, name or URL, judged by its name —
+  /// `image/heic`, `application/pdf`… Uses the mime package first, then our
+  /// own table (the types the backend expects), then [fallback].
+  ///
+  /// For a file that is about to be uploaded use [mimeTypeOfFile]: a name
+  /// can lie, the file's bytes can't.
   static String mimeType(
     String pathOrName, {
     String fallback = unknownMimeType,
@@ -109,13 +117,52 @@ abstract final class FileUtils {
     return mime.lookupMimeType(path) ?? _mimeTypes[extension(path)] ?? fallback;
   }
 
-  /// The MIME type for an extension (`pdf`, `.PDF`…) from our own table, or
-  /// `application/octet-stream`.
-  static String mimeTypeForExtension(String? extension) {
-    if (extension == null) return unknownMimeType;
-    final ext = extension.toLowerCase().replaceAll('.', '');
-    return _mimeTypes[ext] ?? unknownMimeType;
+  /// The real MIME type of the file at [path], for uploads.
+  ///
+  /// Photos and PDFs are recognised from the file's first bytes, so a HEIC
+  /// photo saved as `IMG_1.jpg` uploads as `image/heic`, not `image/jpeg` —
+  /// a wrong type leaves the backend unable to process the file. Everything
+  /// else (videos, Word/Excel/PowerPoint, audio) is judged by its name, as
+  /// [mimeType] does: the bytes of those formats can't be told apart
+  /// reliably. If the file can't be read, the name decides.
+  static Future<String> mimeTypeOfFile(
+    String path, {
+    String fallback = unknownMimeType,
+  }) async {
+    final byContent = await _imageOrPdfFromBytes(path);
+    return byContent ?? mimeType(path, fallback: fallback);
   }
+
+  /// [mimeTypeOfFile] for photo uploads: anything that isn't recognised as
+  /// an image uploads as `image/jpeg`.
+  static Future<String> imageMimeTypeOfFile(String path) async {
+    final type = await mimeTypeOfFile(path);
+    return type.startsWith('image/') ? type : 'image/jpeg';
+  }
+
+  /// Image or PDF type from the file's first bytes, or null. Only these are
+  /// trusted: the mime package's byte checks misread WebM as audio and miss
+  /// QuickTime, and Office files are plain ZIPs on the inside.
+  static Future<String?> _imageOrPdfFromBytes(String path) async {
+    final List<int> header;
+    try {
+      final file = await File(path).open();
+      try {
+        header = await file.read(_headerBytes);
+      } finally {
+        await file.close();
+      }
+    } catch (_) {
+      return null;
+    }
+    // An empty name, so only the bytes are matched — never the extension.
+    final type = mime.lookupMimeType('', headerBytes: header);
+    if (type == null) return null;
+    return type.startsWith('image/') || type == 'application/pdf' ? type : null;
+  }
+
+  /// Enough for every image/PDF signature the mime package checks.
+  static const int _headerBytes = 32;
 
   /// Whether a file path, name or URL is a photo, judged by its extension.
   static bool isImage(String pathOrName) =>

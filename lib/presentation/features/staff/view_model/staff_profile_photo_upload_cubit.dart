@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/app_time.dart';
-import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import '../../../../core/utils/storage_keys.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 
@@ -63,10 +63,7 @@ class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
 
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final mime = FilePickerUtils.getMimeType(
-        fileName.contains('.') ? fileName.split('.').last : '',
-      );
-      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
       final presign = await _imageUploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

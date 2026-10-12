@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:equatable/equatable.dart';
 
@@ -689,9 +690,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
       final presign = await _imageUploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -833,9 +832,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
       final presign = await _imageUploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

@@ -100,14 +100,11 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
         return;
       }
 
-      // lookupMimeType checks the real file name/bytes first, falling back to
-      // the extension-only map only when it can't tell - a bare-extension
-      // lookup alone sends 'application/octet-stream' for anything it
-      // doesn't recognize (e.g. an audio file slipped past the picker's
-      // extension filter), which surfaces as a meaningless "Content type
+      // The file's real type (photos/PDFs from their bytes): a wrong or
+      // generic type surfaces as a meaningless "Content type
       // 'application/octet-stream' is not allowed" instead of the backend's
       // actual, specific rejection reason.
-      final mimeType = FileUtils.mimeType(selectedPath);
+      final mimeType = await FileUtils.mimeTypeOfFile(selectedPath);
       final uploadSession = await _imageUploadService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,

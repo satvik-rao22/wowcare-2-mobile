@@ -115,10 +115,7 @@ class _SchoolCloudImageUploaderDialogState
           final fileName = image.uri.pathSegments.isNotEmpty
               ? image.uri.pathSegments.last
               : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg';
-          final contentType = FileUtils.mimeType(
-            image.path,
-            fallback: 'image/jpeg',
-          );
+          final contentType = await FileUtils.imageMimeTypeOfFile(image.path);
           final contentLengthBytes = await image.length();
 
           final presign = await cubit.createAssetPresign(

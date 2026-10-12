@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -607,10 +608,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final mime = FilePickerUtils.getMimeType(
-        fileName.contains('.') ? fileName.split('.').last : '',
-      );
-      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
+      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

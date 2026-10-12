@@ -344,7 +344,7 @@ class BulkMessagingCompositionCubit
           name: FileUtils.fileName(a.file.path),
           type: a.isImage ? 'image' : 'document',
           sizeBytes: size,
-          mimeType: FileUtils.mimeType(a.file.path),
+          mimeType: await FileUtils.mimeTypeOfFile(a.file.path),
           remoteUrl: '',
         ),
       );
