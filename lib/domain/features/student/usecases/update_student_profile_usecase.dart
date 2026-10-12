@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/update_student_profile_request.dart';
 import '../repositories/student_repository.dart';
 
@@ -11,9 +13,9 @@ class UpdateStudentProfileUseCase {
     required String code,
     required UpdateStudentProfileRequest request,
   }) {
-    return _repository.updateStudentProfile(
-      code: code,
-      request: request,
+    return AppEvents.track(
+      AppEvent.studentProfileUpdate,
+      () => _repository.updateStudentProfile(code: code, request: request),
     );
   }
 }

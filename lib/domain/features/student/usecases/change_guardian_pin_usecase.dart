@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Sets a guardian's clock PIN to an operator-supplied value.
@@ -11,10 +13,13 @@ class ChangeGuardianPinUseCase {
     required String pin,
     required String studentCode,
   }) {
-    return _repository.changeGuardianPin(
-      guardianCode: guardianCode,
-      pin: pin,
-      studentCode: studentCode,
+    return AppEvents.track(
+      AppEvent.guardianPinChange,
+      () => _repository.changeGuardianPin(
+        guardianCode: guardianCode,
+        pin: pin,
+        studentCode: studentCode,
+      ),
     );
   }
 }

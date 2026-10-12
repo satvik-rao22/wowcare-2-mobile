@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/student_physician.dart';
 import '../repositories/student_repository.dart';
 
@@ -17,16 +19,19 @@ class UpdatePhysicianUseCase {
     String? specialty,
     String? notes,
   }) {
-    return _repository.updatePhysician(
-      code: code,
-      studentCode: studentCode,
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      phoneNumber: phoneNumber,
-      address: address,
-      specialty: specialty,
-      notes: notes,
+    return AppEvents.track(
+      AppEvent.studentPhysicianUpdate,
+      () => _repository.updatePhysician(
+        code: code,
+        studentCode: studentCode,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phoneNumber: phoneNumber,
+        address: address,
+        specialty: specialty,
+        notes: notes,
+      ),
     );
   }
 }

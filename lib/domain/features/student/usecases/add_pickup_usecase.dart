@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 class AddPickupUseCase {
@@ -16,16 +18,19 @@ class AddPickupUseCase {
     required String pickupType,
     String? carpoolId,
   }) {
-    return _repository.addPickup(
-      studentCode: studentCode,
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      phoneNumber: phoneNumber,
-      relation: relation,
-      relationshipDescription: relationshipDescription,
-      pickupType: pickupType,
-      carpoolId: carpoolId,
+    return AppEvents.track(
+      AppEvent.studentPickupAdd,
+      () => _repository.addPickup(
+        studentCode: studentCode,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phoneNumber: phoneNumber,
+        relation: relation,
+        relationshipDescription: relationshipDescription,
+        pickupType: pickupType,
+        carpoolId: carpoolId,
+      ),
     );
   }
 }

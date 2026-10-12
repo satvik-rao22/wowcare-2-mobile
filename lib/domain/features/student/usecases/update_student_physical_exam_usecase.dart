@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/student_physical_exam.dart';
 import '../repositories/student_repository.dart';
 
@@ -13,12 +15,15 @@ class UpdateStudentPhysicalExamUseCase {
     required String status,
     String? notes,
   }) {
-    return _repository.updateStudentPhysicalExam(
-      studentCode: studentCode,
-      examCode: examCode,
-      examDate: examDate,
-      status: status,
-      notes: notes,
+    return AppEvents.track(
+      AppEvent.studentPhysicalExamUpdate,
+      () => _repository.updateStudentPhysicalExam(
+        studentCode: studentCode,
+        examCode: examCode,
+        examDate: examDate,
+        status: status,
+        notes: notes,
+      ),
     );
   }
 }

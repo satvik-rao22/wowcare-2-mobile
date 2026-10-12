@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Links an existing guardian to a student.
@@ -14,11 +16,14 @@ class LinkExistingGuardianUseCase {
     String? relation,
     String? relationDescription,
   }) {
-    return _repository.linkExistingGuardian(
-      guardianCode: guardianCode,
-      studentCode: studentCode,
-      relation: relation,
-      relationDescription: relationDescription,
+    return AppEvents.track(
+      AppEvent.guardianLink,
+      () => _repository.linkExistingGuardian(
+        guardianCode: guardianCode,
+        studentCode: studentCode,
+        relation: relation,
+        relationDescription: relationDescription,
+      ),
     );
   }
 }

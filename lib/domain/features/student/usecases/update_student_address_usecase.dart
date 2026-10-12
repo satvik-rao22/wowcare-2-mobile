@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/update_student_address_request.dart';
 import '../repositories/student_repository.dart';
 
@@ -11,9 +13,12 @@ class UpdateStudentAddressUseCase {
     required String studentCode,
     required UpdateStudentAddressRequest request,
   }) {
-    return _repository.updateStudentAddress(
-      studentCode: studentCode,
-      request: request,
+    return AppEvents.track(
+      AppEvent.studentAddressUpdate,
+      () => _repository.updateStudentAddress(
+        studentCode: studentCode,
+        request: request,
+      ),
     );
   }
 }

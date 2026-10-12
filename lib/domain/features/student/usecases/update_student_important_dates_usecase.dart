@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -15,9 +16,12 @@ class UpdateStudentImportantDatesUseCase {
     required StudentImportantDates dates,
   }) async {
     try {
-      final message = await _repository.updateStudentImportantDates(
-        studentCode: studentCode,
-        dates: dates,
+      final message = await AppEvents.track(
+        AppEvent.studentImportantDatesUpdate,
+        () => _repository.updateStudentImportantDates(
+          studentCode: studentCode,
+          dates: dates,
+        ),
       );
       return Right(message);
     } catch (e) {

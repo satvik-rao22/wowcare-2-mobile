@@ -1,3 +1,4 @@
+import 'package:wowcare/core/observability/app_events.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -14,9 +15,12 @@ class DeleteStudentDocumentUseCase {
     required String studentCode,
   }) async {
     try {
-      final message = await _repository.deleteStudentDocument(
-        documentUuid: documentUuid,
-        studentCode: studentCode,
+      final message = await AppEvents.track(
+        AppEvent.studentDocumentDelete,
+        () => _repository.deleteStudentDocument(
+          documentUuid: documentUuid,
+          studentCode: studentCode,
+        ),
       );
       return Right(message);
     } catch (e) {

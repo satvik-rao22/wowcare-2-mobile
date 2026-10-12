@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 class DeletePickupUseCase {
@@ -6,6 +8,9 @@ class DeletePickupUseCase {
   final StudentRepository _repository;
 
   Future<String> call({required String code, required String studentCode}) {
-    return _repository.deletePickup(code: code, studentCode: studentCode);
+    return AppEvents.track(
+      AppEvent.studentPickupDelete,
+      () => _repository.deletePickup(code: code, studentCode: studentCode),
+    );
   }
 }

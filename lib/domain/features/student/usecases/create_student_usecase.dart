@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/student.dart';
 import '../repositories/student_repository.dart';
 
@@ -19,15 +21,18 @@ class CreateStudentUseCase {
     DateTime? dob,
     DateTime? schoolStartDate,
   }) {
-    return _repository.createStudent(
-      schoolCode: schoolCode,
-      firstName: firstName,
-      lastName: lastName,
-      status: status,
-      classroom: classroom,
-      profilePhotoUrl: profilePhotoUrl,
-      dob: dob,
-      schoolStartDate: schoolStartDate,
+    return AppEvents.track(
+      AppEvent.studentCreate,
+      () => _repository.createStudent(
+        schoolCode: schoolCode,
+        firstName: firstName,
+        lastName: lastName,
+        status: status,
+        classroom: classroom,
+        profilePhotoUrl: profilePhotoUrl,
+        dob: dob,
+        schoolStartDate: schoolStartDate,
+      ),
     );
   }
 }

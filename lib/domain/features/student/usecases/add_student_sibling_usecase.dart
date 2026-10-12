@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Links siblings onto a newly created student (add-student flow only).
@@ -12,9 +14,13 @@ class AddStudentSiblingUseCase {
     required String studentCode,
     required List<String> siblingCodes,
   }) {
-    return _repository.addStudentSibling(
-      studentCode: studentCode,
-      siblingCodes: siblingCodes,
+    return AppEvents.track(
+      AppEvent.studentSiblingAdd,
+      () => _repository.addStudentSibling(
+        studentCode: studentCode,
+        siblingCodes: siblingCodes,
+      ),
+      count: siblingCodes.length,
     );
   }
 }

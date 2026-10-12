@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Asks the server to generate a new clock PIN for a guardian.
@@ -10,9 +12,12 @@ class GenerateGuardianPinUseCase {
     required String guardianCode,
     required String studentCode,
   }) {
-    return _repository.generateGuardianPin(
-      guardianCode: guardianCode,
-      studentCode: studentCode,
+    return AppEvents.track(
+      AppEvent.guardianPinGenerate,
+      () => _repository.generateGuardianPin(
+        guardianCode: guardianCode,
+        studentCode: studentCode,
+      ),
     );
   }
 }

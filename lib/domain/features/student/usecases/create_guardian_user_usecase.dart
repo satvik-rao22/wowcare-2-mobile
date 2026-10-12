@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Creates or links a guardian user to a student.
@@ -22,19 +24,22 @@ class CreateGuardianUserUseCase {
     String? userCode,
     String? organizationCode,
   }) {
-    return _repository.createGuardianUser(
-      schoolCode: schoolCode,
-      studentCode: studentCode,
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      mobile: mobile,
-      relationToStudent: relationToStudent,
-      primaryContact: primaryContact,
-      legalCustody: legalCustody,
-      profilePhotoUrl: profilePhotoUrl,
-      userCode: userCode,
-      organizationCode: organizationCode,
+    return AppEvents.track(
+      AppEvent.guardianCreate,
+      () => _repository.createGuardianUser(
+        schoolCode: schoolCode,
+        studentCode: studentCode,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        mobile: mobile,
+        relationToStudent: relationToStudent,
+        primaryContact: primaryContact,
+        legalCustody: legalCustody,
+        profilePhotoUrl: profilePhotoUrl,
+        userCode: userCode,
+        organizationCode: organizationCode,
+      ),
     );
   }
 }

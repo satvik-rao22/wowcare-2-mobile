@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 class UpdatePickupUseCase {
@@ -18,18 +20,21 @@ class UpdatePickupUseCase {
     String? pickupType,
     String? carpoolId,
   }) {
-    return _repository.updatePickup(
-      code: code,
-      studentCode: studentCode,
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      phoneNumber: phoneNumber,
-      relation: relation,
-      clockPin: clockPin,
-      relationshipDescription: relationshipDescription,
-      pickupType: pickupType,
-      carpoolId: carpoolId,
+    return AppEvents.track(
+      AppEvent.studentPickupUpdate,
+      () => _repository.updatePickup(
+        code: code,
+        studentCode: studentCode,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phoneNumber: phoneNumber,
+        relation: relation,
+        clockPin: clockPin,
+        relationshipDescription: relationshipDescription,
+        pickupType: pickupType,
+        carpoolId: carpoolId,
+      ),
     );
   }
 }

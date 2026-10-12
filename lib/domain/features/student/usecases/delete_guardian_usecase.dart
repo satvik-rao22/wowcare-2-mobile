@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 class DeleteGuardianUseCase {
@@ -6,6 +8,9 @@ class DeleteGuardianUseCase {
   final StudentRepository _repository;
 
   Future<String> call({required String code, required String studentCode}) {
-    return _repository.deleteGuardian(code: code, studentCode: studentCode);
+    return AppEvents.track(
+      AppEvent.guardianDelete,
+      () => _repository.deleteGuardian(code: code, studentCode: studentCode),
+    );
   }
 }

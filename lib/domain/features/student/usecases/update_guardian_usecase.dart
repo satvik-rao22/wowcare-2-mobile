@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/update_guardian_request.dart';
 import '../repositories/student_repository.dart';
 
@@ -12,10 +14,13 @@ class UpdateGuardianUseCase {
     required String studentCode,
     required UpdateGuardianRequest request,
   }) {
-    return _repository.updateGuardian(
-      code: code,
-      studentCode: studentCode,
-      request: request,
+    return AppEvents.track(
+      AppEvent.guardianUpdate,
+      () => _repository.updateGuardian(
+        code: code,
+        studentCode: studentCode,
+        request: request,
+      ),
     );
   }
 }

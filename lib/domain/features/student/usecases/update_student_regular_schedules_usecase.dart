@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/student_regular_schedule_input.dart';
 import '../repositories/student_repository.dart';
 
@@ -12,10 +14,14 @@ class UpdateStudentRegularSchedulesUseCase {
     required String studentCode,
     required List<StudentRegularScheduleInput> schedule,
   }) {
-    return _repository.updateStudentRegularSchedules(
-      schoolCode: schoolCode,
-      studentCode: studentCode,
-      schedule: schedule,
+    return AppEvents.track(
+      AppEvent.studentSchedulesUpdate,
+      () => _repository.updateStudentRegularSchedules(
+        schoolCode: schoolCode,
+        studentCode: studentCode,
+        schedule: schedule,
+      ),
+      count: schedule.length,
     );
   }
 }

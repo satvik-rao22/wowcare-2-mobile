@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../repositories/student_repository.dart';
 
 /// Re-sends the app invitation email to a single guardian.
@@ -13,11 +15,14 @@ class ResendGuardianInviteUseCase {
     required String organizationCode,
     required String schoolCode,
   }) {
-    return _repository.resendGuardianInvite(
-      invitedEmail: invitedEmail,
-      userCode: userCode,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
+    return AppEvents.track(
+      AppEvent.guardianInviteResend,
+      () => _repository.resendGuardianInvite(
+        invitedEmail: invitedEmail,
+        userCode: userCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      ),
     );
   }
 }

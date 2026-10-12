@@ -1,3 +1,5 @@
+import 'package:wowcare/core/observability/app_events.dart';
+
 import '../entities/student_immunization.dart';
 import '../repositories/student_repository.dart';
 
@@ -13,12 +15,15 @@ class UpdateStudentImmunizationRecordUseCase {
     required String status,
     String? exemptionReason,
   }) {
-    return _repository.updateStudentImmunizationRecord(
-      studentCode: studentCode,
-      record: record,
-      date: date,
-      status: status,
-      exemptionReason: exemptionReason,
+    return AppEvents.track(
+      AppEvent.studentImmunizationUpdate,
+      () => _repository.updateStudentImmunizationRecord(
+        studentCode: studentCode,
+        record: record,
+        date: date,
+        status: status,
+        exemptionReason: exemptionReason,
+      ),
     );
   }
 }
