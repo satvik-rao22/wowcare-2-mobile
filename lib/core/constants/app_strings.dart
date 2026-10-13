@@ -511,6 +511,14 @@ abstract final class AppStrings {
       'Unread message counts also include unread messages for Students / '
       'Staff made inactive. Apply filters accordingly to view them in '
       'messaging.';
+  static const String markAllRead = 'Mark all read';
+  static const String markAllReadConfirmTitle = 'Mark all as read?';
+  static const String markAllReadConfirmBody =
+      'This clears unread counts in every messaging group. Senders will '
+      'see your messages as read.';
+  static const String markAllReadSuccess = 'All messages marked as read';
+  static const String markAllReadFailed =
+      'Could not mark messages as read. Please try again.';
 
   // ── Attachment options sheet ────────────────────────────────────────────────
   static const String addAttachment = 'Add Attachment';

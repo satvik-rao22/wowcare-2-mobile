@@ -206,6 +206,9 @@ class _FakeConversationEntityRepository
   int markConversationReadCallCount = 0;
 
   @override
+  Future<Either<Failure, int>> markAllRead() async => const Right(0);
+
+  @override
   Future<Either<Failure, void>> markConversationRead(
     String conversationCode,
   ) async {

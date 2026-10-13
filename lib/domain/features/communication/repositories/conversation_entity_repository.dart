@@ -215,6 +215,12 @@ abstract class ConversationEntityRepository {
   /// Offline behaviour: queued and retried on reconnect.
   Future<Either<Failure, void>> markConversationRead(String conversationCode);
 
+  /// Mark every conversation (all types) read for the current user under
+  /// their active role bucket. Returns the number of conversations cleared.
+  /// Badges reset via the Firestore inbox listeners once the backend zeroes
+  /// the `user_inbox` docs — no local badge state is touched here.
+  Future<Either<Failure, int>> markAllRead();
+
   /// Marks every unread message in [conversationCode] as delivered for the
   /// current user — called on a new incoming message even if the thread
   /// isn't open, so the sender's ticks advance promptly.

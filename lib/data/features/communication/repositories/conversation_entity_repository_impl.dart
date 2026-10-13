@@ -540,6 +540,19 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   }
 
   @override
+  Future<Either<Failure, int>> markAllRead() async {
+    try {
+      final cleared = await _remote.markAllRead(
+        userCode: await _userCode,
+        role: await _unreadRoleBucket,
+      );
+      return Right(cleared);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> markConversationDelivered(
     String conversationCode,
   ) async {

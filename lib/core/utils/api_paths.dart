@@ -1053,6 +1053,9 @@ class ApiPaths {
   // POST /api/v1/messages/conversation/{code}/receipts/read-all
   static String messagingConversationMarkRead(String code) =>
       '$messages/conversation/$code/receipts/read-all';
+  // POST /api/v1/messages/receipts/read-all — marks EVERY conversation read
+  // for the current user under the given role bucket (all types at once).
+  static const String messagesMarkAllRead = '$messages/receipts/read-all';
   // POST /api/v1/messages/conversation/{code}/receipts/delivered-all — marks
   // every unread message in the conversation as delivered for the current
   // user, even with the thread closed, so the sender's ticks advance
