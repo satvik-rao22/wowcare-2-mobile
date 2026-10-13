@@ -2,14 +2,14 @@ import 'dart:io';
 
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// A finished profile-photo upload: the new asset and its finalized URL.
 typedef UploadedProfilePhoto = ({String assetCode, String url});
 
 /// The one way the app uploads a staff, student or guardian profile photo:
-/// create the session → upload (ImageUploadService.uploadToSession) →
+/// create the session → upload (AssetService.uploadToSession) →
 /// finalize. Used by the profile screens and the add/edit forms alike.
 ///
 /// Call it after the person exists (so their `code` does). [onPercent]
@@ -18,7 +18,7 @@ typedef UploadedProfilePhoto = ({String assetCode, String url});
 class ProfilePhotoUploader {
   ProfilePhotoUploader(this._service);
 
-  final ImageUploadService _service;
+  final AssetService _service;
 
   Future<UploadedProfilePhoto> uploadStudentPhoto({
     required String studentCode,

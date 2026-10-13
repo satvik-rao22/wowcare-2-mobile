@@ -5,7 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_constants.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
@@ -960,12 +960,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
   }
 
-  /// The display URL for [assetCode] — through ImageUploadService, so every
+  /// The display URL for [assetCode] — through AssetService, so every
   /// avatar and logo shares its cache, its in-flight requests and its
   /// cool-down for assets that aren't ready, instead of each widget asking
   /// the server on its own.
   Future<String> _fetchDocumentAssetUrl(String assetCode) =>
-      serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+      serviceLocator<AssetService>().getMediaAssetUrlByCode(
         assetCode: assetCode,
       );
 

@@ -6,9 +6,9 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../../../../core/utils/storage_keys.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import '../../../../shared/services/asset/asset_service.dart';
 import 'staff_profile_cubit.dart';
 
 /// Owns the multi-step staff-document upload flow (create session, presign,
@@ -17,15 +17,15 @@ import 'staff_profile_cubit.dart';
 class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
   StaffDocumentUploadCubit({
     required StorageService storageService,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required StaffProfileCubit staffProfileCubit,
   }) : _storageService = storageService,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _staffProfileCubit = staffProfileCubit,
        super(const StaffDocumentUploadState.initial());
 
   final StorageService _storageService;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StaffProfileCubit _staffProfileCubit;
 
   Future<void> uploadFile({
@@ -105,13 +105,13 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       // 'application/octet-stream' is not allowed" instead of the backend's
       // actual, specific rejection reason.
       final mimeType = selectedFile.mimeType;
-      final uploadSession = await _imageUploadService
+      final uploadSession = await _assetService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final asset = await _imageUploadService.uploadToSession(
+      final asset = await _assetService.uploadToSession(
         session: uploadSession,
         file: file,
         owner: AssetOwner.staff(staffCode),
@@ -133,7 +133,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
           documentUrl: selectedFile.name,
         ),
       );
-      _imageUploadService
+      _assetService
           .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             if (isClosed) return;

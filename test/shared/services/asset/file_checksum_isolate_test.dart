@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +13,7 @@ void main() {
     'computeFileChecksumSha256 (streamed, off-isolate) matches the direct '
     'readAsBytes + sha256 digest',
     () async {
-      final service = ImageUploadService(ApiClient(baseUrl: 'http://localhost'));
+      final service = AssetService(ApiClient(baseUrl: 'http://localhost'));
 
       final dir = await Directory.systemTemp.createTemp('checksum_test');
       final file = File('${dir.path}/blob.bin');

@@ -21,8 +21,8 @@ import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase
 import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 
 part 'user_profile_state.dart';
 
@@ -54,7 +54,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     required GetUserDetailsUseCase getUserDetailsUseCase,
     required SwitchActiveSchoolPersonaUseCase switchActiveSchoolPersonaUseCase,
     required GetGuardianProfileUseCase getGuardianProfileUseCase,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required ResolveLoggedInStaffCodeUseCase resolveLoggedInStaffCodeUseCase,
   }) : _storage = storageService,
@@ -63,7 +63,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
        _getUserDetailsUseCase = getUserDetailsUseCase,
        _switchActiveSchoolPersonaUseCase = switchActiveSchoolPersonaUseCase,
        _getGuardianProfileUseCase = getGuardianProfileUseCase,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
        _resolveLoggedInStaffCodeUseCase = resolveLoggedInStaffCodeUseCase,
        super(const UserProfileState.initial());
@@ -74,7 +74,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   final GetUserDetailsUseCase _getUserDetailsUseCase;
   final SwitchActiveSchoolPersonaUseCase _switchActiveSchoolPersonaUseCase;
   final GetGuardianProfileUseCase _getGuardianProfileUseCase;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final ResolveLoggedInStaffCodeUseCase _resolveLoggedInStaffCodeUseCase;
 
@@ -568,7 +568,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         );
       }
 
-      await _imageUploadService.deleteProfilePhoto(
+      await _assetService.deleteProfilePhoto(
         owner: ProfilePhotoOwner.staff,
         code: staffCode,
       );
@@ -597,7 +597,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         );
       }
 
-      await _imageUploadService.deleteProfilePhoto(
+      await _assetService.deleteProfilePhoto(
         owner: ProfilePhotoOwner.guardian,
         code: guardianCode,
       );
@@ -679,7 +679,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           profilePhotoUploadPercent: 5,
         ),
       );
-      await ProfilePhotoUploader(_imageUploadService).uploadStaffPhoto(
+      await ProfilePhotoUploader(_assetService).uploadStaffPhoto(
         staffCode: staffCode,
         file: File(imagePath),
         schoolCode: schoolCode,
@@ -776,7 +776,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           profilePhotoUploadPercent: 5,
         ),
       );
-      final photo = await ProfilePhotoUploader(_imageUploadService)
+      final photo = await ProfilePhotoUploader(_assetService)
           .uploadGuardianPhoto(
             guardianCode: guardianCode,
             file: File(imagePath),

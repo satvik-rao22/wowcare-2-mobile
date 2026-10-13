@@ -6,8 +6,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// ViewModel seam for [SchoolCloudImageUploaderDialog] — a self-contained
 /// image-picker/upload dialog unrelated to activity editing, so it gets its
@@ -18,13 +18,13 @@ class SchoolCloudImageUploaderCubit
     extends Cubit<SchoolCloudImageUploaderState> {
   SchoolCloudImageUploaderCubit({
     required StorageService storageService,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
   }) : _storage = storageService,
-       _uploadService = imageUploadService,
+       _uploadService = assetService,
        super(const SchoolCloudImageUploaderState());
 
   final StorageService _storage;
-  final ImageUploadService _uploadService;
+  final AssetService _uploadService;
 
   Future<String> getSchoolCode() async =>
       (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();

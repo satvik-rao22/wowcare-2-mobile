@@ -12,7 +12,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// DI resolvers for the communication feature's shared utilities and the few
 /// screens with no natural owning cubit, kept OUT of the presentation layer
@@ -26,8 +26,7 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 ///   the same service-locator registration used before — no behaviour change.
 
 // ── Plain services (not forbidden view types) ────────────────────────────────
-ImageUploadService resolveImageUploadService() =>
-    serviceLocator<ImageUploadService>();
+AssetService resolveAssetService() => serviceLocator<AssetService>();
 
 // ── Use-cases (not forbidden view types) ─────────────────────────────────────
 GetCommunicationSettingsUseCase resolveGetCommunicationSettingsUseCase() =>

@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Mirrors the retry predicate in `uploadFileToPresignedUrl`. Kept here so the
 /// classification of timeouts as retryable is pinned by a test — the predicate
@@ -29,7 +29,7 @@ void main() {
       'a 200 MB video — the largest the app accepts — gets roughly 27 minutes '
       'at the assumed 128 KB/s floor, not a JSON-sized window',
       () {
-        final t = ImageUploadService.sendTimeoutForBytes(200 * mb);
+        final t = AssetService.sendTimeoutForBytes(200 * mb);
         expect(t.inMinutes, greaterThanOrEqualTo(26));
         expect(t.inMinutes, lessThanOrEqualTo(28));
         // The shared API client's receive timeout is 30s; a video must not be
@@ -39,19 +39,19 @@ void main() {
     );
 
     test('the window scales with the payload rather than being fixed', () {
-      final small = ImageUploadService.sendTimeoutForBytes(20 * mb);
-      final large = ImageUploadService.sendTimeoutForBytes(200 * mb);
+      final small = AssetService.sendTimeoutForBytes(20 * mb);
+      final large = AssetService.sendTimeoutForBytes(200 * mb);
       expect(large, greaterThan(small));
       expect(large.inSeconds, closeTo(small.inSeconds * 10, 5));
     });
 
     test('a small photo still gets the 60s floor, not a fraction of a second', () {
       expect(
-        ImageUploadService.sendTimeoutForBytes(100 * kb),
+        AssetService.sendTimeoutForBytes(100 * kb),
         const Duration(seconds: 60),
       );
       expect(
-        ImageUploadService.sendTimeoutForBytes(1),
+        AssetService.sendTimeoutForBytes(1),
         const Duration(seconds: 60),
       );
     });
@@ -61,11 +61,11 @@ void main() {
       'producing a zero-length (immediately expiring) timeout',
       () {
         expect(
-          ImageUploadService.sendTimeoutForBytes(0),
+          AssetService.sendTimeoutForBytes(0),
           const Duration(seconds: 60),
         );
         expect(
-          ImageUploadService.sendTimeoutForBytes(-1),
+          AssetService.sendTimeoutForBytes(-1),
           const Duration(seconds: 60),
         );
       },
@@ -75,7 +75,7 @@ void main() {
       'an absurd content length is capped — a bad length must never produce an '
       'effectively infinite timeout, which is the bug being fixed',
       () {
-        final t = ImageUploadService.sendTimeoutForBytes(500 * 1024 * mb);
+        final t = AssetService.sendTimeoutForBytes(500 * 1024 * mb);
         expect(t, const Duration(minutes: 45));
       },
     );
@@ -83,7 +83,7 @@ void main() {
     test('the timeout is always strictly positive', () {
       for (final bytes in <int>[-100, 0, 1, 1024, 5 * mb, 200 * mb]) {
         expect(
-          ImageUploadService.sendTimeoutForBytes(bytes).inMilliseconds,
+          AssetService.sendTimeoutForBytes(bytes).inMilliseconds,
           greaterThan(0),
           reason: '$bytes bytes',
         );

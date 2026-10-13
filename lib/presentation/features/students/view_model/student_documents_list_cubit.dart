@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/file_download_service.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 
 import 'package:wowcare/domain/features/student/entities/student_document.dart';
@@ -15,19 +15,19 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
     required GetStudentDocumentsUseCase getStudentDocumentsUseCase,
     required DeleteStudentDocumentUseCase deleteStudentDocumentUseCase,
     required StudentRepository repository,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     FileDownloadService? fileDownloadService,
   }) : _getStudentDocumentsUseCase = getStudentDocumentsUseCase,
        _deleteStudentDocumentUseCase = deleteStudentDocumentUseCase,
        _repository = repository,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _fileDownloadService = fileDownloadService ?? FileDownloadService(),
        super(const StudentDocumentsListState.initial());
 
   final GetStudentDocumentsUseCase _getStudentDocumentsUseCase;
   final DeleteStudentDocumentUseCase _deleteStudentDocumentUseCase;
   final StudentRepository _repository;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final FileDownloadService _fileDownloadService;
 
   /// Downloads a resolved document URL to [savePath]. Kept off the View (which
@@ -40,7 +40,7 @@ class StudentDocumentsListCubit extends Cubit<StudentDocumentsListState> {
   /// not a link — this resolves the downloadable URL from the asset code.
   /// Same as StaffDocumentsListCubit; keeps the tab off the service locator.
   Future<String> resolveMediaAssetUrl(String assetCode) async {
-    final url = await _imageUploadService.getMediaAssetUrlByCode(
+    final url = await _assetService.getMediaAssetUrlByCode(
       assetCode: assetCode,
     );
     return url.trim();

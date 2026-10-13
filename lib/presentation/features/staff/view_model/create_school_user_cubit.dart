@@ -11,7 +11,7 @@ import '../../../../domain/features/staff/entities/create_school_user_result.dar
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/usecases/create_school_user_usecase.dart';
 import '../../../../domain/features/staff/usecases/get_all_staff_usecase.dart';
-import '../../../../shared/services/image_upload/staff_photo_background_upload_service.dart';
+import '../../../../shared/services/asset/staff_photo_background_upload_service.dart';
 
 part 'create_school_user_state.dart';
 

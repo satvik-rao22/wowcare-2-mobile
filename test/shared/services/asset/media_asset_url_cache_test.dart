@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Answers every "asset by code" lookup with a delivery URL and counts calls.
 class _FakeDocumentService implements HttpClientAdapter {
@@ -34,13 +34,13 @@ class _FakeDocumentService implements HttpClientAdapter {
 
 void main() {
   late _FakeDocumentService server;
-  late ImageUploadService service;
+  late AssetService service;
 
   setUp(() {
     server = _FakeDocumentService();
     final apiClient = ApiClient(baseUrl: 'https://example.invalid');
     apiClient.client.httpClientAdapter = server;
-    service = ImageUploadService(apiClient);
+    service = AssetService(apiClient);
   });
 
   test('a fresh URL is reused — one lookup for repeat requests', () async {

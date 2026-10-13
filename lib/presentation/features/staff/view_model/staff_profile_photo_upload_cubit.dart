@@ -5,21 +5,21 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/storage_keys.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import '../../../../shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 
 /// Owns the multi-step staff profile-photo upload flow (create session,
 /// presign, upload with progress, complete, wait-until-ready, finalize) —
 /// previously run inline in [StaffProfileScreen]'s `State`.
 class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
   StaffProfilePhotoUploadCubit({
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required StorageService storageService,
-  }) : _imageUploadService = imageUploadService,
+  }) : _assetService = assetService,
        _storageService = storageService,
        super(const StaffProfilePhotoUploadState.initial());
 
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StorageService _storageService;
 
   /// The org/school the upload runs under, read from the active selection.
@@ -50,21 +50,20 @@ class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
   }) async {
     emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 0));
     try {
-      final photo = await ProfilePhotoUploader(_imageUploadService)
-          .uploadStaffPhoto(
-            staffCode: staffCode,
-            file: File(imagePath),
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-            onPercent: (percent) {
-              if (isClosed) return;
-              emit(
-                StaffProfilePhotoUploadState.uploading(
-                  progressPercent: percent.toDouble(),
-                ),
-              );
-            },
+      final photo = await ProfilePhotoUploader(_assetService).uploadStaffPhoto(
+        staffCode: staffCode,
+        file: File(imagePath),
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        onPercent: (percent) {
+          if (isClosed) return;
+          emit(
+            StaffProfilePhotoUploadState.uploading(
+              progressPercent: percent.toDouble(),
+            ),
           );
+        },
+      );
       if (isClosed) return photo.url;
       emit(StaffProfilePhotoUploadState.done(photo.url));
       return photo.url;
@@ -84,7 +83,7 @@ class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
   /// No progress state is emitted: the request is a single small POST, and the
   /// confirmation sheet already owns the in-flight spinner.
   Future<void> deletePhoto({required String staffCode}) async {
-    await _imageUploadService.deleteProfilePhoto(
+    await _assetService.deleteProfilePhoto(
       owner: ProfilePhotoOwner.staff,
       code: staffCode,
     );

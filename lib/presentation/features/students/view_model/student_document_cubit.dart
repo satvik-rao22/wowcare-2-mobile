@@ -4,7 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
@@ -12,7 +12,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_document_state.dart';
@@ -24,17 +24,17 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
   StudentDocumentCubit({
     required AddStudentDocumentUseCase addStudentDocumentUseCase,
     required UpdateStudentDocumentUseCase updateStudentDocumentUseCase,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required StorageService storageService,
   }) : _addStudentDocumentUseCase = addStudentDocumentUseCase,
        _updateStudentDocumentUseCase = updateStudentDocumentUseCase,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _storageService = storageService,
        super(const StudentDocumentState.initial());
 
   final AddStudentDocumentUseCase _addStudentDocumentUseCase;
   final UpdateStudentDocumentUseCase _updateStudentDocumentUseCase;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StorageService _storageService;
 
   // --- form model ---
@@ -109,13 +109,13 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       }
 
       final mimeType = file.mimeType;
-      final uploadSession = await _imageUploadService
+      final uploadSession = await _assetService
           .createStudentDocumentUploadSession(
             studentCode: studentCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final asset = await _imageUploadService.uploadToSession(
+      final asset = await _assetService.uploadToSession(
         session: uploadSession,
         file: ioFile,
         owner: AssetOwner.student(studentCode),
@@ -139,7 +139,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
         ),
       );
 
-      _imageUploadService
+      _assetService
           .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             final url = resolvedUrl.trim();

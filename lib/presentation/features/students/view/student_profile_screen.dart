@@ -38,8 +38,8 @@ import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -507,7 +507,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (studentCode.isEmpty) return;
 
     try {
-      await serviceLocator<ImageUploadService>().deleteProfilePhoto(
+      await serviceLocator<AssetService>().deleteProfilePhoto(
         owner: ProfilePhotoOwner.student,
         code: studentCode,
       );

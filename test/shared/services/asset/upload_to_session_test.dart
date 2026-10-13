@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
-/// The real [ImageUploadService.uploadToSession], with each server step
+/// The real [AssetService.uploadToSession], with each server step
 /// recorded instead of sent.
-class _RecordingService extends ImageUploadService {
+class _RecordingService extends AssetService {
   _RecordingService() : super(ApiClient(baseUrl: 'https://example.invalid'));
 
   final steps = <String>[];

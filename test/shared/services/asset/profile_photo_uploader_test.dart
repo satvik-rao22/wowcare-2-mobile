@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 
 /// Records every server call the uploader makes instead of sending it.
-class _RecordingService extends ImageUploadService {
+class _RecordingService extends AssetService {
   _RecordingService() : super(ApiClient(baseUrl: 'https://example.invalid'));
 
   final calls = <String>[];

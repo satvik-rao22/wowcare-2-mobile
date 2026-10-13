@@ -43,8 +43,8 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance
 import 'package:wowcare/domain/features/classroom/usecases/get_student_classroom_enrolled_count_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/create_classroom_logo_upload_session_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/finalize_classroom_logo_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
 
 class ClassroomInfoScreen extends StatelessWidget {
   const ClassroomInfoScreen({
@@ -538,7 +538,7 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
         _logoUploadPercent = 0;
       });
 
-      final uploadService = serviceLocator<ImageUploadService>();
+      final uploadService = serviceLocator<AssetService>();
 
       final session = await _createClassroomLogoUploadSessionUseCase(
         classroomCode: classroomCode,

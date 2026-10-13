@@ -17,7 +17,7 @@ const int kSchoolCloudUploadMaxImages = 10;
 
 /// Opens the school "Image Uploader" dialog: pick up to
 /// [kSchoolCloudUploadMaxImages] images and upload each of them to the
-/// school's cloud gallery via [ImageUploadService.createSchoolCloudUploadSession]
+/// school's cloud gallery via [AssetService.createSchoolCloudUploadSession]
 /// followed by the generic presign -> S3 PUT -> complete flow.
 Future<void> showSchoolCloudImageUploaderDialog(BuildContext context) {
   return showDialog<void>(

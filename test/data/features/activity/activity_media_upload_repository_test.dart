@@ -4,12 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/data/features/activity/repositories/activity_media_upload_repository_impl.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Captures every call the repository makes so we can assert it opens ONE
 /// session and runs presign → PUT → complete for each item, in order.
-class _CapturingUploadService implements ImageUploadService {
+class _CapturingUploadService implements AssetService {
   int sessionCalls = 0;
   final List<String> calls = <String>[];
   final List<String> presignFileNames = <String>[];
@@ -196,7 +196,7 @@ void main() {
   });
 }
 
-class _DelegationSpyService implements ImageUploadService {
+class _DelegationSpyService implements AssetService {
   String? waitSession;
   List<String>? waitCodes;
   String? statusSession;

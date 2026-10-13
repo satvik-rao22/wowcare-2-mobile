@@ -17,7 +17,7 @@ class UploadSessionResult {
   final String? ownerCode;
 }
 
-/// One file's worth of request fields for [ImageUploadService.createAssetPresignBatch].
+/// One file's worth of request fields for [AssetService.createAssetPresignBatch].
 class AssetPresignRequest {
   const AssetPresignRequest({
     required this.fileName,
@@ -68,7 +68,7 @@ class AssetOwner {
   final String code;
 }
 
-/// What [ImageUploadService.uploadToSession] hands back.
+/// What [AssetService.uploadToSession] hands back.
 class UploadedAsset {
   const UploadedAsset({required this.assetCode});
 

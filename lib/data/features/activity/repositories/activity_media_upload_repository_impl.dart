@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 
 import 'package:wowcare/core/observability/media_upload_trace.dart';
 import 'package:wowcare/domain/features/activity/repositories/activity_media_upload_repository.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Concrete [ActivityMediaUploadRepository] that drives the shared
-/// [ImageUploadService]. Preserves the P5 fixes carried by the underlying
+/// [AssetService]. Preserves the P5 fixes carried by the underlying
 /// service — streamed PUT (P5-a), [CancelToken] threading (P5-b) — while the
 /// context-keyed retry cache (P5-c) stays owned by each caller. No readiness
 /// poll happens here; callers pick [waitUntilAssetsReady] (blocking) or
@@ -13,7 +13,7 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 class ActivityMediaUploadRepositoryImpl implements ActivityMediaUploadRepository {
   ActivityMediaUploadRepositoryImpl(this._uploadService);
 
-  final ImageUploadService _uploadService;
+  final AssetService _uploadService;
 
   @override
   Future<ActivityAssetUploadResult> uploadAssets({

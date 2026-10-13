@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -12,7 +12,7 @@ void main() {
     'uploadFileToPresignedUrl aborts with a cancel DioException when the '
     'CancelToken is already cancelled before the request is sent',
     () async {
-      final service = ImageUploadService(ApiClient(baseUrl: 'http://localhost'));
+      final service = AssetService(ApiClient(baseUrl: 'http://localhost'));
 
       final dir = await Directory.systemTemp.createTemp('upload_cancel_test');
       final file = File('${dir.path}/blob.bin');

@@ -35,7 +35,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/model/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_upload_events.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/staff_code_resolver.dart';

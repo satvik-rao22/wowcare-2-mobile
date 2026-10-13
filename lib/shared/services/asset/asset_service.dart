@@ -16,7 +16,7 @@ import '../../../core/utils/api_constants.dart';
 import '../../../core/utils/api_paths.dart';
 import '../../../core/utils/file_utils/file_utils.dart';
 import '../../../core/utils/logger_service.dart';
-import 'image_upload_models.dart';
+import 'asset_models.dart';
 
 /// Isolate entry point: streams [path] through SHA-256 and returns the
 /// base64-encoded raw digest. Streaming means even a large video is hashed
@@ -26,15 +26,38 @@ Future<String> _hashFileSha256Base64(String path) async {
   return base64Encode(digest.bytes);
 }
 
-/// Which kind of profile a photo belongs to, for [ImageUploadService.deleteProfilePhoto].
+/// Which kind of profile a photo belongs to, for [AssetService.deleteProfilePhoto].
 ///
-/// Declared here rather than in `image_upload_models.dart` because that file
+/// Declared here rather than in `asset_models.dart` because that file
 /// holds only the upload-session/presign DTOs and no enums; this is the single
 /// discriminator for the one method that needs it.
 enum ProfilePhotoOwner { student, guardian, staff }
 
-class ImageUploadService {
-  ImageUploadService(this._apiClient);
+/// The app's asset service: everything that talks to our document service
+/// about files — documents, photos, videos, chat attachments and school-cloud
+/// images.
+///
+/// Use it for:
+/// - **Uploading** — open a session for the owner (`create…UploadSession`),
+///   then [uploadToSession] does presign → PUT → complete → wait until ready.
+///   Profile photos go through `ProfilePhotoUploader`, which adds the
+///   per-owner finalize step.
+/// - **Resolving** an asset code to a display/download URL —
+///   [getMediaAssetUrlByCode] (cached for 10 minutes, one request shared
+///   between callers, a short cool-down for assets that aren't ready).
+/// - **Deleting** a profile photo — [deleteProfilePhoto].
+///
+/// The individual steps (`createAssetPresign`, `uploadFileToPresignedUrl`,
+/// `completeAssetUpload`, `waitUntilAssetsReady`) stay public for the
+/// batch flows (chat attachments, activity media); new code should not
+/// chain them by hand.
+///
+/// This is the one server-aware layer for files. Underneath it uses the
+/// server-independent file utils (`lib/core/utils/file_utils/`) — FileUtils
+/// for names and MIME types, and FileDownloadService for downloads — which
+/// must never learn about our server.
+class AssetService {
+  AssetService(this._apiClient);
 
   final ApiClient _apiClient;
 

@@ -10,8 +10,8 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_document_cubit.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 class _FakeRepo implements StudentRepository {
   @override
@@ -99,7 +99,7 @@ class _FakeStorage implements StorageService {
       throw UnimplementedError('${invocation.memberName} was not expected');
 }
 
-class _FakeUploadService implements ImageUploadService {
+class _FakeUploadService implements AssetService {
   Object? sessionError;
   Object? putError;
   int progressTo = 0;
@@ -215,7 +215,7 @@ class _Fakes {
   StudentDocumentCubit build() => StudentDocumentCubit(
         addStudentDocumentUseCase: add,
         updateStudentDocumentUseCase: update,
-        imageUploadService: upload,
+        assetService: upload,
         storageService: storage,
       );
 }

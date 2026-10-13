@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/domain/features/student/usecases/delete_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_documents_usecase.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_documents_list_cubit.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 StudentDocument _doc(String uuid) => StudentDocument(
       documentUuid: uuid,
@@ -93,7 +93,7 @@ void main() {
         getStudentDocumentsUseCase: getDocs,
         deleteStudentDocumentUseCase: deleteDoc,
         repository: _FakeRepo(),
-        imageUploadService: _UnusedImageUpload(),
+        assetService: _UnusedImageUpload(),
       );
 
   setUp(() {
@@ -233,7 +233,7 @@ void main() {
 }
 
 /// Resolving URLs isn't exercised here; any call is a test bug.
-class _UnusedImageUpload implements ImageUploadService {
+class _UnusedImageUpload implements AssetService {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');

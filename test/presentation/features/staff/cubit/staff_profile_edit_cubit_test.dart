@@ -15,8 +15,8 @@ import 'package:wowcare/domain/features/staff/usecases/update_staff_primary_clas
 import 'package:wowcare/domain/features/staff/usecases/update_staff_profile_usecase.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_edit_cubit.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
-import 'package:wowcare/shared/services/image_upload/staff_photo_background_upload_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/staff_photo_background_upload_service.dart';
 
 /// Never invoked by these tests — the cubit only forwards to it from
 /// `uploadProfilePhotoInBackground`, which none of them call.

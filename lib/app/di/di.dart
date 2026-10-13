@@ -521,10 +521,10 @@ import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/view_model/communication_cubit.dart';
 import 'package:wowcare/data/features/communication/services/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/view_model/student_newsletters_cubit.dart';
-import '../../shared/services/image_upload/image_upload_service.dart';
-import '../../shared/services/image_upload/profile_photo_uploader.dart';
-import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
-import '../../shared/services/image_upload/staff_photo_background_upload_service.dart';
+import '../../shared/services/asset/asset_service.dart';
+import '../../shared/services/asset/profile_photo_uploader.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_background_uploader.dart';
+import '../../shared/services/asset/staff_photo_background_upload_service.dart';
 import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
@@ -705,17 +705,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
       ],
     ),
   );
-  serviceLocator.registerLazySingleton<ImageUploadService>(
-    () => ImageUploadService(serviceLocator<ApiClient>()),
+  serviceLocator.registerLazySingleton<AssetService>(
+    () => AssetService(serviceLocator<ApiClient>()),
   );
   serviceLocator.registerFactory<StaffProfilePhotoUploadCubit>(
     () => StaffProfilePhotoUploadCubit(
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
-    () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
+    () => ProfilePhotoUploader(serviceLocator<AssetService>()),
   );
 
   serviceLocator.registerLazySingleton<ProfilePhotoBackgroundUploader>(
@@ -866,7 +866,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ActivityMediaUploadRepository>(
     () =>
-        ActivityMediaUploadRepositoryImpl(serviceLocator<ImageUploadService>()),
+        ActivityMediaUploadRepositoryImpl(serviceLocator<AssetService>()),
   );
   // Recovery of camera captures Android completed but could not deliver
   // (activity destroyed while the camera app was in the foreground). Singleton
@@ -1145,7 +1145,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getUserDetailsUseCase: serviceLocator(),
       switchActiveSchoolPersonaUseCase: serviceLocator(),
       getGuardianProfileUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       getActiveClassroomsUseCase: serviceLocator(),
       resolveLoggedInStaffCodeUseCase: serviceLocator(),
     ),
@@ -1909,7 +1909,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SchoolCloudImageUploaderCubit>(
     () => SchoolCloudImageUploaderCubit(
       storageService: serviceLocator<StorageService>(),
-      imageUploadService: serviceLocator<ImageUploadService>(),
+      assetService: serviceLocator<AssetService>(),
     ),
   );
   serviceLocator.registerFactory<ActivityFeedScreenCubit>(
@@ -2440,7 +2440,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       .registerFactoryParam<StaffDocumentUploadCubit, StaffProfileCubit, void>(
         (staffProfileCubit, _) => StaffDocumentUploadCubit(
           storageService: serviceLocator(),
-          imageUploadService: serviceLocator(),
+          assetService: serviceLocator(),
           staffProfileCubit: staffProfileCubit,
         ),
       );
@@ -2455,7 +2455,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffDocumentsUseCase: serviceLocator(),
       deleteStaffDocumentUseCase: serviceLocator(),
       loadCachedStaffDocumentsUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffAttendanceActionTargetsCubit>(
@@ -2699,7 +2699,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentDocumentsUseCase: serviceLocator(),
       deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentPhysicianCubit>(
@@ -2788,7 +2788,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StudentDocumentCubit(
       addStudentDocumentUseCase: serviceLocator(),
       updateStudentDocumentUseCase: serviceLocator(),
-      imageUploadService: serviceLocator(),
+      assetService: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -2942,7 +2942,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<NewsletterAssetUrlCubit>(
     () => NewsletterAssetUrlCubit(
-      imageUploadService: serviceLocator<ImageUploadService>(),
+      assetService: serviceLocator<AssetService>(),
     ),
   );
 

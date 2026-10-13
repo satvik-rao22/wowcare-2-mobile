@@ -71,7 +71,7 @@ class _NewsletterCardThumbnailState extends State<NewsletterCardThumbnail> {
   void _requestAssetUrl() {
     final String code = _pendingCode;
     if (code.isEmpty) return;
-    // The cubit checks ImageUploadService's synchronous session cache first,
+    // The cubit checks AssetService's synchronous session cache first,
     // so a code resolved earlier is adopted without a loading frame — the job
     // the `initialData:` seed did on the FutureBuilder this replaces.
     context.read<NewsletterAssetUrlCubit>().resolve(code);
