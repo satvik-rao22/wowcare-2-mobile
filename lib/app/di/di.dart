@@ -534,7 +534,6 @@ import '../../domain/features/geofencing/usecases/get_school_location_usecase.da
 import '../../presentation/features/geofencing/view_model/geofence_cubit.dart';
 import '../../shared/common/app/cubits/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
-import '../../data/services/file_download_service.dart';
 import 'package:wowcare/data/features/reports/repositories/file_download_repository_impl.dart';
 import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
 import 'package:wowcare/domain/features/reports/usecases/save_report_file_usecase.dart';
@@ -1061,13 +1060,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // File Download Service
-  serviceLocator.registerLazySingleton<FileDownloadService>(
-    () => FileDownloadService(),
-  );
-
   serviceLocator.registerLazySingleton<FileDownloadRepository>(
-    () => FileDownloadRepositoryImpl(serviceLocator<FileDownloadService>()),
+    () => const FileDownloadRepositoryImpl(),
   );
 
   serviceLocator.registerFactory<SaveReportFileUseCase>(
@@ -3367,13 +3361,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ViewInvoiceCubit(
       getStudentProfile: serviceLocator<GetStudentProfileUseCase>(),
       getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
   serviceLocator.registerFactory<ViewReceiptCubit>(
     () => ViewReceiptCubit(
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       createSchoolHeaderCubit: () => serviceLocator<BillingSchoolHeaderCubit>(),
     ),
   );
@@ -3403,7 +3395,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => AdminStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
       storageService: serviceLocator<StorageService>(),
     ),
   );
@@ -3411,7 +3402,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ParentStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
-      fileDownloadService: serviceLocator<FileDownloadService>(),
     ),
   );
   serviceLocator.registerFactory<TransactionsCubit>(

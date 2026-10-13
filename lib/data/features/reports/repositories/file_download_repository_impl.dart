@@ -4,13 +4,11 @@ import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/domain/features/reports/repositories/file_download_repository.dart';
 
 class FileDownloadRepositoryImpl implements FileDownloadRepository {
-  final FileDownloadService _fileDownloadService;
-
-  FileDownloadRepositoryImpl(this._fileDownloadService);
+  const FileDownloadRepositoryImpl();
 
   /// Download and save file to device storage
   @override
@@ -35,18 +33,13 @@ class FileDownloadRepositoryImpl implements FileDownloadRepository {
         '  bytesLength: ${fileData.length}',
       );
 
-      final filePath = await _fileDownloadService.saveFile(
-        fileData: fileData,
-        fileName: fileName,
-        assetCode: assetCode,
-        mimeType: mimeType,
-      );
+      final filePath = await FileUtils.saveToDocuments(fileData, fileName);
 
       if (filePath != null) {
         AppLogger.i('[REPO-FILE] File saved: $filePath');
         return Right(filePath);
       } else {
-        AppLogger.e('[REPO-FILE] Service returned null for $assetCode');
+        AppLogger.e('[REPO-FILE] Saving failed for $assetCode');
         return const Left(FileDownloadFailure('Failed to save file'));
       }
     } catch (e) {
@@ -68,18 +61,15 @@ class FileDownloadRepositoryImpl implements FileDownloadRepository {
       final mimeType = FileUtils.mimeType(fileName);
       AppLogger.d('[REPO-FILE] Opening with mimeType: $mimeType');
 
-      final opened = await _fileDownloadService.openFile(
-        filePath: filePath,
-        fileName: fileName,
-        assetCode: assetCode,
-        mimeType: mimeType,
-      );
+      final result = await FileActions.open(filePath, mimeType: mimeType);
 
-      if (opened) {
+      if (result.opened) {
         AppLogger.i('[REPO-FILE] File opened successfully: $fileName');
         return const Right(true);
       } else {
-        AppLogger.w('[REPO-FILE] Could not open file: $fileName');
+        AppLogger.w(
+          '[REPO-FILE] Could not open $fileName ($assetCode): ${result.message}',
+        );
         return const Left(FileDownloadFailure('Could not open file'));
       }
     } catch (e) {

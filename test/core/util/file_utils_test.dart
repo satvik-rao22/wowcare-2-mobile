@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mime/mime.dart';
@@ -10,6 +11,11 @@ class _FakePathProvider extends PathProviderPlatform
     with MockPlatformInterfaceMixin {
   @override
   Future<String?> getTemporaryPath() async => '/tmp/app';
+
+  String? documentsPath;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => documentsPath;
 }
 
 /// FilePickerUtils' MIME table as it was before FileUtils — kept here to prove
@@ -243,6 +249,34 @@ void main() {
         fallbackExtension: 'mp4',
       );
       expect(path, matches(RegExp(r'^/tmp/app/wowcare_file_\d+\.mp4$')));
+    });
+  });
+
+  group('saveToDocuments / documentsFile', () {
+    late Directory dir;
+    setUp(() async {
+      dir = await Directory.systemTemp.createTemp('docs_');
+      PathProviderPlatform.instance = _FakePathProvider()
+        ..documentsPath = dir.path;
+    });
+    tearDown(() => dir.delete(recursive: true));
+
+    test('saves under the cleaned name and finds it again', () async {
+      final path = await FileUtils.saveToDocuments(
+        Uint8List.fromList([1, 2, 3]),
+        'Term 1 report.pdf',
+      );
+      // The exact path the old FileDownloadService used, so files saved
+      // before this change are still found and not downloaded again.
+      expect(path, '${dir.path}/Term_1_report.pdf');
+      final file = await FileUtils.documentsFile('Term 1 report.pdf');
+      expect(file.path, path);
+      expect(await file.readAsBytes(), [1, 2, 3]);
+    });
+
+    test('nothing to save → null, no file', () async {
+      expect(await FileUtils.saveToDocuments(Uint8List(0), 'a.pdf'), isNull);
+      expect(await File('${dir.path}/a.pdf').exists(), isFalse);
     });
   });
 }

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:gal/gal.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:share_plus/share_plus.dart';
@@ -44,15 +47,44 @@ class GallerySaveException implements Exception {
 ///
 /// The open_filex, share_plus and gal plugins stay inside this file.
 abstract final class FileActions {
-  /// Opens the file at [path] in an app on the device.
+  /// Opens the file at [path] in an app on the device. Never throws.
   ///
-  /// A failed hand-off comes back as `opened: false`, not an exception: on
-  /// Android, "no app opens this type" (routine for XLSX) is reported this
-  /// way, so a caller that ignored the result would claim success.
+  /// A failed hand-off comes back as `opened: false` with a reason: a missing
+  /// file, or — routine for XLSX on Android — no app that opens this type.
+  /// A caller that ignored the result would claim success.
   static Future<OpenFileResult> open(String path, {String? mimeType}) async {
+    try {
+      if (!await File(path).exists()) {
+        AppLogger.e('[FileActions] Not opening, file not found: $path');
+        return (opened: false, message: 'File not found');
+      }
+      final result = await (debugOpenOverride ?? _openWithPlugin)(
+        path,
+        mimeType,
+      );
+      if (!result.opened) {
+        AppLogger.w('[FileActions] Not opened ($path): ${result.message}');
+      }
+      return result;
+    } catch (e, stackTrace) {
+      AppLogger.e('[FileActions] Opening $path failed', e, stackTrace);
+      return (opened: false, message: e.toString());
+    }
+  }
+
+  static Future<OpenFileResult> _openWithPlugin(
+    String path,
+    String? mimeType,
+  ) async {
     final result = await OpenFilex.open(path, type: mimeType);
     return (opened: result.type == ResultType.done, message: result.message);
   }
+
+  /// Replaces the OS hand-off in tests, where the plugin would shell out to
+  /// the host desktop and always succeed.
+  @visibleForTesting
+  static Future<OpenFileResult> Function(String path, String? mimeType)?
+  debugOpenOverride;
 
   /// Shows the system share sheet for the file at [path]. [fileName] is the
   /// name the receiving app sees.

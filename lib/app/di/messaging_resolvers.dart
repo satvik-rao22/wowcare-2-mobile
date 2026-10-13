@@ -4,7 +4,6 @@ import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/attendance_classroom_scope.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
@@ -29,9 +28,6 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 // ── Plain services (not forbidden view types) ────────────────────────────────
 ImageUploadService resolveImageUploadService() =>
     serviceLocator<ImageUploadService>();
-
-FileDownloadService resolveFileDownloadService() =>
-    serviceLocator<FileDownloadService>();
 
 // ── Use-cases (not forbidden view types) ─────────────────────────────────────
 GetCommunicationSettingsUseCase resolveGetCommunicationSettingsUseCase() =>

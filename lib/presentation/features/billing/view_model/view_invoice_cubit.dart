@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
@@ -29,17 +29,14 @@ class ViewInvoiceCubit extends Cubit<ViewInvoiceState> {
   ViewInvoiceCubit({
     required GetStudentProfileUseCase getStudentProfile,
     required GetInvoiceByCodeUseCase getInvoiceByCode,
-    required FileDownloadService fileDownloadService,
     required BillingSchoolHeaderCubit Function() createSchoolHeaderCubit,
   })  : _getStudentProfile = getStudentProfile,
         _getInvoiceByCode = getInvoiceByCode,
-        _fileDownloadService = fileDownloadService,
         _createSchoolHeaderCubit = createSchoolHeaderCubit,
         super(const ViewInvoiceState());
 
   final GetStudentProfileUseCase _getStudentProfile;
   final GetInvoiceByCodeUseCase _getInvoiceByCode;
-  final FileDownloadService _fileDownloadService;
   final BillingSchoolHeaderCubit Function() _createSchoolHeaderCubit;
 
   /// Fires both enrichment lookups concurrently; each emits on its own success.
@@ -101,12 +98,7 @@ class ViewInvoiceCubit extends Cubit<ViewInvoiceState> {
 
       final code = (transaction.invoiceCode ?? transaction.id.toString()).trim();
       final fileName = 'invoice-$code.pdf';
-      final savedPath = await _fileDownloadService.saveFile(
-        fileData: bytes,
-        fileName: fileName,
-        assetCode: code,
-        mimeType: 'application/pdf',
-      );
+      final savedPath = await FileUtils.saveToDocuments(bytes, fileName);
 
       if (isClosed) return null;
       if (savedPath == null) return 'Failed to save invoice PDF.';

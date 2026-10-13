@@ -2,11 +2,12 @@ import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/billing_statements_repository.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_billing_statements_usecase.dart';
@@ -17,17 +18,14 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
   AdminStatementsCubit({
     required GetBillingStatementsUseCase getStatements,
     required BillingStatementsRepository statementsRepository,
-    required FileDownloadService fileDownloadService,
     required StorageService storageService,
   })  : _getStatements = getStatements,
         _repository = statementsRepository,
-        _fileDownloadService = fileDownloadService,
         _storageService = storageService,
         super(const AdminStatementsState.initial());
 
   final GetBillingStatementsUseCase _getStatements;
   final BillingStatementsRepository _repository;
-  final FileDownloadService _fileDownloadService;
   final StorageService _storageService;
   String _subscriberCode = '';
 
@@ -113,12 +111,7 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
       final bytes = await _repository.downloadStatement(statementCode: code);
 
       final fileName = 'statement-$code.pdf';
-      final savedPath = await _fileDownloadService.saveFile(
-        fileData: bytes,
-        fileName: fileName,
-        assetCode: code,
-        mimeType: 'application/pdf',
-      );
+      final savedPath = await FileUtils.saveToDocuments(bytes, fileName);
 
       if (isClosed) return null;
 
@@ -126,12 +119,7 @@ class AdminStatementsCubit extends Cubit<AdminStatementsState> {
         return 'Failed to save statement PDF.';
       }
 
-      await _fileDownloadService.openFile(
-        filePath: savedPath,
-        fileName: fileName,
-        assetCode: code,
-        mimeType: 'application/pdf',
-      );
+      await FileActions.open(savedPath, mimeType: 'application/pdf');
 
       return null;
     } catch (e) {

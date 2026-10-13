@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_pdf_builder.dart';
 import 'package:wowcare/presentation/features/billing/view_model/billing_school_header_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -18,13 +18,10 @@ part 'view_receipt_state.dart';
 /// mirrors the real transaction it was opened with.
 class ViewReceiptCubit extends Cubit<ViewReceiptState> {
   ViewReceiptCubit({
-    required FileDownloadService fileDownloadService,
     required BillingSchoolHeaderCubit Function() createSchoolHeaderCubit,
-  })  : _fileDownloadService = fileDownloadService,
-        _createSchoolHeaderCubit = createSchoolHeaderCubit,
+  })  : _createSchoolHeaderCubit = createSchoolHeaderCubit,
         super(const ViewReceiptState());
 
-  final FileDownloadService _fileDownloadService;
   final BillingSchoolHeaderCubit Function() _createSchoolHeaderCubit;
 
   /// Builds the receipt PDF on-device (no backend PDF endpoint exists),
@@ -48,12 +45,7 @@ class ViewReceiptCubit extends Cubit<ViewReceiptState> {
 
       final id = (transaction.transactionId ?? transaction.id.toString()).trim();
       final fileName = 'receipt-$id.pdf';
-      final savedPath = await _fileDownloadService.saveFile(
-        fileData: bytes,
-        fileName: fileName,
-        assetCode: id,
-        mimeType: 'application/pdf',
-      );
+      final savedPath = await FileUtils.saveToDocuments(bytes, fileName);
 
       if (isClosed) return null;
       if (savedPath == null) return 'Failed to save receipt PDF.';

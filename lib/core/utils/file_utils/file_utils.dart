@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:mime/mime.dart' as mime;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/utils/app_time.dart';
+import 'package:wowcare/core/utils/logger_service.dart';
 
 /// The one place the app works out file names, extensions, MIME types and
 /// app folders.
@@ -48,6 +50,55 @@ abstract final class FileUtils {
   /// never sees (cookies, pending uploads).
   static Future<Directory> supportDirectory() =>
       getApplicationSupportDirectory();
+
+  /// Where [fileName] is (or would be) kept in [documentsDirectory], cleaned
+  /// with [safeFileName]. Doesn't touch the disk — check `exists()` to see
+  /// whether it was saved before. Same rule as [saveToDocuments], so a saved
+  /// file is always found again.
+  static Future<File> documentsFile(String fileName) async {
+    final dir = await documentsDirectory();
+    return File('${dir.path}/${safeFileName(fileName)}');
+  }
+
+  /// Saves [bytes] as [fileName] in [documentsDirectory] and returns its
+  /// path, or null when there's nothing to save, it's over 500 MB, or the
+  /// write failed. Never throws.
+  static Future<String?> saveToDocuments(
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    if (bytes.isEmpty) {
+      AppLogger.e('[FileUtils] Not saving $fileName: no bytes');
+      return null;
+    }
+    if (bytes.length > _maxSavedFileBytes) {
+      AppLogger.e(
+        '[FileUtils] Not saving $fileName: ${bytes.length} bytes is over 500 MB',
+      );
+      return null;
+    }
+    try {
+      final file = await documentsFile(fileName);
+      await file.writeAsBytes(bytes);
+      final size = await file.length();
+      if (size == 0) {
+        AppLogger.e('[FileUtils] Saved $fileName is empty: ${file.path}');
+        return null;
+      }
+      if (size != bytes.length) {
+        AppLogger.w(
+          '[FileUtils] Saved $fileName size $size, expected ${bytes.length}',
+        );
+      }
+      AppLogger.i('[FileUtils] Saved $fileName ($size bytes): ${file.path}');
+      return file.path;
+    } catch (e, stackTrace) {
+      AppLogger.e('[FileUtils] Saving $fileName failed', e, stackTrace);
+      return null;
+    }
+  }
+
+  static const int _maxSavedFileBytes = 500 * 1024 * 1024;
 
   /// A path in [tempDirectory] for [fileName], cleaned with [safeFileName].
   static Future<String> tempFilePath(String fileName) async =>

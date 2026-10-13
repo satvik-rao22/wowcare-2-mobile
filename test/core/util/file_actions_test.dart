@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gal/gal.dart';
@@ -87,6 +89,55 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('open', () {
+    late Directory dir;
+    late String path;
+    setUp(() async {
+      dir = await Directory.systemTemp.createTemp('open_');
+      path = '${dir.path}/report.xlsx';
+      await File(path).writeAsBytes([1, 2, 3]);
+    });
+    tearDown(() async {
+      FileActions.debugOpenOverride = null;
+      await dir.delete(recursive: true);
+    });
+
+    void osAnswers({required bool opened, String message = ''}) =>
+        FileActions.debugOpenOverride = (_, _) async =>
+            (opened: opened, message: message);
+
+    test('an app took the file → opened', () async {
+      osAnswers(opened: true, message: 'done');
+      expect((await FileActions.open(path)).opened, isTrue);
+    });
+
+    test(
+      'no app for this type (routine for XLSX on Android) → not opened',
+      () async {
+        osAnswers(opened: false, message: 'No APP found to open this file');
+        final result = await FileActions.open(path);
+        expect(result.opened, isFalse);
+        expect(result.message, contains('No APP'));
+      },
+    );
+
+    test('a missing file is reported, the OS is never asked', () async {
+      var asked = false;
+      FileActions.debugOpenOverride = (_, _) async {
+        asked = true;
+        return (opened: true, message: '');
+      };
+      final result = await FileActions.open('${dir.path}/missing.pdf');
+      expect(result.opened, isFalse);
+      expect(asked, isFalse);
+    });
+
+    test('a failing hand-off is reported, never thrown', () async {
+      FileActions.debugOpenOverride = (_, _) => throw Exception('boom');
+      expect((await FileActions.open(path)).opened, isFalse);
     });
   });
 }
