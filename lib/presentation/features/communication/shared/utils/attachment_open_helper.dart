@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_actions.dart';
@@ -66,26 +66,18 @@ class AttachmentOpenHelper {
       final cachedFile = await FileUtils.documentsFile(cacheKey);
 
       if (!await cachedFile.exists()) {
-        final response = await http.get(Uri.parse(attachment.remoteUrl));
-        if (response.statusCode != 200) {
+        // Streams straight into the cache file; a failed or empty download
+        // leaves no file behind, so it is never mistaken for a cached copy.
+        try {
+          await FileDownloadService.instance.downloadToFile(
+            attachment.remoteUrl,
+            cachedFile.path,
+          );
+        } catch (_) {
           if (context.mounted) {
             CoreUtils.showTopSnackBar(
               context: context,
               message: 'Failed to download the file',
-              isError: true,
-            );
-          }
-          return;
-        }
-        final savedPath = await FileUtils.saveToDocuments(
-          response.bodyBytes,
-          cacheKey,
-        );
-        if (savedPath == null) {
-          if (context.mounted) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Failed to save the file',
               isError: true,
             );
           }

@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -475,25 +474,7 @@ class _ResilientImageState extends State<_ResilientImage> {
         return Uint8List(0);
       }
     }
-    const attempts = 5;
-    for (var i = 0; i < attempts; i++) {
-      try {
-        final r = await http.get(Uri.parse(src));
-        if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) {
-          try {
-            final codec = await ui.instantiateImageCodec(r.bodyBytes);
-            codec.dispose();
-            return r.bodyBytes;
-          } catch (_) {
-            // Falls through to retry below.
-          }
-        }
-      } catch (_) {}
-      if (i < attempts - 1) {
-        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
-      }
-    }
-    return Uint8List(0);
+    return FileDownloadService.instance.downloadImageBytes(src);
   }
 
   Widget _broken() => Container(

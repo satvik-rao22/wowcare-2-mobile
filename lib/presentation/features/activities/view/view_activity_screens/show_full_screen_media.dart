@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -74,8 +74,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       throw Exception(out ?? 'Could not convert stream to a video file.');
     }
 
-    final dio = Dio();
-    await dio.download(url, outPath);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 
@@ -84,7 +83,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     String fileName,
   ) async {
     final outPath = await FileUtils.tempFilePath(fileName);
-    await Dio().download(url, outPath);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 

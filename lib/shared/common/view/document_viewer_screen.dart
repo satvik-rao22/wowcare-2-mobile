@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:chewie/chewie.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -108,7 +108,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           final path = await FileUtils.tempFilePath(
             'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf',
           );
-          await Dio().download(widget.url, path);
+          await FileDownloadService.instance.downloadToFile(widget.url, path);
           if (!mounted) return;
           _localPdfPath = path;
           break;
@@ -149,7 +149,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         fallbackExtension: 'bin',
       );
 
-      await Dio().download(widget.url, outPath);
+      await FileDownloadService.instance.downloadToFile(widget.url, outPath);
       final result = await FileActions.open(outPath);
       if (!result.opened && mounted) {
         CoreUtils.showTopSnackBar(
