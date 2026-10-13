@@ -1,23 +1,21 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:open_filex/open_filex.dart' as open_filex;
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 
-/// Hands [filePath] to the OS. Defaults to open_filex; a seam so the
+/// Hands [filePath] to the OS. Defaults to FileActions.open; a seam so the
 /// hand-off's outcome can be exercised in a test, where the plugin would
 /// otherwise shell out to the host desktop and always succeed.
 typedef FileOpener =
-    Future<open_filex.OpenResult> Function(String filePath, {String? type});
+    Future<OpenFileResult> Function(String filePath, {String? type});
 
-Future<open_filex.OpenResult> _openWithOpenFilex(
-  String filePath, {
-  String? type,
-}) => open_filex.OpenFilex.open(filePath, type: type);
+Future<OpenFileResult> _openWithFileActions(String filePath, {String? type}) =>
+    FileActions.open(filePath, mimeType: type);
 
 class FileDownloadService {
-  const FileDownloadService({FileOpener opener = _openWithOpenFilex})
+  const FileDownloadService({FileOpener opener = _openWithFileActions})
     : _opener = opener;
 
   final FileOpener _opener;
@@ -175,28 +173,25 @@ class FileDownloadService {
       // Use open_filex to open file
       try {
         AppLogger.d(
-          '[FILE-OPEN] Calling open_filex:\n'
+          '[FILE-OPEN] Opening:\n'
           '  filePath: $filePath\n'
           '  mimeType: $mimeType',
         );
 
-        // OpenFilex reports a failed hand-off through the returned
-        // OpenResult, not by throwing: on Android an ActivityNotFoundException
-        // (no installed app declares the mime type — routine for XLSX) is
-        // caught inside the plugin and comes back as
-        // ResultType.noAppToOpen. Discarding the result reported every one of
-        // those as a success, so the caller's "couldn't open" fallback never
-        // ran and the file silently went nowhere.
+        // A failed hand-off comes back as `opened: false`, not by throwing:
+        // on Android "no installed app declares the mime type" (routine for
+        // XLSX) is reported this way. Discarding the result reported every one
+        // of those as a success, so the caller's "couldn't open" fallback
+        // never ran and the file silently went nowhere.
         final openResult = await _opener(filePath, type: mimeType);
 
-        if (openResult.type != open_filex.ResultType.done) {
+        if (!openResult.opened) {
           AppLogger.w(
             '[FILE-OPEN] Handler declined:\n'
             '  assetCode: $assetCode\n'
             '  fileName: $fileName\n'
             '  filePath: $filePath\n'
             '  mimeType: $mimeType\n'
-            '  resultType: ${openResult.type}\n'
             '  resultMessage: ${openResult.message}',
           );
           return false;

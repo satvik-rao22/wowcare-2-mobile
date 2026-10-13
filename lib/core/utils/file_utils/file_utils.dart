@@ -26,6 +26,7 @@ import 'package:wowcare/core/utils/app_time.dart';
 /// | Name, extension, MIME type, app folders     | FileUtils (this file)  |
 /// | Let the user pick a file / photo / video    | FilePickerUtils        |
 /// | Download a URL into a file                  | FileDownloadService    |
+/// | Open, share or save a file to the gallery   | FileActions            |
 ///
 /// The mime, path and path_provider plugins stay inside this file, so
 /// upgrading or swapping one changes nothing at the call sites. Plain

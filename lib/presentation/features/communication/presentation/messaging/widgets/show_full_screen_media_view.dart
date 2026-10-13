@@ -4,13 +4,13 @@ import 'package:chewie/chewie.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
 import 'package:flutter/services.dart';
-import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
 import 'package:wowcare/data/services/messaging_media_downloader.dart';
 import 'package:video_player/video_player.dart';
@@ -204,21 +204,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
     _isDownloading.value = true;
     try {
-      final hasAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasAccess) {
-        await Gal.requestAccess(toAlbum: true);
-      }
-      if (!await Gal.hasAccess(toAlbum: true)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              AppStrings.mediaPermissionRequired,
-            ),
-          ),
-        );
-        return;
-      }
+      if (!await FileActions.ensureGalleryAccess()) return;
 
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       if (hasVideo) {
@@ -234,7 +220,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         } else {
           filePath = widget.videoFile!.path;
         }
-        await Gal.putVideo(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: true);
         if (isTemp) {
           try {
             await File(filePath).delete();
@@ -254,7 +240,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
         } else {
           filePath = widget.imageFile!.path;
         }
-        await Gal.putImage(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: false);
         if (isTemp) {
           try {
             await File(filePath).delete();
@@ -266,11 +252,11 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.savedToGallery)),
       );
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(e.type.message)));
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

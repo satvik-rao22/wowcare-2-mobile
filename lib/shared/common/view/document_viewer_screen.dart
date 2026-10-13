@@ -5,9 +5,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
@@ -150,8 +150,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       );
 
       await Dio().download(widget.url, outPath);
-      final result = await OpenFilex.open(outPath);
-      if (result.type != ResultType.done && mounted) {
+      final result = await FileActions.open(outPath);
+      if (!result.opened && mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: result.message,

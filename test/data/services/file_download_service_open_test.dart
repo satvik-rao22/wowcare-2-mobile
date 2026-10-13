@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
 
 void main() {
@@ -18,13 +17,15 @@ void main() {
 
   tearDown(() async => tempDir.delete(recursive: true));
 
-  /// open_filex reports a failed hand-off through the returned [OpenResult],
-  /// never by throwing.
-  FileDownloadService serviceReturning(ResultType result, String message) =>
-      FileDownloadService(
-        opener: (filePath, {String? type}) async =>
-            OpenResult(type: result, message: message),
-      );
+  /// FileActions.open reports a failed hand-off as `opened: false`, never by
+  /// throwing.
+  FileDownloadService serviceReturning({
+    required bool opened,
+    required String message,
+  }) => FileDownloadService(
+    opener: (filePath, {String? type}) async =>
+        (opened: opened, message: message),
+  );
 
   Future<bool> open(FileDownloadService service) => service.openFile(
     filePath: file.path,
@@ -40,8 +41,8 @@ void main() {
     // noAppToOpen. Discarding that reported it as a success, so the caller
     // told the user the report had opened when nothing had happened.
     final service = serviceReturning(
-      ResultType.noAppToOpen,
-      'No APP found to open this file。',
+      opened: false,
+      message: 'No APP found to open this file。',
     );
 
     expect(await open(service), isFalse);
@@ -49,8 +50,8 @@ void main() {
 
   test('reports failure when the platform reports an error', () async {
     final service = serviceReturning(
-      ResultType.error,
-      'File opened incorrectly。',
+      opened: false,
+      message: 'File opened incorrectly。',
     );
 
     expect(await open(service), isFalse);
@@ -58,21 +59,21 @@ void main() {
 
   test('reports failure when the platform denies permission', () async {
     final service = serviceReturning(
-      ResultType.permissionDenied,
-      'Permission denied',
+      opened: false,
+      message: 'Permission denied',
     );
 
     expect(await open(service), isFalse);
   });
 
   test('reports success when the handler takes the file', () async {
-    final service = serviceReturning(ResultType.done, 'done');
+    final service = serviceReturning(opened: true, message: 'done');
 
     expect(await open(service), isTrue);
   });
 
   test('reports failure when the file is not on disk', () async {
-    final service = serviceReturning(ResultType.done, 'done');
+    final service = serviceReturning(opened: true, message: 'done');
 
     expect(
       await service.openFile(

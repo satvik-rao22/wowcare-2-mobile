@@ -88,6 +88,7 @@ typedef LostMedia = ({List<String> paths, bool isVideo, String? error});
 /// | Name, extension, MIME type, app folders     | FileUtils                   |
 /// | Let the user pick a file / photo / video    | FilePickerUtils (this file) |
 /// | Download a URL into a file                  | FileDownloadService         |
+/// | Open, share or save a file to the gallery   | FileActions                 |
 ///
 /// The file_picker and image_picker plugins stay inside this file.
 abstract final class FilePickerUtils {

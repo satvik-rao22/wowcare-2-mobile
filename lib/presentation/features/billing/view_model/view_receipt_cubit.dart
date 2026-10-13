@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:share_plus/share_plus.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/data/services/file_download_service.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_pdf_builder.dart';
@@ -58,9 +58,10 @@ class ViewReceiptCubit extends Cubit<ViewReceiptState> {
       if (isClosed) return null;
       if (savedPath == null) return 'Failed to save receipt PDF.';
 
-      await Share.shareXFiles(
-        [XFile(savedPath, mimeType: 'application/pdf')],
-        fileNameOverrides: [fileName],
+      await FileActions.share(
+        savedPath,
+        mimeType: 'application/pdf',
+        fileName: fileName,
       );
       return null;
     } catch (e) {

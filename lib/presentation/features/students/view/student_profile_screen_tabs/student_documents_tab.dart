@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:gal/gal.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
@@ -346,19 +346,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
       // Images/videos save to the device gallery (same as the photo activity).
       if (isImage || isVideo) {
-        if (!await Gal.hasAccess(toAlbum: true)) {
-          await Gal.requestAccess(toAlbum: true);
-        }
-        if (!await Gal.hasAccess(toAlbum: true)) {
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message:
-                StudentStrings.photosPermissionIsRequiredToSaveTheDocumentToY,
-            isWarning: true,
-          );
-          return;
-        }
+        if (!await FileActions.ensureGalleryAccess()) return;
 
         final outPath = await FileUtils.tempPathForDownload(
           url,
@@ -367,11 +355,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         );
 
         await _documentsListCubit.downloadFile(url, outPath);
-        if (isVideo) {
-          await Gal.putVideo(outPath);
-        } else {
-          await Gal.putImage(outPath);
-        }
+        await FileActions.saveToGallery(outPath, isVideo: isVideo);
         try {
           await File(outPath).delete();
         } catch (_) {}
@@ -396,11 +380,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           isError: true,
         );
       }
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: e.type.message,
+        message: e.message,
         isError: true,
       );
     } catch (e) {

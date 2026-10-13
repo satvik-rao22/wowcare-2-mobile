@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
-import 'package:gal/gal.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/app_time.dart';
@@ -107,21 +107,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
 
     setState(() => _isDownloading = true);
     try {
-      final hasAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasAccess) {
-        await Gal.requestAccess(toAlbum: true);
-      }
-      if (!await Gal.hasAccess(toAlbum: true)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Photos permission is required to save media to your gallery.',
-            ),
-          ),
-        );
-        return;
-      }
+      if (!await FileActions.ensureGalleryAccess()) return;
 
       final isVideo = videoUrl != null && videoUrl.trim().isNotEmpty;
       final ext = FileUtils.extension(raw);
@@ -134,7 +120,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
 
       if (isVideo) {
         final filePath = await _materializeVideoToTempFile(raw, tempVideoName);
-        await Gal.putVideo(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: true);
         try {
           await File(filePath).delete();
         } catch (e) {
@@ -142,7 +128,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         }
       } else {
         final filePath = await _materializePhotoToTempFile(raw, baseName);
-        await Gal.putImage(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: false);
         try {
           await File(filePath).delete();
         } catch (e) {
@@ -154,11 +140,11 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Saved to your photo gallery.')),
       );
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(e.type.message)));
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       // Do not log the raw exception: a Dio/HTTP error stringifies the request
       // URI, which here is a pre-signed media URL. Log only the error type.
