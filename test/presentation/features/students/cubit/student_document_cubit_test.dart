@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -211,8 +211,12 @@ void main() {
     if (await tempFile.exists()) await tempFile.delete();
   });
 
-  PlatformFile pickedFile() =>
-      PlatformFile(name: 'report.pdf', size: 5, path: tempFile.path);
+  PickedFile pickedFile() => PickedFile(
+    name: 'report.pdf',
+    size: 5,
+    path: tempFile.path,
+    mimeType: 'application/pdf',
+  );
 
   void seedSchool(_Fakes fakes) {
     fakes.storage.values[StorageKeys.schoolCode] = 'SCH';

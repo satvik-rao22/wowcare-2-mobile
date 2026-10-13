@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
@@ -95,7 +93,6 @@ class _MediaUploaderState extends State<MediaUploader>
   String? _existingVideoUrl;
 
   MediaType? _currentType;
-  final ImagePicker _picker = ImagePicker();
 
   late int maxPhotos;
   late int photoMaxSizeMB;
@@ -532,7 +529,7 @@ class _MediaUploaderState extends State<MediaUploader>
     );
   }
 
-  Future<void> _pickPhotos(ImageSource source) async {
+  Future<void> _pickPhotos(PickSource source) async {
     AppLogger.d(
       '[MediaUploader] _pickPhotos: start source=$source '
       'hashCode=$hashCode mounted=$mounted',
@@ -553,32 +550,24 @@ class _MediaUploaderState extends State<MediaUploader>
     // lose its result to activity death exactly as the video path can.
     _pickerInFlight = true;
     try {
-      if (source == ImageSource.camera) {
-        final XFile? camera = await _picker.pickImage(
-          source: source,
-          imageQuality: 85,
-        );
-        AppLogger.d(
-          '[MediaUploader] _pickPhotos: camera returned '
-          '${camera == null ? 'null' : 'image'} mounted=$mounted',
-        );
-        if (camera == null) return;
-        if (!mounted) return;
-        candidates = [File(camera.path)];
-      } else {
-        final result = await FilePicker.pickFiles(
-          type: FileType.image,
-          allowMultiple: true,
-        );
-        if (!mounted) return;
-        if (result == null || result.files.isEmpty) return;
-        candidates = result.files
-            .map((f) => f.path)
-            .whereType<String>()
-            .where((p) => p.trim().isNotEmpty)
-            .map((p) => File(p))
-            .toList();
-      }
+      final picked = await FilePickerUtils.pick(
+        type: PickType.image,
+        source: source,
+        multiple: true,
+        imageQuality: 85,
+        onError: (e, stackTrace) => _reportPickerFailure(
+          e,
+          stackTrace,
+          isCamera: source == PickSource.camera,
+          isVideo: false,
+        ),
+      );
+      AppLogger.d(
+        '[MediaUploader] _pickPhotos: $source returned '
+        '${picked.length} file(s) mounted=$mounted',
+      );
+      if (!mounted) return;
+      candidates = [for (final f in picked) f.file];
     } catch (e, stackTrace) {
       // This `try` previously had a `finally` and NO `catch`, so a
       // PlatformException from either picker went straight through it and out
@@ -587,7 +576,7 @@ class _MediaUploaderState extends State<MediaUploader>
       _reportPickerFailure(
         e,
         stackTrace,
-        isCamera: source == ImageSource.camera,
+        isCamera: source == PickSource.camera,
         isVideo: false,
       );
       return;
@@ -621,7 +610,7 @@ class _MediaUploaderState extends State<MediaUploader>
       return;
     }
 
-    if (source == ImageSource.gallery && candidates.length > remaining) {
+    if (source == PickSource.photos && candidates.length > remaining) {
       _showWarning(ActivityMediaStrings.maxPhotosSelectable(maxPhotos));
       return;
     }
@@ -671,7 +660,7 @@ class _MediaUploaderState extends State<MediaUploader>
     }
   }
 
-  Future<void> _pickVideo(ImageSource source) async {
+  Future<void> _pickVideo(PickSource source) async {
     if (widget.readOnly) return;
     if (!widget.allowVideo) return;
 
@@ -688,7 +677,7 @@ class _MediaUploaderState extends State<MediaUploader>
     // report names the stage that died.
     MediaUploadTrace.platform();
     MediaUploadTrace.source(
-      source == ImageSource.camera
+      source == PickSource.camera
           ? MediaCaptureSource.camera
           : MediaCaptureSource.gallery,
     );
@@ -705,39 +694,33 @@ class _MediaUploaderState extends State<MediaUploader>
     // Letting that escape kills the flow with no feedback at all, which reads
     // as a freeze/crash to the user - surface it as a warning instead.
     try {
-      if (source == ImageSource.camera) {
-        final XFile? picked = await _picker.pickVideo(
-          source: source,
-          maxDuration: const Duration(seconds: videoMaxDurationSec),
-        );
-        if (picked == null) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-        }
-        if (!mounted || picked == null) return;
-        file = File(picked.path);
-      } else {
-        final result = await FilePicker.pickFiles(
-          type: FileType.video,
-          allowMultiple: false,
-        );
-        if (!mounted) return;
-        if (result == null || result.files.isEmpty) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-          return;
-        }
-        final path = result.files.single.path;
-        if (path == null || path.trim().isEmpty) {
-          MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
-          return;
-        }
-        file = File(path);
+      var failed = false;
+      final picked = await FilePickerUtils.pickOne(
+        type: PickType.video,
+        source: source,
+        maxVideoDuration: const Duration(seconds: videoMaxDurationSec),
+        onError: (e, stackTrace) {
+          failed = true;
+          _reportPickerFailure(
+            e,
+            stackTrace,
+            isCamera: source == PickSource.camera,
+            isVideo: true,
+          );
+        },
+      );
+      if (failed) return;
+      if (picked == null) {
+        MediaUploadTrace.stage(MediaUploadStage.pickerCancelled);
       }
+      if (!mounted || picked == null) return;
+      file = picked.file;
       MediaUploadTrace.stage(MediaUploadStage.pickerReturned);
     } catch (e, stackTrace) {
       _reportPickerFailure(
         e,
         stackTrace,
-        isCamera: source == ImageSource.camera,
+        isCamera: source == PickSource.camera,
         isVideo: true,
       );
       return;
@@ -1094,13 +1077,13 @@ class _MediaUploaderState extends State<MediaUploader>
                   dialogContext,
                   Icons.photo_camera,
                   'Take Photo',
-                  () => _pickPhotos(ImageSource.camera),
+                  () => _pickPhotos(PickSource.camera),
                 ),
                 _option(
                   dialogContext,
                   Icons.image,
                   'Photo Gallery',
-                  () => _pickPhotos(ImageSource.gallery),
+                  () => _pickPhotos(PickSource.photos),
                 ),
               ],
               if (widget.allowVideo) ...[
@@ -1108,13 +1091,13 @@ class _MediaUploaderState extends State<MediaUploader>
                   dialogContext,
                   Icons.videocam,
                   'Record Video',
-                  () => _pickVideo(ImageSource.camera),
+                  () => _pickVideo(PickSource.camera),
                 ),
                 _option(
                   dialogContext,
                   Icons.video_library,
                   'Video Gallery',
-                  () => _pickVideo(ImageSource.gallery),
+                  () => _pickVideo(PickSource.photos),
                 ),
               ],
             ],

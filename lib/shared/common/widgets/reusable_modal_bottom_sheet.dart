@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:wowcare/core/utils/app_time.dart';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -131,25 +130,19 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 
   Future<void> _pickFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
-          ...FilePickerUtils.allowedDocumentExtensions,
-          ...FilePickerUtils.allowedImageExtensions,
-        ],
-      );
+      final picked = await FilePickerUtils.pickFile();
 
-      if (result != null) {
+      if (picked != null) {
         setState(() {
-          selectedFile = File(result.files.first.path!);
-          formValues['File'] = result.files.first.path; // Update formValues
+          selectedFile = picked.file;
+          formValues['File'] = picked.path; // Update formValues
         });
-        debugPrint('File picked: ${result.files.first.path}');
+        debugPrint('File picked: ${picked.path}');
 
         // Call the onChanged callback to update the state
         for (var field in widget.fields) {
           if (field.type == FieldType.fileUpload && field.onChanged != null) {
-            field.onChanged!(result.files.first.path); // Pass the file path
+            field.onChanged!(picked.path); // Pass the file path
           }
         }
       } else {

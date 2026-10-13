@@ -564,7 +564,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       // Shared file picker → every allowed image format is selectable.
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
       );
       final imagePath = picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;

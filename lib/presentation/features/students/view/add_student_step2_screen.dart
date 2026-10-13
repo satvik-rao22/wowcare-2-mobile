@@ -187,7 +187,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff).
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
       );
       final path = picked?.path;
       if (path == null || path.isEmpty) return;

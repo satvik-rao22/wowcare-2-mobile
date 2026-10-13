@@ -1,4 +1,3 @@
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,6 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_cubit.dart';
@@ -105,7 +103,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
-  PlatformFile? _selectedFile;
+  PickedFile? _selectedFile;
   String? _uploadedAssetCode;
   String? _uploadedDocumentUrl;
   static const int _documentNameMaxLength = 100;
@@ -200,7 +198,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
     if (_selectedFile != null) {
       fileSizeKb = (_selectedFile!.size / 1024).ceil();
-      mimeType = FileUtils.mimeType(_selectedFile!.path ?? _selectedFile!.name);
+      mimeType = _selectedFile!.mimeType;
       documentUrl = _uploadedDocumentUrl ?? _selectedFile!.name;
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -290,19 +288,16 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.custom,
+      final file = await FilePickerUtils.pickOne(
         allowedExtensions: [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
           ...FilePickerUtils.allowedVideoExtensions,
         ],
-        allowMultiple: false,
       );
 
       if (!mounted) return;
-      if (result != null && result.files.isNotEmpty) {
-        PlatformFile file = result.files.first;
+      if (file != null) {
         setState(() {
           _selectedFile = file;
           _selectedFilePath = file.name;

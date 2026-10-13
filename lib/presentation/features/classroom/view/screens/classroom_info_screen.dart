@@ -524,7 +524,6 @@ class _ClassroomInfoViewState extends State<_ClassroomInfoView> {
       // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: mounted ? context : null,
       );
       final pickedPath = picked?.path;
       if (pickedPath == null || pickedPath.isEmpty) return;

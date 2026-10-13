@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -58,14 +58,18 @@ class _SchoolCloudImageUploaderDialogState
       return;
     }
 
-    final picked = await ImagePicker().pickMultiImage();
+    final picked = await FilePickerUtils.pick(
+      type: PickType.image,
+      source: PickSource.photos,
+      multiple: true,
+    );
     if (picked.isEmpty) return;
     if (!mounted) return;
 
     final existingPaths = _selectedImages.map((f) => f.path).toSet();
     final remainingSlots = kSchoolCloudUploadMaxImages - _selectedImages.length;
     final newFiles = picked
-        .map((x) => File(x.path))
+        .map((x) => x.file)
         .where((f) => !existingPaths.contains(f.path))
         .toList();
     final accepted = newFiles.take(remainingSlots).toList();

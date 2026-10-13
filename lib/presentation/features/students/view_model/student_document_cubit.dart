@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
@@ -68,7 +68,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
   /// delivery URL resolves in the background so the button isn't gated on it.
   Future<void> uploadFile({
     required String studentCode,
-    required PlatformFile file,
+    required PickedFile file,
   }) async {
     emit(
       state.copyWith(
@@ -96,7 +96,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       }
 
       final selectedPath = file.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
+      if (selectedPath.trim().isEmpty) {
         _failUpload(StudentStrings.selectedFilePathIsNotAvailable);
         return;
       }
@@ -106,7 +106,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
         return;
       }
 
-      final mimeType = await FileUtils.mimeTypeOfFile(selectedPath);
+      final mimeType = file.mimeType;
       final uploadSession = await _imageUploadService
           .createStudentDocumentUploadSession(
             studentCode: studentCode,

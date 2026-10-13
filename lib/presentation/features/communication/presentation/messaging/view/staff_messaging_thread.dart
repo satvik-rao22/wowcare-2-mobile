@@ -1695,14 +1695,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             selection: TextSelection.collapsed(offset: pos + emoji.length),
           );
         },
-        onAttachmentError: (message) {
-          if (!mounted) return;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: message,
-            isError: true,
-          );
-        },
       ),
     );
   }

@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -105,14 +102,6 @@ class CoreUtils {
   static String _truncateForSnackBar(String message, {int maxLength = 360}) {
     if (message.length <= maxLength) return message;
     return '${message.substring(0, maxLength)}…';
-  }
-
-  static Future<File?> pickImage() async {
-    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      return File(image.path);
-    }
-    return null;
   }
 
   static void showLoadingDialog(BuildContext context) {

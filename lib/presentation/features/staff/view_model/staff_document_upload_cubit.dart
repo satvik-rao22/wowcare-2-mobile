@@ -2,12 +2,11 @@ import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../../../../core/utils/storage_keys.dart';
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 import 'staff_profile_cubit.dart';
 
@@ -30,7 +29,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
 
   Future<void> uploadFile({
     required String staffCode,
-    required PlatformFile selectedFile,
+    required PickedFile selectedFile,
   }) async {
     emit(const StaffDocumentUploadState.uploading(progressPercent: 0));
     try {
@@ -80,7 +79,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       }
 
       final selectedPath = selectedFile.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
+      if (selectedPath.trim().isEmpty) {
         emit(
           const StaffDocumentUploadState.error(
             'Selected file path is not available',
@@ -104,7 +103,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       // generic type surfaces as a meaningless "Content type
       // 'application/octet-stream' is not allowed" instead of the backend's
       // actual, specific rejection reason.
-      final mimeType = await FileUtils.mimeTypeOfFile(selectedPath);
+      final mimeType = selectedFile.mimeType;
       final uploadSession = await _imageUploadService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,

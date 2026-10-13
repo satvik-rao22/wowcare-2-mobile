@@ -1,10 +1,11 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/activity/entities/recovered_media.dart';
 
-/// The single place `ImagePicker.retrieveLostData()` is called.
+/// Recovers a capture lost to Android killing the app (the plugin call itself
+/// lives in FilePickerUtils.recoverLostMedia).
 ///
 /// `retrieveLostData` is Android-only in effect: the Android implementation
 /// caches a completed capture whose activity died before the result could be
@@ -16,14 +17,6 @@ abstract class LostMediaLocalDataSource {
 }
 
 class ImagePickerLostMediaLocalDataSource implements LostMediaLocalDataSource {
-  /// [picker] is injectable for tests; it defaults here rather than being
-  /// supplied by the composition root so `di.dart` does not have to import the
-  /// picker plugin to wire this up.
-  ImagePickerLostMediaLocalDataSource({ImagePicker? picker})
-    : _picker = picker ?? ImagePicker();
-
-  final ImagePicker _picker;
-
   @override
   Future<RecoveredMedia> retrieveLostMedia() async {
     // Android-only by contract, and short-circuited here rather than relying on
@@ -34,42 +27,21 @@ class ImagePickerLostMediaLocalDataSource implements LostMediaLocalDataSource {
     // every screen open.
     if (kIsWeb || !Platform.isAndroid) return RecoveredMedia.none;
 
-    final response = await _picker.retrieveLostData();
+    final lost = await FilePickerUtils.recoverLostMedia();
+    if (lost == null) return RecoveredMedia.none;
 
-    if (response.isEmpty) return RecoveredMedia.none;
-
+    final type = lost.isVideo
+        ? RecoveredMediaType.video
+        : RecoveredMediaType.image;
     // The platform cached a failure rather than a file (e.g. the camera app
     // crashed). There is nothing to hand back, but say why.
-    final exception = response.exception;
-    if (exception != null) {
+    if (lost.error != null) {
       return RecoveredMedia(
-        type: _mapType(response.type),
+        type: type,
         filePaths: const <String>[],
-        errorMessage: exception.message ?? exception.code,
+        errorMessage: lost.error,
       );
     }
-
-    // `files` covers the multi-image pick; `file` the single one. Prefer
-    // `files` and fall back, rather than reading only `file` and silently
-    // dropping the rest of a recovered multi-selection.
-    final recovered = <String>[
-      ...?response.files?.map((f) => f.path),
-    ];
-    if (recovered.isEmpty && response.file != null) {
-      recovered.add(response.file!.path);
-    }
-    if (recovered.isEmpty) return RecoveredMedia.none;
-
-    return RecoveredMedia(
-      type: _mapType(response.type),
-      filePaths: recovered,
-    );
+    return RecoveredMedia(type: type, filePaths: lost.paths);
   }
-
-  /// `RetrieveType.video` maps to video; everything else (including a null
-  /// type, which the platform can report alongside an exception) is treated as
-  /// an image — matching the picker's own default.
-  RecoveredMediaType _mapType(RetrieveType? type) => type == RetrieveType.video
-      ? RecoveredMediaType.video
-      : RecoveredMediaType.image;
 }

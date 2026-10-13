@@ -1,6 +1,3 @@
-import 'dart:io';
-import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter/material.dart';
@@ -45,66 +42,34 @@ class _MessageCompositionBulkMessagingState
 
   static const int maxChars = 2000;
 
+  /// Bulk-message attachments: up to 10 MB each. FilePickerUtils drops
+  /// anything bigger or of an unsupported type and tells the user why.
+  static const int _maxSizeMB = 10;
+
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickMultiImage();
-    if (picked.isEmpty) return;
-
-    final valid = <File>[];
-    var anyTooLarge = false;
-    for (final xfile in picked) {
-      final file = File(xfile.path);
-      if (await file.length() > 10 * 1024 * 1024) {
-        anyTooLarge = true;
-        continue;
-      }
-      valid.add(file);
-    }
-
-    if (!mounted) return;
-    if (anyTooLarge) {
-      _showWarningMessage(
-        valid.isEmpty
-            ? AppStrings.fileTooLarge
-            : AppStrings.someFilesSkipped,
-      );
-    }
-    if (valid.isEmpty) return;
-    _compositionCubit.addAttachments(valid, isImage: true);
+    final files = await FilePickerUtils.pick(
+      type: PickType.image,
+      source: PickSource.photos,
+      multiple: true,
+      maxSizeMB: _maxSizeMB,
+    );
+    if (files.isEmpty || !mounted) return;
+    _compositionCubit.addAttachments(
+      [for (final f in files) f.file],
+      isImage: true,
+    );
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
-      allowMultiple: true,
+    final files = await FilePickerUtils.pick(
+      multiple: true,
+      maxSizeMB: _maxSizeMB,
     );
-
-    if (result == null || result.files.isEmpty) return;
-
-    final valid = <File>[];
-    var anyTooLarge = false;
-    for (final platformFile in result.files) {
-      final path = platformFile.path;
-      if (path == null) continue;
-      final file = File(path);
-      if (await file.length() > 10 * 1024 * 1024) {
-        anyTooLarge = true;
-        continue;
-      }
-      valid.add(file);
-    }
-
-    if (!mounted) return;
-    if (anyTooLarge) {
-      _showWarningMessage(
-        valid.isEmpty
-            ? AppStrings.fileTooLarge
-            : AppStrings.someFilesSkipped,
-      );
-    }
-    if (valid.isEmpty) return;
-    _compositionCubit.addAttachments(valid, isImage: false);
+    if (files.isEmpty || !mounted) return;
+    _compositionCubit.addAttachments(
+      [for (final f in files) f.file],
+      isImage: false,
+    );
   }
 
   void _removeAttachment(int index) {
@@ -145,13 +110,6 @@ class _MessageCompositionBulkMessagingState
     _focusNode.dispose();
     // Not closed here — the route's BlocProvider owns the cubit's lifecycle.
     super.dispose();
-  }
-
-  void _showWarningMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
-    });
   }
 
   @override

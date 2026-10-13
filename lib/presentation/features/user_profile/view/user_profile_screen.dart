@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/students/model/student_sibling_info.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/src/app_router.dart'
     show AppRoutes, goToDashboardRoot, popAllShellBranchNavigators;
@@ -69,7 +69,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   static String _dayAbbr(String day) =>
       day.length >= 3 ? day.substring(0, 3).toUpperCase() : day.toUpperCase();
 
-  final ImagePicker _picker = ImagePicker();
   late final UserProfileCubit _cubit;
   // Dedupes the one-time "failed to load profile" snackbar.
   bool _shownLoadError = false;
@@ -279,9 +278,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _effectiveStaffCode() => _cubit.effectiveStaffCode();
 
   Future<void> _pickProfileImage({
-    ImageSource source = ImageSource.gallery,
+    PickSource source = PickSource.photos,
   }) async {
-    final XFile? image = await _picker.pickImage(source: source);
+    final image = await FilePickerUtils.pickOne(
+      type: PickType.image,
+      source: source,
+    );
     if (image == null) return;
     if (!mounted) return;
     // The cubit branches staff vs guardian based on persona and streams upload
@@ -537,7 +539,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                               onChangePhoto: _pickProfileImage,
                                               onTakePhoto: () =>
                                                   _pickProfileImage(
-                                                    source: ImageSource.camera,
+                                                    source: PickSource.camera,
                                                   ),
                                               hasPhotoNow: () =>
                                                   _hasDeletableProfilePhoto(

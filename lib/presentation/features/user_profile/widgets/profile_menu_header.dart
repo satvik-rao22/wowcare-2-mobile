@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -18,8 +18,10 @@ class ProfileMenuHeader extends StatelessWidget {
 
   Future<void> _pickProfileImage(BuildContext context) async {
     try {
-      final XFile? image =
-          await ImagePicker().pickImage(source: ImageSource.gallery);
+      final image = await FilePickerUtils.pickOne(
+        type: PickType.image,
+        source: PickSource.photos,
+      );
       if (image == null) return;
       // TODO: wire this to upload/update avatar in your backend/state
       if (!context.mounted) return;

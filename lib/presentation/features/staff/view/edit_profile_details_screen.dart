@@ -526,7 +526,6 @@ class _EditProfileDetailsScreenViewState
     try {
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
       );
       final path = picked?.path;
       if (path == null || path.isEmpty) return;
