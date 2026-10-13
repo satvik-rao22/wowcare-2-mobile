@@ -156,7 +156,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
           localPath: file.path,
           name: file.name,
           type: isPhoto ? 'image' : 'document',
-          sizeBytes: file.size,
+          sizeBytes: file.sizeBytes,
           mimeType: file.mimeType,
           remoteUrl: '', // Will be updated after upload
         ),

@@ -1,11 +1,10 @@
-
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_asset_builder.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 
@@ -41,18 +40,21 @@ Future<void> openAttachmentExternally(
 ) async {
   if (asset.url.isEmpty) return;
   try {
-    final dir = await getTemporaryDirectory();
-    final safeName = asset.displayName.replaceAll(RegExp(r'[\\/]'), '_');
-    final path = '${dir.path}/$safeName';
-    // Bare Dio: the URL is presigned, so an auth header would break it.
-    await Dio().download(asset.url, path);
-    final result = await OpenFilex.open(path);
-    if (!context.mounted || result.type == ResultType.done) return;
+    final path = await FileUtils.tempFilePath(asset.displayName);
+    // FileDownloadService uses a bare Dio: the URL is presigned, so an auth
+    // header would break it.
+    await FileDownloadService.instance.downloadToFile(asset.url, path);
+    final result = await FileActions.open(
+      path,
+      mimeType: asset.contentType.isEmpty ? null : asset.contentType,
+    );
+    if (!context.mounted || result.opened) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: result.type == ResultType.noAppToOpen
-          ? 'No app on this device can open ${asset.extension.toUpperCase()} files'
-          : 'Could not open this file',
+      // The file was just downloaded, so a failed hand-off means no app on the
+      // device takes this type.
+      message:
+          'No app on this device can open ${asset.extension.toUpperCase()} files',
       isWarning: true,
     );
   } catch (_) {
@@ -86,8 +88,9 @@ class AttachmentViewer extends StatefulWidget {
 }
 
 class _AttachmentViewerState extends State<AttachmentViewer> {
-  late final PageController _controller =
-      PageController(initialPage: widget.initialIndex);
+  late final PageController _controller = PageController(
+    initialPage: widget.initialIndex,
+  );
   late int _index = widget.initialIndex;
 
   @override
@@ -155,10 +158,7 @@ class _Page extends StatelessWidget {
         }
         final asset = snapshot.asset;
         if (asset == null || asset.hasFailed) {
-          return _Failure(
-            asset: asset,
-            onRetry: snapshot.retry,
-          );
+          return _Failure(asset: asset, onRetry: snapshot.retry);
         }
         if (asset.isImage) {
           return Column(
@@ -179,10 +179,8 @@ class _Page extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2.4),
                         ),
                       ),
-                      errorWidget: (_, __, ___) => _Failure(
-                        asset: asset,
-                        onRetry: snapshot.retry,
-                      ),
+                      errorWidget: (_, __, ___) =>
+                          _Failure(asset: asset, onRetry: snapshot.retry),
                     ),
                   ),
                 ),
@@ -313,7 +311,10 @@ class _Failure extends StatelessWidget {
             Text(
               asset?.failureLabel ?? "Couldn't load this file",
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppPalette.textOnDark, fontSize: 14),
+              style: const TextStyle(
+                color: AppPalette.textOnDark,
+                fontSize: 14,
+              ),
             ),
             if (retryable) ...[
               const SizedBox(height: 18),

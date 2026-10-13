@@ -237,7 +237,8 @@ void main() {
 
   PickedFile pickedFile() => PickedFile(
     name: 'report.pdf',
-    size: 5,
+    sizeBytes: 5,
+    extension: 'pdf',
     path: tempFile.path,
     mimeType: 'application/pdf',
   );

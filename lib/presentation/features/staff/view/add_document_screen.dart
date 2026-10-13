@@ -199,7 +199,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
     String mimeType;
 
     if (_selectedFile != null) {
-      fileSizeKb = (_selectedFile!.size / 1024).ceil();
+      fileSizeKb = (_selectedFile!.sizeBytes / 1024).ceil();
       mimeType = _selectedFile!.mimeType;
       documentUrl = _uploadedDocumentUrl ?? _selectedFile!.name;
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {

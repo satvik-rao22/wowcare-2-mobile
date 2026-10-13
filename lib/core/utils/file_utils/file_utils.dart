@@ -148,6 +148,20 @@ abstract final class FileUtils {
       .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
       .replaceAll(RegExp(r'\s+'), '_');
 
+  /// A size for people: `1.4 MB`, `812 KB`, `0 KB`.
+  static String formatBytes(int bytes) {
+    if (bytes <= 0) return '0 KB';
+    const kb = 1024;
+    const mb = kb * 1024;
+    if (bytes >= mb) {
+      final value = bytes / mb;
+      // 10 MB reads better than 10.0 MB; 1.4 MB needs the decimal.
+      return '${value >= 10 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)} MB';
+    }
+    final value = bytes / kb;
+    return '${value < 10 ? value.toStringAsFixed(1) : value.toStringAsFixed(0)} KB';
+  }
+
   // ── MIME types ────────────────────────────────────────────────────────────
   //
   // One rule for the whole app:

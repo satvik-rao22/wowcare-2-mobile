@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 
 /// Thrown when a task's attachments cannot be read — the backend exposes no
 /// attachments endpoint, or the request failed.
@@ -15,7 +15,7 @@ class TaskAttachmentsUnavailable implements Exception {
   String toString() => 'TaskAttachmentsUnavailable';
 }
 
-// SUPERSEDED by `FilePickerUtils.formatBytes`, which formats identically and is
+// SUPERSEDED by `FileUtils.formatBytes`, which formats identically and is
 // already used by every other attachment surface.
 //
 // String formatAttachmentSize(int bytes) {
@@ -171,7 +171,7 @@ class TaskAttachment extends Equatable {
   /// Human-readable size for the subtitle line; empty when the payload omits
   /// it.
   String get displaySize =>
-      sizeBytes <= 0 ? '' : FilePickerUtils.formatBytes(sizeBytes);
+      sizeBytes <= 0 ? '' : FileUtils.formatBytes(sizeBytes);
 
   /// Round-trip form for the local display cache (see
   /// `StorageKeys.taskAttachmentsCache`). Deliberately does **not** persist

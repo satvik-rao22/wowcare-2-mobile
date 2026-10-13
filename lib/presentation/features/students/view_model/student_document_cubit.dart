@@ -75,7 +75,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     emit(
       state.copyWith(
         selectedFileName: file.name,
-        selectedFileSize: file.size,
+        selectedFileSize: file.sizeBytes,
         selectedFileExtension: file.extension,
         uploadStatus: DocumentUploadStatus.uploading,
         uploadPercent: 0,

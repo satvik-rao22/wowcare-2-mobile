@@ -115,7 +115,7 @@ class _MessageAttachmentBottomSheetState
           localPath: file.path,
           name: file.name,
           type: file.isImage ? 'image' : (file.isVideo ? 'video' : 'document'),
-          sizeBytes: file.size,
+          sizeBytes: file.sizeBytes,
           mimeType: file.mimeType,
           remoteUrl: '',
         ),

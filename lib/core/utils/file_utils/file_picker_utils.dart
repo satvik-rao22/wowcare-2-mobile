@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:equatable/equatable.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,41 +25,61 @@ enum PickSource {
 /// What kind of file [FilePickerUtils.pick] accepts. Sets the default allowed
 /// extensions and, for [PickSource.photos] / [PickSource.camera], whether
 /// photos or videos are offered.
-enum PickType { document, image, video, imageOrVideo }
+enum PickType {
+  document,
+  image,
+  video,
+  imageOrVideo,
 
-/// A file the user picked, already checked against the allowed types and
-/// size limit.
-class PickedFile {
+  /// Documents and photos — the usual "attach a file" choice.
+  documentOrImage,
+
+  /// No type filter at all.
+  any,
+}
+
+/// A file the user picked off the device, checked and ready to upload. It
+/// carries no upload state — an uploaded file is a different thing.
+class PickedFile extends Equatable {
   const PickedFile({
     required this.path,
     required this.name,
-    required this.size,
+    required this.sizeBytes,
+    required this.extension,
     required this.mimeType,
   });
 
   final String path;
   final String name;
-
-  /// Size in bytes.
-  final int size;
-
-  /// Real type for uploads (see FileUtils.mimeTypeOfFile).
-  final String mimeType;
+  final int sizeBytes;
 
   /// Lowercase, without the dot: `pdf`, `jpg`. Empty when there is none.
-  String get extension => FileUtils.extension(name);
+  final String extension;
+
+  /// The real type (FileUtils.mimeTypeOfFile): photos and PDFs from their
+  /// bytes, everything else from the name.
+  final String mimeType;
+
+  bool get isImage => mimeType.startsWith('image/');
+  bool get isVideo => mimeType.startsWith('video/');
+  bool get isPdf => mimeType == 'application/pdf';
+
+  /// `1.4 MB`, `812 KB`.
+  String get readableSize => FileUtils.formatBytes(sizeBytes);
 
   File get file => File(path);
 
-  bool get isImage =>
-      FilePickerUtils.allowedImageExtensions.contains(extension);
-  bool get isVideo =>
-      FilePickerUtils.allowedVideoExtensions.contains(extension);
+  /// Identity is the on-disk path — the same file picked twice is one file.
+  @override
+  List<Object?> get props => [path];
 }
 
 /// What the Android recovery found: files a capture finished saving after
 /// the OS had closed the app (see [FilePickerUtils.recoverLostMedia]).
 typedef LostMedia = ({List<String> paths, bool isVideo, String? error});
+
+/// One file as a picker handed it back, before any checks.
+typedef _Picked = ({String? path, String name});
 
 /// The one place the user picks files: from the Files browser, the photo
 /// library or the camera.
@@ -74,8 +95,12 @@ typedef LostMedia = ({List<String> paths, bool isVideo, String? error});
 ///
 /// It handles everything about picking, so callers don't:
 /// - camera access via PermissionManager (Settings steps when blocked),
-/// - dropping files with a type outside the allowed extensions or over the
-///   size limit, with one standard message saying what was skipped and why,
+/// - re-checking every file's type rather than trusting the OS dialog filter
+///   (some Android providers ignore it); a file whose name has no extension
+///   is judged by its content,
+/// - size limits, an attachment limit ([pick]'s `maxFiles`) and files that
+///   are already attached,
+/// - one standard message saying what was skipped and why,
 /// - the real MIME type of every file,
 /// - cancelling and picker errors: both return an empty list.
 ///
@@ -144,12 +169,19 @@ abstract final class FilePickerUtils {
     ...allowedImageExtensions,
   ];
 
+  /// Attachments per item, matching the document service's `maxAssetCount`
+  /// on the upload session it mints. When a caller has a session in hand it
+  /// should pass that value instead, so a server-side change needs no release.
+  static const int defaultMaxFiles = 5;
+
   /// Lets the user pick files and returns the ones that passed the checks.
   /// Empty when they cancel, nothing passed, or the picker failed.
   ///
   /// - [allowedExtensions] overrides the list [type] would allow.
   /// - [maxSizeMB] limits every file; [maxVideoSizeMB], when set, limits
   ///   videos instead.
+  /// - [maxFiles] caps the total, counting [existing] (files already on the
+  ///   form); a file in [existing] picked again is skipped, not duplicated.
   /// - [imageQuality] (1–100) and [maxVideoDuration] apply to the camera.
   /// - [onError] replaces the standard "couldn't open" message when the
   ///   picker itself fails (cancelling is not an error).
@@ -160,17 +192,22 @@ abstract final class FilePickerUtils {
     List<String>? allowedExtensions,
     int? maxSizeMB,
     int? maxVideoSizeMB,
+    int? maxFiles,
+    List<PickedFile> existing = const [],
     int? imageQuality,
     Duration? maxVideoDuration,
     void Function(Object error, StackTrace stackTrace)? onError,
   }) async {
-    final List<String> paths;
+    final allowed = allowedExtensions ?? extensionsFor(type);
+    if (maxFiles != null && existing.length >= maxFiles) {
+      _show(_limitMessage(maxFiles));
+      return const [];
+    }
+
+    final List<_Picked> picked;
     try {
-      paths = switch (source) {
-        PickSource.files => await _fromFiles(
-          allowedExtensions ?? _extensionsFor(type),
-          multiple,
-        ),
+      picked = switch (source) {
+        PickSource.files => await _fromFiles(allowed, multiple),
         PickSource.photos => await _fromPhotos(type, multiple),
         PickSource.camera => await _fromCamera(
           type,
@@ -189,10 +226,12 @@ abstract final class FilePickerUtils {
     }
 
     return _check(
-      paths,
-      allowed: allowedExtensions ?? _extensionsFor(type),
+      picked,
+      allowed: allowed,
       maxBytes: _bytes(maxSizeMB),
       maxVideoBytes: _bytes(maxVideoSizeMB) ?? _bytes(maxSizeMB),
+      maxFiles: maxFiles,
+      existing: existing,
     );
   }
 
@@ -245,33 +284,86 @@ abstract final class FilePickerUtils {
     return (paths: paths, isVideo: isVideo, error: null);
   }
 
+  /// The extensions [type] allows; empty means "no filter".
+  static List<String> extensionsFor(PickType type) => switch (type) {
+    PickType.document => allowedDocumentExtensions,
+    PickType.image => allowedImageExtensions,
+    PickType.video => allowedVideoExtensions,
+    PickType.imageOrVideo => const [
+      ...allowedImageExtensions,
+      ...allowedVideoExtensions,
+    ],
+    PickType.documentOrImage => defaultAllowedExtensions,
+    PickType.any => const [],
+  };
+
+  /// Allow-list entries that are MIME subtypes, not real file extensions. On
+  /// Android file_picker turns each extension into a MIME type for the system
+  /// dialog and, if even one has no mapping, drops the filter entirely and
+  /// lists every file (zip, apk…). They stay allowed, but out of the dialog.
+  static const Set<String> _nonDialogExtensions = {
+    'heic-sequence',
+    'heif-sequence',
+  };
+
+  /// [extensions] as the system file dialog should receive them.
+  static List<String> dialogExtensions(List<String> extensions) =>
+      extensions.where((e) => !_nonDialogExtensions.contains(e)).toList();
+
+  /// Whether a picked file is one of [allowedExtensions].
+  ///
+  /// An allowed extension on the [name] (or the [path]) is enough. Otherwise
+  /// the content decides: Android document providers can report a name with
+  /// no usable extension (e.g. "IMG_1234") for a file whose content already
+  /// matched the dialog filter, so a real JPEG or PDF is not rejected for its
+  /// name alone — while archives, APKs and executables match nothing listed.
+  static Future<bool> isAllowedType({
+    required String name,
+    required String path,
+    required List<String> allowedExtensions,
+  }) async {
+    if (allowedExtensions.isEmpty) return true;
+    if (allowedExtensions.contains(FileUtils.extension(name)) ||
+        allowedExtensions.contains(FileUtils.extension(path))) {
+      return true;
+    }
+    if (!await File(path).exists()) return false;
+    final byContent = await FileUtils.mimeTypeOfFile(path);
+    if (byContent == FileUtils.unknownMimeType) return false;
+    return allowedExtensions.any(
+      (ext) => FileUtils.mimeType('file.$ext') == byContent,
+    );
+  }
+
   // ── Pickers ───────────────────────────────────────────────────────────────
 
-  static Future<List<String>> _fromFiles(
+  static Future<List<_Picked>> _fromFiles(
     List<String> extensions,
     bool multiple,
   ) async {
     final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: extensions,
+      type: extensions.isEmpty ? FileType.any : FileType.custom,
+      allowedExtensions: extensions.isEmpty
+          ? null
+          : dialogExtensions(extensions),
       allowMultiple: multiple,
     );
-    return _paths(result);
+    return _picked(result);
   }
 
-  static Future<List<String>> _fromPhotos(PickType type, bool multiple) async {
+  static Future<List<_Picked>> _fromPhotos(PickType type, bool multiple) async {
     final result = await FilePicker.pickFiles(
       type: switch (type) {
         PickType.video => FileType.video,
         PickType.imageOrVideo => FileType.media,
-        PickType.image || PickType.document => FileType.image,
+        _ => FileType.image,
       },
       allowMultiple: multiple,
     );
-    return _paths(result);
+    return _picked(result);
   }
 
-  static Future<List<String>> _fromCamera(
+  static Future<List<_Picked>> _fromCamera(
     PickType type,
     int? imageQuality,
     Duration? maxVideoDuration,
@@ -295,30 +387,53 @@ abstract final class FilePickerUtils {
             source: ImageSource.camera,
             imageQuality: imageQuality,
           );
-    return shot == null ? const [] : [shot.path];
+    return shot == null ? const [] : [(path: shot.path, name: shot.name)];
   }
 
-  static List<String> _paths(FilePickerResult? result) => [
+  static List<_Picked> _picked(FilePickerResult? result) => [
     for (final f in result?.files ?? const <PlatformFile>[])
-      if (f.path != null && f.path!.trim().isNotEmpty) f.path!,
+      (path: f.path, name: f.name),
   ];
 
   // ── Checks ────────────────────────────────────────────────────────────────
 
   static Future<List<PickedFile>> _check(
-    List<String> paths, {
+    List<_Picked> picked, {
     required List<String> allowed,
     required int? maxBytes,
     required int? maxVideoBytes,
+    required int? maxFiles,
+    required List<PickedFile> existing,
   }) async {
     final accepted = <PickedFile>[];
     final unsupported = <String>[];
+    final unreadable = <String>[];
+    final duplicates = <String>[];
     final oversized = <String, int>{}; // name → the limit it broke
+    var overLimit = 0;
+    // Seeded with what is already attached, so a file can't be added twice
+    // across two separate picks, not just within one.
+    final seenPaths = {for (final f in existing) f.path};
+    final room = maxFiles == null ? null : maxFiles - existing.length;
 
-    for (final path in paths) {
-      final name = FileUtils.fileName(path);
-      final ext = FileUtils.extension(path);
-      if (!allowed.contains(ext)) {
+    for (final p in picked) {
+      final path = p.path;
+      final name = p.name.isNotEmpty
+          ? p.name
+          : (path == null ? '' : FileUtils.fileName(path));
+      if (path == null || path.trim().isEmpty) {
+        unreadable.add(name);
+        continue;
+      }
+      if (seenPaths.contains(path)) {
+        duplicates.add(name);
+        continue;
+      }
+      if (!await isAllowedType(
+        name: name,
+        path: path,
+        allowedExtensions: allowed,
+      )) {
         unsupported.add(name);
         continue;
       }
@@ -327,22 +442,29 @@ abstract final class FilePickerUtils {
         size = await File(path).length();
       } catch (e, stackTrace) {
         AppLogger.e('[FilePicker] Cannot read $name', e, stackTrace);
-        unsupported.add(name);
+        unreadable.add(name);
         continue;
       }
-      final limit = allowedVideoExtensions.contains(ext)
-          ? maxVideoBytes
-          : maxBytes;
+      final mimeType = await FileUtils.mimeTypeOfFile(path);
+      final limit = mimeType.startsWith('video/') ? maxVideoBytes : maxBytes;
       if (limit != null && size > limit) {
         oversized[name] = limit;
         continue;
       }
+      // Slots go in selection order, so what's over the limit is the tail.
+      if (room != null && accepted.length >= room) {
+        overLimit++;
+        continue;
+      }
+      seenPaths.add(path);
+      final ext = FileUtils.extension(name);
       accepted.add(
         PickedFile(
           path: path,
           name: name,
-          size: size,
-          mimeType: await FileUtils.mimeTypeOfFile(path),
+          sizeBytes: size,
+          extension: ext.isNotEmpty ? ext : FileUtils.extension(path),
+          mimeType: mimeType,
         ),
       );
     }
@@ -350,6 +472,10 @@ abstract final class FilePickerUtils {
     final message = rejectionMessage(
       unsupported: unsupported,
       oversized: oversized,
+      unreadable: unreadable,
+      duplicates: duplicates,
+      overLimit: overLimit,
+      maxFiles: maxFiles,
     );
     if (message != null) _show(message);
     return accepted;
@@ -357,53 +483,78 @@ abstract final class FilePickerUtils {
 
   /// One sentence for the files that were skipped, or null when none were:
   /// "photo.png exceeds the 10 MB limit", "2 files are not a supported file
-  /// type", "3 files couldn't be attached: …".
+  /// type", "report.pdf is already attached", "3 files couldn't be
+  /// attached"…
   static String? rejectionMessage({
     required List<String> unsupported,
     required Map<String, int> oversized,
+    List<String> unreadable = const [],
+    List<String> duplicates = const [],
+    int overLimit = 0,
+    int? maxFiles,
   }) {
-    if (oversized.isEmpty && unsupported.isEmpty) return null;
+    final total =
+        unsupported.length +
+        oversized.length +
+        unreadable.length +
+        duplicates.length +
+        overLimit;
+    if (total == 0) return null;
     String mb(int bytes) =>
         AppStrings.megabytes((bytes / (1024 * 1024)).round());
 
-    if (unsupported.isEmpty) {
-      if (oversized.length == 1) {
-        final entry = oversized.entries.first;
-        return AppStrings.fileExceedsLimit(entry.key, mb(entry.value));
+    // Only one kind of problem: name it precisely.
+    if (unreadable.length == total) {
+      return total == 1
+          ? AppStrings.fileUnreadable(unreadable.first)
+          : AppStrings.filesUnreadable(total);
+    }
+    if (duplicates.length == total) {
+      return total == 1
+          ? '${duplicates.first} is already attached'
+          : '$total files are already attached';
+    }
+    if (overLimit == total) return _limitMessage(maxFiles);
+
+    // Size and/or type problems only.
+    if (unsupported.length + oversized.length == total) {
+      if (unsupported.isEmpty) {
+        if (oversized.length == 1) {
+          final entry = oversized.entries.first;
+          return AppStrings.fileExceedsLimit(entry.key, mb(entry.value));
+        }
+        final limits = oversized.values.toSet().toList()..sort();
+        if (limits.length == 1) {
+          return AppStrings.filesExceedLimit(
+            oversized.length,
+            mb(limits.first),
+          );
+        }
+        return AppStrings.filesExceedMixedLimits(
+          oversized.length,
+          mb(limits.first),
+          mb(limits.last),
+        );
       }
-      final limits = oversized.values.toSet().toList()..sort();
-      if (limits.length == 1) {
-        return AppStrings.filesExceedLimit(oversized.length, mb(limits.first));
+      if (oversized.isEmpty) {
+        return unsupported.length == 1
+            ? AppStrings.fileUnsupportedType(unsupported.first)
+            : AppStrings.filesUnsupportedType(unsupported.length);
       }
-      return AppStrings.filesExceedMixedLimits(
+      return AppStrings.filesPartiallyRejected(
+        total,
         oversized.length,
-        mb(limits.first),
-        mb(limits.last),
+        unsupported.length,
       );
     }
-    if (oversized.isEmpty) {
-      return unsupported.length == 1
-          ? AppStrings.fileUnsupportedType(unsupported.first)
-          : AppStrings.filesUnsupportedType(unsupported.length);
-    }
-    return AppStrings.filesPartiallyRejected(
-      oversized.length + unsupported.length,
-      oversized.length,
-      unsupported.length,
-    );
+    return AppStrings.filesCouldNotBeAttached(total);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static List<String> _extensionsFor(PickType type) => switch (type) {
-    PickType.document => allowedDocumentExtensions,
-    PickType.image => allowedImageExtensions,
-    PickType.video => allowedVideoExtensions,
-    PickType.imageOrVideo => [
-      ...allowedImageExtensions,
-      ...allowedVideoExtensions,
-    ],
-  };
+  static String _limitMessage(int? maxFiles) => maxFiles == null
+      ? 'Attachment limit reached'
+      : 'You can attach up to $maxFiles files';
 
   static int? _bytes(int? mb) => mb == null ? null : mb * 1024 * 1024;
 

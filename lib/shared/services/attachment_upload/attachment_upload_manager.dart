@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:wowcare/shared/services/asset/asset_models.dart';
@@ -103,7 +103,7 @@ class AttachmentUploadManager {
                 fileName: file.name,
                 contentType: file.mimeType,
                 contentLengthBytes: file.sizeBytes,
-                mediaType: file.mediaType,
+                mediaType: AssetService.mediaTypeFor(file.mimeType),
                 ownerType: ownerType,
                 ownerCode: resolvedOwnerCode,
               ),

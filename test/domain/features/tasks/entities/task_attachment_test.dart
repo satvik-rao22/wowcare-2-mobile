@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/data/features/tasks/models/task_models.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
@@ -66,7 +66,7 @@ void main() {
 
     test('displaySize switches from KB to MB and hides an unknown size', () {
       expect(const TaskAttachment(assetCode: 'A', sizeBytes: 0).displaySize, '');
-      // Formatting is FilePickerUtils.formatBytes now — shared with every other
+      // Formatting is FileUtils.formatBytes now — shared with every other
       // attachment surface, so KB keeps one decimal below 10.
       expect(
         const TaskAttachment(assetCode: 'A', sizeBytes: 2048).displaySize,
@@ -207,7 +207,7 @@ void main() {
           Icons.picture_as_pdf_rounded);
     });
 
-    // Sizes are formatted by the shared FilePickerUtils.formatBytes now; its
+    // Sizes are formatted by the shared FileUtils.formatBytes now; its
     // own behaviour is covered in the picker/manager suites.
     test('displaySize is empty for an unknown size and set otherwise', () {
       expect(const TaskAttachment(assetCode: 'AST_1').displaySize, '');

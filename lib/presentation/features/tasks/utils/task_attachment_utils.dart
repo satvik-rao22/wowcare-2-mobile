@@ -1,13 +1,12 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/services/asset/asset_service.dart';
@@ -30,7 +29,13 @@ class TaskAttachmentUtils {
   /// Extensions the backend validates for (same doc: "allowed types
   /// JPEG/PNG/WebP/PDF"). Anything outside this list is refused server-side, so
   /// the picker never offers it.
-  static const List<String> allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+  static const List<String> allowedExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'pdf',
+  ];
 
   /// Helper text under the picker — kept in one place so the copy always
   /// matches [allowedExtensions] and [maxAttachmentBytes].
@@ -38,7 +43,7 @@ class TaskAttachmentUtils {
 
   /// Uppercase extension label for the doctype badge (`PDF`, `PNG`, …).
   static String extensionLabel(String fileName) {
-    final ext = p.extension(fileName).replaceFirst('.', '').toUpperCase();
+    final ext = FileUtils.extension(fileName).toUpperCase();
     return ext.isEmpty ? 'FILE' : ext;
   }
 
@@ -50,7 +55,7 @@ class TaskAttachmentUtils {
     String fileName,
     String contentType,
   ) {
-    final ext = p.extension(fileName).replaceFirst('.', '').toLowerCase();
+    final ext = FileUtils.extension(fileName);
     final type = contentType.toLowerCase();
 
     if (ext == 'pdf' || type.contains('pdf')) {
@@ -178,11 +183,14 @@ class TaskAttachmentUtils {
       );
       return;
     }
-    final result = await OpenFilex.open(attachment.path);
-    if (!context.mounted || result.type == ResultType.done) return;
+    final result = await FileActions.open(
+      attachment.path,
+      mimeType: attachment.mimeType,
+    );
+    if (!context.mounted || result.opened) return;
     CoreUtils.showTopSnackBar(
       context: context,
-      message: _openFailureMessage(result),
+      message: _noAppMessage,
       isError: true,
     );
   }
@@ -196,24 +204,33 @@ class TaskAttachmentUtils {
     required String fileName,
   }) async {
     try {
-      final dir = await getTemporaryDirectory();
+      final dir = Directory(
+        FileUtils.join(
+          (await FileUtils.tempDirectory()).path,
+          'task_attachments',
+        ),
+      );
+      await dir.create(recursive: true);
+      final ext = FileUtils.extension(url);
       final safeName = fileName.trim().isEmpty
-          ? 'attachment${p.extension(Uri.parse(url).path)}'
-          : fileName.trim();
-      final target = p.join(dir.path, 'task_attachments', safeName);
-      await Directory(p.dirname(target)).create(recursive: true);
+          ? 'attachment${ext.isEmpty ? '' : '.$ext'}'
+          : FileUtils.safeFileName(fileName.trim());
+      final target = FileUtils.join(dir.path, safeName);
 
       final file = File(target);
       // Re-opening the same attachment shouldn't re-download it.
       if (!await file.exists() || await file.length() == 0) {
-        await Dio().download(url, target);
+        await FileDownloadService.instance.downloadToFile(url, target);
       }
 
-      final result = await OpenFilex.open(target);
-      if (!context.mounted || result.type == ResultType.done) return;
+      final result = await FileActions.open(
+        target,
+        mimeType: FileUtils.mimeType(target),
+      );
+      if (!context.mounted || result.opened) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: _openFailureMessage(result),
+        message: _noAppMessage,
         isError: true,
       );
     } catch (_) {
@@ -226,13 +243,9 @@ class TaskAttachmentUtils {
     }
   }
 
-  static String _openFailureMessage(OpenResult result) {
-    if (result.type == ResultType.noAppToOpen) {
-      return 'No app on this device can open this file type.';
-    }
-    if (result.type == ResultType.permissionDenied) {
-      return 'Permission denied while opening this file.';
-    }
-    return 'Could not open this attachment.';
-  }
+  /// A failed hand-off of a file that exists means no app takes this type
+  /// (FileActions reports a missing file the same way, but both paths here
+  /// open a file that was just checked or downloaded).
+  static const String _noAppMessage =
+      'No app on this device can open this file type.';
 }
