@@ -11,9 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_document_upload_cubit.dart';
@@ -107,7 +105,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
   String? _selectedDocumentType;
   DateTime? _selectedExpiryDate;
   String? _selectedFilePath;
-  PlatformFile? _selectedFile;
+  PickedFile? _selectedFile;
   String? _uploadedAssetCode;
   String? _uploadedDocumentUrl;
   static const int _documentNameMaxLength = 100;
@@ -202,9 +200,7 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
     if (_selectedFile != null) {
       fileSizeKb = (_selectedFile!.size / 1024).ceil();
-      mimeType =
-          lookupMimeType(_selectedFile!.path ?? _selectedFile!.name) ??
-          FilePickerUtils.getMimeType(_selectedFile!.extension);
+      mimeType = _selectedFile!.mimeType;
       documentUrl = _uploadedDocumentUrl ?? _selectedFile!.name;
       if (_uploadedAssetCode == null || _uploadedAssetCode!.trim().isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -294,15 +290,12 @@ class _AddDocumentScreenViewState extends State<_AddDocumentScreenView> {
 
   Future<void> _selectFile() async {
     try {
-      // pickFile re-checks the extension after the pick and shows an error
-      // toast for anything outside these lists (zip, apk, ...).
-      final file = await FilePickerUtils.pickFile(
-        allowedExtensions: const [
+      final file = await FilePickerUtils.pickOne(
+        allowedExtensions: [
           ...FilePickerUtils.allowedDocumentExtensions,
           ...FilePickerUtils.allowedImageExtensions,
           ...FilePickerUtils.allowedVideoExtensions,
         ],
-        context: context,
       );
 
       if (!mounted) return;

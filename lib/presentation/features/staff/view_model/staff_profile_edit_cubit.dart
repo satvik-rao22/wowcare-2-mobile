@@ -17,7 +17,7 @@ import '../../../../domain/features/staff/usecases/update_staff_address_usecase.
 import '../../../../domain/features/staff/usecases/update_staff_allowed_classrooms_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_primary_classroom_usecase.dart';
 import '../../../../domain/features/staff/usecases/update_staff_profile_usecase.dart';
-import '../../../../shared/services/image_upload/staff_photo_background_upload_service.dart';
+import '../../../../shared/services/asset/staff_photo_background_upload_service.dart';
 
 part 'staff_profile_edit_state.dart';
 

@@ -7,12 +7,12 @@ import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Records what the manager asked of the transport and lets each step be made
 /// to fail, so the state machine can be driven without any network or disk.
-class _FakeUploadService implements ImageUploadService {
+class _FakeUploadService implements AssetService {
   int presignBatchCalls = 0;
   int completeCalls = 0;
   int statusPolls = 0;

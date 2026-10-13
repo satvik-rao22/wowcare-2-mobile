@@ -17,7 +17,7 @@ class UploadSessionResult {
   final String? ownerCode;
 }
 
-/// One file's worth of request fields for [ImageUploadService.createAssetPresignBatch].
+/// One file's worth of request fields for [AssetService.createAssetPresignBatch].
 class AssetPresignRequest {
   const AssetPresignRequest({
     required this.fileName,
@@ -105,3 +105,28 @@ class AssetCompleteResult {
   bool get isFailed => status == 'FAILED';
 }
 
+
+/// Who an uploaded asset belongs to, in the document service's terms. The
+/// server's owner-type strings live here and nowhere else.
+class AssetOwner {
+  const AssetOwner._(this.type, this.code);
+
+  const AssetOwner.staff(String staffCode) : this._('STAFF', staffCode);
+  const AssetOwner.student(String studentCode) : this._('STUDENT', studentCode);
+  const AssetOwner.guardian(String guardianCode)
+    : this._('GUARDIAN', guardianCode);
+  const AssetOwner.classroom(String classroomCode)
+    : this._('CLASSROOM', classroomCode);
+  const AssetOwner.school(String schoolCode) : this._('SCHOOL', schoolCode);
+
+  /// `STAFF`, `STUDENT`, `GUARDIAN`, `CLASSROOM` or `SCHOOL`.
+  final String type;
+  final String code;
+}
+
+/// What [AssetService.uploadToSession] hands back.
+class UploadedAsset {
+  const UploadedAsset({required this.assetCode});
+
+  final String assetCode;
+}

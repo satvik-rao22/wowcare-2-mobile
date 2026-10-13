@@ -7,7 +7,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/utils/api_constants.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/core/utils/api_paths_uat.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Hand-written fake — the project has no mocktail/mockito dev dependency and
 /// its existing tests use hand-rolled fakes ("Fakes (hand-written, no
@@ -49,13 +49,13 @@ ResponseBody _json(Map<String, dynamic> body, int statusCode) =>
 /// Builds a service whose transport is [adapter]. A bare [ApiClient] with no
 /// interceptors is used deliberately: auth/context headers are the
 /// interceptor's job and are explicitly out of scope for this method.
-({ImageUploadService service, _FakeAdapter adapter}) buildService(
+({AssetService service, _FakeAdapter adapter}) buildService(
   ResponseBody Function(RequestOptions options) respond,
 ) {
   final adapter = _FakeAdapter(respond);
   final apiClient = ApiClient(baseUrl: 'https://example.invalid');
   apiClient.client.httpClientAdapter = adapter;
-  return (service: ImageUploadService(apiClient), adapter: adapter);
+  return (service: AssetService(apiClient), adapter: adapter);
 }
 
 void main() {
@@ -367,7 +367,7 @@ void main() {
       });
       final apiClient = ApiClient(baseUrl: 'https://example.invalid');
       apiClient.client.httpClientAdapter = adapter;
-      final service = ImageUploadService(apiClient);
+      final service = AssetService(apiClient);
 
       await expectLater(
         service.deleteProfilePhoto(

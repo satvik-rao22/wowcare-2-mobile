@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:wowcare/app/di/messaging_resolvers.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/data/services/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_url_resolver.dart';
 
@@ -43,21 +43,17 @@ class AttachmentOpenHelper {
       return;
     }
 
-    final downloadService = resolveFileDownloadService();
     final mimeType = attachment.mimeType.isNotEmpty
         ? attachment.mimeType
-        : downloadService.getMimeType(attachment.name);
-    final assetCode = attachment.code ?? attachment.name;
+        : FileUtils.mimeType(attachment.name);
 
     try {
       final localPath = attachment.localPath;
       if (localPath != null && localPath.isNotEmpty) {
         await _openAndReport(
           context,
-          downloadService,
           filePath: localPath,
           fileName: attachment.name,
-          assetCode: assetCode,
           mimeType: mimeType,
         );
         return;
@@ -67,11 +63,17 @@ class AttachmentOpenHelper {
 
       final cacheKey =
           '${attachment.code ?? attachment.remoteUrl.hashCode}_${attachment.name}';
-      final cachedFile = await downloadService.resolveCacheFile(cacheKey);
+      final cachedFile = await FileUtils.documentsFile(cacheKey);
 
       if (!await cachedFile.exists()) {
-        final response = await http.get(Uri.parse(attachment.remoteUrl));
-        if (response.statusCode != 200) {
+        // Streams straight into the cache file; a failed or empty download
+        // leaves no file behind, so it is never mistaken for a cached copy.
+        try {
+          await FileDownloadService.instance.downloadToFile(
+            attachment.remoteUrl,
+            cachedFile.path,
+          );
+        } catch (_) {
           if (context.mounted) {
             CoreUtils.showTopSnackBar(
               context: context,
@@ -81,30 +83,12 @@ class AttachmentOpenHelper {
           }
           return;
         }
-        final savedPath = await downloadService.saveFile(
-          fileData: response.bodyBytes,
-          fileName: cacheKey,
-          assetCode: assetCode,
-          mimeType: mimeType,
-        );
-        if (savedPath == null) {
-          if (context.mounted) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Failed to save the file',
-              isError: true,
-            );
-          }
-          return;
-        }
       }
 
       await _openAndReport(
         context,
-        downloadService,
         filePath: cachedFile.path,
         fileName: attachment.name,
-        assetCode: assetCode,
         mimeType: mimeType,
       );
     } catch (e) {
@@ -119,22 +103,15 @@ class AttachmentOpenHelper {
   }
 
   static Future<void> _openAndReport(
-    BuildContext context,
-    FileDownloadService downloadService, {
+    BuildContext context, {
     required String filePath,
     required String fileName,
-    required String assetCode,
     required String mimeType,
   }) async {
     // OpenFilex itself falls back to the device's native "open with" picker
     // when no app declares itself the default handler for this mime type.
-    final opened = await downloadService.openFile(
-      filePath: filePath,
-      fileName: fileName,
-      assetCode: assetCode,
-      mimeType: mimeType,
-    );
-    if (!opened && context.mounted) {
+    final result = await FileActions.open(filePath, mimeType: mimeType);
+    if (!result.opened && context.mounted) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Cannot open this file',

@@ -1009,7 +1009,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   //   return TaskAttachmentPicker(
   //     existing: _existingAttachments,
   //     pending: _pendingAttachments,
-  //     uploadService: context.read<TasksCubit>().imageUploadService,
+  //     uploadService: context.read<TasksCubit>().assetService,
   //     uploadProgress: _uploadProgress,
   //     uploadedPaths: _uploadedAssetCodes.keys.toSet(),
   //     isUploading: _uploadingAttachment,

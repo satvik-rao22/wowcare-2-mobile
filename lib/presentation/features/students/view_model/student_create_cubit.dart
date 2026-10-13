@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_background_uploader.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 

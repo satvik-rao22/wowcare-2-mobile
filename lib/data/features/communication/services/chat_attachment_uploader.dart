@@ -6,8 +6,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Uploads picked chat attachments through the same generic upload-session
 /// → presign → S3 PUT → complete → register → resolve-until-ready pipeline
@@ -15,7 +15,7 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// conversation.
 ///
 /// A message is not sendable until every attachment reaches a real delivery
-/// URL — [uploadAll] blocks on that (see [ImageUploadService.waitUntilAssetsReadyBackoff])
+/// URL — [uploadAll] blocks on that (see [AssetService.waitUntilAssetsReadyBackoff])
 /// so recipients never see a message with a permanently-spinning image.
 ///
 /// Every network step below runs through the SAME plan regardless of how
@@ -29,9 +29,9 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// exception ever thrown — the message just sat there silently instead of
 /// surfacing as a failed/retryable send.
 class ChatAttachmentUploader {
-  ChatAttachmentUploader(this._imageUploadService, this._storage);
+  ChatAttachmentUploader(this._assetService, this._storage);
 
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StorageService _storage;
 
   /// Caps concurrent requests per step (S3 PUT, complete, register) so a
@@ -107,7 +107,7 @@ class ChatAttachmentUploader {
   ///
   /// Every asset that needed registering (freshly uploaded or
   /// register-only) is then polled via
-  /// [ImageUploadService.waitUntilAssetsReadyBackoff] — this call does not
+  /// [AssetService.waitUntilAssetsReadyBackoff] — this call does not
   /// return until every attachment has a real delivery URL, or throws.
   /// Returns attachments in the same order as [attachments], each with
   /// [ChatAttachment.remoteUrl] set to its resolved delivery URL.
@@ -149,7 +149,7 @@ class ChatAttachmentUploader {
 
       if (needsFullUpload.isNotEmpty) {
         final session = await _withTimeout(
-          _imageUploadService.createConversationAttachmentUploadSession(
+          _assetService.createConversationAttachmentUploadSession(
             conversationCode: conversationCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
@@ -183,7 +183,7 @@ class ChatAttachmentUploader {
           }),
         );
         final presigns = await _withTimeout(
-          _imageUploadService.createAssetPresignBatch(
+          _assetService.createAssetPresignBatch(
             sessionCode: session.sessionCode,
             documentApiBasePath: session.documentApiBasePath,
             assets: presignRequests,
@@ -200,7 +200,7 @@ class ChatAttachmentUploader {
           final a = attachments[needsFullUpload[n]];
           final presign = presigns[n];
           return _withTimeout(
-            _imageUploadService.uploadFileToPresignedUrl(
+            _assetService.uploadFileToPresignedUrl(
               file: File(a.localPath!),
               presignedPutUrl: presign.presignedPutUrl,
               requiredHeaders: presign.requiredHeaders,
@@ -217,7 +217,7 @@ class ChatAttachmentUploader {
         step = 'COMPLETE_ASSET';
         await _runCapped(presigns, (presign) {
           return _withTimeout(
-            _imageUploadService.completeAssetUpload(
+            _assetService.completeAssetUpload(
               sessionCode: session.sessionCode,
               assetCode: presign.assetCode,
               documentApiBasePath: session.documentApiBasePath,
@@ -237,7 +237,7 @@ class ChatAttachmentUploader {
             final presign = presigns[n];
             final a = attachments[needsFullUpload[n]];
             return _withTimeout(
-              _imageUploadService.registerConversationAttachment(
+              _assetService.registerConversationAttachment(
                 conversationCode: conversationCode,
                 assetCode: presign.assetCode,
                 originalFilename: a.name,
@@ -273,7 +273,7 @@ class ChatAttachmentUploader {
           final a = attachments[idx];
           final assetCode = a.code!.trim();
           return _withTimeout(
-            _imageUploadService.registerConversationAttachment(
+            _assetService.registerConversationAttachment(
               conversationCode: conversationCode,
               assetCode: assetCode,
               originalFilename: a.name,
@@ -297,7 +297,7 @@ class ChatAttachmentUploader {
       // Don't publish before ready: block until every registered asset has
       // a real delivery URL.
       step = 'WAIT_ASSET_READY';
-      final deliveryUrls = await _imageUploadService.waitUntilAssetsReadyBackoff(
+      final deliveryUrls = await _assetService.waitUntilAssetsReadyBackoff(
         assetCodes: toResolve.keys.toList(),
       );
       for (final entry in toResolve.entries) {
@@ -336,7 +336,7 @@ class ChatAttachmentUploader {
 
     Map<String, ({String status, String deliveryUrl, String thumbnailUrl})> resolved;
     try {
-      resolved = await _imageUploadService.resolveMediaAssets(codes);
+      resolved = await _assetService.resolveMediaAssets(codes);
     } catch (_) {
       return attachments;
     }

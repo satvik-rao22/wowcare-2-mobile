@@ -1,12 +1,11 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
-import 'package:gal/gal.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -47,8 +46,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
+    final outPath = await FileUtils.tempFilePath(fileName);
 
     if (_isHlsUrl(url)) {
       Future<bool> runCopy(List<String> args) async {
@@ -78,8 +76,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       throw Exception(out ?? 'Could not convert stream to a video file.');
     }
 
-    final dio = Dio();
-    await dio.download(url, outPath);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 
@@ -87,9 +84,8 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
     String url,
     String fileName,
   ) async {
-    final tempDir = await getTemporaryDirectory();
-    final outPath = path.join(tempDir.path, fileName);
-    await Dio().download(url, outPath);
+    final outPath = await FileUtils.tempFilePath(fileName);
+    await FileDownloadService.instance.downloadToFile(url, outPath);
     return outPath;
   }
 
@@ -113,26 +109,11 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
 
     setState(() => _isDownloading = true);
     try {
-      final hasAccess = await Gal.hasAccess(toAlbum: true);
-      if (!hasAccess) {
-        await Gal.requestAccess(toAlbum: true);
-      }
-      if (!await Gal.hasAccess(toAlbum: true)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text(
-              'Photos permission is required to save media to your gallery.',
-            ),
-          ),
-        );
-        return;
-      }
+      if (!await FileActions.ensureGalleryAccess()) return;
 
       final isVideo = videoUrl != null && videoUrl.trim().isNotEmpty;
-      final ext = path.extension(Uri.parse(raw).path).trim().toLowerCase();
-      final safeExt = ext.isNotEmpty ? ext : (isVideo ? '.mp4' : '.jpg');
+      final ext = FileUtils.extension(raw);
+      final safeExt = '.${ext.isNotEmpty ? ext : (isVideo ? 'mp4' : 'jpg')}';
       final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       final baseName = 'wowcare_${isVideo ? 'video' : 'photo'}_$stamp$safeExt';
       final tempVideoName = isVideo && _isHlsUrl(raw)
@@ -141,7 +122,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
 
       if (isVideo) {
         final filePath = await _materializeVideoToTempFile(raw, tempVideoName);
-        await Gal.putVideo(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: true);
         try {
           await File(filePath).delete();
         } catch (e) {
@@ -149,7 +130,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         }
       } else {
         final filePath = await _materializePhotoToTempFile(raw, baseName);
-        await Gal.putImage(filePath);
+        await FileActions.saveToGallery(filePath, isVideo: false);
         try {
           await File(filePath).delete();
         } catch (e) {
@@ -162,11 +143,11 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         context: context,
         snackBar: const SnackBar(content: Text('Saved to your photo gallery.')),
       );
-    } on GalException catch (e) {
+    } on GallerySaveException catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: SnackBar(content: Text(e.type.message)),
+        snackBar: SnackBar(content: Text(e.message)),
       );
     } catch (e) {
       // Do not log the raw exception: a Dio/HTTP error stringifies the request

@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -38,7 +37,8 @@ import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_profile_cubit.dart';
 import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_uploader.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -503,7 +503,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (studentCode.isEmpty) return;
 
     try {
-      await serviceLocator<ImageUploadService>().deleteProfilePhoto(
+      await serviceLocator<AssetService>().deleteProfilePhoto(
         owner: ProfilePhotoOwner.student,
         code: studentCode,
       );
@@ -559,7 +559,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       // Shared file picker → every allowed image format is selectable.
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
       );
       final imagePath = picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;
@@ -592,65 +591,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         _isUploadingProfilePhoto = true;
         _profilePhotoUploadPercent = 5;
       });
-      final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(imagePath);
-      final sessionCode = await uploadService
-          .createStudentProfilePhotoUploadSession(
+      final photo = await serviceLocator<ProfilePhotoUploader>()
+          .uploadStudentPhoto(
             studentCode: studentCode,
+            file: File(imagePath),
             schoolCode: resolvedSchoolCode,
             organizationCode: resolvedOrganizationCode,
+            onPercent: (percent) {
+              if (!mounted) return;
+              setState(() => _profilePhotoUploadPercent = percent.toDouble());
+            },
           );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final mime = FilePickerUtils.getMimeType(
-        fileName.contains('.') ? fileName.split('.').last : '',
-      );
-      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STUDENT',
-        ownerCode: studentCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (!mounted || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          setState(() {
-            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
-          });
-        },
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
-      await uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
-      final finalizedUrl = await uploadService.finalizeStudentProfilePhoto(
-        studentCode: studentCode,
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        schoolCode: resolvedSchoolCode,
-      );
+      final finalizedUrl = photo.url;
       if (mounted) {
         setState(() => _profilePhotoUploadPercent = 100);
       }

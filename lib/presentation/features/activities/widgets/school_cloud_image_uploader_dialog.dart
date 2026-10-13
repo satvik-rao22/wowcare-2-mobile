@@ -2,13 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
@@ -22,7 +20,7 @@ const int kSchoolCloudUploadMaxImages = 10;
 
 /// Opens the school "Image Uploader" dialog: pick up to
 /// [kSchoolCloudUploadMaxImages] images and upload each of them to the
-/// school's cloud gallery via [ImageUploadService.createSchoolCloudUploadSession]
+/// school's cloud gallery via [AssetService.createSchoolCloudUploadSession]
 /// followed by the generic presign -> S3 PUT -> complete flow.
 Future<void> showSchoolCloudImageUploaderDialog(BuildContext context) {
   return showDialog<void>(
@@ -61,14 +59,18 @@ class _SchoolCloudImageUploaderDialogState
       return;
     }
 
-    final picked = await ImagePicker().pickMultiImage();
+    final picked = await FilePickerUtils.pick(
+      type: PickType.image,
+      source: PickSource.photos,
+      multiple: true,
+    );
     if (picked.isEmpty) return;
     if (!mounted) return;
 
     final existingPaths = _selectedImages.map((f) => f.path).toSet();
     final remainingSlots = kSchoolCloudUploadMaxImages - _selectedImages.length;
     final newFiles = picked
-        .map((x) => File(x.path))
+        .map((x) => x.file)
         .where((f) => !existingPaths.contains(f.path))
         .toList();
     final accepted = newFiles.take(remainingSlots).toList();
@@ -111,33 +113,10 @@ class _SchoolCloudImageUploaderDialogState
       for (var i = 0; i < total; i++) {
         final image = files[i];
         try {
-          final uploadSession = await cubit.createSchoolCloudUploadSession(
+          await cubit.uploadImage(
+            image,
             schoolCode: schoolCode,
-          );
-
-          final fileName = image.uri.pathSegments.isNotEmpty
-              ? image.uri.pathSegments.last
-              : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg';
-          final contentType = lookupMimeType(image.path) ?? 'image/jpeg';
-          final contentLengthBytes = await image.length();
-
-          final presign = await cubit.createAssetPresign(
-            sessionCode: uploadSession.sessionCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-            fileName: fileName,
-            contentType: contentType,
-            contentLengthBytes: contentLengthBytes,
-            mediaType: 'IMAGE',
-            ownerType: 'SCHOOL',
-            ownerCode: schoolCode,
-          );
-
-          await cubit.uploadFileToPresignedUrl(
-            file: image,
-            presignedPutUrl: presign.presignedPutUrl,
-            requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: contentType,
-            onProgress: (_, __, percent) {
+            onUploadProgress: (percent) {
               if (!mounted) return;
               final overallFraction = (i + (percent / 100)) / total;
               setState(() {
@@ -146,12 +125,6 @@ class _SchoolCloudImageUploaderDialogState
                     .round();
               });
             },
-          );
-
-          await cubit.completeAssetUpload(
-            sessionCode: uploadSession.sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
           );
         } catch (_) {
           failedFiles.add(image);

@@ -59,7 +59,7 @@ class QrValidationCubit extends Cubit<QrValidationState> {
   /// Validates the opaque [qrToken] extracted from the scanner.
   ///
   /// The [qrToken] must be the raw token string — NOT the full QR JSON payload.
-  /// Use [QrTokenExtractor.extract] in the scanner before calling this method.
+  /// [QrScannerView] hands over exactly that (see [QrScannerView.tokenFrom]).
   ///
   /// [guardianChildCodes] should be provided for guardian roles to enable smart
   /// sign-in/sign-out routing (all children signed in → sign-out, otherwise → sign-in).
@@ -212,39 +212,5 @@ class QrValidationCubit extends Cubit<QrValidationState> {
       // If the status check fails, default to sign-in flow.
       return false;
     }
-  }
-}
-
-/// Stateless helper that extracts the opaque QR token from a raw scan string.
-///
-/// Priority:
-/// 1. `qrToken` field from JSON payload
-/// 2. `qrPayload` field from JSON payload
-/// 3. Raw string (plain non-JSON token)
-///
-/// Returns null when extraction fails (empty result or unparseable).
-abstract final class QrTokenExtractor {
-  static String? extract(String rawScan) {
-    final raw = rawScan.trim();
-    if (raw.isEmpty) return null;
-
-    if (raw.startsWith('{')) {
-      try {
-        // Use dart:convert via the caller's import — see QR_Code_scanner.dart.
-        // We keep this class pure (no dart:convert import) so it can be tested
-        // without a Flutter environment.  The scanner passes in the decoded map.
-        // This branch is intentionally unreachable here; callers use extractFromMap.
-      } catch (_) {}
-    }
-
-    return raw;
-  }
-
-  /// Extracts the token from an already-decoded JSON map.
-  static String? extractFromMap(Map<String, dynamic> map) {
-    final token =
-        (map['qrToken'] as String?)?.trim() ??
-        (map['qrPayload'] as String?)?.trim();
-    return (token != null && token.isNotEmpty) ? token : null;
   }
 }

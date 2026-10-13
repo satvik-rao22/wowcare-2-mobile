@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/students/view/student_form_formatters.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -188,7 +188,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
       // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff).
       final picked = await FilePickerUtils.pickFile(
         allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
       );
       final path = picked?.path;
       if (path == null || path.isEmpty) return;

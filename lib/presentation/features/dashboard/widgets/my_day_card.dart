@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_collap
 import 'package:wowcare/presentation/features/dashboard/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/dashboard/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/view_model/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_check.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -562,6 +563,22 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
           : 'Staff',
       staffCode: _myDay.effectiveStaffCode,
     );
+  }
+
+  /// Sign-In tap: permission → fresh "at school" check → the form.
+  Future<void> _onSignInTap() async {
+    // This tap is handling sign-in, so the fresh check moving the state to
+    // withinRange must not also pop the geofence sign-in sheet on top.
+    // Restored if we stop, so the popup still shows when they reach school.
+    final popupWasShown = _geofencePopupShownThisEntry;
+    _geofencePopupShownThisEntry = true;
+    final atSchool = await confirmAtSchool(context, forParent: false);
+    if (!mounted) return;
+    if (!atSchool) {
+      _geofencePopupShownThisEntry = popupWasShown;
+      return;
+    }
+    await _openSignInForm();
   }
 
   Future<void> _openSignInForm() async {
@@ -1163,11 +1180,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                   _markAbsentDisabled(geofenceState);
                               // Sign button toggles Sign-In/Sign-Out depending on
                               // today's status; enable per the action it currently represents.
+                              // Sign-In ignores the stored geofence state: the
+                              // tap checks permission and a fresh GPS fix
+                              // (see _onSignInTap).
                               final bool signButtonEnabled =
                                   (isStaff || isAdmin) &&
                                   (_myDay.isSignedIn
                                       ? availability.signOutEnabled
-                                      : availability.signInEnabled);
+                                      : _todayGate.canSignIn);
+                              final String? signButtonReason = _myDay.isSignedIn
+                                  ? disabledReasons['Sign-Out']
+                                  : staffAttendanceDisabledReasons(
+                                      _todayGate,
+                                    )['Sign-in'];
                               // Show attendance buttons for both staff and admin
                               final bool showSignButton = isStaff || isAdmin;
                               // Show Transfer/Mark-Absent for staff and admin equally.
@@ -1369,25 +1394,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                         );
                                                       } else {
                                                         unawaited(
-                                                          _openSignInForm(),
+                                                          _onSignInTap(),
                                                         );
                                                       }
                                                     }
                                                   : null,
                                               disabledConfirmTooltip:
-                                                  disabledReasons[_myDay
-                                                          .isSignedIn
-                                                      ? 'Sign-Out'
-                                                      : 'Sign-in'] ??
+                                                  signButtonReason ??
                                                   AppStrings.geofenceNotInRange,
                                               onDisabledConfirmTap: () {
                                                 CoreUtils.showTopSnackBar(
                                                   isWarning: true,
                                                   message:
-                                                      disabledReasons[_myDay
-                                                              .isSignedIn
-                                                          ? 'Sign-Out'
-                                                          : 'Sign-in'] ??
+                                                      signButtonReason ??
                                                       AppStrings
                                                           .geofenceNotInRange,
                                                   context: context,
@@ -1493,7 +1512,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         return Padding(
           padding: pad,
           child: GestureDetector(
-            onTap: () => context.read<GeofenceCubit>().retryPermission(),
+            onTap: () => enableGeofenceLocation(context),
             child: Text(
               AppStrings.geofencePermissionRequired,
               style: style.copyWith(

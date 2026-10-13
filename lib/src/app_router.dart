@@ -4092,7 +4092,7 @@ Widget _newsletterPreview({
         create: (_) => serviceLocator<PreviewNewsletterCubit>(),
       ),
       // The attachment grid and the inline component images resolve media
-      // codes to URLs. Both used to call serviceLocator<ImageUploadService>()
+      // codes to URLs. Both used to call serviceLocator<AssetService>()
       // from inside a FutureBuilder (§5.3); the cubit owns that now.
       BlocProvider<NewsletterAssetUrlCubit>(
         create: (_) => serviceLocator<NewsletterAssetUrlCubit>(),

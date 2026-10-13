@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:go_router/go_router.dart';
@@ -58,12 +58,12 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
       String filePath;
 
       if (Platform.isAndroid) {
-        final appDir = await getApplicationDocumentsDirectory();
+        final appDir = await FileUtils.documentsDirectory();
         filePath = '${appDir.path}/${widget.fileName}';
         AppLogger.d('Saving file to Android app documents: $filePath');
       } else {
         // iOS
-        final directory = await getApplicationDocumentsDirectory();
+        final directory = await FileUtils.documentsDirectory();
         filePath = '${directory.path}/${widget.fileName}';
         AppLogger.d('Saving file to iOS documents: $filePath');
       }

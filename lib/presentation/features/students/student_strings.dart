@@ -218,7 +218,6 @@ class StudentStrings {
   static const String phoneNumberIsRequired = 'Phone number is required';
   static const String photoPermission = 'Photo Permission';
   static const String photoPermissionNotGranted = 'Photo permission not granted';
-  static const String photosPermissionIsRequiredToSaveTheDocumentToY = 'Photos permission is required to save the document to your gallery.';
   static const String physicalCheckupDate = 'Physical Checkup Date';
   static const String physicalCheckupDateIsRequired = 'Physical Checkup Date is required';
   static const String physicalCheckupStatus = 'Physical Checkup Status';

@@ -1,15 +1,14 @@
 import 'dart:io';
 
 import 'package:chewie/chewie.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:wowcare/core/theme/app_theme_config.dart';
 import 'package:wowcare/core/utils/app_time.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
+import 'package:wowcare/core/utils/file_utils/file_actions.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
@@ -74,25 +73,13 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
 
   _DocKind _resolveKind() {
     final mime = widget.mimeType.trim().toLowerCase();
-    final ext = p.extension(Uri.parse(widget.url).path).trim().toLowerCase();
-    const imageExts = [
-      '.jpg',
-      '.jpeg',
-      '.png',
-      '.gif',
-      '.webp',
-      '.bmp',
-      '.heic',
-    ];
-    const videoExts = ['.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'];
-
-    if (mime.startsWith('image/') || imageExts.contains(ext)) {
+    if (mime.startsWith('image/') || FileUtils.isImage(widget.url)) {
       return _DocKind.image;
     }
-    if (mime.startsWith('video/') || videoExts.contains(ext)) {
+    if (mime.startsWith('video/') || FileUtils.isVideo(widget.url)) {
       return _DocKind.video;
     }
-    if (mime == 'application/pdf' || ext == '.pdf') {
+    if (mime == 'application/pdf' || FileUtils.extension(widget.url) == 'pdf') {
       return _DocKind.pdf;
     }
     return _DocKind.office;
@@ -121,11 +108,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           _videoController = controller;
           break;
         case _DocKind.pdf:
-          final tempDir = await getTemporaryDirectory();
-          final fileName =
-              'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
-          final path = p.join(tempDir.path, fileName);
-          await Dio().download(widget.url, path);
+          final path = await FileUtils.tempFilePath(
+            'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf',
+          );
+          await FileDownloadService.instance.downloadToFile(widget.url, path);
           if (!mounted) return;
           _localPdfPath = path;
           break;
@@ -160,18 +146,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
     if (_isBusy) return;
     setState(() => _isBusy = true);
     try {
-      final tempDir = await getTemporaryDirectory();
-      var ext = p.extension(Uri.parse(widget.url).path).trim();
-      if (ext.isEmpty) ext = '.bin';
-      final base = widget.documentName.trim().isNotEmpty
-          ? widget.documentName.trim()
-          : 'document';
-      final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-      final outPath = p.join(tempDir.path, '$safeBase$ext');
+      final outPath = await FileUtils.tempPathForDownload(
+        widget.url,
+        name: widget.documentName,
+        fallbackExtension: 'bin',
+      );
 
-      await Dio().download(widget.url, outPath);
-      final result = await OpenFilex.open(outPath);
-      if (result.type != ResultType.done && mounted) {
+      await FileDownloadService.instance.downloadToFile(widget.url, outPath);
+      final result = await FileActions.open(outPath);
+      if (!result.opened && mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: result.message,

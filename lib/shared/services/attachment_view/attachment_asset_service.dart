@@ -13,7 +13,7 @@ import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 /// `List<String>` of asset codes — tasks, events, and whatever attaches files
 /// next — goes through this rather than resolving URLs itself.
 ///
-/// Three things it does that `ImageUploadService.getMediaAssetUrlByCode` did
+/// Three things it does that `AssetService.getMediaAssetUrlByCode` did
 /// not, each of which was a visible bug:
 ///
 /// * **Cache entries expire.** Delivery URLs are presigned and short-lived, so a

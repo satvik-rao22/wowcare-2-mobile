@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
   int calls = 0;
@@ -42,14 +42,14 @@ void main() {
   // for a returned future, so the future waited on itself forever. Every first
   // lookup of an asset (document "View", attachments) spun indefinitely.
   group('getMediaAssetUrlByCode', () {
-    late ImageUploadService service;
+    late AssetService service;
     late _FakeAdapter adapter;
 
     setUp(() {
       final client = ApiClient(baseUrl: 'http://localhost');
       adapter = _FakeAdapter();
       client.client.httpClientAdapter = adapter;
-      service = ImageUploadService(client);
+      service = AssetService(client);
     });
 
     test('first lookup completes with the delivery URL', () async {

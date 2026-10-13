@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:wowcare/core/theme/app_theme_config.dart';
+import 'package:wowcare/core/network/file_download_service.dart';
 import 'package:wowcare/core/utils/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
-import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:thumbnailer/thumbnailer.dart' show Thumbnailer;
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -1447,45 +1447,9 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Attachments ───────────────────────────────────────────────────────────
 
-  /// Fetch a remote attachment image with a few retries + backoff. A just-arrived
-  /// (live-synced) image can momentarily 403/404 on the CloudFront edge before it
-  /// propagates, so a single GET would fail and stick as an empty/blank bubble
-  /// until a manual refresh re-ran the resolver. Retrying lets the live bubble fill
-  /// itself in without the user having to refresh.
-  Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
-    const attempts = 5;
-    for (var i = 0; i < attempts; i++) {
-      try {
-        final r = await http.get(Uri.parse(url));
-        // A 200 status isn't proof the body is actually a decodable image —
-        // a still-propagating CDN edge, an auth/redirect landing page, or a
-        // body cut short mid-transfer can all come back as 200 with
-        // non-image bytes. Handing those to the Thumbnail widget threw
-        // "Invalid image data" from MemoryImage's async decode (visible in
-        // the console as an "IMAGE RESOURCE SERVICE" exception even though
-        // the widget itself falls back to its errorBuilder). Verify the
-        // bytes actually decode before accepting this attempt as a success
-        // — anything that doesn't decode is treated like a network failure
-        // and retried, same as a non-200 status.
-        if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) {
-          try {
-            final codec = await ui.instantiateImageCodec(r.bodyBytes);
-            codec.dispose();
-            return r.bodyBytes;
-          } catch (_) {
-            // Falls through to retry below.
-          }
-        }
-      } catch (_) {}
-      if (i < attempts - 1) {
-        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
-      }
-    }
-    return Uint8List(0);
-  }
-
   /// Reads and validates a LOCAL attachment file's bytes — the remote path
-  /// (above) already guards against undecodable bytes, but the local-file
+  /// (FileDownloadService.downloadImageBytes) already guards against
+  /// undecodable bytes, but the local-file
   /// path previously had no such guard at all (`File(src).readAsBytes()`
   /// with no existence check, no empty check, no decode check), so a
   /// truncated/corrupt/deleted local file threw uncaught or handed garbage
@@ -1507,7 +1471,7 @@ class _MessageBubbleState extends State<MessageBubble>
   Future<Uint8List> _resolveBubbleImageBytes(String src) {
     final isRemote = src.startsWith('http://') || src.startsWith('https://');
     return isRemote
-        ? _fetchImageBytesWithRetry(src)
+        ? FileDownloadService.instance.downloadImageBytes(src)
         : _readLocalImageBytes(src);
   }
 

@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
-import 'package:path/path.dart' as p;
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
@@ -27,19 +21,6 @@ class AttachmentWidget extends StatefulWidget {
 }
 
 class _AttachmentWidgetState extends State<AttachmentWidget> {
-  final ImagePicker _picker = ImagePicker();
-
-  void _showWarningMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isWarning: true,
-      );
-    });
-  }
-
   Future<void> _showAttachmentOptions() async {
     final result = await showModalBottomSheet<String>(
       context: context,
@@ -140,83 +121,47 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
     }
   }
 
+  /// Chat attachments: up to 10 MB each. FilePickerUtils drops anything
+  /// bigger or of an unsupported type and tells the user why.
+  static const int _maxSizeMB = 10;
+
   Future<void> _pickPhotos() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedImageExtensions,
-      allowMultiple: true,
+    final files = await FilePickerUtils.pick(
+      type: PickType.image,
+      multiple: true,
+      maxSizeMB: _maxSizeMB,
     );
-    if (result == null || result.files.isEmpty) return;
-    final files = result.files
-        .map((pf) => pf.path)
-        .whereType<String>()
-        .where((p) => p.trim().isNotEmpty)
-        .map((p) => File(p))
-        .toList();
-    if (files.isEmpty) return;
-    await _processFiles(files, isPhoto: true);
+    _attach(files, isPhoto: true);
   }
 
   Future<void> _pickSinglePhotoFromCamera() async {
-    final XFile? file = await _picker.pickImage(source: ImageSource.camera);
-    if (file == null) return;
-    await _processFiles([File(file.path)], isPhoto: true);
+    final files = await FilePickerUtils.pick(
+      type: PickType.image,
+      source: PickSource.camera,
+      maxSizeMB: _maxSizeMB,
+    );
+    _attach(files, isPhoto: true);
   }
 
   Future<void> _pickSingleDocument() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
-      allowMultiple: false,
-    );
-    if (result == null || result.files.isEmpty) return;
-
-    final path = result.files.single.path;
-    if (path == null) return;
-    await _processFiles([File(path)], isPhoto: false);
+    final files = await FilePickerUtils.pick(maxSizeMB: _maxSizeMB);
+    _attach(files, isPhoto: false);
   }
 
-  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async {
-    List<ChatAttachment> valid = [];
-    for (var file in files) {
-      final size = await file.length();
-      if (size > 10 * 1024 * 1024) {
-        if (!mounted) return;
-        _showWarningMessage(AppStrings.doNotExceed10MB);
-        continue;
-      }
-      final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
-      final ext = p.extension(file.path).toLowerCase();
-
-      if (isPhoto &&
-          !FilePickerUtils.allowedImageExtensions
-              .map((e) => '.$e')
-              .contains(ext)) {
-        continue;
-      }
-      if (!isPhoto &&
-          !FilePickerUtils.allowedDocumentExtensions
-              .map((e) => '.$e')
-              .contains(ext)) {
-        continue;
-      }
-
-      valid.add(
+  void _attach(List<PickedFile> files, {required bool isPhoto}) {
+    if (files.isEmpty || !mounted) return;
+    widget.onAttachmentsSelected([
+      for (final file in files)
         ChatAttachment(
           localPath: file.path,
-          name: p.basename(file.path),
+          name: file.name,
           type: isPhoto ? 'image' : 'document',
-          sizeBytes: size,
-          mimeType: mime,
+          sizeBytes: file.size,
+          mimeType: file.mimeType,
           remoteUrl: '', // Will be updated after upload
         ),
-      );
-    }
-
-    if (valid.isEmpty) return;
-    widget.onAttachmentsSelected(valid);
+    ]);
   }
-
 
   @override
   Widget build(BuildContext context) {

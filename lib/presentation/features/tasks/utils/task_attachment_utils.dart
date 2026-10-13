@@ -10,7 +10,7 @@ import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Shared rules and behaviours for task attachments, so the form picker, the
 /// card strip and the detail list can't drift apart on limits or on what
@@ -94,10 +94,10 @@ class TaskAttachmentUtils {
 
   /// Resolves an attachment to a playable/viewable URL, preferring what the
   /// list payload already carried and falling back to a document-microservice
-  /// lookup by asset code (cached and de-duped by [ImageUploadService]).
+  /// lookup by asset code (cached and de-duped by [AssetService]).
   static Future<String> resolveUrl(
     TaskAttachment attachment,
-    ImageUploadService service,
+    AssetService service,
   ) async {
     if (attachment.url.trim().isNotEmpty) return attachment.url.trim();
     if (attachment.assetCode.trim().isEmpty) return '';
@@ -113,7 +113,7 @@ class TaskAttachmentUtils {
   static Future<void> open({
     required BuildContext context,
     required TaskAttachment attachment,
-    required ImageUploadService service,
+    required AssetService service,
   }) async {
     if (!attachment.isReady) {
       CoreUtils.showTopSnackBar(

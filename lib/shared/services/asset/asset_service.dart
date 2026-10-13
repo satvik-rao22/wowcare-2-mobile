@@ -14,8 +14,9 @@ import '../../../core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
 import '../../../core/utils/api_constants.dart';
 import '../../../core/utils/api_paths.dart';
+import '../../../core/utils/file_utils/file_utils.dart';
 import '../../../core/utils/logger_service.dart';
-import 'image_upload_models.dart';
+import 'asset_models.dart';
 
 /// Isolate entry point: streams [path] through SHA-256 and returns the
 /// base64-encoded raw digest. Streaming means even a large video is hashed
@@ -25,15 +26,38 @@ Future<String> _hashFileSha256Base64(String path) async {
   return base64Encode(digest.bytes);
 }
 
-/// Which kind of profile a photo belongs to, for [ImageUploadService.deleteProfilePhoto].
+/// Which kind of profile a photo belongs to, for [AssetService.deleteProfilePhoto].
 ///
-/// Declared here rather than in `image_upload_models.dart` because that file
+/// Declared here rather than in `asset_models.dart` because that file
 /// holds only the upload-session/presign DTOs and no enums; this is the single
 /// discriminator for the one method that needs it.
 enum ProfilePhotoOwner { student, guardian, staff }
 
-class ImageUploadService {
-  ImageUploadService(this._apiClient);
+/// The app's asset service: everything that talks to our document service
+/// about files — documents, photos, videos, chat attachments and school-cloud
+/// images.
+///
+/// Use it for:
+/// - **Uploading** — open a session for the owner (`create…UploadSession`),
+///   then [uploadToSession] does presign → PUT → complete → wait until ready.
+///   Profile photos go through `ProfilePhotoUploader`, which adds the
+///   per-owner finalize step.
+/// - **Resolving** an asset code to a display/download URL —
+///   [getMediaAssetUrlByCode] (cached for 10 minutes, one request shared
+///   between callers, a short cool-down for assets that aren't ready).
+/// - **Deleting** a profile photo — [deleteProfilePhoto].
+///
+/// The individual steps (`createAssetPresign`, `uploadFileToPresignedUrl`,
+/// `completeAssetUpload`, `waitUntilAssetsReady`) stay public for the
+/// batch flows (chat attachments, activity media); new code should not
+/// chain them by hand.
+///
+/// This is the one server-aware layer for files. Underneath it uses the
+/// server-independent file utils (`lib/core/utils/file_utils/`) — FileUtils
+/// for names and MIME types, and FileDownloadService for downloads — which
+/// must never learn about our server.
+class AssetService {
+  AssetService(this._apiClient);
 
   final ApiClient _apiClient;
 
@@ -48,6 +72,26 @@ class ImageUploadService {
   /// re-resolved over the network every time its widget rebuilds (e.g. on list
   /// scroll/recycling). Asset URLs are stable once finalized.
   final Map<String, String> _assetUrlCache = <String, String>{};
+  final Map<String, DateTime> _assetUrlCachedAt = <String, DateTime>{};
+
+  /// Delivery URLs are signed CDN links, so a resolved URL is reused for this
+  /// long and then resolved again — never held for a whole session, where it
+  /// could expire under a screen that stays open.
+  @visibleForTesting
+  Duration assetUrlCacheTtl = const Duration(minutes: 10);
+
+  /// The cached URL for [assetCode] while it is still fresh, else null.
+  String? _freshCachedUrl(String assetCode) {
+    final url = _assetUrlCache[assetCode];
+    final at = _assetUrlCachedAt[assetCode];
+    if (url == null || at == null) return null;
+    if (AppTime.nowUtc().difference(at) >= assetUrlCacheTtl) {
+      _assetUrlCache.remove(assetCode);
+      _assetUrlCachedAt.remove(assetCode);
+      return null;
+    }
+    return url;
+  }
 
   /// Dedupes concurrent resolutions of the same asset code so a list of cards
   /// sharing one code issues a single network call.
@@ -447,6 +491,78 @@ class ImageUploadService {
     if (computed > _maxSendTimeout) return _maxSendTimeout;
     return computed;
   }
+
+  /// Uploads one [file] into an already-open upload [session] — presign, PUT
+  /// the bytes, complete, and (unless [waitUntilReady] is false) wait until
+  /// the server has processed it. Returns the new asset's code.
+  ///
+  /// Creating the session, and anything after the upload (finalize, resolve
+  /// the URL), stays with the caller: each owner has its own session endpoint
+  /// and follow-up.
+  ///
+  /// [contentType] defaults to the file's real type
+  /// (FileUtils.mimeTypeOfFile); the media type (IMAGE / VIDEO / DOCUMENT) is
+  /// derived from it. [onUploadProgress] reports the PUT's 0–100 %.
+  Future<UploadedAsset> uploadToSession({
+    required UploadSessionResult session,
+    required File file,
+    required AssetOwner owner,
+    String? fileName,
+    String? contentType,
+    bool waitUntilReady = true,
+    void Function(int percent)? onUploadProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final type = contentType ?? await FileUtils.mimeTypeOfFile(file.path);
+    // Some session endpoints omit the base path; the document service's
+    // default is /api/v1.
+    final basePath = session.documentApiBasePath.trim().isEmpty
+        ? '/api/v1'
+        : session.documentApiBasePath;
+    final presign = await createAssetPresign(
+      sessionCode: session.sessionCode,
+      documentApiBasePath: basePath,
+      fileName: fileName ?? FileUtils.fileName(file.path),
+      contentType: type,
+      contentLengthBytes: await file.length(),
+      mediaType: mediaTypeFor(type),
+      ownerType: owner.type,
+      ownerCode: owner.code,
+      cancelToken: cancelToken,
+    );
+    await uploadFileToPresignedUrl(
+      file: file,
+      presignedPutUrl: presign.presignedPutUrl,
+      requiredHeaders: presign.requiredHeaders,
+      fallbackContentType: type,
+      onProgress: onUploadProgress == null
+          ? null
+          : (_, _, percent) => onUploadProgress(percent.clamp(0, 100)),
+      cancelToken: cancelToken,
+    );
+    // A server that never answers "complete" must not freeze the upload.
+    await completeAssetUpload(
+      sessionCode: session.sessionCode,
+      assetCode: presign.assetCode,
+      documentApiBasePath: basePath,
+      cancelToken: cancelToken,
+    ).timeout(const Duration(seconds: 30));
+    if (waitUntilReady) {
+      await waitUntilAssetsReady(
+        sessionCode: session.sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+    }
+    return UploadedAsset(assetCode: presign.assetCode);
+  }
+
+  /// The document service's media type for a MIME type.
+  static String mediaTypeFor(String contentType) =>
+      contentType.startsWith('image/')
+      ? 'IMAGE'
+      : contentType.startsWith('video/')
+      ? 'VIDEO'
+      : 'DOCUMENT';
 
   Future<void> uploadFileToPresignedUrl({
     required File file,
@@ -1418,7 +1534,7 @@ class ImageUploadService {
   /// not been resolved yet. Lets widgets seed a FutureBuilder with cached data
   /// and skip the loading frame entirely.
   String? cachedMediaAssetUrl(String assetCode) =>
-      _assetUrlCache[assetCode.trim()];
+      _freshCachedUrl(assetCode.trim());
 
   Future<String> getMediaAssetUrlByCode({
     required String assetCode,
@@ -1426,8 +1542,8 @@ class ImageUploadService {
     final normalized = assetCode.trim();
     if (normalized.isEmpty) return '';
 
-    // Already resolved this session → return instantly, no loader.
-    final cached = _assetUrlCache[normalized];
+    // Resolved in the last 10 minutes → return instantly, no loader.
+    final cached = _freshCachedUrl(normalized);
     if (cached != null) return cached;
 
     // Failed (still backend-processing/unresolvable) recently → don't hit
@@ -1447,15 +1563,16 @@ class ImageUploadService {
         .then((String url) {
       if (url.isNotEmpty) {
         _assetUrlCache[normalized] = url;
+        _assetUrlCachedAt[normalized] = AppTime.nowUtc();
         _assetUrlFailedAt.remove(normalized);
       } else {
         _assetUrlFailedAt[normalized] = AppTime.nowUtc();
       }
       return url;
     }).whenComplete(() {
-      // Block body on purpose: `=> map.remove(...)` would return the removed
-      // value — this very future — and whenComplete waits for a returned
-      // future, so the future would wait on itself and never complete.
+      // A block body on purpose: `=> map.remove(...)` would return the
+      // removed in-flight future — this very future — and whenComplete would
+      // wait for it forever, so the first lookup of every code never finished.
       _assetUrlInFlight.remove(normalized);
     });
 

@@ -5,8 +5,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Opens the upload session for whichever domain is attaching files.
 ///
@@ -36,7 +36,7 @@ typedef UploadSessionOpener = Future<UploadSessionResult> Function();
 class AttachmentUploadManager {
   AttachmentUploadManager(this._uploadService, this._storage);
 
-  final ImageUploadService _uploadService;
+  final AssetService _uploadService;
   final StorageService _storage;
 
   /// Enough to keep the link busy without holding many streams open at once.

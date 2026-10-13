@@ -2,15 +2,17 @@ import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/add_student_document_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/update_student_document_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 
 part 'student_document_state.dart';
@@ -22,17 +24,17 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
   StudentDocumentCubit({
     required AddStudentDocumentUseCase addStudentDocumentUseCase,
     required UpdateStudentDocumentUseCase updateStudentDocumentUseCase,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required StorageService storageService,
   }) : _addStudentDocumentUseCase = addStudentDocumentUseCase,
        _updateStudentDocumentUseCase = updateStudentDocumentUseCase,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _storageService = storageService,
        super(const StudentDocumentState.initial());
 
   final AddStudentDocumentUseCase _addStudentDocumentUseCase;
   final UpdateStudentDocumentUseCase _updateStudentDocumentUseCase;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StorageService _storageService;
 
   // --- form model ---
@@ -68,7 +70,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
   /// delivery URL resolves in the background so the button isn't gated on it.
   Future<void> uploadFile({
     required String studentCode,
-    required PlatformFile file,
+    required PickedFile file,
   }) async {
     emit(
       state.copyWith(
@@ -96,7 +98,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       }
 
       final selectedPath = file.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
+      if (selectedPath.trim().isEmpty) {
         _failUpload(StudentStrings.selectedFilePathIsNotAvailable);
         return;
       }
@@ -106,46 +108,23 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
         return;
       }
 
-      final mimeType = FilePickerUtils.getMimeType(file.extension);
-      final uploadSession = await _imageUploadService
+      final mimeType = file.mimeType;
+      final uploadSession = await _assetService
           .createStudentDocumentUploadSession(
             studentCode: studentCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
+      final asset = await _assetService.uploadToSession(
+        session: uploadSession,
+        file: ioFile,
+        owner: AssetOwner.student(studentCode),
         fileName: file.name,
         contentType: mimeType,
-        contentLengthBytes: file.size,
-        mediaType: mediaType,
-        ownerType: 'STUDENT',
-        ownerCode: studentCode,
-      );
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: ioFile,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
+        onUploadProgress: (percent) {
           if (isClosed) return;
-          emit(state.copyWith(uploadPercent: percent.clamp(0, 100)));
+          emit(state.copyWith(uploadPercent: percent));
         },
-      );
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
       );
       if (isClosed) return;
       // Asset is READY — finish now so the loader stops and the button enables.
@@ -154,14 +133,14 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       emit(
         state.copyWith(
           uploadStatus: DocumentUploadStatus.uploaded,
-          uploadedAssetCode: presign.assetCode,
+          uploadedAssetCode: asset.assetCode,
           uploadedStoragePath: file.name,
           uploadPercent: 0,
         ),
       );
 
-      _imageUploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+      _assetService
+          .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             final url = resolvedUrl.trim();
             if (!isClosed && url.isNotEmpty) {
@@ -170,7 +149,11 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
           })
           .catchError((_) {});
     } catch (e) {
-      _failUpload('Failed to upload file: ${e.toString()}');
+      // The backend's own reason (e.g. "Content type … is not allowed for
+      // DOCUMENT."), not a raw DioException dump — same as staff documents.
+      _failUpload(
+        'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+      );
     }
   }
 
@@ -222,7 +205,7 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
     if (state.hasSelectedFile) {
       storagePath = state.uploadedStoragePath ?? state.selectedFileName!;
       sizeBytes = state.selectedFileSize ?? 0;
-      mimeType = FilePickerUtils.getMimeType(state.selectedFileExtension);
+      mimeType = FileUtils.mimeType(state.selectedFileName ?? '');
     } else if (isEdit && initialFilePath != null) {
       storagePath = initialFilePath;
       sizeBytes = (initialFileSizeKb ?? 0) * 1024;

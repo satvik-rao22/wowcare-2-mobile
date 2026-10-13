@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:wowcare/shared/services/image_upload/profile_photo_background_uploader.dart';
+import 'package:wowcare/shared/services/asset/profile_photo_background_uploader.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule_input.dart';
 
 import 'package:flutter_test/flutter_test.dart';

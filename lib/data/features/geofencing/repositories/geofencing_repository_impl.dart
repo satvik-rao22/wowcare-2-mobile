@@ -1,34 +1,16 @@
-import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import '../../../../domain/features/geofencing/entities/attendance_settings_entity.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
-import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
 import '../../../../domain/features/geofencing/repositories/geofencing_repository.dart';
-import '../datasources/geofencing_local_datasource.dart';
 import '../models/attendance_settings_model.dart';
 import '../models/school_location_model.dart';
 
 class GeofencingRepositoryImpl implements GeofencingRepository {
-  GeofencingRepositoryImpl({
-    required GeofencingLocalDataSource localDataSource,
-    required ApiClient apiClient,
-  })  : _local = localDataSource,
-        _apiClient = apiClient;
+  GeofencingRepositoryImpl({required ApiClient apiClient})
+    : _apiClient = apiClient;
 
-  final GeofencingLocalDataSource _local;
   final ApiClient _apiClient;
-
-  @override
-  Future<LocationPermissionLevel> getPermissionLevel() =>
-      _local.getPermissionLevel();
-
-  @override
-  Future<LocationPermissionLevel> requestLocationPermission() =>
-      _local.requestLocationPermission();
-
-  @override
-  Future<bool> isLocationServiceEnabled() => _local.isLocationServiceEnabled();
 
   /// Fetches school lat/lon from the timezone endpoint and attendance settings
   /// (GPS toggle + radius) from the attendance-settings endpoint, then merges
@@ -92,10 +74,4 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
       response.data as Map<String, dynamic>? ?? {},
     );
   }
-
-  @override
-  Future<Position> getCurrentPosition() => _local.getCurrentPosition();
-
-  @override
-  Stream<Position> getPositionStream() => _local.getPositionStream();
 }

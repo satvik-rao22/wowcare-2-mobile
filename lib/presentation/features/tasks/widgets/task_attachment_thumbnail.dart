@@ -2,7 +2,7 @@
 //   lib/shared/services/attachment_view/attachment_asset_service.dart (resolve + cache)
 //   lib/shared/common/widgets/attachment_view/ (thumbnail, section, viewer)
 //
-// This resolved URLs through ImageUploadService, whose cache had no TTL — an
+// This resolved URLs through AssetService, whose cache had no TTL — an
 // expired presigned link stayed cached and rendered as a broken image — and it
 // could not tell "failed" from "still loading", so a failed fetch showed an
 // indefinite spinner. The shared service returns failure as a value and the
@@ -15,14 +15,14 @@
 // import 'package:wowcare/core/utils/file_picker_utils.dart';
 // import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 // import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
-// import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+// import 'package:wowcare/shared/services/asset/asset_service.dart';
 //
 // /// Square preview for one attachment: the image itself for pictures, a play
 // /// badge over the poster for video, and a tinted doctype glyph for everything
 // /// else.
 // ///
 // /// Image URLs are resolved lazily by asset code. The resolution is seeded from
-// /// [ImageUploadService]'s synchronous cache so an already-known asset paints on
+// /// [AssetService]'s synchronous cache so an already-known asset paints on
 // /// the first frame — important on a scrolling list, where a loading flicker per
 // /// recycled card would be very visible.
 // ///
@@ -49,7 +49,7 @@
 //   });
 //
 //   final TaskAttachment attachment;
-//   final ImageUploadService uploadService;
+//   final AssetService uploadService;
 //   final double size;
 //   final double borderRadius;
 //

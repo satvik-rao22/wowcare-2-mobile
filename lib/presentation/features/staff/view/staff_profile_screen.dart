@@ -15,9 +15,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_photo_action_sheet.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view_model/staff_profile_photo_upload_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
@@ -441,7 +440,10 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
       return;
     }
     try {
-      final shot = await ImagePicker().pickImage(source: ImageSource.camera);
+      final shot = await FilePickerUtils.pickOne(
+        type: PickType.image,
+        source: PickSource.camera,
+      );
       if (shot == null || !mounted) return;
       await _pickProfileImage(capturedPath: shot.path);
     } catch (e) {
@@ -469,7 +471,6 @@ class _StaffProfileScreenViewState extends State<_StaffProfileScreenView>
           ? null
           : await FilePickerUtils.pickFile(
               allowedExtensions: FilePickerUtils.allowedImageExtensions,
-              context: context,
             );
       final imagePath = capturedPath ?? picked?.path;
       if (imagePath == null || imagePath.isEmpty) return;

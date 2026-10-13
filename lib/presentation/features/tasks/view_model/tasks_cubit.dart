@@ -31,7 +31,7 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart'
 import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
@@ -53,7 +53,7 @@ class TasksCubit extends Cubit<TasksState> {
     this._uploadAttachments,
     this._getTaskAttachments,
     this._detachAttachment,
-    this.imageUploadService,
+    this.assetService,
     this._getAllStaff,
     this._storageService,
     this._updateAssignment,
@@ -79,7 +79,7 @@ class TasksCubit extends Cubit<TasksState> {
 
   /// Exposed so attachment widgets can resolve an asset code to a delivery URL
   /// (and reuse its cache/in-flight dedupe) without another injection point.
-  final ImageUploadService imageUploadService;
+  final AssetService assetService;
 
   final GetAllStaffUseCase _getAllStaff;
   final StorageService _storageService;

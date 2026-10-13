@@ -1,14 +1,9 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as p;
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/constants/app_sizes.dart';
 import 'package:wowcare/core/constants/app_strings.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/utils/file_picker_utils.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 /// Modern attachment bottom sheet with quick emoji reactions, attachment
@@ -29,31 +24,17 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
     required this.onAttachmentsSelected,
     required this.onEmojiSelected,
     this.onViewParticipants,
-    this.onAttachmentError,
   });
 
   final void Function(List<ChatAttachment>) onAttachmentsSelected;
   final void Function(String emoji) onEmojiSelected;
   final VoidCallback? onViewParticipants;
 
-  /// Fired when one or more picked files were rejected (currently: over the
-  /// size limit) instead of silently dropping them. Takes a message rather
-  /// than the caller re-deriving one, since only this widget knows which
-  /// files failed and why.
-  ///
-  /// Deliberately NOT shown from inside this widget: `_pick*` methods pop
-  /// this bottom sheet (`Navigator.of(context).pop()`) before the async
-  /// pick/validate work even starts, so by the time `_processFiles` knows a
-  /// file was rejected, this widget's own context is already unmounted. The
-  /// caller's chat-screen context is what's still alive to show a snackbar.
-  final void Function(String message)? onAttachmentError;
-
   static Future<void> show(
     BuildContext context, {
     required void Function(List<ChatAttachment>) onAttachmentsSelected,
     required void Function(String emoji) onEmojiSelected,
     VoidCallback? onViewParticipants,
-    void Function(String message)? onAttachmentError,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -64,7 +45,6 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
         onAttachmentsSelected: onAttachmentsSelected,
         onEmojiSelected: onEmojiSelected,
         onViewParticipants: onViewParticipants,
-        onAttachmentError: onAttachmentError,
       ),
     );
   }
@@ -76,35 +56,40 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
 
 class _MessageAttachmentBottomSheetState
     extends State<MessageAttachmentBottomSheet> {
-  final _picker = ImagePicker();
-
   static const _emojis = ['😀', '😍', '👍', '❤️', '🎉', '👏', '😢', '😮'];
 
   // ── Attachment actions ────────────────────────────────────────────────────
 
-  static const int _imageMaxSizeBytes = 10 * 1024 * 1024;
-  static const int _videoMaxSizeBytes = 200 * 1024 * 1024;
+  // Photos and documents up to 10 MB, videos up to 200 MB. FilePickerUtils
+  // drops anything else and tells the user why — this sheet has already
+  // closed by then, so it couldn't show that itself.
+  static const int _maxSizeMB = 10;
+  static const int _maxVideoSizeMB = 200;
 
   Future<void> _pickCamera() async {
     Navigator.of(context).pop();
-    final XFile? file;
-    try {
-      file = await _picker.pickImage(source: ImageSource.camera);
-    } catch (e) {
-      debugPrint('Chat camera pick failed: $e');
-      widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
-      return;
-    }
-    if (file == null) return;
-    await _processFiles([File(file.path)]);
+    _attach(
+      await FilePickerUtils.pick(
+        type: PickType.image,
+        source: PickSource.camera,
+        maxSizeMB: _maxSizeMB,
+      ),
+    );
   }
 
-  /// Photos AND videos together, in one gallery browse — every format either
-  /// type supports, not just images.
-  Future<void> _pickGallery() => _pickFromStorage([
-    ...FilePickerUtils.allowedImageExtensions,
-    ...FilePickerUtils.allowedVideoExtensions,
-  ]);
+  /// Photos AND videos together, in one browse — every format either type
+  /// supports, not just images.
+  Future<void> _pickGallery() async {
+    Navigator.of(context).pop();
+    _attach(
+      await FilePickerUtils.pick(
+        type: PickType.imageOrVideo,
+        multiple: true,
+        maxSizeMB: _maxSizeMB,
+        maxVideoSizeMB: _maxVideoSizeMB,
+      ),
+    );
+  }
 
   Future<void> _pickDocument() =>
       _pickFromStorage(FilePickerUtils.allowedDocumentExtensions);
@@ -115,169 +100,27 @@ class _MessageAttachmentBottomSheetState
   /// or the user sees nothing at all.
   Future<void> _pickFromStorage(List<String> allowedExtensions) async {
     Navigator.of(context).pop();
-    final FilePickerResult? result;
-    try {
-      result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: FilePickerUtils.dialogExtensions(allowedExtensions),
-        allowMultiple: true,
-      );
-    } catch (e) {
-      debugPrint('Chat file pick failed: $e');
-      widget.onAttachmentError?.call(AppStrings.attachmentPickFailed);
-      return;
-    }
-    if (result == null || result.files.isEmpty) return;
-    final files = <File>[];
-    final unreadable = <String>[];
-    for (final f in result.files) {
-      final path = f.path;
-      if (path == null || path.isEmpty) {
-        unreadable.add(f.name);
-      } else {
-        files.add(File(path));
-      }
-    }
-    await _processFiles(files, unreadable: unreadable);
+    _attach(
+      await FilePickerUtils.pick(multiple: true, maxSizeMB: _maxSizeMB),
+    );
   }
 
-  /// Classifies each file by its own extension (image / video / document)
-  /// rather than a single blanket type for the whole batch — [_pickGallery]
-  /// can hand back a mix of photos and videos in one call.
-  ///
-  /// [FileType.custom] + `allowedExtensions` on the OS picker (see
-  /// [_pickGallery]/[_pickDocument]) is the FIRST line of defence — it stops
-  /// most unsupported files from ever being selectable. It isn't airtight on
-  /// every platform/file-provider combination (a known `file_picker`
-  /// limitation, most often seen with third-party providers surfaced inside
-  /// iOS's Files app, which don't always honour the UTType filter), so this
-  /// re-validates every file's extension against the same three allow-lists
-  /// before accepting it — anything matching none of them is rejected here
-  /// rather than silently uploaded mislabelled as a "document".
-  Future<void> _processFiles(
-    List<File> files, {
-    List<String> unreadable = const [],
-  }) async {
-    final valid = <ChatAttachment>[];
-    final unreadableNames = [...unreadable];
-    // name -> limit that was exceeded, for the rejection message below.
-    final oversized = <String, int>{};
-    final unsupported = <String>[];
-    for (final file in files) {
-      final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
-      final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
-      final isVideo = FilePickerUtils.allowedVideoExtensions.contains(ext);
-      final isDocument = FilePickerUtils.allowedDocumentExtensions.contains(
-        ext,
-      );
-      if (!isImage && !isVideo && !isDocument) {
-        unsupported.add(p.basename(file.path));
-        continue;
-      }
-      final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
-
-      final int size;
-      try {
-        size = await file.length();
-      } catch (_) {
-        unreadableNames.add(p.basename(file.path));
-        continue;
-      }
-      final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
-      if (size > maxSize) {
-        oversized[p.basename(file.path)] = maxSize;
-        continue;
-      }
-
-      final mime = lookupMimeType(file.path) ??
-          FilePickerUtils.getMimeType(ext);
-      valid.add(
+  /// Each file is typed by its own extension — a gallery pick can mix photos
+  /// and videos.
+  void _attach(List<PickedFile> files) {
+    if (files.isEmpty) return;
+    widget.onAttachmentsSelected([
+      for (final file in files)
         ChatAttachment(
           localPath: file.path,
-          name: p.basename(file.path),
-          type: type,
-          sizeBytes: size,
-          mimeType: mime,
+          name: file.name,
+          type: file.isImage ? 'image' : (file.isVideo ? 'video' : 'document'),
+          sizeBytes: file.size,
+          mimeType: file.mimeType,
           remoteUrl: '',
         ),
-      );
-    }
-    // Previously silent: rejected files just vanished and the sheet had
-    // already closed, so the user got no feedback at all on why nothing was
-    // attached — they'd only notice the message never had their file on it.
-    final message = _rejectionMessage(
-      oversized: oversized,
-      unsupported: unsupported,
-      unreadable: unreadableNames,
-    );
-    if (message != null) {
-      widget.onAttachmentError?.call(message);
-    }
-    if (valid.isEmpty) return;
-    widget.onAttachmentsSelected(valid);
+    ]);
   }
-
-  /// Combines both rejection reasons into one message — e.g. "photo.png
-  /// exceeds the 10 MB limit", "archive.zip is not a supported file type",
-  /// or, for a mixed batch, "2 files couldn't be attached: 1 exceeds the
-  /// size limit, 1 is an unsupported file type". Null when nothing was
-  /// rejected.
-  String? _rejectionMessage({
-    required Map<String, int> oversized,
-    required List<String> unsupported,
-    List<String> unreadable = const [],
-  }) {
-    if (unreadable.isNotEmpty) {
-      // Unreadable files are rare and usually alone in a pick; name them
-      // first, then fold any other rejections into one count.
-      final others = oversized.length + unsupported.length;
-      if (others == 0) {
-        return unreadable.length == 1
-            ? AppStrings.fileUnreadable(unreadable.first)
-            : AppStrings.filesUnreadable(unreadable.length);
-      }
-      return AppStrings.filesCouldNotBeAttached(unreadable.length + others);
-    }
-    if (oversized.isEmpty && unsupported.isEmpty) return null;
-
-    if (unsupported.isEmpty) {
-      if (oversized.length == 1) {
-        final entry = oversized.entries.first;
-        return AppStrings.fileExceedsLimit(
-          entry.key,
-          _readableSize(entry.value),
-        );
-      }
-      final distinctLimits = oversized.values.toSet();
-      if (distinctLimits.length == 1) {
-        return AppStrings.filesExceedLimit(
-          oversized.length,
-          _readableSize(distinctLimits.first),
-        );
-      }
-      return AppStrings.filesExceedMixedLimits(
-        oversized.length,
-        _readableSize(_imageMaxSizeBytes),
-        _readableSize(_videoMaxSizeBytes),
-      );
-    }
-
-    if (oversized.isEmpty) {
-      if (unsupported.length == 1) {
-        return AppStrings.fileUnsupportedType(unsupported.first);
-      }
-      return AppStrings.filesUnsupportedType(unsupported.length);
-    }
-
-    return AppStrings.filesPartiallyRejected(
-      oversized.length + unsupported.length,
-      oversized.length,
-      unsupported.length,
-    );
-  }
-
-  String _readableSize(int bytes) =>
-      AppStrings.megabytes((bytes / (1024 * 1024)).round());
 
   // ── Build ─────────────────────────────────────────────────────────────────
 

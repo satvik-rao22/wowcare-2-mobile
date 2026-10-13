@@ -12,7 +12,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_sign_out_req
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_forms/view_model/student_sign_out_submit_cubit.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:wowcare/core/utils/location_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/view_model/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
@@ -294,21 +294,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
-    Position? position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-    } catch (_) {
-      try {
-        position = await Geolocator.getLastKnownPosition();
-      } catch (e) {
-        AppLogger.d('StudentSignOutForm: getLastKnownPosition failed: $e');
-      }
-    }
+    // Recorded on the attendance record for audit; it doesn't gate it.
+    final location = await LocationService.getCurrentLocation(
+      timeLimit: const Duration(seconds: 10),
+      fallbackToLastKnown: true,
+    );
 
     // Resolve persona-specific values (with the same guards as before), then
     // assemble a typed StudentSignOutRequest whose toPayload() reproduces the
@@ -372,8 +362,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       mode: mode,
       studentCodes: studentCodes,
       signOutMethod: signOutMethod,
-      latitude: position?.latitude ?? 0,
-      longitude: position?.longitude ?? 0,
+      latitude: location?.latitude ?? 0,
+      longitude: location?.longitude ?? 0,
       withinGeofence: withinGeofence,
       timeZone: schoolTimeZone,
       qrToken: (widget.isQrScan && widget.qrToken.isNotEmpty)

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_service.dart';
 
 /// Fake [HttpClientAdapter] that replays a staged JSON body and counts how many
 /// times the session endpoint was polled.
@@ -34,13 +34,13 @@ class _FakeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-({ImageUploadService service, _FakeAdapter adapter}) _serviceReturning(
+({AssetService service, _FakeAdapter adapter}) _serviceReturning(
   Map<String, dynamic> body,
 ) {
   final client = ApiClient(baseUrl: 'http://localhost');
   final adapter = _FakeAdapter(body);
   client.client.httpClientAdapter = adapter;
-  return (service: ImageUploadService(client), adapter: adapter);
+  return (service: AssetService(client), adapter: adapter);
 }
 
 Map<String, dynamic> _session(List<Map<String, String>> assets) =>
@@ -201,7 +201,7 @@ void main() {
     test('a status-endpoint error never fails the upload', () async {
       final client = ApiClient(baseUrl: 'http://localhost');
       client.client.httpClientAdapter = _ThrowingAdapter();
-      final service = ImageUploadService(client);
+      final service = AssetService(client);
 
       expect(
         await service.awaitAssetsAttachable(

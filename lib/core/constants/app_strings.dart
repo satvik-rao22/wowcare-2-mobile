@@ -496,9 +496,6 @@ abstract final class AppStrings {
   static const String send = 'Send';
   static const String pleaseEnterMessage = 'Please enter your message';
   static const String createMessage = 'Create Message';
-  static const String fileTooLarge = 'File too large (max 10 MB)';
-  static const String someFilesSkipped =
-      'Some files were skipped (max 10 MB each)';
   static const String bulkMessageProcessing =
       'Bulk message is being processed in the background.';
   static const String newMessagesLabel = 'New Messages';
@@ -524,7 +521,6 @@ abstract final class AppStrings {
   static const String takePhotoSubtitle = 'Capture a photo with your camera';
   static const String documentOneFile = 'Document (one file)';
   static const String documentSubtitle = 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB';
-  static const String doNotExceed10MB = 'Please do not exceed the 10 MB limit';
 
   static String filesPartiallyRejected(
     int total,

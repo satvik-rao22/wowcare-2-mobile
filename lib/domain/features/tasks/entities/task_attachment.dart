@@ -69,7 +69,7 @@ class TaskAttachment extends Equatable {
 
   /// Resolved delivery URL. Frequently empty on the list payload, in which case
   /// the UI resolves it lazily by [assetCode] through
-  /// `ImageUploadService.getMediaAssetUrlByCode`.
+  /// `AssetService.getMediaAssetUrlByCode`.
   final String url;
   final String thumbnailUrl;
 

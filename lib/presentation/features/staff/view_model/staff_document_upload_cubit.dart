@@ -2,14 +2,13 @@ import 'dart:io';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:mime/mime.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../../../../core/utils/storage_keys.dart';
-import '../../../../core/utils/file_picker_utils.dart';
-import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/asset/asset_models.dart';
+import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
+import '../../../../shared/services/asset/asset_service.dart';
 import 'staff_profile_cubit.dart';
 
 /// Owns the multi-step staff-document upload flow (create session, presign,
@@ -18,20 +17,20 @@ import 'staff_profile_cubit.dart';
 class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
   StaffDocumentUploadCubit({
     required StorageService storageService,
-    required ImageUploadService imageUploadService,
+    required AssetService assetService,
     required StaffProfileCubit staffProfileCubit,
   }) : _storageService = storageService,
-       _imageUploadService = imageUploadService,
+       _assetService = assetService,
        _staffProfileCubit = staffProfileCubit,
        super(const StaffDocumentUploadState.initial());
 
   final StorageService _storageService;
-  final ImageUploadService _imageUploadService;
+  final AssetService _assetService;
   final StaffProfileCubit _staffProfileCubit;
 
   Future<void> uploadFile({
     required String staffCode,
-    required PlatformFile selectedFile,
+    required PickedFile selectedFile,
   }) async {
     emit(const StaffDocumentUploadState.uploading(progressPercent: 0));
     try {
@@ -81,7 +80,7 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       }
 
       final selectedPath = selectedFile.path;
-      if (selectedPath == null || selectedPath.trim().isEmpty) {
+      if (selectedPath.trim().isEmpty) {
         emit(
           const StaffDocumentUploadState.error(
             'Selected file path is not available',
@@ -101,59 +100,27 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
         return;
       }
 
-      // lookupMimeType checks the real file name/bytes first, falling back to
-      // the extension-only map only when it can't tell - a bare-extension
-      // lookup alone sends 'application/octet-stream' for anything it
-      // doesn't recognize (e.g. an audio file slipped past the picker's
-      // extension filter), which surfaces as a meaningless "Content type
+      // The file's real type (photos/PDFs from their bytes): a wrong or
+      // generic type surfaces as a meaningless "Content type
       // 'application/octet-stream' is not allowed" instead of the backend's
       // actual, specific rejection reason.
-      final mimeType =
-          lookupMimeType(selectedPath) ??
-          FilePickerUtils.getMimeType(selectedFile.extension);
-      final uploadSession = await _imageUploadService
+      final mimeType = selectedFile.mimeType;
+      final uploadSession = await _assetService
           .createStaffDocumentUploadSession(
             staffCode: staffCode,
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
+      final asset = await _assetService.uploadToSession(
+        session: uploadSession,
+        file: file,
+        owner: AssetOwner.staff(staffCode),
         fileName: selectedFile.name,
         contentType: mimeType,
-        contentLengthBytes: selectedFile.size,
-        mediaType: mediaType,
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
+        onUploadProgress: (percent) {
           if (isClosed) return;
-          emit(
-            StaffDocumentUploadState.uploading(
-              progressPercent: percent.clamp(0, 100),
-            ),
-          );
+          emit(StaffDocumentUploadState.uploading(progressPercent: percent));
         },
-      );
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
       );
       if (isClosed) return;
       // Asset is processed & READY — finish the upload now so the loader stops
@@ -162,12 +129,12 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       // background instead of keeping the spinner up.
       emit(
         StaffDocumentUploadState.done(
-          assetCode: presign.assetCode,
+          assetCode: asset.assetCode,
           documentUrl: selectedFile.name,
         ),
       );
-      _imageUploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+      _assetService
+          .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             if (isClosed) return;
             final url = resolvedUrl.trim();
