@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/utils/api_constants.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/utils/api_paths.dart';
 import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/core/utils/string_utils.dart';
@@ -959,61 +960,14 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     }
   }
 
-  Future<String> _fetchDocumentAssetUrl(String assetCode) async {
-    final normalizedAssetCode = assetCode.trim();
-    if (normalizedAssetCode.isEmpty) return '';
-    try {
-      final apiClient = serviceLocator<ApiClient>();
-      final endpoint =
-          '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
-          '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final body = response.data;
-      return _extractDocumentAssetUrl(body);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _extractDocumentAssetUrl(dynamic body) {
-    if (body is! Map) return '';
-    final data = body['data'];
-    if (data is! Map) return '';
-
-    String pickUrl(Map map) {
-      final candidates = <dynamic>[
-        map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
-        map['thumbnailUrl'],
-        map['originalDownloadUrl'],
-      ];
-      for (final raw in candidates) {
-        final value = (raw ?? '').toString().trim();
-        if (value.isNotEmpty) return value;
-      }
-      return '';
-    }
-
-    final direct = pickUrl(data);
-    if (direct.isNotEmpty) return direct;
-
-    final variants = data['variants'];
-    if (variants is List) {
-      for (final row in variants.whereType<Map>()) {
-        final defaultVariant =
-            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
-        if (!defaultVariant) continue;
-        final url = pickUrl(row);
-        if (url.isNotEmpty) return url;
-      }
-      for (final row in variants.whereType<Map>()) {
-        final url = pickUrl(row);
-        if (url.isNotEmpty) return url;
-      }
-    }
-    return '';
-  }
+  /// The display URL for [assetCode] — through ImageUploadService, so every
+  /// avatar and logo shares its cache, its in-flight requests and its
+  /// cool-down for assets that aren't ready, instead of each widget asking
+  /// the server on its own.
+  Future<String> _fetchDocumentAssetUrl(String assetCode) =>
+      serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+        assetCode: assetCode,
+      );
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
     // Employment / enrollment "upcoming" must apply even when attendance API

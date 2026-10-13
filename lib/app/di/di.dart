@@ -2699,6 +2699,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentDocumentsUseCase: serviceLocator(),
       deleteStudentDocumentUseCase: serviceLocator(),
       repository: serviceLocator(),
+      imageUploadService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StudentPhysicianCubit>(

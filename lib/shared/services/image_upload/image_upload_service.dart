@@ -49,6 +49,26 @@ class ImageUploadService {
   /// re-resolved over the network every time its widget rebuilds (e.g. on list
   /// scroll/recycling). Asset URLs are stable once finalized.
   final Map<String, String> _assetUrlCache = <String, String>{};
+  final Map<String, DateTime> _assetUrlCachedAt = <String, DateTime>{};
+
+  /// Delivery URLs are signed CDN links, so a resolved URL is reused for this
+  /// long and then resolved again — never held for a whole session, where it
+  /// could expire under a screen that stays open.
+  @visibleForTesting
+  Duration assetUrlCacheTtl = const Duration(minutes: 10);
+
+  /// The cached URL for [assetCode] while it is still fresh, else null.
+  String? _freshCachedUrl(String assetCode) {
+    final url = _assetUrlCache[assetCode];
+    final at = _assetUrlCachedAt[assetCode];
+    if (url == null || at == null) return null;
+    if (AppTime.nowUtc().difference(at) >= assetUrlCacheTtl) {
+      _assetUrlCache.remove(assetCode);
+      _assetUrlCachedAt.remove(assetCode);
+      return null;
+    }
+    return url;
+  }
 
   /// Dedupes concurrent resolutions of the same asset code so a list of cards
   /// sharing one code issues a single network call.
@@ -1429,7 +1449,7 @@ class ImageUploadService {
   /// not been resolved yet. Lets widgets seed a FutureBuilder with cached data
   /// and skip the loading frame entirely.
   String? cachedMediaAssetUrl(String assetCode) =>
-      _assetUrlCache[assetCode.trim()];
+      _freshCachedUrl(assetCode.trim());
 
   Future<String> getMediaAssetUrlByCode({
     required String assetCode,
@@ -1437,8 +1457,8 @@ class ImageUploadService {
     final normalized = assetCode.trim();
     if (normalized.isEmpty) return '';
 
-    // Already resolved this session → return instantly, no loader.
-    final cached = _assetUrlCache[normalized];
+    // Resolved in the last 10 minutes → return instantly, no loader.
+    final cached = _freshCachedUrl(normalized);
     if (cached != null) return cached;
 
     // Failed (still backend-processing/unresolvable) recently → don't hit
@@ -1458,12 +1478,18 @@ class ImageUploadService {
         .then((String url) {
       if (url.isNotEmpty) {
         _assetUrlCache[normalized] = url;
+        _assetUrlCachedAt[normalized] = AppTime.nowUtc();
         _assetUrlFailedAt.remove(normalized);
       } else {
         _assetUrlFailedAt[normalized] = AppTime.nowUtc();
       }
       return url;
-    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+    }).whenComplete(() {
+      // A block body on purpose: `=> map.remove(...)` would return the
+      // removed in-flight future — this very future — and whenComplete would
+      // wait for it forever, so the first lookup of every code never finished.
+      _assetUrlInFlight.remove(normalized);
+    });
 
     _assetUrlInFlight[normalized] = future;
     return future;

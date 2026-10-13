@@ -8,7 +8,6 @@ import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_dimensions.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
@@ -271,9 +270,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
       return rawUrl;
     }
     if (assetCode.isNotEmpty) {
-      return (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-        assetCode: assetCode,
-      )).trim();
+      return _documentsListCubit.resolveMediaAssetUrl(assetCode);
     }
     return '';
   }
