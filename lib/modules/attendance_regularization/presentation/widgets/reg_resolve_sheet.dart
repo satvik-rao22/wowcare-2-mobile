@@ -9,6 +9,7 @@ import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart
 import '../../core/config/reg_config.dart';
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/policy/reg_time_policy.dart';
+import 'reg_field_label.dart';
 
 /// Outcome of resolving a missed sign-out: the actual sign-out time plus a
 /// reason.
@@ -262,7 +263,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                 const SizedBox(height: Av2Spacing.sm),
                 _consequenceStrip(),
                 const SizedBox(height: Av2Spacing.md),
-                Text('Actual sign-out time', style: Av2Text.bodyMedium),
+                const RegFieldLabel('Actual sign-out time'),
                 const SizedBox(height: Av2Spacing.xs),
                 _timeField(),
                 const SizedBox(height: 6),
@@ -280,18 +281,7 @@ class _RegResolveSheetState extends State<_RegResolveSheet> {
                   ),
                 ),
                 const SizedBox(height: Av2Spacing.md),
-                Row(
-                  children: [
-                    Text('Reason', style: Av2Text.bodyMedium),
-                    const SizedBox(width: 6),
-                    Text(
-                      '(required)',
-                      style: Av2Text.caption.copyWith(
-                        color: Av2Colors.textTertiary,
-                      ),
-                    ),
-                  ],
-                ),
+                const RegFieldLabel('Reason', isRequired: true),
                 const SizedBox(height: Av2Spacing.xs),
                 _reasonField(),
                 if (_error != null) ...[
