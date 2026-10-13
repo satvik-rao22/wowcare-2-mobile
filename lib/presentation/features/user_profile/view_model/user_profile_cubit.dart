@@ -2,12 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bloc/bloc.dart';
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/core/utils/login_persona_util.dart';
@@ -24,6 +22,7 @@ import 'package:wowcare/domain/features/user_profile/usecases/get_guardian_profi
 import 'package:wowcare/domain/features/staff/usecases/resolve_logged_in_staff_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 
 part 'user_profile_state.dart';
 
@@ -680,60 +679,15 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           profilePhotoUploadPercent: 5,
         ),
       );
-      final file = File(imagePath);
-      final sessionCode = await _imageUploadService
-          .createStaffProfilePhotoUploadSession(
-            staffCode: staffCode,
-            schoolCode: schoolCode,
-            organizationCode: organizationCode,
-          );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 25));
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (isClosed || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          emit(
-            state.copyWith(
-              profilePhotoUploadPercent: 25 + (uploadPhasePercent * 55),
-            ),
-          );
-        },
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 84));
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 90));
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
-      await _imageUploadService.finalizeStaffProfilePhoto(
+      await ProfilePhotoUploader(_imageUploadService).uploadStaffPhoto(
         staffCode: staffCode,
-        assetCode: presign.assetCode,
+        file: File(imagePath),
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        onPercent: (percent) {
+          if (isClosed) return;
+          emit(state.copyWith(profilePhotoUploadPercent: percent.toDouble()));
+        },
       );
       if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
 
@@ -822,64 +776,21 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           profilePhotoUploadPercent: 5,
         ),
       );
-      final file = File(imagePath);
-      final sessionCode = await _imageUploadService
-          .createGuardianProfilePhotoUploadSession(
+      final photo = await ProfilePhotoUploader(_imageUploadService)
+          .uploadGuardianPhoto(
             guardianCode: guardianCode,
+            file: File(imagePath),
             schoolCode: schoolCode,
             organizationCode: organizationCode,
-          );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 15));
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'guardian-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'GUARDIAN',
-        ownerCode: guardianCode,
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 25));
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (isClosed || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          emit(
-            state.copyWith(
-              profilePhotoUploadPercent: 25 + (uploadPhasePercent * 55),
-            ),
-          );
-        },
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 84));
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 90));
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (!isClosed) emit(state.copyWith(profilePhotoUploadPercent: 100));
-      final resolvedUrl = await _imageUploadService
-          .finalizeGuardianProfilePhoto(
-            guardianCode: guardianCode,
-            assetCode: presign.assetCode,
-            schoolCode: schoolCode,
             userCode: userCode,
+            onPercent: (percent) {
+              if (isClosed) return;
+              emit(
+                state.copyWith(profilePhotoUploadPercent: percent.toDouble()),
+              );
+            },
           );
+      final resolvedUrl = photo.url;
 
       DocumentImageWidget.clearProfilePhotoCache();
       // Persist the freshly-uploaded photo so the three-dot (kebab) menu header
@@ -887,7 +798,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       try {
         await _storage.saveString(
           StorageKeys.guardianProfileAssetCode,
-          presign.assetCode.trim(),
+          photo.assetCode.trim(),
         );
         await _storage.saveString(
           StorageKeys.guardianProfilePhotoUrl,
@@ -898,7 +809,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         emit(
           state.copyWith(
             guardianPhotoUrl: resolvedUrl.trim(),
-            guardianPhotoAssetCode: presign.assetCode.trim(),
+            guardianPhotoAssetCode: photo.assetCode.trim(),
           ),
         );
       }

@@ -4,10 +4,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/app_time.dart';
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import '../../../../core/utils/storage_keys.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 
 /// Owns the multi-step staff profile-photo upload flow (create session,
 /// presign, upload with progress, complete, wait-until-ready, finalize) —
@@ -51,74 +50,24 @@ class StaffProfilePhotoUploadCubit extends Cubit<StaffProfilePhotoUploadState> {
   }) async {
     emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 0));
     try {
-      final file = File(imagePath);
-      final sessionCode = await _imageUploadService
-          .createStaffProfilePhotoUploadSession(
+      final photo = await ProfilePhotoUploader(_imageUploadService)
+          .uploadStaffPhoto(
             staffCode: staffCode,
+            file: File(imagePath),
             schoolCode: schoolCode,
             organizationCode: organizationCode,
+            onPercent: (percent) {
+              if (isClosed) return;
+              emit(
+                StaffProfilePhotoUploadState.uploading(
+                  progressPercent: percent.toDouble(),
+                ),
+              );
+            },
           );
-      if (isClosed) return '';
-      emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 15));
-
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      if (isClosed) return '';
-      emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 25));
-
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (isClosed || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          emit(
-            StaffProfilePhotoUploadState.uploading(
-              progressPercent: 25 + (uploadPhasePercent * 55),
-            ),
-          );
-        },
-      );
-      if (isClosed) return '';
-      emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 84));
-
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (isClosed) return '';
-      emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 90));
-
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (isClosed) return '';
-      emit(const StaffProfilePhotoUploadState.uploading(progressPercent: 100));
-
-      final finalizedUrl = await _imageUploadService.finalizeStaffProfilePhoto(
-        staffCode: staffCode,
-        assetCode: presign.assetCode,
-      );
-      if (isClosed) return finalizedUrl;
-      emit(StaffProfilePhotoUploadState.done(finalizedUrl));
-      return finalizedUrl;
+      if (isClosed) return photo.url;
+      emit(StaffProfilePhotoUploadState.done(photo.url));
+      return photo.url;
     } catch (e) {
       if (!isClosed) {
         emit(StaffProfilePhotoUploadState.error('$e'));

@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/utils/api_error_handler.dart';
-import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -41,6 +39,7 @@ import 'package:wowcare/presentation/features/students/view_model/student_profil
 import 'package:wowcare/presentation/features/students/view_model/student_guardian_cubit.dart';
 import 'package:wowcare/presentation/features/students/student_strings.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_uploader.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/utils/messaging_shortcut.dart';
 
 import 'package:wowcare/core/theme/app_media_res.dart';
@@ -596,62 +595,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         _isUploadingProfilePhoto = true;
         _profilePhotoUploadPercent = 5;
       });
-      final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(imagePath);
-      final sessionCode = await uploadService
-          .createStudentProfilePhotoUploadSession(
+      final photo = await serviceLocator<ProfilePhotoUploader>()
+          .uploadStudentPhoto(
             studentCode: studentCode,
+            file: File(imagePath),
             schoolCode: resolvedSchoolCode,
             organizationCode: resolvedOrganizationCode,
+            onPercent: (percent) {
+              if (!mounted) return;
+              setState(() => _profilePhotoUploadPercent = percent.toDouble());
+            },
           );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = imagePath.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = await FileUtils.imageMimeTypeOfFile(imagePath);
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STUDENT',
-        ownerCode: studentCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (!mounted || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          setState(() {
-            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
-          });
-        },
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
-      await uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
-      final finalizedUrl = await uploadService.finalizeStudentProfilePhoto(
-        studentCode: studentCode,
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        schoolCode: resolvedSchoolCode,
-      );
+      final finalizedUrl = photo.url;
       if (mounted) {
         setState(() => _profilePhotoUploadPercent = 100);
       }
