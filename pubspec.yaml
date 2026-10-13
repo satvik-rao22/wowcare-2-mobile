@@ -46,7 +46,6 @@ dependencies:
   geolocator: ^14.0.2
   get_it: ^9.0.5
   html: ^0.15.6
-  http: ^1.2.2
   iconly: ^1.0.1
   image_picker: ^1.1.2
   intl: ^0.20.2

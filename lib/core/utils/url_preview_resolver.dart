@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
-import 'package:http/http.dart' as http;
 
 /// Metadata needed to draw a link preview. Only [url] is guaranteed; the UI
 /// decides how to lay out whatever else is present.
@@ -74,22 +74,38 @@ class UrlPreviewResolver {
     );
   }
 
+  /// Plain Dio, no auth interceptors: previews fetch third-party pages.
+  static final Dio _dio = Dio();
+
   static Future<UrlPreviewResult> _fetch(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) {
       return const UrlPreviewNotFound();
     }
 
-    final client = http.Client();
+    final cancel = CancelToken();
     try {
-      final request = http.Request('GET', uri)
-        ..headers['User-Agent'] = _userAgent
-        ..headers['Accept'] = 'text/html,image/*;q=0.8,*/*;q=0.5';
-      final response = await client.send(request).timeout(_timeout);
-      if (response.statusCode != 200) return const UrlPreviewNotFound();
+      final response = await _dio
+          .getUri<ResponseBody>(
+            uri,
+            cancelToken: cancel,
+            options: Options(
+              responseType: ResponseType.stream,
+              validateStatus: (_) => true,
+              headers: {
+                'User-Agent': _userAgent,
+                'Accept': 'text/html,image/*;q=0.8,*/*;q=0.5',
+              },
+            ),
+          )
+          .timeout(_timeout);
+      final body = response.data;
+      if (response.statusCode != 200 || body == null) {
+        return const UrlPreviewNotFound();
+      }
 
-      final finalUrl = response.request?.url ?? uri;
-      final contentType = response.headers['content-type'] ?? '';
+      final finalUrl = response.realUri;
+      final contentType = response.headers.value('content-type') ?? '';
 
       // Direct image link — the image itself is the preview.
       if (contentType.startsWith('image/')) {
@@ -99,10 +115,11 @@ class UrlPreviewResolver {
       }
       if (!contentType.contains('html')) return const UrlPreviewNotFound();
 
-      final html = await _readHead(response.stream).timeout(_timeout);
+      final html = await _readHead(body.stream).timeout(_timeout);
       return _parse(url, finalUrl, html_parser.parse(html));
     } finally {
-      client.close();
+      // Stops the download once the head has been read.
+      cancel.cancel();
     }
   }
 
