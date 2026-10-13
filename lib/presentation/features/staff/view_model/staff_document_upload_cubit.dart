@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/utils/api_error_handler.dart';
 import '../../../../core/utils/storage_keys.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import '../../../../shared/services/image_upload/image_upload_service.dart';
 import 'staff_profile_cubit.dart';
@@ -110,43 +111,16 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
+      final asset = await _imageUploadService.uploadToSession(
+        session: uploadSession,
+        file: file,
+        owner: AssetOwner.staff(staffCode),
         fileName: selectedFile.name,
         contentType: mimeType,
-        contentLengthBytes: selectedFile.size,
-        mediaType: mediaType,
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
+        onUploadProgress: (percent) {
           if (isClosed) return;
-          emit(
-            StaffDocumentUploadState.uploading(
-              progressPercent: percent.clamp(0, 100),
-            ),
-          );
+          emit(StaffDocumentUploadState.uploading(progressPercent: percent));
         },
-      );
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
       );
       if (isClosed) return;
       // Asset is processed & READY — finish the upload now so the loader stops
@@ -155,12 +129,12 @@ class StaffDocumentUploadCubit extends Cubit<StaffDocumentUploadState> {
       // background instead of keeping the spinner up.
       emit(
         StaffDocumentUploadState.done(
-          assetCode: presign.assetCode,
+          assetCode: asset.assetCode,
           documentUrl: selectedFile.name,
         ),
       );
       _imageUploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+          .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             if (isClosed) return;
             final url = resolvedUrl.trim();

@@ -4,6 +4,8 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
+import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
+import 'package:wowcare/core/utils/api_error_handler.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -113,39 +115,16 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
             schoolCode: schoolCode,
             organizationCode: organizationCode,
           );
-      final mediaType = mimeType.startsWith('image/')
-          ? 'IMAGE'
-          : mimeType.startsWith('video/')
-          ? 'VIDEO'
-          : 'DOCUMENT';
-      final presign = await _imageUploadService.createAssetPresign(
-        sessionCode: uploadSession.sessionCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
+      final asset = await _imageUploadService.uploadToSession(
+        session: uploadSession,
+        file: ioFile,
+        owner: AssetOwner.student(studentCode),
         fileName: file.name,
         contentType: mimeType,
-        contentLengthBytes: file.size,
-        mediaType: mediaType,
-        ownerType: 'STUDENT',
-        ownerCode: studentCode,
-      );
-      await _imageUploadService.uploadFileToPresignedUrl(
-        file: ioFile,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: mimeType,
-        onProgress: (_, __, percent) {
+        onUploadProgress: (percent) {
           if (isClosed) return;
-          emit(state.copyWith(uploadPercent: percent.clamp(0, 100)));
+          emit(state.copyWith(uploadPercent: percent));
         },
-      );
-      await _imageUploadService.completeAssetUpload(
-        sessionCode: uploadSession.sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: uploadSession.documentApiBasePath,
-      );
-      await _imageUploadService.waitUntilAssetsReady(
-        sessionCode: uploadSession.sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
       );
       if (isClosed) return;
       // Asset is READY — finish now so the loader stops and the button enables.
@@ -154,14 +133,14 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
       emit(
         state.copyWith(
           uploadStatus: DocumentUploadStatus.uploaded,
-          uploadedAssetCode: presign.assetCode,
+          uploadedAssetCode: asset.assetCode,
           uploadedStoragePath: file.name,
           uploadPercent: 0,
         ),
       );
 
       _imageUploadService
-          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+          .getMediaAssetUrlByCode(assetCode: asset.assetCode)
           .then((resolvedUrl) {
             final url = resolvedUrl.trim();
             if (!isClosed && url.isNotEmpty) {
@@ -170,7 +149,11 @@ class StudentDocumentCubit extends Cubit<StudentDocumentState> {
           })
           .catchError((_) {});
     } catch (e) {
-      _failUpload('Failed to upload file: ${e.toString()}');
+      // The backend's own reason (e.g. "Content type … is not allowed for
+      // DOCUMENT."), not a raw DioException dump — same as staff documents.
+      _failUpload(
+        'Failed to upload file: ${ApiErrorHandler.extractErrorMessage(e)}',
+      );
     }
   }
 

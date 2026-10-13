@@ -50,3 +50,27 @@ class AssetPresignResult {
   final Map<String, String> requiredHeaders;
 }
 
+/// Who an uploaded asset belongs to, in the document service's terms. The
+/// server's owner-type strings live here and nowhere else.
+class AssetOwner {
+  const AssetOwner._(this.type, this.code);
+
+  const AssetOwner.staff(String staffCode) : this._('STAFF', staffCode);
+  const AssetOwner.student(String studentCode) : this._('STUDENT', studentCode);
+  const AssetOwner.guardian(String guardianCode)
+    : this._('GUARDIAN', guardianCode);
+  const AssetOwner.classroom(String classroomCode)
+    : this._('CLASSROOM', classroomCode);
+  const AssetOwner.school(String schoolCode) : this._('SCHOOL', schoolCode);
+
+  /// `STAFF`, `STUDENT`, `GUARDIAN`, `CLASSROOM` or `SCHOOL`.
+  final String type;
+  final String code;
+}
+
+/// What [ImageUploadService.uploadToSession] hands back.
+class UploadedAsset {
+  const UploadedAsset({required this.assetCode});
+
+  final String assetCode;
+}

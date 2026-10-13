@@ -174,6 +174,29 @@ class _FakeUploadService implements ImageUploadService {
     waitReadyCalls++;
   }
 
+  /// The whole upload in one call, as the cubit now uses it: the same
+  /// switches and counters as the step-by-step fakes above.
+  @override
+  Future<UploadedAsset> uploadToSession({
+    required UploadSessionResult session,
+    required File file,
+    required AssetOwner owner,
+    String? fileName,
+    String? contentType,
+    bool waitUntilReady = true,
+    void Function(int percent)? onUploadProgress,
+    dynamic cancelToken,
+  }) async {
+    lastOwner = owner;
+    if (putError != null) throw putError!;
+    if (progressTo > 0) onUploadProgress?.call(progressTo);
+    completeCalls++;
+    if (waitUntilReady) waitReadyCalls++;
+    return const UploadedAsset(assetCode: 'ASSET1');
+  }
+
+  AssetOwner? lastOwner;
+
   @override
   Future<String> getMediaAssetUrlByCode({required String assetCode}) async =>
       assetUrl;

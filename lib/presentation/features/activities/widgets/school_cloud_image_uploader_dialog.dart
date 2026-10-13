@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/utils/file_utils/file_picker_utils.dart';
 
-import 'package:wowcare/core/utils/file_utils/file_utils.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_text_styles.dart';
-import 'package:wowcare/core/utils/app_time.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/activities/view_model/school_cloud_image_uploader_cubit.dart';
@@ -112,33 +110,10 @@ class _SchoolCloudImageUploaderDialogState
       for (var i = 0; i < total; i++) {
         final image = files[i];
         try {
-          final uploadSession = await cubit.createSchoolCloudUploadSession(
+          await cubit.uploadImage(
+            image,
             schoolCode: schoolCode,
-          );
-
-          final fileName = image.uri.pathSegments.isNotEmpty
-              ? image.uri.pathSegments.last
-              : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg';
-          final contentType = await FileUtils.imageMimeTypeOfFile(image.path);
-          final contentLengthBytes = await image.length();
-
-          final presign = await cubit.createAssetPresign(
-            sessionCode: uploadSession.sessionCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-            fileName: fileName,
-            contentType: contentType,
-            contentLengthBytes: contentLengthBytes,
-            mediaType: 'IMAGE',
-            ownerType: 'SCHOOL',
-            ownerCode: schoolCode,
-          );
-
-          await cubit.uploadFileToPresignedUrl(
-            file: image,
-            presignedPutUrl: presign.presignedPutUrl,
-            requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: contentType,
-            onProgress: (_, __, percent) {
+            onUploadProgress: (percent) {
               if (!mounted) return;
               final overallFraction = (i + (percent / 100)) / total;
               setState(() {
@@ -147,12 +122,6 @@ class _SchoolCloudImageUploaderDialogState
                     .round();
               });
             },
-          );
-
-          await cubit.completeAssetUpload(
-            sessionCode: uploadSession.sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
           );
         } catch (_) {
           failedFiles.add(image);

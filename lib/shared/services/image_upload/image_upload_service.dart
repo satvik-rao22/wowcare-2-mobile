@@ -14,6 +14,7 @@ import '../../../core/network/session_expired_interceptor.dart'
     show kNoAutoReplayExtraKey;
 import '../../../core/utils/api_constants.dart';
 import '../../../core/utils/api_paths.dart';
+import '../../../core/utils/file_utils/file_utils.dart';
 import '../../../core/utils/logger_service.dart';
 import 'image_upload_models.dart';
 
@@ -438,6 +439,78 @@ class ImageUploadService {
     if (computed > _maxSendTimeout) return _maxSendTimeout;
     return computed;
   }
+
+  /// Uploads one [file] into an already-open upload [session] — presign, PUT
+  /// the bytes, complete, and (unless [waitUntilReady] is false) wait until
+  /// the server has processed it. Returns the new asset's code.
+  ///
+  /// Creating the session, and anything after the upload (finalize, resolve
+  /// the URL), stays with the caller: each owner has its own session endpoint
+  /// and follow-up.
+  ///
+  /// [contentType] defaults to the file's real type
+  /// (FileUtils.mimeTypeOfFile); the media type (IMAGE / VIDEO / DOCUMENT) is
+  /// derived from it. [onUploadProgress] reports the PUT's 0–100 %.
+  Future<UploadedAsset> uploadToSession({
+    required UploadSessionResult session,
+    required File file,
+    required AssetOwner owner,
+    String? fileName,
+    String? contentType,
+    bool waitUntilReady = true,
+    void Function(int percent)? onUploadProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final type = contentType ?? await FileUtils.mimeTypeOfFile(file.path);
+    // Some session endpoints omit the base path; the document service's
+    // default is /api/v1.
+    final basePath = session.documentApiBasePath.trim().isEmpty
+        ? '/api/v1'
+        : session.documentApiBasePath;
+    final presign = await createAssetPresign(
+      sessionCode: session.sessionCode,
+      documentApiBasePath: basePath,
+      fileName: fileName ?? FileUtils.fileName(file.path),
+      contentType: type,
+      contentLengthBytes: await file.length(),
+      mediaType: mediaTypeFor(type),
+      ownerType: owner.type,
+      ownerCode: owner.code,
+      cancelToken: cancelToken,
+    );
+    await uploadFileToPresignedUrl(
+      file: file,
+      presignedPutUrl: presign.presignedPutUrl,
+      requiredHeaders: presign.requiredHeaders,
+      fallbackContentType: type,
+      onProgress: onUploadProgress == null
+          ? null
+          : (_, _, percent) => onUploadProgress(percent.clamp(0, 100)),
+      cancelToken: cancelToken,
+    );
+    // A server that never answers "complete" must not freeze the upload.
+    await completeAssetUpload(
+      sessionCode: session.sessionCode,
+      assetCode: presign.assetCode,
+      documentApiBasePath: basePath,
+      cancelToken: cancelToken,
+    ).timeout(const Duration(seconds: 30));
+    if (waitUntilReady) {
+      await waitUntilAssetsReady(
+        sessionCode: session.sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+    }
+    return UploadedAsset(assetCode: presign.assetCode);
+  }
+
+  /// The document service's media type for a MIME type.
+  static String mediaTypeFor(String contentType) =>
+      contentType.startsWith('image/')
+      ? 'IMAGE'
+      : contentType.startsWith('video/')
+      ? 'VIDEO'
+      : 'DOCUMENT';
 
   Future<void> uploadFileToPresignedUrl({
     required File file,
