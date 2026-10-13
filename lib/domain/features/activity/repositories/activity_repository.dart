@@ -64,9 +64,11 @@ abstract class ActivityRepository {
     int size = 200,
   });
 
-  /// `GET /api/v2/activities/{cardGroupCode}`
+  /// `GET /api/v2/activities/{cardGroupCode}`, or when [asGuardian]
+  /// `GET /api/v2/activities/guardian/activities/{cardGroupCode}`.
   Future<ActivityDetail> getActivity({
     required String code,
+    bool asGuardian = false,
   });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`

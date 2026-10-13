@@ -888,6 +888,11 @@ class ApiPaths {
       '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/acknowledge';
   static String guardianParentSignatureActivity(String cardGroupCode) =>
       '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}/parent-signature';
+
+  /// `GET` single activity as a guardian (replaces the shared
+  /// `/api/v2/activities/{cardGroupCode}` for guardian viewers).
+  static String guardianActivityByCode(String cardGroupCode) =>
+      '/api/v2/activities/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}';
   static String adminApproveActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
   static String adminRejectActivity(String cardGroupCode) =>
@@ -1320,7 +1325,8 @@ class ApiPaths {
 
   // —— Auto Pay / Forte payment methods (Billing MS) ——
   /// School-level Forte config (returns `apiLoginId`).
-  static const String schoolForteConfigs = '/api/v1/school-forte-configs/search';
+  static const String schoolForteConfigs =
+      '/api/v1/school-forte-configs/search';
 
   /// School payment settings — which method types are accepted and who pays the
   /// convenience fee. `GET /api/v1/payment/settings?schoolCode=...`.

@@ -313,7 +313,7 @@ class _IncidentActivityViewState extends State<_IncidentActivityView> {
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
-    return _editor.getActivity(code: code);
+    return _editor.getActivity(code: code, asGuardian: isGuardian);
   }
 
   Future<void> _resolveLoggedInGuardianPresentLabel() async {
