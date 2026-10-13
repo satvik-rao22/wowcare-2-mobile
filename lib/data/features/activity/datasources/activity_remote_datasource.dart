@@ -15,9 +15,11 @@ import 'package:wowcare/data/features/activity/models/activity_upload_session_mo
 abstract class ActivityRemoteDataSource {
   /// `GET /api/v2/activities/{cardGroupCode}` — returns inner `data` map.
   ///
-  /// `GET /api/v2/activities/{cardGroupCode}`
+  /// `GET /api/v2/activities/{cardGroupCode}`, or — when [asGuardian] —
+  /// `GET /api/v2/activities/guardian/activities/{cardGroupCode}`.
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
+    bool asGuardian = false,
   });
 
   /// `PATCH /api/v2/activities/{cardGroupCode}`
@@ -212,11 +214,16 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getActivityByCode({
     required String cardGroupCode,
+    bool asGuardian = false,
   }) async {
-    final raw = cardGroupCode.trim();
-    final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
-    final base = ApiPaths.url('/api/v2/activities');
-    final endpoint = '$base/$segment';
+    final String endpoint;
+    if (asGuardian) {
+      endpoint = ApiPaths.url(ApiPaths.guardianActivityByCode(cardGroupCode));
+    } else {
+      final raw = cardGroupCode.trim();
+      final segment = raw.contains('/') ? Uri.encodeComponent(raw) : raw;
+      endpoint = '${ApiPaths.url('/api/v2/activities')}/$segment';
+    }
     final response = await _client.get<dynamic>(endpoint);
     final body = response.data;
     if (body is! Map<String, dynamic>) {

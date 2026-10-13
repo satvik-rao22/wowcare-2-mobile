@@ -1,5 +1,6 @@
 import 'package:wowcare/core/utils/core_utils.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/core/router/app_routes.dart';
 import 'package:wowcare/presentation/features/dashboard/model/dashboard_route_args.dart';
 import 'package:wowcare/shared/common/app/cubits/role_cubit.dart';
@@ -1547,12 +1548,16 @@ class _MyChildsDayChatPreviewRowState
     return mine.first;
   }
 
+  /// Opens the same parent chat screen as the Messages tab (Private toggle,
+  /// "Private by …" chip, refresh) instead of the generic thread screen, so the
+  /// chat looks and behaves the same from either entry point. Both screens
+  /// follow the currently selected child.
   void _openConversation(ConversationEntity conversation) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => ConversationThreadScreen(conversation: conversation),
-      ),
-    );
+    if (conversation.type == ConversationType.adminChat) {
+      context.push(AdminChatHostScreen.routeName);
+    } else {
+      context.go(MessagingScreen.parentMessagingRoute);
+    }
   }
 
   @override
@@ -1577,7 +1582,9 @@ class _MyChildsDayChatPreviewRowState
     final senderPrefix = isSentByMe ? 'You: ' : '';
 
     final preview = conversation != null
-        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        ? MessageContentProcessor.previewText(
+            conversation.previewForGuardian(_currentUserCode),
+          )
         : '';
     final displayText = preview.isNotEmpty
         ? '$senderPrefix$preview'
