@@ -53,6 +53,10 @@ class InvoiceItemTypes {
   /// Types that subtract from the invoice total.
   static bool isDeduction(String type) => type == discount || type == subsidy;
 
+  /// Description-dropdown entry on a discount/subsidy that lets the user type
+  /// an ad-hoc name and value instead of picking a configured one.
+  static const String otherOption = 'Other';
+
   /// Maps a display type to the API `itemType` enum value.
   static String apiCode(String type) {
     switch (type) {
@@ -208,6 +212,10 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
               );
               fd.sourceCode = it.sourceCode;
               fd.valueType = it.valueType;
+              // A discount/subsidy with no configured entry behind it was an
+              // ad-hoc "Other" line.
+              fd.isOther = InvoiceItemTypes.isDeduction(fd.type) &&
+                  (it.sourceCode ?? '').isEmpty;
               if (it.valueInput != null) {
                 fd.valueController.text = it.valueInput!.toStringAsFixed(2);
               }
@@ -366,12 +374,22 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     int index, {
     String? type,
     String? description,
+    String? customName,
     String? amount,
     String? value,
     String? valueType,
   }) {
     if (index < 0 || index >= state.items.length) return;
     final item = state.items[index];
+
+    // The ad-hoc name typed on an "Other" discount/subsidy: kept as typed and
+    // never matched against the catalog.
+    if (customName != null) {
+      item.description = customName;
+      if (item.descriptionController.text != customName) {
+        item.descriptionController.text = customName;
+      }
+    }
 
     if (type != null && type != item.type) {
       item.type = type;
@@ -382,15 +400,31 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       item.amount = '';
       item.amountController.text = '';
       item.sourceCode = null;
-      item.valueType = null;
+      item.isOther = false;
+      // A discount/subsidy starts as a percentage, like the web form.
+      item.valueType =
+          InvoiceItemTypes.isDeduction(item.type) ? 'PERCENT' : null;
       item.valueController.clear();
     }
 
-    if (description != null) {
+    if (description != null &&
+        InvoiceItemTypes.isDeduction(item.type) &&
+        description == InvoiceItemTypes.otherOption &&
+        !item.isOther) {
+      // "Other": an ad-hoc discount/subsidy. The user types the name and the
+      // value; no configured entry (source code) is attached.
+      item.isOther = true;
+      item.description = '';
+      item.descriptionController.text = '';
+      item.sourceCode = null;
+      item.valueType ??= 'PERCENT';
+    } else if (description != null) {
       item.description = description;
       if (item.descriptionController.text != description) {
         item.descriptionController.text = description;
       }
+      // Choosing a configured entry leaves "Other" mode.
+      item.isOther = false;
       // Catalog-backed types auto-fill source code (+ amount or discount value)
       // from the chosen entry.
       if (InvoiceItemTypes.catalogTypes.contains(item.type)) {
@@ -653,6 +687,9 @@ class InvoiceItemFormData {
   final TextEditingController valueController = TextEditingController();
 
   final bool isPrimary;
+
+  /// Discount/subsidy: the user chose "Other" and types their own name + value.
+  bool isOther = false;
 
   final TextEditingController descriptionController;
   final TextEditingController amountController;
