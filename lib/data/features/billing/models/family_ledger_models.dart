@@ -49,6 +49,7 @@ class FamilyLedgerTransactionModel {
     required this.refundedAmount,
     required this.ledgerDelta,
     this.date,
+    this.fullyReduced = false,
   });
 
   final String id;
@@ -71,6 +72,10 @@ class FamilyLedgerTransactionModel {
   final double refundedAmount;
   final double ledgerDelta;
   final DateTime? date;
+
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
 
   factory FamilyLedgerTransactionModel.fromJson(Map<String, dynamic> json) {
     String s(String key) => (json[key] as String?) ?? '';
@@ -98,6 +103,7 @@ class FamilyLedgerTransactionModel {
       refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0,
       ledgerDelta: (json['ledgerDelta'] as num?)?.toDouble() ?? 0,
       date: rawDate is String ? DateTime.tryParse(rawDate) : null,
+      fullyReduced: json['fullyReduced'] == true,
     );
   }
 
@@ -119,6 +125,7 @@ class FamilyLedgerTransactionModel {
         refundedAmount: refundedAmount,
         ledgerDelta: ledgerDelta,
         date: date,
+        fullyReduced: fullyReduced,
       );
 }
 

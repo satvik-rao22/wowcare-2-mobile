@@ -69,6 +69,7 @@ class InvoiceListItemModel {
     this.createdDate,
     this.createdBy,
     this.subscriptionCode,
+    this.fullyReduced = false,
   });
 
   final String code;
@@ -93,6 +94,10 @@ class InvoiceListItemModel {
   final DateTime? createdDate;
   final String? createdBy;
   final String? subscriptionCode;
+
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
 
   factory InvoiceListItemModel.fromJson(Map<String, dynamic> json) {
     double d(String key) => (json[key] as num?)?.toDouble() ?? 0;
@@ -128,6 +133,7 @@ class InvoiceListItemModel {
       createdDate: dt('createdDate'),
       createdBy: json['createdBy'] as String?,
       subscriptionCode: json['subscriptionCode'] as String?,
+      fullyReduced: json['fullyReduced'] == true,
     );
   }
 
@@ -151,6 +157,7 @@ class InvoiceListItemModel {
         createdDate: createdDate,
         createdBy: createdBy,
         subscriptionCode: subscriptionCode,
+        fullyReduced: fullyReduced,
       );
 }
 

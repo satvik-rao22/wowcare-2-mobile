@@ -61,6 +61,7 @@ class InvoiceListItemEntity extends Equatable {
     this.createdDate,
     this.createdBy,
     this.subscriptionCode,
+    this.fullyReduced = false,
   });
 
   final String code;
@@ -84,6 +85,10 @@ class InvoiceListItemEntity extends Equatable {
   final DateTime? createdDate;
   final String? createdBy;
   final String? subscriptionCode;
+
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
 
   /// Outstanding balance for this invoice.
   double get balance => (total - paidAmount).clamp(0, double.infinity).toDouble();
@@ -109,6 +114,7 @@ class InvoiceListItemEntity extends Equatable {
         createdDate,
         createdBy,
         subscriptionCode,
+        fullyReduced,
       ];
 }
 
