@@ -18,6 +18,7 @@ class InvoiceTransactionModel {
     required this.refundedAmount,
     required this.invoiceCode,
     this.gatewayPayment = false,
+    this.fullyReduced = false,
   });
 
   final String id;
@@ -47,6 +48,10 @@ class InvoiceTransactionModel {
   final double refundedAmount;
   final String invoiceCode;
 
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
+
   factory InvoiceTransactionModel.fromJson(Map<String, dynamic> json) {
     return InvoiceTransactionModel(
       id: (json['id'] ?? '').toString(),
@@ -64,6 +69,7 @@ class InvoiceTransactionModel {
       refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0.0,
       invoiceCode: (json['invoiceCode'] ?? json['id'] ?? '').toString(),
       gatewayPayment: json['gatewayPayment'] == true,
+      fullyReduced: json['fullyReduced'] == true,
     );
   }
 
@@ -83,6 +89,7 @@ class InvoiceTransactionModel {
         refundedAmount: refundedAmount,
         invoiceCode: invoiceCode,
         gatewayPayment: gatewayPayment,
+        fullyReduced: fullyReduced,
       );
 }
 

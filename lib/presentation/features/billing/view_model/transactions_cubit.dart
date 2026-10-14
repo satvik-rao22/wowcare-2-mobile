@@ -532,6 +532,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           refTable: t.type,
           paymentMode: (t.method ?? '').isNotEmpty ? t.method : null,
           gatewayPayment: t.gatewayPayment,
+          fullyReduced: t.fullyReduced,
         ),
       );
     });

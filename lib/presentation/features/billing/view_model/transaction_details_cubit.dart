@@ -281,6 +281,7 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         balance: t.balance,
         paymentMode: t.method.isNotEmpty ? t.method : null,
         studentOpenBalance: t.balance,
+        fullyReduced: t.fullyReduced,
       );
     });
   }

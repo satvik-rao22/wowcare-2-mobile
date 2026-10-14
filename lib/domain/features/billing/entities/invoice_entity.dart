@@ -18,6 +18,7 @@ class InvoiceTransactionEntity extends Equatable {
     required this.refundedAmount,
     required this.invoiceCode,
     this.gatewayPayment = false,
+    this.fullyReduced = false,
   });
 
   final String id;
@@ -45,6 +46,10 @@ class InvoiceTransactionEntity extends Equatable {
   final double refundedAmount;
   final String invoiceCode;
 
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
+
   @override
   List<Object?> get props => [
         id,
@@ -62,6 +67,7 @@ class InvoiceTransactionEntity extends Equatable {
         refundedAmount,
         invoiceCode,
         gatewayPayment,
+        fullyReduced,
       ];
 }
 

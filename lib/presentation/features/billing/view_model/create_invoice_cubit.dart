@@ -9,6 +9,7 @@ import 'package:wowcare/core/utils/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_catalog_entities.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_total_rules.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
@@ -179,14 +180,18 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
 
   /// Fetches the full invoice (`GET /invoices/by-code/{code}`) and hydrates the
   /// form with its real line items + dates, so editing PATCHes the true state
-  /// rather than a summarized row. Falls back to leaving the form as-is on error.
-  Future<void> loadInvoiceForEdit(String code) async {
+  /// rather than a summarized row.
+  ///
+  /// Returns false when the invoice could not be loaded. The form then holds
+  /// only the default empty line, and saving it would overwrite the invoice, so
+  /// the caller must not let the user edit on.
+  Future<bool> loadInvoiceForEdit(String code) async {
     _editingInvoiceCode = code.trim();
     loadCatalog();
-    if (_editingInvoiceCode!.isEmpty) return;
+    if (_editingInvoiceCode!.isEmpty) return false;
     try {
       final invoice = await _getInvoiceByCode(_editingInvoiceCode!);
-      if (isClosed) return;
+      if (isClosed) return true;
       for (final item in state.items) {
         item.dispose();
       }
@@ -216,8 +221,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
         revision: state.revision + 1,
       ));
+      return true;
     } catch (_) {
-      // Keep the (default) form; the user can still edit manually.
+      return false;
     }
   }
 
@@ -478,9 +484,9 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required String mode,
     String? notes,
   }) async {
-    // Invoice date is no longer collected in the UI — default to today. Use the
-    // SCHOOL calendar: near midnight a device in another zone would otherwise
-    // issue the invoice dated the wrong day.
+    // The form collects the invoice date (starts at today); fall back to today
+    // when absent. Use the SCHOOL calendar: near midnight a device in another
+    // zone would otherwise issue the invoice dated the wrong day.
     final issueDate = state.invoiceDate ?? billingSchoolToday();
     final dueDate = state.dueDate;
     if (dueDate == null) {

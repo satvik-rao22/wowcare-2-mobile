@@ -38,6 +38,7 @@ class FamilyLedgerTransactionEntity extends Equatable {
     required this.refundedAmount,
     required this.ledgerDelta,
     this.date,
+    this.fullyReduced = false,
   });
 
   final String id;
@@ -61,6 +62,10 @@ class FamilyLedgerTransactionEntity extends Equatable {
   final double ledgerDelta;
   final DateTime? date;
 
+  /// Taken to zero by a discount/subsidy with nothing paid — settled, yet still
+  /// editable and cancellable (decided by the server).
+  final bool fullyReduced;
+
   @override
   List<Object?> get props => [
         id,
@@ -80,6 +85,7 @@ class FamilyLedgerTransactionEntity extends Equatable {
         refundedAmount,
         ledgerDelta,
         date,
+        fullyReduced,
       ];
 }
 

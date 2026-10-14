@@ -1,4 +1,5 @@
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_actions.dart';
 import 'package:wowcare/core/utils/billing_school_time.dart';
 
 class TransactionItem {
@@ -28,6 +29,7 @@ class TransactionItem {
     this.paymentMode,
     this.studentOpenBalance,
     this.gatewayPayment = false,
+    this.fullyReduced = false,
   });
 
   final int id;
@@ -89,6 +91,14 @@ class TransactionItem {
   /// Cheque, Other) — drives whether "Online" is offered when refunding it.
   final bool gatewayPayment;
 
+  /// Invoice rows: taken to zero by a discount/subsidy with nothing paid — shows
+  /// as Paid, yet is still editable and cancellable (decided by the server).
+  final bool fullyReduced;
+
+  /// Whether this settled invoice keeps Edit and Cancel (see
+  /// [isChangeableZeroInvoice]). An invoice a family paid stays locked.
+  bool get isChangeableZero => isChangeableZeroInvoice(status, fullyReduced);
+
   /// Maps an invoice row from the list API onto the card model. [id] is the
   /// invoice's absolute position in the loaded list (a stable display key);
   /// the real identifier travels in [invoiceCode].
@@ -120,6 +130,7 @@ class TransactionItem {
       balance: invoice.balance,
       endDate: invoice.dueDate?.toIso8601String(),
       studentOpenBalance: invoice.balance,
+      fullyReduced: invoice.fullyReduced,
     );
   }
 
