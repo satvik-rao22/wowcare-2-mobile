@@ -876,6 +876,11 @@ class ApiPaths {
 
   /// `GET` single activity as a guardian (replaces the shared
   /// `/api/v2/activities/{cardGroupCode}` for guardian viewers).
+  ///
+  /// Written like the other guardian paths (no `activities` microservice
+  /// prefix): [url] adds that segment itself, so the request ends up as
+  /// `/api/v2/activities/guardian/activities/{cardGroupCode}`. Spelling the
+  /// prefix here doubled it (`/activities/activities/guardian/...`).
   static String guardianActivityByCode(String cardGroupCode) =>
       '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}';
   static String adminApproveActivity(String cardGroupCode) =>
