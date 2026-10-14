@@ -5,7 +5,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/theme/app_colors.dart';
 import 'package:wowcare/core/theme/app_media_res.dart';
 import 'package:wowcare/core/theme/app_fonts.dart';
+import 'package:wowcare/core/utils/billing_school_time.dart';
 import 'package:wowcare/core/utils/core_utils.dart';
+import 'package:wowcare/domain/features/billing/policies/invoice_total_rules.dart';
 import 'package:wowcare/presentation/features/billing/billing_strings.dart';
 import 'package:wowcare/presentation/features/billing/view_model/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/model/invoice_draft.dart';
@@ -51,7 +53,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   DateTime? get _serviceDate => _cubit.state.serviceDate;
   DateTime? get _serviceDateEnd => _cubit.state.serviceDateEnd;
   bool get _isFormLocked => _cubit.state.isFormLocked;
-  double get _totalAmount => _cubit.state.totalAmount;
+  // Rounded to the cent: the raw sum of a fully subsidised invoice can be
+  // -1.78e-15, which would print as "$-0.00".
+  double get _totalAmount => _cubit.state.displayTotal;
 
   @override
   void initState() {
@@ -63,9 +67,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         widget.initialInvoiceData?.invoiceCode?.toString().trim() ?? '';
     if (editCode.isNotEmpty) {
       // Edit: fetch the real invoice (by-code) and hydrate the form.
-      _cubit.loadInvoiceForEdit(editCode);
+      _cubit.loadInvoiceForEdit(editCode).then((loaded) {
+        // Without the invoice there are no real lines to edit; editing on
+        // would save the empty default form over it.
+        if (loaded || !mounted) return;
+        _showValidationMessage(BillingStrings.failedToLoadInvoice);
+        Navigator.of(context).maybePop();
+      });
     } else {
       _cubit.initialize(widget.initialInvoiceData);
+      // New invoice: the invoice date starts at today (school calendar).
+      if (_cubit.state.invoiceDate == null) {
+        _cubit.setInvoiceDate(billingSchoolToday());
+      }
     }
     final note = widget.initialInvoiceData?.internalNote;
     if (note is String) _internalNoteController.text = note;
@@ -119,8 +133,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   /// or while the catalog is still loading).
   List<String> _descriptionOptionsForType(String type) {
     if (!InvoiceItemTypes.catalogTypes.contains(type)) return const [];
-    return _cubit.state.catalog[type]?.map((o) => o.label).toList() ??
-        const [];
+    return _cubit.state.catalog[type]?.map((o) => o.label).toList() ?? const [];
   }
 
   /// Step 2 → Step 3: validate the form, then open the invoice preview. The
@@ -128,23 +141,34 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Future<void> _openPreview() async {
     if (_isSubmitting.value) return;
     if (!_validateRequiredFields()) return;
-    if (_invoiceItems
-        .every((item) => item.amountController.text.trim().isEmpty)) {
-      _showValidationMessage(BillingStrings.pleaseEnterAtLeastOneInvoiceItemAmount);
+    if (_invoiceItems.every(
+      (item) => item.amountController.text.trim().isEmpty,
+    )) {
+      _showValidationMessage(
+        BillingStrings.pleaseEnterAtLeastOneInvoiceItemAmount,
+      );
+      return;
+    }
+    // Positive, or exactly zero when a discount/subsidy brought it there.
+    final totalProblem = _cubit.state.totalProblem;
+    if (totalProblem != null) {
+      _showValidationMessage(totalProblem);
       return;
     }
 
     final invoiceData = InvoiceDraft(
       invoiceItems: _invoiceItems
-          .map((it) => InvoiceDraftItem(
-                type: it.type,
-                description: it.descriptionController.text.trim().isEmpty
-                    ? it.description
-                    : it.descriptionController.text,
-                amount: it.amountController.text.trim().isEmpty
-                    ? it.amount
-                    : it.amountController.text,
-              ))
+          .map(
+            (it) => InvoiceDraftItem(
+              type: it.type,
+              description: it.descriptionController.text.trim().isEmpty
+                  ? it.description
+                  : it.descriptionController.text,
+              amount: it.amountController.text.trim().isEmpty
+                  ? it.amount
+                  : it.amountController.text,
+            ),
+          )
           .toList(),
       internalNote: _internalNoteController.text.trim(),
       invoiceDate: _invoiceDate,
@@ -182,7 +206,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
     if (!mounted) return false;
     if (!result.success) {
-      _showValidationMessage(result.error ?? BillingStrings.couldNotCreateTheInvoice);
+      _showValidationMessage(
+        result.error ?? BillingStrings.couldNotCreateTheInvoice,
+      );
       return false;
     }
     CoreUtils.showTopSnackBar(
@@ -220,6 +246,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 SizedBox(height: responsive.verticalSpacing),
                 _buildDateField(
                   responsive: responsive,
+                  label: BillingStrings.invoiceDate,
+                  value: _invoiceDate,
+                  onSelected: _cubit.setInvoiceDate,
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDateField(
+                  responsive: responsive,
                   label: BillingStrings.invoiceDueDate,
                   value: _dueDate,
                   onSelected: _cubit.setDueDate,
@@ -244,8 +277,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         ? MediaQuery.of(context).padding.bottom
         : 16.0;
     return Container(
-      padding:
-          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         boxShadow: [
@@ -263,15 +300,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       child: ValueListenableBuilder<bool>(
         valueListenable: _isSubmitting,
         builder: (context, isSubmitting, _) {
-          final radius =
-              BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0);
+          final radius = BorderRadius.circular(
+            responsive.isTablet ? 16.0 : 8.0,
+          );
           // Step 2 of 3 → continue to the invoice preview, where Save / Save &
           // Send finalize the invoice.
           return Container(
             height: responsive.buttonHeight,
             decoration: BoxDecoration(
-              gradient:
-                  isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
               color: isSubmitting ? AppColors.billingButtonDisabled : null,
               borderRadius: radius,
             ),
@@ -279,8 +316,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               onPressed: isSubmitting ? null : _openPreview,
               child: Text(
                 BillingStrings.previewInvoice,
-                style: AppTextStyles.button(color: AppColors.billingCardColor)
-                    .copyWith(fontSize: responsive.buttonFontSize),
+                style: AppTextStyles.button(
+                  color: AppColors.billingCardColor,
+                ).copyWith(fontSize: responsive.buttonFontSize),
               ),
             ),
           );
@@ -293,11 +331,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   /// Field label style matching the Add Staff form (Manrope, responsive size).
   TextStyle _formLabelStyle(ResponsiveHelper responsive) => TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: Fonts.manrope,
-        fontWeight: FontWeight.w400,
-        color: AppColors.billingTextColor,
-      );
+    fontSize: responsive.labelFontSize,
+    fontFamily: Fonts.manrope,
+    fontWeight: FontWeight.w400,
+    color: AppColors.billingTextColor,
+  );
 
   Widget _buildDateField({
     required ResponsiveHelper responsive,
@@ -321,7 +359,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(BillingStrings.dateOfServiceOptional, style: _formLabelStyle(responsive)),
+        Text(
+          BillingStrings.dateOfServiceOptional,
+          style: _formLabelStyle(responsive),
+        ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -336,7 +377,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(BillingStrings.to, style: _formLabelStyle(responsive)),
+              child: Text(
+                BillingStrings.to,
+                style: _formLabelStyle(responsive),
+              ),
             ),
             Expanded(
               child: _buildDateField(
@@ -398,8 +442,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             horizontal: responsive.isTablet ? 20.0 : 16.0,
           ),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 10.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 10.0,
+            ),
             color: AppColors.billingBorderLight,
             border: Border.all(color: AppColors.billingBorderMedium),
           ),
@@ -422,12 +467,29 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ],
           ),
         ),
+        // Same rule that gates Preview: zero is fine when a discount or
+        // subsidy brought it there.
+        if (_cubit.state.totalProblem != null &&
+            _invoiceItems.any(
+              (it) => it.amountController.text.trim().isNotEmpty,
+            ))
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _cubit.state.totalProblem!,
+              style: AppTextStyles.label.copyWith(color: AppColors.errorColor),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildItemCard(int index, InvoiceItemFormData item,
-      ResponsiveHelper responsive, bool isTablet) {
+  Widget _buildItemCard(
+    int index,
+    InvoiceItemFormData item,
+    ResponsiveHelper responsive,
+    bool isTablet,
+  ) {
     final isCatalogType = InvoiceItemTypes.catalogTypes.contains(item.type);
     final labelStyle = _formLabelStyle(responsive);
     final labelBottomSpacing = responsive.isTablet ? 8.0 : 6.0;
@@ -437,7 +499,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final descriptionOptions = _descriptionOptionsForType(item.type);
     final String? safeTypeValue = _safeDropdownValue(item.type, typeOptions);
     final String? safeDescriptionValue = _safeDropdownValue(
-        item.description.isEmpty ? null : item.description, descriptionOptions);
+      item.description.isEmpty ? null : item.description,
+      descriptionOptions,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -471,7 +535,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: AppColors.billingStatusError.withValues(alpha: 0.1),
+                      color: AppColors.billingStatusError.withValues(
+                        alpha: 0.1,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
@@ -510,8 +576,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               showAsterisk: true,
               hintText: descriptionOptions.isEmpty
                   ? (_cubit.state.catalogLoaded
-                      ? 'No ${item.type.toLowerCase()} available'
-                      : 'Loading ${item.type.toLowerCase()}…')
+                        ? 'No ${item.type.toLowerCase()} available'
+                        : 'Loading ${item.type.toLowerCase()}…')
                   : 'Select ${item.type.toLowerCase()}',
               items: descriptionOptions,
               selectedItem: safeDescriptionValue,
@@ -519,7 +585,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               labelStyle: labelStyle,
               labelBottomSpacing: labelBottomSpacing,
               onSelect: (value) {
-                if (value != null) _updateInvoiceItem(index, description: value);
+                if (value != null)
+                  _updateInvoiceItem(index, description: value);
               },
             )
           else
@@ -578,15 +645,20 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          // Catalog types auto-fill the amount from the chosen entry. It's
-          // read-only (not editable) but kept white — not greyed out.
+          // A catalog fee auto-fills the amount as a starting point, not a
+          // decision: a different number of days, a mid-term rate change or a
+          // negotiated fee all need the line changed, so a charge line stays
+          // editable. Only a discount/subsidy amount is read-only — it is
+          // computed from its value and the fee base.
           _ItemTextField(
             responsive: responsive,
             label: BillingStrings.amount,
             controller: item.amountController,
             enabled: !_isFormLocked,
-            readOnly: isCatalogType,
-            hintText: isCatalogType ? BillingStrings.autoFilled : '\$0',
+            readOnly: InvoiceItemTypes.isDeduction(item.type),
+            hintText: InvoiceItemTypes.isDeduction(item.type)
+                ? BillingStrings.autoFilled
+                : '\$0',
             keyboardType: TextInputType.number,
             onChanged: (value) => _updateInvoiceItem(index, amount: value),
           ),
@@ -605,8 +677,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       ),
       child: TextButton.icon(
         onPressed: _isFormLocked ? null : _addInvoiceItem,
-        icon: Icon(Icons.add,
-            color: AppColors.billingButtonTextColor, size: 18),
+        icon: Icon(
+          Icons.add,
+          color: AppColors.billingButtonTextColor,
+          size: 18,
+        ),
         label: Text(
           BillingStrings.addItem,
           style: AppTextStyles.label.copyWith(
@@ -637,8 +712,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _internalNoteController,
@@ -648,8 +724,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             decoration: const InputDecoration(
               border: InputBorder.none,
               hintText: BillingStrings.addInternalNote,
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
           ),
         ),
@@ -683,23 +761,44 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _showValidationMessage(BillingStrings.pleaseSelectTheInvoiceDueDate);
       return false;
     }
+    final invoiceDate = _invoiceDate;
+    if (invoiceDate != null &&
+        DateUtils.dateOnly(_dueDate!).isBefore(DateUtils.dateOnly(invoiceDate))) {
+      _showValidationMessage(
+          'The due date cannot be before the invoice date.');
+      return false;
+    }
 
     for (var index = 0; index < _invoiceItems.length; index++) {
       final item = _invoiceItems[index];
       final description = _effectiveControllerValue(
-          item.descriptionController,
-          fallback: item.description);
+        item.descriptionController,
+        fallback: item.description,
+      );
       if (description.trim().isEmpty) {
         _showValidationMessage(
-            'Please provide a description for invoice item ${index + 1}.');
+          'Please provide a description for invoice item ${index + 1}.',
+        );
         return false;
       }
 
-      final amountText = _effectiveControllerValue(item.amountController,
-          fallback: item.amount);
+      final amountText = _effectiveControllerValue(
+        item.amountController,
+        fallback: item.amount,
+      );
       if (amountText.trim().isEmpty) {
         _showValidationMessage(
-            'Please enter the amount for invoice item ${index + 1}.');
+          'Please enter the amount for invoice item ${index + 1}.',
+        );
+        return false;
+      }
+      // A typed 0 in a charge line is still refused; zero comes only from a
+      // discount or subsidy taking the total there.
+      if (!InvoiceItemTypes.isDeduction(item.type) &&
+          InvoiceTotalRules.toCents(double.tryParse(amountText) ?? 0) <= 0) {
+        _showValidationMessage(
+          'The amount for invoice item ${index + 1} must be greater than zero.',
+        );
         return false;
       }
     }
@@ -707,8 +806,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     return true;
   }
 
-  String _effectiveControllerValue(TextEditingController controller,
-      {required String fallback}) {
+  String _effectiveControllerValue(
+    TextEditingController controller, {
+    required String fallback,
+  }) {
     final text = controller.text.trim();
     return text.isEmpty ? fallback : text;
   }
@@ -788,8 +889,9 @@ class _SelectedStudentsBanner extends StatelessWidget {
                             child: Icon(
                               Icons.close_rounded,
                               size: 16,
-                              color: AppColors.billingTextColor
-                                  .withValues(alpha: 0.6),
+                              color: AppColors.billingTextColor.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ),
                         ],
@@ -844,7 +946,10 @@ class _ItemTextField extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: AppColors.errorColor)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.errorColor),
+              ),
             ],
           ),
         ),
@@ -856,8 +961,9 @@ class _ItemTextField extends StatelessWidget {
                 ? AppColors.billingCardColor
                 : AppColors.billingBadgeInactiveBackground,
             border: Border.all(color: AppColors.billingBorderDefault),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
