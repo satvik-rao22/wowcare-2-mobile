@@ -115,6 +115,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     int index, {
     String? type,
     String? description,
+    String? customName,
     String? amount,
     String? value,
     String? valueType,
@@ -123,6 +124,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       index,
       type: type,
       description: description,
+      customName: customName,
       amount: amount,
       value: value,
       valueType: valueType,
@@ -496,12 +498,22 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final typeOptions = index == 0
         ? InvoiceItemTypes.firstItemOptions
         : InvoiceItemTypes.additionalItemOptions;
-    final descriptionOptions = _descriptionOptionsForType(item.type);
+    final isDeduction = InvoiceItemTypes.isDeduction(item.type);
+    // A discount/subsidy can always be an ad-hoc "Other" entry, listed on top
+    // of the configured ones (same as the web form).
+    final descriptionOptions = isDeduction
+        ? <String>[
+            InvoiceItemTypes.otherOption,
+            ..._descriptionOptionsForType(item.type),
+          ]
+        : _descriptionOptionsForType(item.type);
     final String? safeTypeValue = _safeDropdownValue(item.type, typeOptions);
-    final String? safeDescriptionValue = _safeDropdownValue(
-      item.description.isEmpty ? null : item.description,
-      descriptionOptions,
-    );
+    final String? safeDescriptionValue = item.isOther
+        ? InvoiceItemTypes.otherOption
+        : _safeDropdownValue(
+            item.description.isEmpty ? null : item.description,
+            descriptionOptions,
+          );
 
     return Container(
       decoration: BoxDecoration(
@@ -599,6 +611,19 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               onChanged: (value) =>
                   _updateInvoiceItem(index, description: value),
             ),
+          // "Other" discount/subsidy: the user names it.
+          if (isDeduction && item.isOther) ...[
+            const SizedBox(height: 12),
+            _ItemTextField(
+              responsive: responsive,
+              label: '${item.type} name',
+              controller: item.descriptionController,
+              enabled: !_isFormLocked,
+              hintText: 'Enter ${item.type.toLowerCase()} name',
+              onChanged: (value) =>
+                  _updateInvoiceItem(index, customName: value),
+            ),
+          ],
           // Discount / subsidy: enter a value and choose % or flat — the amount
           // is computed (% of the fee total, or the flat value).
           if (InvoiceItemTypes.isDeduction(item.type)) ...[
