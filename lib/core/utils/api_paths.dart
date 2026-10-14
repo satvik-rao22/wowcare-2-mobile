@@ -877,7 +877,7 @@ class ApiPaths {
   /// `GET` single activity as a guardian (replaces the shared
   /// `/api/v2/activities/{cardGroupCode}` for guardian viewers).
   static String guardianActivityByCode(String cardGroupCode) =>
-      '/api/v2/activities/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}';
+      '/api/v2/guardian/activities/${Uri.encodeComponent(cardGroupCode.trim())}';
   static String adminApproveActivity(String cardGroupCode) =>
       '/api/v2/admin/activities/${Uri.encodeComponent(cardGroupCode.trim())}/approve';
   static String adminRejectActivity(String cardGroupCode) =>
